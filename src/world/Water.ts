@@ -53,9 +53,9 @@ const BED = {
   minX: -46,
   minZ: -46,
   width: 92,
-  depth: 60,
+  depth: 92,
   resX: 368,
-  resZ: 240,
+  resZ: 368,
 };
 
 /** Beyond the terrain mesh there is no land — force open sea. */
@@ -66,8 +66,8 @@ const DEPTH_RANGE = 4.0;
 /** Encoding range for the horizontal shore-distance channel, metres. */
 const SHORE_RANGE = 8.0;
 
-const COLOR_SHALLOW = 0x5fc8d2;
-const COLOR_DEEP = 0x1f7ba8;
+const COLOR_SHALLOW = 0x5aa08e;
+const COLOR_DEEP = 0x1f4f4a;
 const COLOR_FOAM = 0xeef6f4;
 
 /* ------------------------------------------------------------------ */

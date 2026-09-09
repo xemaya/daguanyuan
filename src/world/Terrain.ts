@@ -56,53 +56,59 @@ export const TERRAIN = {
   // follows automatically.
   segX: 176,
   segZ: 198,
-  /** Height the town core is graded to. Water sits at y = 0. */
+  /** Height the garden core is graded to. Water sits at y = 0. */
   townY: 0.3,
   /** Player-walkable bounds (inside the perimeter blockers). */
-  playMinX: -21.0,
-  playMaxX: 21.0,
-  playMinZ: -26.2,
-  playMaxZ: 25.0,
+  playMinX: -24.0,
+  playMaxX: 24.0,
+  playMinZ: -26.0,
+  playMaxZ: 31.0,
 } as const;
 
-/** Hand-authored spine of the north–south dirt path, south entrance -> lab. */
+/**
+ * 园路脊线(南→北):正门 → 绕翠嶂假山西侧 → 池南岸(桥头)。
+ * 桥跨池的那段不是土路,由 bridge 构件承担;池北岸再接一段土路到潇湘馆。
+ */
 const MAIN_PATH: [number, number][] = [
-  [1.6, 27.5],
-  [1.1, 21.5],
-  [0.1, 15.4],
-  [-1.1, 10.6],
-  [-0.6, 5.4],
-  [0.6, 0.6],
-  [0.15, -3.0],
-  [0.0, -5.4],
+  [0.0, 30.0],
+  [0.0, 24.0], // 正门
+  [-0.4, 19.5],
+  [-3.6, 16.0], // 假山西侧绕行
+  [-4.6, 11.5],
+  [-3.2, 7.6],
+  [-1.6, 5.2], // 桥头(池南岸)
 ];
 
-/** Short branch to the player's front door (west). */
+/** 池北岸:桥尾 → 潇湘馆。 */
 const BRANCH_W: [number, number][] = [
-  [-0.5, 6.0],
-  [-3.0, 6.6],
-  [-5.8, 7.0],
-  [-8.1, 6.6],
+  [3.2, -8.6], // 桥尾
+  [4.6, -11.0],
+  [6.8, -13.6],
+  [8.6, -15.2],
 ];
 
-/** Short branch to the rival's front door (east). */
+/** 假山东侧的小岔路,绕到亭子/池东岸。 */
 const BRANCH_E: [number, number][] = [
-  [0.3, 6.3],
-  [3.2, 6.9],
-  [6.2, 7.1],
-  [8.5, 6.6],
+  [0.2, 19.0],
+  [3.6, 16.2],
+  [5.4, 12.0],
+  [4.2, 8.0],
 ];
 
-/** Dead-flat building pads. dy is relative to townY. */
+/** 死平的建筑台基。dy 相对 townY。 */
 const PADS = [
-  { cx: 0.0, cz: -13.0, hx: 8.6, hz: 6.2, feather: 3.6, dy: 0.13 }, // Oak's lab
-  { cx: -8.4, cz: 2.2, hx: 5.4, hz: 4.3, feather: 2.6, dy: 0.03 }, // player house
-  { cx: 8.4, cz: 2.2, hx: 5.4, hz: 4.3, feather: 2.6, dy: 0.03 }, // rival house
-  { cx: 0.0, cz: -7.6, hx: 6.6, hz: 3.1, feather: 2.0, dy: 0.06 }, // cobble forecourt
+  { cx: 9.4, cz: -19.6, hx: 7.6, hz: 5.4, feather: 3.0, dy: 0.12 }, // 潇湘馆
+  { cx: 0.0, cz: 24.4, hx: 4.0, hz: 2.4, feather: 2.0, dy: 0.05 }, // 正门门屋
 ];
 
-/** Cobble forecourt footprint (mask, slightly inset from the pad). */
-const FORECOURT = { cx: 0.0, cz: -7.6, hx: 6.2, hz: 2.8, feather: 1.15 };
+/** 潇湘馆院内的铺地。 */
+const FORECOURT = { cx: 9.4, cz: -19.6, hx: 6.4, hz: 4.4, feather: 1.1 };
+
+/** 沁芳池:中心、半径、岸线羽化。水面 y=0,池底约 -1.2。 */
+export const POND = { cx: 0.6, cz: -1.6, rx: 9.2, rz: 7.4, feather: 3.2, bottom: -1.2 };
+
+/** 翠嶂假山下的土丘。 */
+const MOUND = { cx: 0.0, cz: 13.0, hx: 3.4, hz: 2.4, feather: 2.6, dy: 0.42 };
 
 /* ------------------------------------------------------------------ */
 /* Small analytic helpers                                              */
@@ -211,54 +217,26 @@ function makeField(seed: number) {
    */
   function macroH(x: number, z: number): number {
     const ax = Math.abs(x);
+    const az = Math.abs(z);
     let h = TY;
-    // The banks have to sink as they run out to sea, or the east and west
-    // shoulders carry their +2.5m all the way to z = -36 and the mesh boundary
-    // ends as a metre-wide green shelf floating just above the waterline — a
-    // dead straight cut against the sky at both top corners of the frame. The
-    // headlands keep a third of their height at the tideline so the bay still
-    // reads as a cove, and lose the rest by the time the mesh runs out.
-    const bank = 0.35 + 0.65 * (1 - smoothstep(-22, -31, z));
-    // East/west: walkable swell inside the play area, tall bank outside it so
-    // the player can never see over the edge of the world.
-    h += smoothstep(13, 22, ax) * 0.62 * bank;
-    h += smoothstep(22, 32, ax) * 1.95 * bank;
-    // South: tall-grass shelf, then the closing bank.
-    h += smoothstep(19, 27, z) * 0.5;
-    h += smoothstep(27, 36, z) * 1.9;
-    // The mesh stops somewhere, and ground that stops level draws a straight
-    // line against the sky. So the last few metres before the boundary lift
-    // into a ridge whose crest is noise-driven: what reaches the edge of the
-    // frame is then an organic skyline rather than a cut. Held off the shore,
-    // which must stay open water.
-    // Crucially the crest sits *inboard* of the mesh boundary and the last two
-    // metres fall away again. When the ridge peaked on the boundary row itself,
-    // the highest thing on the horizon was the cut edge of the plane — a dead
-    // straight line against the sky wherever the camera looked out of the town.
-    // Peaking at ax ~ 29.5 and dropping to 70% of crest by ax = 32 puts the
-    // boundary behind the crest from any eye height inside the play area, so
-    // what reaches the skyline is a noise-driven hilltop and the edge is never
-    // visible at all.
-    const rimFall = 1 - 0.3 * smoothstep(29.5, 32, ax) - 0.3 * smoothstep(33, 36, z);
-    const rim =
-      Math.max(smoothstep(24, 29.5, ax), smoothstep(28, 33, z)) *
-      (1 - smoothstep(-18, -26, z)) *
-      rimFall;
+    // 四面围合:园墙外是缓坡起来的林岗,眼睛越不过去。
+    h += smoothstep(16, 24, ax) * 0.55;
+    h += smoothstep(24, 32, ax) * 1.9;
+    h += smoothstep(26, 31, z) * 0.45;
+    h += smoothstep(31, 36, z) * 1.8;
+    h += smoothstep(-24, -29, z) * 0.5;
+    h += smoothstep(-29, -36, z) * 1.9;
+    // 地块边缘抬成一道噪声驱动的岗脊,岗顶在边界内侧、最后两米回落,
+    // 这样天际线永远是山头而不是网格的切边。
+    const rimFall = 1 - 0.3 * smoothstep(29.5, 32, ax) - 0.3 * smoothstep(33, 36, az);
+    const rim = Math.max(smoothstep(24, 29.5, ax), smoothstep(28, 33, az)) * rimFall;
     if (rim > 0) {
-      // Two noise scales on the crest height: an 16 m roll for the shape of the
-      // hills and a 5 m one to keep the skyline from reading as drawn with a
-      // French curve.
       h +=
         rim *
         (1.5 +
           (fbm2(nRoll, x * 0.062 + 11.3, z * 0.062 - 5.1, 3) + 0.5) * 1.7 +
           fbm2(nRoll, x * 0.21 - 3.7, z * 0.21 + 8.9, 2) * 0.55);
     }
-    // North: the shore. Concave profile — flat dry sand, then a quicker drop
-    // once past the waterline so the shallows read turquoise and the far bay
-    // reads deep. Deep enough at the boundary that the mesh edge is metres
-    // under water and can never be seen.
-    h -= 3.2 * Math.pow(smoothstep(-23, -36, z), 1.6);
     return h;
   }
 
@@ -284,9 +262,17 @@ function makeField(seed: number) {
 
   /** The graded town core — level, but not mathematically flat. */
   function coreMask(x: number, z: number): number {
-    // Never grade the shore: the beach has to keep its natural drift.
-    const shoreGuard = smoothstep(-24, -18, z);
-    return rrMask(x, z, 0, -1, 13.0, 16.0, 7) * shoreGuard;
+    return rrMask(x, z, 0, 0, 14.0, 20.0, 7);
+  }
+
+  /** 池:岸线用两级 warp 扭成自然形,再按椭圆距离羽化。1=池心。 */
+  function pondMask(x: number, z: number): number {
+    const wx = x + fbm2(nWarpA, x * 0.08 + 21.3, z * 0.08, 3) * 2.2 + fbm2(nWarpA, x * 0.3, z * 0.3 + 9, 2) * 0.6;
+    const wz = z + fbm2(nWarpB, x * 0.08, z * 0.08 + 17.7, 3) * 2.2 + fbm2(nWarpB, x * 0.3 + 4, z * 0.3, 2) * 0.6;
+    const dx = (wx - POND.cx) / POND.rx;
+    const dz = (wz - POND.cz) / POND.rz;
+    const r = Math.sqrt(dx * dx + dz * dz) * Math.min(POND.rx, POND.rz);
+    return smoothstep(Math.min(POND.rx, POND.rz), Math.min(POND.rx, POND.rz) - POND.feather, r);
   }
 
   /**
@@ -357,6 +343,13 @@ function makeField(seed: number) {
     h -= path * (1 - cob) * 0.055;
     // The forecourt is laid slightly proud of the surrounding grass.
     h += cob * 0.025;
+
+    // 假山土丘。
+    h += rrMask(x, z, MOUND.cx, MOUND.cz, MOUND.hx, MOUND.hz, MOUND.feather) * MOUND.dy;
+
+    // 沁芳池:最后挖,岸坡先缓后陡,浅水带读得出青绿。
+    const pm = pondMask(x, z);
+    if (pm > 0.001) h = lerp(h, POND.bottom, Math.pow(pm, 1.5));
     return h;
   }
 
@@ -364,21 +357,8 @@ function makeField(seed: number) {
   function masks(x: number, z: number): SurfaceMasks {
     const path = pathInfluence(x, z);
 
-    // Sand: a warped shoreline band, plus wind-blown fingers reaching inland
-    // so the grass/sand transition is never a clean arc.
-    const sz = z + fbm2(nWarpB, x * 0.07 + 19, z * 0.07, 3) * 2.6;
-    const sx = x + fbm2(nWarpA, x * 0.07, z * 0.07 + 12, 3) * 2.6;
-    let sand = smoothstep(-21.4, -25.0, sz);
-    sand = Math.max(
-      sand,
-      smoothstep(-17.5, -24.0, sz) *
-        smoothstep(0.06, 0.42, fbm2(nScuff, sx * 0.075 + 21, sz * 0.075, 3)),
-    );
-    // The bay is a bay: the headlands closing it east and west stay grassy
-    // right down to the tideline, so the beach reads as a cove rather than a
-    // band painted across the top of the map.
-    sand *= smoothstep(27.5, 19.0, Math.abs(sx));
-    sand = clamp(sand, 0, 1);
+    // 园里没有沙滩;通道留着给以后的卵石滩。
+    const sand = 0;
 
     let cobble = forecourtMask(x, z);
 

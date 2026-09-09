@@ -42,35 +42,16 @@ const ROOT = resolve(__dirname, '..');
  * Yaw convention: forward = (-sin(yaw), 0, -cos(yaw)). yaw 0 faces -Z (north).
  */
 const SHOTS = [
-  { id: 'town_reveal',   pos: [0, 0, 16],       yaw: 0.0,   pitch: -0.02, desc: 'South of town looking north up the path to Oak\'s lab — the establishing shot.' },
-  { id: 'exterior_wide', pos: [0, 0, 25],       yaw: 0.0,   pitch: 0.01,  desc: 'Wide view of the whole town from the south approach.' },
-  { id: 'player_house',  pos: [-2.5, 0, 7.0],   yaw: 0.85,  pitch: 0.03,  desc: 'Player house frontage — roof tiles, cladding, window glass.' },
-  { id: 'rival_house',   pos: [2.5, 0, 7.0],    yaw: -0.85, pitch: 0.03,  desc: 'Rival house frontage.' },
-  { id: 'lab_door',      pos: [0, 0, -4.5],     yaw: 0.0,   pitch: 0.10,  desc: 'Oak\'s lab entrance — the largest structure, read at close range.' },
-  { id: 'grass_close',   pos: [-4.0, 0, 11.0],  yaw: 0.35,  pitch: -0.58, desc: 'Camera down at the turf — grass blades, ground material, contact AO.' },
-  // Third framing. x=-15 sat inside the west treeline; x=-9 sat directly under
-  // a canopy, so the frame filled with close-up leaf cards that read as
-  // translucent sheets. This one stands on the open path south of the houses and
-  // looks west across the garden fence, which is what the shot is meant to show.
-  { id: 'fence_detail',  pos: [2.5, 0, 12.0],   yaw: 1.62,  pitch: -0.06, desc: 'Fence, props and town-edge dressing at conversational distance.' },
-  { id: 'treeline',      pos: [-18.0, 0, -2.0], yaw: 1.10,  pitch: 0.14,  desc: 'Tree canopy and foliage translucency against the sky.' },
-  { id: 'water_edge',    pos: [0, 0, -24.0],    yaw: 0.0,   pitch: -0.05, desc: 'Shoreline — water shading, foam, and the horizon.' },
-  // Offset west and pushed further out to sea: standing on the axis at z=-25
-  // put the lab's north wall ~6m away, filling the frame instead of reading as
-  // a reverse establishing shot.
-  { id: 'town_from_sea', pos: [-14.0, 0, -30.0], yaw: 2.75, pitch: 0.04, desc: 'Looking back south-east at the town from the beach — reverse establishing shot.' },
-  { id: 'lab_interior',  pos: [0, -60, -8.0],   yaw: 0.0,   pitch: 0.0,   desc: 'Inside the lab, facing the starter table.', interior: true },
-  { id: 'starter_table', pos: [0, -60, -11.4],  yaw: 0.0,   pitch: -0.14, desc: 'The three Poke Balls, close. The hero beauty shot.', interior: true },
-  { id: 'backlit',       pos: [0, 0, 4.0],      yaw: -2.57, pitch: 0.20,  desc: 'Facing toward the sun — bloom, rim light, atmospheric scattering.' },
-
-  // Staged shots: `stage` runs in the page before the grab, so the reveal can
-  // be posed deterministically instead of depending on interaction timing.
-  { id: 'starters_out',  pos: [0, -60, -11.4],  yaw: 0.0,   pitch: -0.10, interior: true,
-    desc: 'All three starters released on the table — the hero shot of the whole game.',
-    stage: 'all_released' },
-  { id: 'starter_hero',  pos: [0, -60, -12.1],  yaw: 0.0,   pitch: -0.16, interior: true,
-    desc: 'Close on the released trio — creature modelling and materials at reading distance.',
-    stage: 'all_released' },
+  { id: 'gate_approach', pos: [0, 0, 29.5],  yaw: 0.0,   pitch: 0.02,  desc: '园外南望正门——入园前的建立镜头。' },
+  { id: 'mound_block',   pos: [0, 0, 19.5],  yaw: 0.0,   pitch: 0.04,  desc: '刚进门,翠嶂假山迎面挡住视线(曲径通幽)。' },
+  { id: 'mound_west',    pos: [-4.4, 0, 12], yaw: -0.9,  pitch: 0.02,  desc: '绕假山西侧,石壁近看。' },
+  { id: 'pond_reveal',   pos: [-2.6, 0, 7.0], yaw: 0.15, pitch: -0.04, desc: '绕出假山豁然开朗:沁芳池与桥,全园第一眼。' },
+  { id: 'bridge_mid',    pos: [0.6, 0, -1.6], yaw: -0.4, pitch: -0.08, desc: '桥中望池面、驳岸、亭。(桥未建时站在水上)' },
+  { id: 'pond_north',    pos: [3.4, 0, -9.4], yaw: 2.95, pitch: 0.0,   desc: '池北岸回望假山与正门——反向建立镜头。' },
+  { id: 'xiaoxiang',     pos: [4.2, 0, -11.5], yaw: -0.55, pitch: 0.03, desc: '潇湘馆:竹院与小三间。' },
+  { id: 'grass_close',   pos: [-4.0, 0, 11.0], yaw: 0.35, pitch: -0.58, desc: '低头看地面材质与接地。' },
+  { id: 'treeline',      pos: [-18.0, 0, -2.0], yaw: 1.10, pitch: 0.14, desc: '园墙外的林带与天。' },
+  { id: 'backlit',       pos: [0, 0, 4.0],    yaw: -2.57, pitch: 0.20,  desc: '逆光——bloom 与轮廓光。' },
 ];
 
 /**

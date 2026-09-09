@@ -93,9 +93,9 @@ const VEG = {
  * looks like a garden.
  */
 const FOOTPRINTS: { cx: number; cz: number; hx: number; hz: number }[] = [
-  { cx: 0.0, cz: -13.0, hx: 7.4, hz: 5.3 }, // Oak's lab
-  { cx: -8.4, cz: 2.2, hx: 4.5, hz: 3.6 }, // player house
-  { cx: 8.4, cz: 2.2, hx: 4.5, hz: 3.6 }, // rival house
+  { cx: 9.4, cz: -19.6, hx: 6.8, hz: 4.8 }, // 潇湘馆
+  { cx: 0.0, cz: 24.4, hx: 3.6, hz: 2.2 }, // 正门
+  { cx: 0.0, cz: 13.0, hx: 3.6, hz: 2.6 }, // 翠嶂假山
 ];
 
 /** Hand-placed hero trees inside the town proper. */
@@ -1879,12 +1879,11 @@ export function buildVegetation(ctx: GameContext): void {
    * promontories instead of a constant thickness.
    */
   const treeDensity = (x: number, z: number): number => {
-    // Sides and the southern bank.
-    const side = smoothstep(15.0, 21.0, Math.abs(x));
-    const south = smoothstep(21.5, 27.0, z);
-    // Northern headlands only — the middle of the north edge is the bay.
-    const head = smoothstep(17.0, 22.0, Math.abs(x)) * smoothstep(-20.0, -26.0, z);
-    let d = Math.max(Math.max(side, south), head);
+    // 四面林带:园墙外全是树。
+    const side = smoothstep(16.0, 22.0, Math.abs(x));
+    const south = smoothstep(24.0, 29.0, z);
+    const north = smoothstep(-20.0, -26.0, z);
+    let d = Math.max(Math.max(side, south), north);
     if (d <= 0) return 0;
     // Grass only, and never on a pad or the path.
     const m = mask.at(x, z);
