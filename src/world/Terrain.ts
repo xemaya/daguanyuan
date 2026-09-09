@@ -98,7 +98,9 @@ const BRANCH_E: [number, number][] = [
 /** 死平的建筑台基。dy 相对 townY。 */
 const PADS = [
   { cx: 9.4, cz: -19.6, hx: 7.6, hz: 5.4, feather: 3.0, dy: 0.12 }, // 潇湘馆
-  { cx: 0.0, cz: 24.4, hx: 4.0, hz: 2.4, feather: 2.0, dy: 0.05 }, // 正门门屋
+  { cx: 0.0, cz: 24.4, hx: 7.6, hz: 3.4, feather: 2.0, dy: 0.05 }, // 正门门屋(五间)
+  { cx: -1.9, cz: 6.7, hx: 1.6, hz: 1.4, feather: 1.6, dy: -0.12 }, // 南桥头,落到桥阶高
+  { cx: 8.9, cz: -10.7, hx: 1.6, hz: 1.6, feather: 1.6, dy: -0.12 }, // 北桥尾
 ];
 
 /** 潇湘馆院内的铺地。 */

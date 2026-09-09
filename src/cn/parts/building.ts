@@ -43,6 +43,10 @@ export interface BuildingOptions {
   chuji?: number;
   /** 江南提栈覆盖举高比。 */
   ratio?: number;
+  /** 墙体材质:粉墙 / 水磨砖(青石)。 */
+  wallMaterial?: 'plaster' | 'stone';
+  /** 当心间中间两扇门开着(默认开)。 */
+  doorOpen?: boolean;
   seed?: number;
 }
 
@@ -311,8 +315,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const wood = woodMaterial(CN.wood, 1);
   const column = woodMaterial(CN.column, 1);
   const tile = tileMaterial(1, 1);
-  const plaster = plasterMaterial(1);
   const stone = stoneMaterial(1);
+  const plaster = opts.wallMaterial === 'stone' ? stoneMaterial(2) : plasterMaterial(1);
   const paper = paperMaterial();
   const ridgeMat = new THREE.MeshStandardMaterial({ color: CN.tile, roughness: 0.85 });
   const underside = new THREE.MeshStandardMaterial({ color: 0x4a3226, roughness: 0.9, side: THREE.DoubleSide });
@@ -718,6 +722,19 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     root.add(w);
     blockers.push({ cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, hx: len / 2, hz: wallT / 2, h: yBase + h, rot: -Math.atan2(z1 - z0, x1 - x0) });
   };
+  /**
+   * 按铰链放一扇格扇:hinge 是转轴所在的 x(局部),side=+1 表示门扇在转轴右边。
+   * open 为开启角(弧度),正值向外(+Z)推开。
+   */
+  const hingedPanel = (g: THREE.Group, gw: number, hingeX: number, side: 1 | -1, y: number, z: number, open: number) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(hingeX, y, z);
+    g.position.set((side * gw) / 2, 0, 0);
+    pivot.add(g);
+    pivot.rotation.y = -side * open;
+    root.add(pivot);
+  };
+  const doorOpen = opts.doorOpen ?? true;
   const front = opts.front ?? (isTing ? 'open' : 'door');
   const sides = opts.sides ?? (isTing ? 'open' : 'wall');
   const back = opts.back ?? sides;
@@ -725,12 +742,15 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   if (back === 'door') {
     const span = colXs[colXs.length - 1] - colXs[0] - 2 * colR;
     const gw = span / 4;
+    const bx0 = colXs[0] + colR;
+    const by = platH + (wallH - 0.1) / 2 + 0.05;
     for (let k = 0; k < 4; k++) {
       const g = makeGeshan(gw - 0.01, wallH - 0.1, wood, paper, seed + 40 + k);
-      g.position.set(colXs[0] + colR + gw * (k + 0.5), platH + (wallH - 0.1) / 2 + 0.05, rowsZ[1]);
-      if (k === 1) g.rotation.y = -0.35;
-      if (k === 2) g.rotation.y = 0.35;
-      root.add(g);
+      if (k === 0 || k === 3) {
+        g.position.set(bx0 + gw * (k + 0.5), by, rowsZ[1]);
+        root.add(g);
+      } else if (k === 1) hingedPanel(g, gw - 0.01, bx0 + gw, 1, by, rowsZ[1], -(doorOpen ? 1.62 : 0.3));
+      else hingedPanel(g, gw - 0.01, bx0 + gw * 3, -1, by, rowsZ[1], -(doorOpen ? 1.62 : 0.3));
     }
     blockers.push({ cx: colXs[0] + colR + gw * 0.5, cz: rowsZ[1], hx: gw * 0.5, hz: 0.06, h: platH + wallH });
     blockers.push({ cx: colXs[colXs.length - 1] - colR - gw * 0.5, cz: rowsZ[1], hx: gw * 0.5, hz: 0.06, h: platH + wallH });
@@ -755,13 +775,18 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       const gw = span / n;
       const z = rowsZ[0];
       if (isCenter) {
+        const py = platH + (wallH - 0.1) / 2 + 0.05;
         for (let k = 0; k < n; k++) {
           const g = makeGeshan(gw - 0.01, wallH - 0.1, wood, paper, seed + k + i * 10);
-          g.position.set(x0 + gw * (k + 0.5), platH + (wallH - 0.1) / 2 + 0.05, z);
-          // 中间两扇微开。
-          if (k === 1) g.rotation.y = 0.35;
-          if (k === 2) g.rotation.y = -0.35;
-          root.add(g);
+          if (k === 0 || k === 3) {
+            g.position.set(x0 + gw * (k + 0.5), py, z);
+            root.add(g);
+          } else if (k === 1) {
+            // 左内扇:铰链在左邻扇的分界,向外推开贴到左扇上。
+            hingedPanel(g, gw - 0.01, x0 + gw, 1, py, z, doorOpen ? 1.62 : 0.3);
+          } else {
+            hingedPanel(g, gw - 0.01, x0 + gw * 3, -1, py, z, doorOpen ? 1.62 : 0.3);
+          }
         }
         // 门槛。
         const sill = new THREE.Mesh(roundedBox(span, 0.1, 0.16, 0.01, 2), wood);
@@ -835,7 +860,13 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   if (opts.plaque) {
     const pw = Math.min(2.0, Math.max(1.0, opts.plaque.length * 0.45));
     const pl = makePlaque(opts.plaque, pw);
-    pl.position.set(0, platH + colH + pupai + 0.02 + (pw * 0.36) / 2 + (m.puzuoH > 0.6 ? 0.15 : 0.05), rowsZ[0] + 0.12);
+    // 挂在铺作外皮之前、橑檐枋之下,人从院子里一眼看到;略向前俯 8°。
+    const ph = pw * 0.36;
+    const zFront = rowsZ[0] + (fr.puzuo ? m.puzuoOut + 0.22 : 0.16);
+    // 竖向落在铺作层的中段(没铺作就贴阑额下),别钻进屋面板。
+    const yMid = fr.puzuo ? platH + colH + pupai + m.puzuoH * 0.5 : platH + colH - m.lan.w - ph / 2 - 0.05;
+    pl.position.set(0, yMid, zFront);
+    pl.rotation.x = 0.14;
     root.add(pl);
   }
 
@@ -927,28 +958,32 @@ export function langSpec(): BuildingOptions {
   };
 }
 
-/** 正门门屋:一间硬山,格扇大门。 */
+/**
+ * 正门:第十七回"正门五间,上面桶瓦泥鳅脊;那门栏窗槅皆是细雕新鲜花样,并无朱粉涂饰;
+ * 一色水磨群墙"。五间硬山,当心间开门,两侧槛窗,山墙与后檐水磨砖,不上朱粉。
+ */
 export function menSpec(): BuildingOptions {
   return {
     spec: {
-      cai: { grade: 6 },
+      cai: { grade: 7 },
       hall: '厅堂',
-      bayWidthsFen: [300],
+      bayWidthsFen: [230, 250, 300, 250, 230],
       rafters: 4,
-      jiaFen: 90,
+      jiaFen: 110,
       puzuo: { puzuo: 4, jumpFen: 26 },
       roofType: '硬山',
       roofClass: '筒瓦厅堂',
-      columnHeightFen: 280,
-      columnDiameterFen: 26,
+      columnHeightFen: 300,
+      columnDiameterFen: 28,
       rafterDiaFen: 7,
     },
     plaque: '大观园',
     front: 'door',
     back: 'door',
     sides: 'wall',
-    platformH: 0.3,
-    chuji: 0.4,
+    wallMaterial: 'stone',
+    platformH: 0.5,
+    chuji: 0.45,
   };
 }
 

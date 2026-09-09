@@ -32,14 +32,12 @@ interface Placement {
 const SCENE: Placement[] = [
   // 正门与南墙。
   { part: 'building', variant: 'men', x: 0, z: 24.4, yaw: 0, tag: '正门' },
-  { part: 'wall', variant: 'plain', x: 6.0, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'lattice', x: 12.0, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'plain', x: 18.0, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'cloud', x: 25.0, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'plain', x: -6.0, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'lattice', x: -12.0, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'plain', x: -18.0, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'cloud', x: -25.0, z: 25.2, yaw: 0 },
+  { part: 'wall', variant: 'plain', x: 10.8, z: 25.2, yaw: 0 },
+  { part: 'wall', variant: 'lattice', x: 16.8, z: 25.2, yaw: 0 },
+  { part: 'wall', variant: 'cloud', x: 23.8, z: 25.2, yaw: 0 },
+  { part: 'wall', variant: 'plain', x: -10.8, z: 25.2, yaw: 0 },
+  { part: 'wall', variant: 'lattice', x: -16.8, z: 25.2, yaw: 0 },
+  { part: 'wall', variant: 'cloud', x: -23.8, z: 25.2, yaw: 0 },
   // 东西墙(只做南段,北段由林岗围合)。
   { part: 'wall', variant: 'cloud', x: 29.0, z: 21.0, yaw: Math.PI / 2 },
   { part: 'wall', variant: 'plain', x: 29.0, z: 14.0, yaw: Math.PI / 2 },
