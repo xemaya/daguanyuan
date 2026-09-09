@@ -64,11 +64,11 @@ export class World {
 
   async build(onProgress?: (label: string, pct: number) => void): Promise<void> {
     const steps: [string, (ctx: GameContext) => void | Promise<void>][] = [
-      ['Raising the sky', buildAtmosphere],
-      ['Shaping the ground', buildTerrain],
-      ['Filling the bay', buildWater],
-      ['Planting', buildVegetation],
-      ['Raising the garden', buildGarden],
+      ['开天', buildAtmosphere],
+      ['理地', buildTerrain],
+      ['引水', buildWater],
+      ['植树', buildVegetation],
+      ['起屋叠石', buildGarden],
     ];
 
     // Per-step timings. Load time is on the player's critical path and every
@@ -99,7 +99,7 @@ export class World {
     );
     this.buildTimings = timings;
 
-    onProgress?.('Ready', 1);
+    onProgress?.('请入园', 1);
     this.ctx.events.emit(EVENTS.WORLD_READY);
   }
 

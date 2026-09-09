@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = { out: 'shots/parts', width: 1000, height: 1000, url: 'http://127.0.0.1:5173/viewer.html', bg: 'studio' };
-let subjects = ['probe'];
+let subjects = ['building:ting'];
 let angles = ['front', 'three_quarter', 'side'];
 for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];

@@ -528,3 +528,5 @@
 1:01:19 AM [vite] (client) page reload src/cn/materials.ts
 1:06:40 AM [vite] (client) page reload src/cn/parts/building.ts
 1:13:16 AM [vite] (client) page reload src/cn/parts/building.ts
+1:15:51 AM [vite] vite.config.ts changed, restarting server...
+1:15:51 AM [vite] server restarted.

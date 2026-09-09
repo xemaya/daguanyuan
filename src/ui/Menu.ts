@@ -166,22 +166,22 @@ export type StartMode = 'title' | 'paused' | 'retry';
 
 const COPY: Record<StartMode, { eyebrow: string; title: string; cta: string; foot: string }> = {
   title: {
-    eyebrow: 'Kanto · Route 1 South',
+    eyebrow: '红楼梦 · 第十七回',
     title: '大观园',
-    cta: 'Click to play',
-    foot: 'Your mouse will be captured. Press Esc to let it go.',
+    cta: '点击入园',
+    foot: '鼠标会被锁定,按 Esc 放开。WASD 走,Shift 跑,空格跳。',
   },
   paused: {
-    eyebrow: 'Paused',
-    title: 'TAKE A BREATH',
-    cta: 'Click to resume',
-    foot: 'The town is waiting exactly where you left it.',
+    eyebrow: '暂停',
+    title: '歇一歇',
+    cta: '点击继续',
+    foot: '园子还在你离开的地方。',
   },
   retry: {
-    eyebrow: 'Almost there',
-    title: 'ONE MORE CLICK',
-    cta: 'Click to look around',
-    foot: 'Your browser held on to the cursor. Clicking again hands it over.',
+    eyebrow: '差一步',
+    title: '再点一下',
+    cta: '点击环顾',
+    foot: '浏览器还攥着光标,再点一次就交出来。',
   },
 };
 
@@ -205,7 +205,7 @@ export class StartCard {
     this.el = el('div', 'pt-overlay pt-start is-hidden is-gone');
 
     const card = el('div', 'pt-card');
-    this.eyebrow = el('div', 'pt-card__eyebrow', 'Kanto · Route 1 South');
+    this.eyebrow = el('div', 'pt-card__eyebrow', '红楼梦 · 第十七回');
     this.title = el('h2', 'pt-card__title', '大观园');
     card.appendChild(this.eyebrow);
     card.appendChild(this.title);
@@ -224,10 +224,10 @@ export class StartCard {
 
     this.cta = el('button', 'pt-cta') as HTMLButtonElement;
     this.cta.type = 'button';
-    this.cta.textContent = 'Click to play';
+    this.cta.textContent = '点击入园';
     card.appendChild(this.cta);
 
-    this.foot = el('p', 'pt-card__foot', 'Your mouse will be captured. Press Esc to let it go.');
+    this.foot = el('p', 'pt-card__foot', '鼠标会被锁定,按 Esc 放开。WASD 走,Shift 跑,空格跳。');
     card.appendChild(this.foot);
 
     this.el.appendChild(card);

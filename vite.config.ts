@@ -12,6 +12,8 @@ import { defineConfig } from 'vite';
  * usual suspects have to be repeated here or the watcher walks node_modules.
  */
 export default defineConfig({
+  /** 部署到 games.findu.life/daguanyuan/ 时 `BASE=/daguanyuan/ npm run build`。 */
+  base: process.env.BASE ?? '/',
   /**
    * The part turntable at `/viewer.html` is a second entry point (it comes
    * back once the first 构件 exists). Vite only builds `index.html` unless the
