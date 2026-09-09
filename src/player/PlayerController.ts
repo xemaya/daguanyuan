@@ -202,6 +202,12 @@ export class PlayerController {
       }
     }
 
+    // 落水禁行:目标点在水里就原地不动(逐轴试一下,能贴岸滑行)。
+    if (this.ctx.collision.blockedAt(resolved.x, resolved.y)) {
+      if (!this.ctx.collision.blockedAt(resolved.x, s.position.z)) resolved.y = s.position.z;
+      else if (!this.ctx.collision.blockedAt(s.position.x, resolved.y)) resolved.x = s.position.x;
+      else resolved.set(s.position.x, s.position.z);
+    }
     s.position.x = resolved.x;
     s.position.z = resolved.y;
 

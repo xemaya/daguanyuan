@@ -29,10 +29,10 @@ export const CN = {
   tile: 0x3b3f45,
   tileLight: 0x5c6168,
   /** 木作:栗壳色,苏式不用朱红。 */
-  wood: 0x5a3a2a,
-  woodLight: 0x7a5238,
+  wood: 0x8a5a3e,
+  woodLight: 0xa8744f,
   /** 柱:比梁枋再深一档。 */
-  column: 0x4a2e22,
+  column: 0x6e4230,
   /** 青石:台基、驳岸、铺地。 */
   stone: 0x8c8f8a,
   stoneDark: 0x5f625e,
@@ -48,6 +48,20 @@ export const CN = {
   /** 窗纸。 */
   paper: 0xf4ead4,
 } as const;
+
+/**
+ * 材质实例缓存:同一种材质全园只有一个实例,装配器才能按材质把几十个构件
+ * 合成几个 draw call。要改某个实例的属性(vertexColors 等)请 clone 再改。
+ */
+const MAT_CACHE = new Map<string, THREE.Material>();
+function memo<T extends THREE.Material>(key: string, make: () => T): T {
+  let m = MAT_CACHE.get(key) as T | undefined;
+  if (!m) {
+    m = make();
+    MAT_CACHE.set(key, m);
+  }
+  return m;
+}
 
 /* ------------------------------------------------------------------ */
 /* 粉墙                                                                */
@@ -83,17 +97,19 @@ export function plasterMaps(size = 1024): MaterialMaps {
 }
 
 export function plasterMaterial(repeat = 1): THREE.MeshStandardMaterial {
-  const m = plasterMaps();
-  const mat = new THREE.MeshStandardMaterial({
-    map: m.map,
-    normalMap: m.normalMap,
-    roughnessMap: m.roughnessMap,
-    roughness: 1,
-    metalness: 0,
-    normalScale: new THREE.Vector2(0.5, 0.5),
+  return memo(`plaster:${repeat}`, () => {
+    const m = plasterMaps();
+    const mat = new THREE.MeshStandardMaterial({
+      map: m.map,
+      normalMap: m.normalMap,
+      roughnessMap: m.roughnessMap,
+      roughness: 1,
+      metalness: 0,
+      normalScale: new THREE.Vector2(0.5, 0.5),
+    });
+    setRepeat(mat, repeat);
+    return mat;
   });
-  setRepeat(mat, repeat);
-  return mat;
 }
 
 /* ------------------------------------------------------------------ */
@@ -152,19 +168,21 @@ export function tileMaps(rows = 12, size = 1024): MaterialMaps {
 }
 
 export function tileMaterial(repeatU = 1, repeatV = 1): THREE.MeshPhysicalMaterial {
-  const m = tileMaps();
-  const mat = new THREE.MeshPhysicalMaterial({
-    map: m.map,
-    normalMap: m.normalMap,
-    roughnessMap: m.roughnessMap,
-    roughness: 1,
-    metalness: 0,
-    clearcoat: 0.12,
-    clearcoatRoughness: 0.7,
-    side: THREE.DoubleSide,
+  return memo(`tile:${repeatU}:${repeatV}`, () => {
+    const m = tileMaps();
+    const mat = new THREE.MeshPhysicalMaterial({
+      map: m.map,
+      normalMap: m.normalMap,
+      roughnessMap: m.roughnessMap,
+      roughness: 1,
+      metalness: 0,
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.7,
+      side: THREE.DoubleSide,
+    });
+    setRepeat(mat, repeatU, repeatV);
+    return mat;
   });
-  setRepeat(mat, repeatU, repeatV);
-  return mat;
 }
 
 /* ------------------------------------------------------------------ */
@@ -198,19 +216,21 @@ export function woodMaps(key: string, tint: number, size = 1024): MaterialMaps {
 }
 
 export function woodMaterial(tint: number = CN.wood, repeat = 1): THREE.MeshPhysicalMaterial {
-  const m = woodMaps(tint.toString(16), tint);
-  const mat = new THREE.MeshPhysicalMaterial({
-    map: m.map,
-    normalMap: m.normalMap,
-    roughnessMap: m.roughnessMap,
-    roughness: 1,
-    metalness: 0,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.5,
-    normalScale: new THREE.Vector2(0.6, 0.6),
+  return memo(`wood:${tint}:${repeat}`, () => {
+    const m = woodMaps(tint.toString(16), tint);
+    const mat = new THREE.MeshPhysicalMaterial({
+      map: m.map,
+      normalMap: m.normalMap,
+      roughnessMap: m.roughnessMap,
+      roughness: 1,
+      metalness: 0,
+      clearcoat: 0.2,
+      clearcoatRoughness: 0.5,
+      normalScale: new THREE.Vector2(0.6, 0.6),
+    });
+    setRepeat(mat, repeat);
+    return mat;
   });
-  setRepeat(mat, repeat);
-  return mat;
 }
 
 /* ------------------------------------------------------------------ */
@@ -243,16 +263,18 @@ export function stoneMaps(size = 1024): MaterialMaps {
 }
 
 export function stoneMaterial(repeat = 1): THREE.MeshStandardMaterial {
-  const m = stoneMaps();
-  const mat = new THREE.MeshStandardMaterial({
-    map: m.map,
-    normalMap: m.normalMap,
-    roughnessMap: m.roughnessMap,
-    roughness: 1,
-    metalness: 0,
+  return memo(`stone:${repeat}`, () => {
+    const m = stoneMaps();
+    const mat = new THREE.MeshStandardMaterial({
+      map: m.map,
+      normalMap: m.normalMap,
+      roughnessMap: m.roughnessMap,
+      roughness: 1,
+      metalness: 0,
+    });
+    setRepeat(mat, repeat);
+    return mat;
   });
-  setRepeat(mat, repeat);
-  return mat;
 }
 
 /** 太湖石:灰白石灰岩,坑洞里发暗、发青。用三平面投影,不依赖 UV。 */
@@ -282,14 +304,16 @@ export function taihuMaps(size = 1024): MaterialMaps {
 }
 
 export function taihuMaterial(): THREE.MeshStandardMaterial {
-  const m = taihuMaps();
-  return new THREE.MeshStandardMaterial({
-    map: m.map,
-    normalMap: m.normalMap,
-    roughnessMap: m.roughnessMap,
-    roughness: 1,
-    metalness: 0,
-    vertexColors: true,
+  return memo('taihu', () => {
+    const m = taihuMaps();
+    return new THREE.MeshStandardMaterial({
+      map: m.map,
+      normalMap: m.normalMap,
+      roughnessMap: m.roughnessMap,
+      roughness: 1,
+      metalness: 0,
+      vertexColors: true,
+    });
   });
 }
 
@@ -298,57 +322,65 @@ export function taihuMaterial(): THREE.MeshStandardMaterial {
 /* ------------------------------------------------------------------ */
 
 export function bambooMaterial(): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({
-    color: CN.bamboo,
-    roughness: 0.55,
-    metalness: 0,
-    map: cached('cn.bamboo.albedo', () =>
-      bakeColorMap({
-        size: 256,
-        color: (u, v) => {
-          // v 沿竿:竹节是一圈亮环。
-          const node = smoothstep(0.03, 0.0, Math.abs(((v * 4) % 1) - 0.5) - 0.44);
-          const streak = tileableFbm(NOISE.grass, u * 8, v * 0.5, 20, 2) * 0.5 + 0.5;
-          const c = mixHex(CN.bamboo, CN.bambooNode, node * 0.9 + streak * 0.15);
-          return c;
-        },
-      }),
-    ),
+  return memo('bamboo', () => {
+    return new THREE.MeshStandardMaterial({
+      color: CN.bamboo,
+      roughness: 0.55,
+      metalness: 0,
+      map: cached('cn.bamboo.albedo', () =>
+        bakeColorMap({
+          size: 256,
+          color: (u, v) => {
+            // v 沿竿:竹节是一圈亮环。
+            const node = smoothstep(0.03, 0.0, Math.abs(((v * 4) % 1) - 0.5) - 0.44);
+            const streak = tileableFbm(NOISE.grass, u * 8, v * 0.5, 20, 2) * 0.5 + 0.5;
+            const c = mixHex(CN.bamboo, CN.bambooNode, node * 0.9 + streak * 0.15);
+            return c;
+          },
+        }),
+      ),
+    });
   });
 }
 
 export function paperMaterial(): THREE.MeshPhysicalMaterial {
-  return new THREE.MeshPhysicalMaterial({
-    color: CN.paper,
-    roughness: 0.9,
-    metalness: 0,
-    transmission: 0.35,
-    thickness: 0.002,
-    side: THREE.DoubleSide,
-    map: cached('cn.paper.albedo', () =>
-      bakeColorMap({
-        size: 256,
-        color: (u, v) => {
-          const fiber = tileableFbm(NOISE.fabric, u, v, 40, 3) * 0.5 + 0.5;
-          return mixHex(CN.paper, 0xffffff, fiber * 0.1);
-        },
-      }),
-    ),
+  return memo('paper', () => {
+    return new THREE.MeshPhysicalMaterial({
+      color: CN.paper,
+      roughness: 0.9,
+      metalness: 0,
+      transmission: 0.35,
+      thickness: 0.002,
+      side: THREE.DoubleSide,
+      map: cached('cn.paper.albedo', () =>
+        bakeColorMap({
+          size: 256,
+          color: (u, v) => {
+            const fiber = tileableFbm(NOISE.fabric, u, v, 40, 3) * 0.5 + 0.5;
+            return mixHex(CN.paper, 0xffffff, fiber * 0.1);
+          },
+        }),
+      ),
+    });
   });
 }
 
 export function lacquerMaterial(color: number = CN.lacquer): THREE.MeshPhysicalMaterial {
-  return new THREE.MeshPhysicalMaterial({
-    color,
-    roughness: 0.28,
-    metalness: 0,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.2,
+  return memo(`lacquer:${color}`, () => {
+    return new THREE.MeshPhysicalMaterial({
+      color,
+      roughness: 0.28,
+      metalness: 0,
+      clearcoat: 0.8,
+      clearcoatRoughness: 0.2,
+    });
   });
 }
 
 export function goldMaterial(): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({ color: CN.gold, roughness: 0.35, metalness: 0.85 });
+  return memo('gold', () => {
+    return new THREE.MeshStandardMaterial({ color: CN.gold, roughness: 0.35, metalness: 0.85 });
+  });
 }
 
 /* ------------------------------------------------------------------ */

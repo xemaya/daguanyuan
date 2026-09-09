@@ -7,7 +7,7 @@ import { HUD } from './ui/HUD';
 import { AudioDirector } from './audio/Audio';
 
 /** Player spawn: south end of the path, facing north. */
-const SPAWN = new THREE.Vector3(0, 0, 16);
+const SPAWN = new THREE.Vector3(0, 0, 29.5);
 const SPAWN_YAW = 0;
 
 async function boot(): Promise<void> {

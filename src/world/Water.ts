@@ -327,7 +327,7 @@ col *= 0.92 + macro * 0.13 + macro2 * 0.06;
 float ca1 = texture2D( uDetail, P * 0.62 + vec2(  0.013, 0.008 ) * t ).a;
 float ca2 = texture2D( uDetail, P * 0.39 - vec2(  0.010, 0.016 ) * t ).a;
 float caustic = pow( clamp( ca1 * ca2 * 2.3, 0.0, 1.0 ), 1.7 );
-col += caustic * vec3( 0.26, 0.40, 0.33 ) * ( 1.0 - dt ) * 0.85;
+col += caustic * vec3( 0.26, 0.40, 0.33 ) * ( 1.0 - dt ) * 0.35;
 
 // ---- shoreline foam ----------------------------------------------------
 // Two out-of-phase swells plus a per-place offset: the wash arrives at
@@ -358,7 +358,8 @@ float breaker = smoothstep( 0.62, 0.99, march ) * smoothstep( 7.0, 1.2, s )
 float streak = texture2D( uDetail, P * vec2( 0.9, 0.22 ) + vec2( 0.0, 0.10 ) * t ).b;
 float drift = smoothstep( 3.6, 0.4, s ) * smoothstep( 0.70, 0.96, fnA * 0.5 + streak * 0.6 ) * 0.40;
 
-float foam = clamp( max( max( body, lace * 0.95 ), max( max( crest * 0.9, drift ), breaker ) ), 0.0, 1.0 );
+// 园池无浪:只留贴岸的细沫与零星浮渣,浪体/浪峰/涌浪全部关掉。
+float foam = clamp( max( lace * 0.55, drift * 0.35 ), 0.0, 1.0 ) * ( 1.0 - 0.5 * body * 0.0 );
 foam *= step( 0.001, depth );
 
 col = mix( col, uFoamColor, foam );
@@ -424,7 +425,7 @@ const FRAG_NORMAL = /* glsl */ `
 
   float damp = 1.0 - gFar * 0.55;
   float shelter = mix( 0.30, 1.0, smoothstep( 0.04, 0.75, gDepth ) );
-  vec2 nxy = ( aXY * 0.50 * fadeBroad + bXY * 0.30 * fadeMid + cXY * 0.16 * fadeFine )
+  vec2 nxy = ( aXY * 0.18 * fadeBroad + bXY * 0.10 * fadeMid + cXY * 0.05 * fadeFine )
            * damp * shelter * ( 1.0 - gFoam * 0.5 );
 
   vec3 mn = normalize( vec3( nxy, 1.0 ) );
@@ -490,7 +491,7 @@ export function buildWater(ctx: GameContext): void {
     uBed: { value: bed },
     uBedWindow: { value: new THREE.Vector4(BED.minX, BED.minZ, BED.width, BED.depth) },
     uTime: { value: 0 },
-    uWaveAmp: { value: 1 },
+    uWaveAmp: { value: 0.25 },
     uSwell: { value: swell },
     uChop: { value: chop },
     uDetail: { value: detail },
@@ -529,7 +530,7 @@ export function buildWater(ctx: GameContext): void {
       .replace('#include <normal_fragment_maps>', FRAG_NORMAL)
       .replace('#include <emissivemap_fragment>', FRAG_GLITTER);
   };
-  mat.customProgramCacheKey = () => 'pallet-sea-v2';
+  mat.customProgramCacheKey = () => 'dgy-pond-v1';
 
   const mesh = new THREE.Mesh(buildSeaDisc(SEA.radius, SEA.rings, SEA.spokes), mat);
   mesh.name = 'Sea';

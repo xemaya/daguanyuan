@@ -42,13 +42,14 @@ const ROOT = resolve(__dirname, '..');
  * Yaw convention: forward = (-sin(yaw), 0, -cos(yaw)). yaw 0 faces -Z (north).
  */
 const SHOTS = [
-  { id: 'gate_approach', pos: [0, 0, 29.5],  yaw: 0.0,   pitch: 0.02,  desc: '园外南望正门——入园前的建立镜头。' },
+  { id: 'gate_approach', pos: [2.4, 0, 33.5],  yaw: 0.08,  pitch: -0.02, desc: '园外南望正门——入园前的建立镜头。' },
   { id: 'mound_block',   pos: [0, 0, 19.5],  yaw: 0.0,   pitch: 0.04,  desc: '刚进门,翠嶂假山迎面挡住视线(曲径通幽)。' },
   { id: 'mound_west',    pos: [-4.4, 0, 12], yaw: -0.9,  pitch: 0.02,  desc: '绕假山西侧,石壁近看。' },
   { id: 'pond_reveal',   pos: [-2.6, 0, 7.0], yaw: 0.15, pitch: -0.04, desc: '绕出假山豁然开朗:沁芳池与桥,全园第一眼。' },
   { id: 'bridge_mid',    pos: [0.6, 0, -1.6], yaw: -0.4, pitch: -0.08, desc: '桥中望池面、驳岸、亭。(桥未建时站在水上)' },
-  { id: 'pond_north',    pos: [3.4, 0, -9.4], yaw: 2.95, pitch: 0.0,   desc: '池北岸回望假山与正门——反向建立镜头。' },
-  { id: 'xiaoxiang',     pos: [4.2, 0, -11.5], yaw: -0.55, pitch: 0.03, desc: '潇湘馆:竹院与小三间。' },
+  { id: 'pond_north',    pos: [8.9, 0, -11.2], yaw: 2.6, pitch: 0.0,   desc: '池北岸(桥尾)回望亭桥与假山——反向建立镜头。' },
+  { id: 'xiaoxiang',     pos: [3.2, 0, -14.6], yaw: -0.62, pitch: 0.05, desc: '潇湘馆:进了月洞门,竹院与小三间。' },
+  { id: 'moon_gate',     pos: [8.6, 0, -11.2], yaw: 0.0,  pitch: 0.02, desc: '桥尾望潇湘馆院墙与月洞门。' },
   { id: 'grass_close',   pos: [-4.0, 0, 11.0], yaw: 0.35, pitch: -0.58, desc: '低头看地面材质与接地。' },
   { id: 'treeline',      pos: [-18.0, 0, -2.0], yaw: 1.10, pitch: 0.14, desc: '园墙外的林带与天。' },
   { id: 'backlit',       pos: [0, 0, 4.0],    yaw: -2.57, pitch: 0.20,  desc: '逆光——bloom 与轮廓光。' },

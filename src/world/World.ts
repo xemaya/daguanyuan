@@ -8,6 +8,7 @@ import { buildAtmosphere } from './Atmosphere';
 import { buildTerrain } from './Terrain';
 import { buildWater } from './Water';
 import { buildVegetation } from './Vegetation';
+import { buildGarden } from './Garden';
 
 /**
  * World — orchestrates the build order for the garden.
@@ -67,6 +68,7 @@ export class World {
       ['Shaping the ground', buildTerrain],
       ['Filling the bay', buildWater],
       ['Planting', buildVegetation],
+      ['Raising the garden', buildGarden],
     ];
 
     // Per-step timings. Load time is on the player's critical path and every

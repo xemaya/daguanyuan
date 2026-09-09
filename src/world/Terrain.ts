@@ -81,9 +81,9 @@ const MAIN_PATH: [number, number][] = [
 
 /** 池北岸:桥尾 → 潇湘馆。 */
 const BRANCH_W: [number, number][] = [
-  [3.2, -8.6], // 桥尾
-  [4.6, -11.0],
-  [6.8, -13.6],
+  [8.8, -10.2], // 桥尾
+  [8.7, -11.6],
+  [8.6, -13.0],
   [8.6, -15.2],
 ];
 
@@ -739,7 +739,7 @@ export function buildTerrain(ctx: GameContext): void {
   const field = makeField(ctx.seed);
 
   // ---- publish the sampler first: everything downstream needs it -------
-  ctx.collision.groundHeight = (x: number, z: number) => field.height(x, z);
+  ctx.collision.terrainHeight = (x: number, z: number) => field.height(x, z);
   ctx.collision.surfaceAt = (x: number, z: number) => field.surface(x, z);
 
   // ---- geometry --------------------------------------------------------

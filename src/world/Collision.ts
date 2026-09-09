@@ -41,6 +41,20 @@ export interface CircleCollider extends ColliderBase {
 
 export type Collider = BoxCollider | CircleCollider;
 
+/**
+ * 平台:一块带高度的旋转矩形(桥面、台基、亭子地面)。站在上面时地面高度
+ * 取平台高与地形高的较大者;从旁边走上去靠玩家的踏步容差。
+ */
+export interface Platform {
+  cx: number;
+  cz: number;
+  hx: number;
+  hz: number;
+  rot: number;
+  y: number;
+  tag?: string;
+}
+
 export interface GroundSampler {
   /** World-space ground height at (x, z). */
   (x: number, z: number): number;
@@ -51,8 +65,45 @@ const _v = new THREE.Vector2();
 export class CollisionWorld {
   readonly colliders: Collider[] = [];
 
-  /** Replaced by the terrain system once its heightfield exists. */
-  groundHeight: GroundSampler = () => 0;
+  /** 地形高度采样,由 Terrain 挂上;不含平台。 */
+  terrainHeight: GroundSampler = () => 0;
+
+  readonly platforms: Platform[] = [];
+
+  /** 水面线:地形低于此高度且不在平台上即禁行。 */
+  waterline = 0.06;
+
+  /** 地面高度 = max(地形, 覆盖此点的平台)。 */
+  groundHeight: GroundSampler = (x: number, z: number): number => {
+    let h = this.terrainHeight(x, z);
+    for (const p of this.platforms) {
+      if (p.y > h && this.onPlatform(p, x, z)) h = p.y;
+    }
+    return h;
+  };
+
+  addPlatform(cx: number, cz: number, hx: number, hz: number, y: number, rot = 0, tag?: string): Platform {
+    const p: Platform = { cx, cz, hx, hz, rot, y, tag };
+    this.platforms.push(p);
+    return p;
+  }
+
+  private onPlatform(p: Platform, x: number, z: number): boolean {
+    const cos = Math.cos(p.rot);
+    const sin = Math.sin(p.rot);
+    const rx = x - p.cx;
+    const rz = z - p.cz;
+    const lx = rx * cos - rz * sin;
+    const lz = rx * sin + rz * cos;
+    return Math.abs(lx) <= p.hx && Math.abs(lz) <= p.hz;
+  }
+
+  /** 此点是否禁行(落水)。 */
+  blockedAt(x: number, z: number): boolean {
+    if (this.terrainHeight(x, z) >= this.waterline) return false;
+    for (const p of this.platforms) if (this.onPlatform(p, x, z)) return false;
+    return true;
+  }
 
   /** Surface material id at a point, used to pick footstep sounds. */
   surfaceAt: (x: number, z: number) => string = () => 'grass';
@@ -105,6 +156,7 @@ export class CollisionWorld {
 
   clear(): void {
     this.colliders.length = 0;
+    this.platforms.length = 0;
   }
 
   /**
@@ -150,8 +202,9 @@ export class CollisionWorld {
           }
         } else {
           // Transform into the box's local frame, resolve, transform back.
-          const cos = Math.cos(-c.rot);
-          const sin = Math.sin(-c.rot);
+          // 约定与 three 的 rotation.y 一致:world = (lx·cos + lz·sin, −lx·sin + lz·cos)。
+          const cos = Math.cos(c.rot);
+          const sin = Math.sin(c.rot);
           const rx = px - c.cx;
           const rz = pz - c.cz;
           const lx = rx * cos - rz * sin;
@@ -185,10 +238,8 @@ export class CollisionWorld {
             }
           }
 
-          const cos2 = Math.cos(c.rot);
-          const sin2 = Math.sin(c.rot);
-          px = c.cx + (outLx * cos2 - outLz * sin2);
-          pz = c.cz + (outLx * sin2 + outLz * cos2);
+          px = c.cx + (outLx * cos + outLz * sin);
+          pz = c.cz + (-outLx * sin + outLz * cos);
           moved = true;
         }
       }
