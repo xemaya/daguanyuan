@@ -1,0 +1,118 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { makeTerrainField } from '@builder/compose/terrain-from-plan.ts';
+
+const plan = JSON.parse(readFileSync('projects/daguanyuan/plan.json', 'utf8'));
+const field = makeTerrainField(plan, { seed: 17910000 });
+
+const centroid = (poly) => {
+  let x = 0, z = 0;
+  const n = poly.length - 1;
+  for (let i = 0; i < n; i++) { x += poly[i][0]; z += poly[i][1]; }
+  return [x / n, z / n];
+};
+
+// 三条沁芳溪与潇湘馆引泉沟是带状环（去程一岸、回程另一岸），顶点平均质心
+// 落在河湾环抱的陆地上（实测在环外 8.8~18.8m），不是水体的错，是采样点的错。
+// 水体断言改采「近似最深点」：包围盒网格上内深最大的点，保证在多边形内部。
+function inPoly(x, z, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, zi] = poly[i], [xj, zj] = poly[j];
+    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function segD(px, pz, ax, az, bx, bz) {
+  const vx = bx - ax, vz = bz - az, wx = px - ax, wz = pz - az;
+  const L = vx * vx + vz * vz;
+  let t = L > 1e-9 ? (wx * vx + wz * vz) / L : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(wx - vx * t, wz - vz * t);
+}
+function interiorPoint(poly) {
+  const [cx, cz] = centroid(poly);
+  if (inPoly(cx, cz, poly)) return [cx, cz];
+  let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+  for (const [x, z] of poly) {
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+  }
+  let best = null, bestD = -1;
+  // 网格要细到能落进最窄的水体——引泉沟是约 1m 宽的细环。
+  const step = Math.min(Math.max(maxX - minX, maxZ - minZ) / 40, 0.3);
+  for (let x = minX; x <= maxX; x += step) {
+    for (let z = minZ; z <= maxZ; z += step) {
+      if (!inPoly(x, z, poly)) continue;
+      let d = 1e9;
+      for (let i = 0; i + 1 < poly.length; i++)
+        d = Math.min(d, segD(x, z, poly[i][0], poly[i][1], poly[i + 1][0], poly[i + 1][1]));
+      if (d > bestD) { bestD = d; best = [x, z]; }
+    }
+  }
+  return best;
+}
+
+test('水体多边形内部低于水面，外部高于水面', () => {
+  for (const w of plan.water) {
+    const [cx, cz] = interiorPoint(w.polygon);
+    assert.ok(field.height(cx, cz) < 0, `${w.name} 中心应在水下，实际 ${field.height(cx, cz).toFixed(2)}`);
+  }
+});
+
+// 堆山断言跳过的山：
+// - 凸碧山：环园东路从山体质心 0.03m 处穿山而过（[184,100]→[194,72] 段）。
+//   环路翻越全园最高山的山顶本身不合理；路按 10% 限坡切山，只能到 ~5.5m，
+//   与 18m 标称峰在该点不可兼得。这是 plan.json 的数据冲突，P2 修 plan 时
+//   应让环园东路绕山脚；在此之前跳过此山的高程断言（其余五座山照测）。
+const SKIP_HILL = new Set(['凸碧山(东部主山·山脊凸碧堂,山坳凹晶馆,山脚栊翠庵)']);
+
+test('堆山中心高于其标称高程的一半', () => {
+  for (const h of plan.hills) {
+    if (SKIP_HILL.has(h.name)) continue;
+    const [cx, cz] = centroid(h.polygon);
+    assert.ok(field.height(cx, cz) > h.height_m * 0.5,
+      `${h.name} 中心应接近 ${h.height_m}m，实际 ${field.height(cx, cz).toFixed(2)}`);
+  }
+});
+
+test('园路沿线平缓：相邻采样点高差不超过 12%', () => {
+  for (const p of plan.paths) {
+    for (let i = 1; i < p.points.length; i++) {
+      const [ax, az] = p.points[i - 1];
+      const [bx, bz] = p.points[i];
+      const d = Math.hypot(bx - ax, bz - az);
+      if (d < 1) continue;
+      const grade = Math.abs(field.height(bx, bz) - field.height(ax, az)) / d;
+      assert.ok(grade < 0.12, `${p.name} 第 ${i} 段坡度 ${(grade * 100).toFixed(1)}%`);
+    }
+  }
+});
+
+// 台基平坦断言跳过的区域（只跳断言，不改 plan.json——任务单 D 的明确约定）：
+// - xiaoxiangguan：「潇湘馆穿院引泉沟」（开沟仅尺许）从区域质心 0.1m 处穿院而过，
+//   ±3m 采样框横跨沟岸。水沟穿院是 plan 的真数据，不是生成器的错。
+// - qinfangzha：沁芳闸本来就是跨在水上的闸，质心在沁芳溪北段河道内 3.2m。
+// - liaoting_huaxu：蓼汀花溆是港洞渡口，质心压在沁芳溪北段岸线（0.4m）。
+// 与 missing 99-20 的 4 个越界建筑锚点不同：那 4 个是锚点数据缺陷（P2 修），
+// 这 3 个是「区域质心落在水里」的几何事实。
+const SKIP_FLAT = new Set(['xiaoxiangguan', 'qinfangzha', 'liaoting_huaxu']);
+
+test('区域台基处平坦：区域中心 3 米见方内高差小于 8 厘米', () => {
+  for (const r of plan.regions) {
+    if (!r.buildings?.length) continue;
+    if (SKIP_FLAT.has(r.id)) continue;
+    const [cx, cz] = centroid(r.polygon);
+    const hs = [[0,0],[3,0],[0,3],[3,3],[-3,0],[0,-3]].map(([dx,dz]) => field.height(cx+dx, cz+dz));
+    assert.ok(Math.max(...hs) - Math.min(...hs) < 0.08, `${r.id} 台基不平：${(Math.max(...hs)-Math.min(...hs)).toFixed(3)}m`);
+  }
+});
+
+test('确定性：同一 seed 两次采样完全一致', () => {
+  const a = makeTerrainField(plan, { seed: 42 });
+  const b = makeTerrainField(plan, { seed: 42 });
+  for (const [x, z] of [[0,0],[100,-80],[-200,150]]) {
+    assert.equal(a.height(x, z), b.height(x, z));
+  }
+});
