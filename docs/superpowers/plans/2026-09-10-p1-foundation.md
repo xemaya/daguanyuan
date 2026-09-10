@@ -625,29 +625,130 @@ git commit -m "feat(compose): 地形生成器改由 plan.json 驱动
 
 **这一步会改变你看到的园子。** 现在的世界是 64×72 米、手摆的；`plan.json` 是 500×500 米、19 个区。两套坐标系互不相干，要接上。
 
+> **2026-09-10 更正 ④——锚点用 plan 的 `buildings[].x/z`，不是「质心 + 局部偏移」。**
+> 本节最初写的是「SCENE 每项加 `region`，坐标改成相对该区质心的偏移」。写单子 E 时实测 `plan.json`，
+> 发现每个区的 `buildings[]` 与 `rocks[]` **已经带绝对 `x` / `z` 锚点**（正门 (55,236)、沁芳亭 (0,148)、
+> 石桥三港 (0,152)、潇湘馆正房 (-105,98)、游廊 (-126,104)、月洞门 (-105,120)、翠嶂白石群 (8,202)）。
+> 质心是我们算出来的派生量，锚点是平面真源写下的，**派生量不能盖过真源**。
+> 而且质心兜底这条路本身就被驳过：`missing` 的 `99-24` 说的正是「区域中心即台基位置」这个默认不成立，
+> 修法写的就是"给这三个区显式标出台基锚点"——潇湘馆的锚点已经在那儿了。
+> 所以：**plan 点了名的构件按锚点摆；plan 没点名的（墙段、竹丛、驳石）才用「区域 + 局部偏移」兜底。**
+> 后者的格式仍然是给 P4 `scenes/<region>.json` 铺路的那一套，不变。
+
 **Files:**
-- Modify: `builder/compose/terrain.ts`（改为调用 Task 5 的生成器）、`builder/compose/composer.ts`（SCENE 坐标改到 plan 空间）、`projects/daguanyuan/main.ts`（出生点）、`tools/playtest.mjs`（航点）、`tools/capture.mjs`（镜头）
+- Modify: `builder/compose/terrain.ts`（改为调用 Task 5 的生成器）、`builder/compose/composer.ts`（SCENE 改成锚点驱动）、`builder/parts/zhiwu/vegetation.ts`（散布盒与建筑禁区全是旧坐标）、`projects/daguanyuan/main.ts`（出生点）、`tools/playtest.mjs`（航点）、`tools/capture.mjs`（镜头）
 - Test: 试玩与截图
 
 **Interfaces:**
-- Consumes: Task 5 的 `makeTerrainField`
+- Consumes: Task 5 的 `makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): TerrainField`
 - Produces: 世界坐标 = `plan.json` 坐标（米，原点园心，x 东 z 南）
 
-- [ ] **Step 1: 把现有五处构件搬到 plan 的区域质心**
+- [ ] **Step 0: 先认清三件实测事实**
 
-现在 `composer.ts` 的 `SCENE` 表里正门在 `z=24.4`、潇湘馆在 `z=-20.6`，都是旧坐标。`plan.json` 里这五个区（`zhengmen`、`cuizhang`、`qinfang_ting_qiao`、`xiaoxiangguan`，加沁芳池）各有 `polygon` 与 `entrances`。
+开工前这三条都已经量过了，数字在这儿，不要重新发明，也不要以为能绕开。
 
-改法：`SCENE` 的每一项加 `region` 字段，坐标改成**相对该区质心的局部偏移**，装配器读 plan 算出世界坐标。这样以后 P4 每个区一份 `scenes/<region>.json` 时格式已经对上。
+**① `bounds` 不裁剪任何东西。** `TerrainFieldOptions.bounds` 在 Task 5 的源码注释里写得很清楚：
+「场本身是全局解析式，bounds 不改变任何函数值；它留给 Task 6/7 的网格与分块代码声明『只采这一片』。」
+也就是说**开窗口这件事得由 `terrain.ts` 的网格生成代码执行**，传个 `bounds` 进去不会有任何效果。
 
-- [ ] **Step 2: 只开游线沿线的窗口**
+**② 三角数与构建时间会炸。** 现在的地形是 64×72 m / 36 cm 格 = 176×198 格 ≈ 7 万三角。
+MVP 四区（`zhengmen`/`cuizhang`/`qinfang_ting_qiao`/`xiaoxiangguan`）的包围盒是 **240×186 m**，
+外扩 40 m 是 **320×266 m**。同样 36 cm 格 = 889×739 格 ≈ **130 万三角，19 倍**，
+而且地形是 VSM 阴影接收体，一帧要在阴影 pass、主 pass、透射 pass、G-buffer 里各画一遍。
+`makeTerrainField` 的每次求值都要走一遍多边形与 fbm，65 万个顶点会让世界构建从 20 秒变成几分钟（PITFALLS P-12 的下游）。
 
-500 米见方全量建地形会炸。给 `makeTerrainField` 传 `bounds`，先只覆盖正门到潇湘馆这条游线外扩 40 米的范围。分块在 Task 7。
+预算：**地形三角数 ≤ 60 万，世界构建 ≤ 30 秒。** 两个旋钮，先动第一个：
+格边（36 cm → 50 cm 就降到 60 万）与窗口（外扩 40 m → 20 m）。**不要在这一步做分块，那是 Task 7。**
 
-- [ ] **Step 3: 更新出生点、试玩航点、镜头**
+**③ 游线上有一段 68.6 米的水面，现有的桥总长只有约 25 米。**
+沿 `plan.paths` 的「十七回游线」前 14 点（正门 → 潇湘馆，全长 **310.6 m**，最陡 8.2%，坡度没问题），
+里程 156.5 m 到 225.1 m 是水下，从 (-3,171) 到 (-40,128)，**连续 68.6 m**。
+现在 SCENE 里是两段 9.4 m 的曲桥夹一座亭，加起来约 25 m。**这个缺口是这个任务最可能翻车的地方。**
 
-`main.ts` 的 `SPAWN` 改成 plan 里正门南侧的点。`tools/playtest.mjs` 的 `ROUTE` 全部换成 plan 的 `route_ch17` 前几站加 `entrances`。`tools/capture.mjs` 的镜头位置照新坐标重定。
+允许的两条修法：**(a)** 在 SCENE 里加曲桥段（`bridge:zigzag` 是现成构件，不需要新几何）；
+**(b)** 改游线的走法——沿池岸绕到窄处再过。
+**不许改 `plan.json`** 去把池子改小或把路挪开。选哪条、为什么，写进提交信息。
 
-- [ ] **Step 4: 试玩必须全线通过**
+- [ ] **Step 1: SCENE 改成锚点驱动**
+
+`Placement` 加两个字段，二选一：
+
+```typescript
+interface Placement {
+  part: string;
+  variant?: string;
+  /** plan.json 的区域 id。给了 anchor 或 x/z 是局部偏移时必填。 */
+  region?: string;
+  /** plan.json 里该区 buildings[].name 或 rocks[].name 的前缀,按它的 x/z 落位。 */
+  anchor?: string;
+  /** 有 region 无 anchor 时,x/z 是相对该区质心的局部偏移;都没有时是世界坐标。 */
+  x: number;
+  z: number;
+  yaw?: number;
+  dy?: number;
+  y?: number;
+  pier?: boolean;
+  tag?: string;
+}
+```
+
+解析顺序：`anchor` → 该建筑/石头的 `x`/`z` 再加上 `x`/`z` 当微调；只有 `region` → 质心加偏移；都没有 → 世界坐标。
+`anchor` 找不到匹配的名字**要抛**，不要静默退回质心——静默退回正是 P-16 那类"错得头头是道"的失败。
+
+五处已有构件的落点（实测高程一并给出，`seed: 20260910`）：
+
+| 构件 | region | anchor | 世界 (x,z) | 地面高 |
+|---|---|---|---|---|
+| 正门（五间） | `zhengmen` | 正门 | (55, 236) | 0.80 |
+| 翠嶂 | `cuizhang` | 白石峻嶒群 | (8, 202) | 11.71 |
+| 沁芳亭 | `qinfang_ting_qiao` | 沁芳亭 | (0, 148) | **−1.34（水下）** |
+| 沁芳桥 | `qinfang_ting_qiao` | 石桥三港 | (0, 152) | **−1.34（水下）** |
+| 潇湘馆正房 | `xiaoxiangguan` | 正房 | (−105, 98) | 0.96 |
+
+亭与桥在水下**是对的**——原文「此亭壓水而成」、「石橋三港，獸面銜吐」。它们要靠 `pier: true` 与显式 `y` 立在水面上，
+不许按地面高吸附。水面在 `y = 0`。
+
+- [ ] **Step 2: 三处已知的地形冲突，报告不修**
+
+都实测过，都在 MVP 游线上，**都不许改 `plan.json`**：
+
+1. **潇湘馆正房锚点脚下有一条沟。** (−105,98) 6 m 见方内高差 **1.30 m**，来源是 `plan.water` 的
+   「潇湘馆穿院引泉沟」（depth 0.3，原文「開溝僅尺許，灌入牆內，繞階緣屋至前院」）。这就是 `99-24` 说的那半。
+   P1 允许的做法是**给建筑垫台基**（composer 里给一块平台加踏跺），不是挪 plan 的沟。
+2. **翠嶂有两块石头的锚点落在溪里。** 「镜面白石(迎面留题处)」(−34,200) 与「西山口·羊肠小径(入园口)」(−52,206)
+   都在「沁芳溪·南段」多边形内，高程 −1.00。这是新发现的缺陷，`99-23`/`99-24` 都没覆盖。
+   **绕开摆，并在回报里点名**，会补进 `missing.rules.json`。
+3. **翠嶂是一座 11 m 的山，不是一堆 3 m 的太湖石。** `plan.hills` 里「翠嶂」标称 11 m，
+   两个入口 (−40,196) 与 (74,202) 的地面高差 **6.6 m**。现在的 `taihu:mound` 构件只有 3 米高。
+   P1 不做新几何——**把石组摆在山口两侧当门框**，山体交给地形，别试图用石头堆出 11 米。
+
+- [ ] **Step 3: 植被跟着搬（计划最初漏了这个文件）**
+
+`builder/parts/zhiwu/vegetation.ts` 里两处全是旧坐标：
+
+- `VEG.scatterMinX/MaxX/MinZ/MaxZ`（−25…25 / −25…31）——散布盒。不改的话植被还长在老园子那 50 米见方里。
+- `FOOTPRINTS`——建筑禁区，手抄的旧坐标。不改的话草会从正门屋里长出来。
+
+散布盒换成 Task 6 的窗口后，面积涨了十几倍，**实例数会跟着涨十几倍**（现在全场景已经 525 万三角）。
+`VEG.cullRadius`（41 m）与 `InstanceCuller` 已经在剔了，所以帧率未必炸，但内存与构建时间会。
+先量再调：`shots/*/manifest.json` 里的 `triangles`。**全场景三角数不许超过现在的 1.5 倍（约 790 万）。**
+
+`FOOTPRINTS` 是 SCENE 的手抄副本，这次搬完更容易漂。可以改成由 composer 把落位后的建筑轮廓
+发布到 `ctx`，vegetation 读它——`vegetation.ts` 已经 import 了 `@builder/compose/terrain`，层门认这条边。
+不想动结构就照旧手抄，但要在注释里写明它是 SCENE 的副本。
+
+- [ ] **Step 4: 更新出生点、试玩航点、镜头**
+
+`main.ts` 的 `SPAWN` 从 `(0, 0, 29.5)` 改成正门南侧——`plan.gates` 的正门在 (55, 250)，
+`zhengmen` 的 `entrances` 是 [[55, 244]]，出生点取门外一点，朝北（`SPAWN_YAW` 让人面向 −Z）。
+
+`tools/playtest.mjs` 的 `ROUTE` 换成「十七回游线」前 14 点加各区 `entrances`。
+注意 `bridgeWaypoints()` 里的桥面局部坐标是写死的，桥在 SCENE 里挪了、加了段，**这里要同步**，
+否则试玩会走到桥外面掉水里。游线全长 310.6 m，比现在的 50 米长六倍，试玩会跑得久，这是正常的。
+
+`tools/capture.mjs` 的 14 个镜头位置照新坐标重定。**镜头 id 不要改名**——`manifest-diff` 与 `side-by-side` 按 id 配对。
+
+- [ ] **Step 5: 试玩必须全线通过**
 
 ```bash
 npm run build
@@ -658,25 +759,27 @@ node tools/playtest.mjs --url http://127.0.0.1:4801/
 
 Expected: `PLAYTEST PASS`。这一步是这个任务的真验收——坐标搬错了走不通。
 
-- [ ] **Step 5: 出对照图交人眼**
+- [ ] **Step 6: 出对照图交人眼**
 
 ```bash
 node tools/capture.mjs --url http://127.0.0.1:4801/ --out shots/p1t6
 for s in gate_approach mound_block pond_reveal xiaoxiang; do
-  node tools/side-by-side.mjs shots/baseline/$s.png shots/p1t6/$s.png shots/compare/$s.png
+  node tools/side-by-side.mjs shots/p1abcd/$s.png shots/p1t6/$s.png shots/compare/$s.png
 done
 ```
 
-**结构数字这次会变**（世界尺度不同了），所以 `manifest-diff` 不适用。改为人眼判：五处构件都还在、朝向对、接地对、游线走得通。
+**结构数字这次会变**（世界尺度不同了），所以 `manifest-diff` 不适用于判等；但它的 `triangles` 仍要看，
+用来对 Step 3 的 790 万上限。观感改判人眼：五处构件都还在、朝向对、接地对、游线走得通。
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 7: 提交**
 
 ```bash
-git add builder/compose projects/daguanyuan/main.ts tools/playtest.mjs tools/capture.mjs
+git add builder/compose builder/parts/zhiwu/vegetation.ts projects/daguanyuan/main.ts tools/playtest.mjs tools/capture.mjs
 git commit -m "feat(compose): 世界切到 plan.json 坐标系
 
 园子从手摆的 64×72 米变成平面真源的 500×500 米(先只开游线沿线的窗口)。
-SCENE 表改成「区域 + 局部偏移」,格式与 P4 的 scenes/<region>.json 对上。
+SCENE 改成锚点驱动:plan 点了名的构件按 buildings[].x/z 摆,没点名的用
+「区域 + 局部偏移」兜底——派生的质心不盖过真源写下的锚点(见 99-24)。
 验收靠试玩全线通过——坐标搬错了走不通。"
 ```
 
