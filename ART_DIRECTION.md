@@ -11,7 +11,7 @@
 
 - **软、圆、手作。** 没有 90° 直角,每条硬边都倒角。构件像是从皂块里刻出来、用水粉涂过的。
 - **粉墙黛瓦,栗色木作。** 苏式园林没有朱红金黄的官式彩画。颜色饱和度 45–65%,不上霓虹。
-- **晴天上午。** 太阳高度约 38°,由 `world/Atmosphere.ts` 独占,构件里不许造室外灯。
+- **晴天上午。** 太阳高度约 38°,由 `engine/render/Atmosphere.ts` 独占,构件里不许造室外灯。
 - **微缩盆景的尺度感。** 构件比真实"胖" 10%:栏杆略粗,瓦垄略厚,石头略圆。
 - **不做人。** 一期园子空无一人,只有风、水、竹影。
 
@@ -27,7 +27,7 @@
 3. **结构合法性**:《营造法式》(材分制)守中国木构的基本语法,构件不许 AI 瞎编。
 4. **审美**:明清江南园林(《营造法原》、苏州诸园实测)守空间与气质。
 
-建筑分三个 tier,每个 region 在 `garden.plan.json` 里声明 `style` 权重:
+建筑分三个 tier,每个 region 在 `projects/daguanyuan/plan.json` 里声明 `style` 权重:
 
 | Tier | 范围 | 主参数集 | 关键词 |
 |---|---|---|---|
@@ -45,15 +45,15 @@
    进深该是直角就是直角,中国木构的秩序全靠这个。要软的是**可见的边缘**:箱体用
    `builder/parts/sculpt.ts` 的 `roundedBox`,最小倒角 1.5cm,让边缘不出现数学意义上的
    无限锐边。**不要为了这条把平面关系搞歪。**
-2. **无平色面。** 每个材质至少有 albedo 变化和法线,只从 `src/cn/materials.ts` 取。
+2. **无平色面。** 每个材质至少有 albedo 变化和法线,只从 `builder/parts/materials.ts` 取。
 3. **无纯黑纯白。** 最暗 `#1c1a18`(黑漆),最亮 `#f4ead4`(窗纸)。
 4. **一切投影并接受阴影**,除了远于 60m 的填充植被。
 5. **不穿地。** 构件贴地处要有裙脚:台基、石礓、青苔、泥圈。
 6. **无 z-fighting。** 共面≥2mm 偏移。
 7. **剪影优先。** 黑剪影认不出是什么,贴图救不了。翘角、栏杆、漏窗尤其如此。
 8. **单位米,原点落地面中心,+Z 朝正面。** 棚拍台和装配器都按这个约定。
-9. **只用 `core/Noise.ts` 的种子随机,`Math.random()` 禁用。**
-10. **大木作(柱/梁/斗拱/屋面曲线)的数字只从 `src/fashi/` 推导,不许手拍。** 语法是模数推导链,参数集三选一:`fashi`(材分,结构下限)/`qing`(斗口,Tier A)/`fayuan`(界与提栈,Tier B/C)。
+9. **只用 `engine/core/Noise.ts` 的种子随机,`Math.random()` 禁用。**
+10. **大木作(柱/梁/斗拱/屋面曲线)的数字只从 `builder/derive/` 推导,不许手拍。** 语法是模数推导链,参数集三选一:`fashi`(材分,结构下限)/`qing`(斗口,Tier A)/`fayuan`(界与提栈,Tier B/C)。
 
 ## 3. 色板
 
@@ -68,14 +68,14 @@
 | 黑漆 | `#1c1a18` | 匾额底 |
 | 金 | `#c9a84c` | 匾额字,唯一金属 |
 | 窗纸 | `#f4ead4` | 半透 |
-| 水面 | 沿用 `world/Water.ts` | 偏绿 `#4f8c7e`(待调) |
-| 草 | 沿用 `core/TextureLab.ts` grassTurf | |
+| 水面 | 沿用 `engine/render/Water.ts` | 偏绿 `#4f8c7e`(待调) |
+| 草 | 沿用 `engine/core/TextureLab.ts` grassTurf | |
 | 花 | `#f25d7a` 海棠 `#f5f0ea` 梨 `#b57fe0` 紫藤 | |
 
 ## 4. 灯光与后期
 
-沿用真新镇:`world/Atmosphere.ts` 一盏 key + 天光 hemisphere + 暗暖 bounce + 天空 PMREM;
-`core/PostFX.ts` HDR 单次 ACES。构件不加灯不加 pass。曝光问题改 albedo,不改曝光。
+沿用真新镇:`engine/render/Atmosphere.ts` 一盏 key + 天光 hemisphere + 暗暖 bounce + 天空 PMREM;
+`engine/core/PostFX.ts` HDR 单次 ACES。构件不加灯不加 pass。曝光问题改 albedo,不改曝光。
 
 ## 5. 江南园林的形
 

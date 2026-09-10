@@ -485,6 +485,27 @@
       ],
       "paramSet": "none",
       "notes": "2026-09-10 由 P1 Task 5 地形生成器实测发现;与 99-20 的 4 个越界锚点是两回事。"
+    },
+    {
+      "id": "99-25",
+      "name": "建筑 footprint 有两份真源:装配顺序与植被散布器各记一份",
+      "status": "missing",
+      "statement": "builder/compose/world.ts 的实际构建顺序是 开天→理地→引水→植树→起屋叠石:植被先于建筑散布。树不长穿门廊,只靠 builder/parts/zhiwu/vegetation.ts 里一份手抄的 FOOTPRINTS 副本避让——与建筑真实 footprint 是两份真源,建筑布局一改就可能长穿。world.ts 头注释曾声称「建筑先于植被圈地」,与事实相反(2026-09-10 已改注释记账,未动顺序:现在调顺序会让手抄副本变成唯一真源,债更深)。修法:做一道 occupancy prepass,从 plan.json + scenes/*.json 生成一份 occupancy mask,地形、植被、建筑读同一份。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "builder/compose/world.ts",
+          "docs/ROADMAP.md §P4"
+        ],
+        "keywords": [
+          "occupancy mask prepass",
+          "footprint 单一真源",
+          "植被 避让 建筑 散布"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-10 仓库卫生 review 发现;落点 P4——occupancy prepass 要等 scenes/*.json 分区数据落地才有真源可读。"
     }
   ]
 }

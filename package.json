@@ -12,7 +12,8 @@
     "check:layers": "node tools/check-layers.mjs",
     "check:rules": "node tools/check-rules.mjs",
     "check:plan": "node tools/check-plan.mjs",
-    "check:all": "npm run check && npm run check:layers && npm run check:rules && npm run check:plan && npm test",
+    "check:docs": "node tools/check-docs.mjs",
+    "check:all": "npm run check && npm run check:layers && npm run check:rules && npm run check:plan && npm run check:docs && npm test",
     "test": "node --experimental-strip-types --import ./tests/ts-resolver.mjs --test tests/*.test.mjs"
   },
   "dependencies": {

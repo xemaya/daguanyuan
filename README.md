@@ -112,6 +112,6 @@ plan.json + scenes/*.json → derive(按 tier 选参数集) → Frame(骨架表,
 
 ## 授权
 
-MIT。引擎壳取自 [pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)（MIT），中式部分全部新写。
+Apache 2.0(见 [LICENSE](LICENSE))。引擎壳取自 [pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)(MIT),上游许可全文与版权行见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md);中式部分全部新写。
 
 《红楼梦》原文属公有领域。本项目是同人性质的技术实验。

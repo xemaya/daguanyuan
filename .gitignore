@@ -12,3 +12,7 @@ tools/tmp/
 tools/.labtmp/
 .vercel
 .env*
+
+# OS / editor droppings and local run logs are not sources.
+.DS_Store
+*.log

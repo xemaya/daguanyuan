@@ -14,8 +14,16 @@ import { buildGarden } from './composer';
  * World — orchestrates the build order for the garden.
  *
  * Order matters: terrain publishes the heightfield that everything else
- * samples to sit on the ground, and buildings claim their footprints before
- * vegetation scatters so trees never grow through a porch.
+ * samples to sit on the ground.
+ *
+ * The actual order is vegetation BEFORE buildings (植树 → 起屋叠石). Trees
+ * don't grow through porches only because vegetation.ts keeps a hand-copied
+ * FOOTPRINTS table duplicating the building footprints — two sources of
+ * truth for the same fact. Known debt, tracked as missing rule 99-25: the
+ * real fix is a single occupancy prepass derived from plan + scenes that
+ * terrain, vegetation and buildings all read (lands with P4). Do not "fix"
+ * this by reordering the steps now — that would leave the hand-copied copy
+ * as the only source of truth and dig the debt deeper.
  */
 export const SEED = 17910000; // 程高本刊行年(1791)——大观园第一次以印本示人。
 
