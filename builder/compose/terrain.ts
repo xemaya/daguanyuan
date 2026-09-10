@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { terrainWindow } from '@builder/plan/window';
 import { buildTerrainChunks } from '@engine/render/TerrainChunks';
 import type { GameContext } from '@engine/core/Context';
 import { grassTurfMaps, cobbleMaps, type MaterialMaps } from '@engine/core/TextureLab';
@@ -27,6 +28,7 @@ export type { GardenPlan };
  */
 let injectedPlan: GardenPlan | undefined;
 export function setPlan(p: GardenPlan): void {
+  Object.assign(TERRAIN,terrainWindow(p,MVP_REGIONS,PAD,CELL));
   injectedPlan = p;
 }
 export function getPlan(): GardenPlan {
@@ -88,87 +90,14 @@ const MVP_REGIONS = ['zhengmen', 'cuizhang', 'qinfang_ting_qiao', 'xiaoxiangguan
 const PAD = 15;
 
 /** Fine geometry restored after F's indexed sampling and worker texture preparation.
- * The 270×216m window stays below 600k triangles at this spacing. */
+ * The sampling window is derived from the injected regions at this spacing. */
 const CELL = 0.48;
 
-/**
- * MVP regions' combined bounding box, padded by `PAD`. Computed offline from
- * `plan.json` (reproduce with the snippet below) rather than at module load,
- * because module-top-level code runs during the import graph's evaluation —
- * before `main.ts`'s `setPlan()` call — so `getPlan()` is not yet callable
- * here. `buildTerrain()` re-derives this same box from the *live* injected
- * plan and throws if it has drifted (see `assertBoundsFresh` below), so a
- * changed `plan.json` cannot silently go stale against these literals.
- *
- *   node -e "const p=require('./projects/daguanyuan/plan.json');
- *     let a=Infinity,b=-Infinity,c=Infinity,d=-Infinity;
- *     for (const id of ['zhengmen','cuizhang','qinfang_ting_qiao','xiaoxiangguan']) {
- *       const r=p.regions.find(x=>x.id===id);
- *       for (const [x,z] of r.polygon) { a=Math.min(a,x);b=Math.max(b,x);c=Math.min(c,z);d=Math.max(d,z); }
- *     }
- *     console.log(a,b,c,d)"
- *   // -145 95 58 244
- */
-const MVP_BBOX = { minX: -145, maxX: 95, minZ: 58, maxZ: 244 };
-
+/** Filled by setPlan before world creation; consumers share this object. */
 export const TERRAIN = {
-  minX: MVP_BBOX.minX - PAD,
-  maxX: MVP_BBOX.maxX + PAD,
-  minZ: MVP_BBOX.minZ - PAD,
-  maxZ: MVP_BBOX.maxZ + PAD,
-  width: MVP_BBOX.maxX - MVP_BBOX.minX + PAD * 2,
-  depth: MVP_BBOX.maxZ - MVP_BBOX.minZ + PAD * 2,
-  segX: Math.round((MVP_BBOX.maxX - MVP_BBOX.minX + PAD * 2) / CELL),
-  segZ: Math.round((MVP_BBOX.maxZ - MVP_BBOX.minZ + PAD * 2) / CELL),
-  /**
-   * Player-walkable bounds — a synthetic fence at *this window's* edge, not
-   * the real garden wall (P2's job). The real wall only happens to coincide
-   * with our south edge near the gate (plan.wall has points around
-   * z≈244–250 there), so `naturalHeight`'s wall-rim treatment already reads
-   * right on that side for free; the other three edges are deep inside the
-   * 500m garden and need this fence so the player cannot walk off the
-   * rendered mesh into an unsampled void.
-   */
-  playMinX: MVP_BBOX.minX - PAD + 2,
-  playMaxX: MVP_BBOX.maxX + PAD - 2,
-  playMinZ: MVP_BBOX.minZ - PAD + 2,
-  playMaxZ: MVP_BBOX.maxZ + PAD - 2,
-} as const;
-
-/**
- * Recomputes the MVP bbox from the *live* injected plan and throws if it
- * disagrees with the `MVP_BBOX` literal above by more than a centimetre —
- * the safety net for the "computed offline" tradeoff those literals made to
- * avoid needing `plan.json` at module-top-level (see their doc comment).
- */
-function assertBoundsFresh(plan: GardenPlan): void {
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minZ = Infinity;
-  let maxZ = -Infinity;
-  for (const id of MVP_REGIONS) {
-    const region = plan.regions.find((r) => r.id === id);
-    if (!region) throw new Error(`[terrain] MVP 区域缺失于 plan.json：${id}`);
-    for (const [x, z] of region.polygon) {
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (z < minZ) minZ = z;
-      if (z > maxZ) maxZ = z;
-    }
-  }
-  const eps = 0.01;
-  if (
-    Math.abs(minX - MVP_BBOX.minX) > eps ||
-    Math.abs(maxX - MVP_BBOX.maxX) > eps ||
-    Math.abs(minZ - MVP_BBOX.minZ) > eps ||
-    Math.abs(maxZ - MVP_BBOX.maxZ) > eps
-  ) {
-    throw new Error(
-      `[terrain] plan.json 的 MVP 区域包围盒变了（现在 [${minX},${maxX},${minZ},${maxZ}]，代码里存的是 ` +
-        `[${MVP_BBOX.minX},${MVP_BBOX.maxX},${MVP_BBOX.minZ},${MVP_BBOX.maxZ}]）——重算 MVP_BBOX 的字面量。`,
-    );
-  }
-}
+  minX:0,maxX:0,minZ:0,maxZ:0,width:0,depth:0,segX:0,segZ:0,
+  playMinX:0,playMaxX:0,playMinZ:0,playMaxZ:0,
+};
 
 /* ------------------------------------------------------------------ */
 /* Splat bake                                                          */
@@ -457,7 +386,6 @@ export function buildTerrain(ctx: GameContext): void {
     return result;
   };
   const plan = getPlan();
-  assertBoundsFresh(plan);
   const field = makeTerrainField(plan, {
     seed: ctx.seed,
     bounds: { minX: TERRAIN.minX, maxX: TERRAIN.maxX, minZ: TERRAIN.minZ, maxZ: TERRAIN.maxZ },

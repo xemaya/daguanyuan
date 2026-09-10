@@ -140,6 +140,12 @@ for r in d['regions']:
           % (en[0], en[1], C['paper'], col))
     e('</g>')
 
+# Explicit ground, deck and boat-opening footprints are different surfaces.
+for r in d['regions']:
+    for pad in r.get('pads', []):
+        colour = {'grade':'#927441','deck':'#386c88','water-opening':'#338884'}[pad['kind']]
+        e('<g><title>%s · %s · %.2fm</title><polygon points="%s" fill="%s" fill-opacity="0.3" stroke="%s" stroke-width="0.8" stroke-dasharray="2 1"/></g>' % (esc(pad['id']),pad['kind'],pad['elevation_m'],pts(pad['polygon']),colour,colour))
+
 # ================= gates =================
 e('<!-- 门 -->')
 GATE_LBL = {  # name-key -> (anchor, dx, dz)
@@ -165,7 +171,7 @@ for g in d['gates']:
     e('</g>')
 # 正门 callout
 e('<text x="55" y="292" font-size="9" text-anchor="middle" fill="%s">五间 · 桶瓦泥鳅脊 · 白石台矶 · '
-  '南墙偏东 · 门内翠嶂全遮视线(十七回)</text>' % C['muted'])
+  '南墙偏东 · 门内遮挡为目标(三维待验)</text>' % C['muted'])
 
 # water in / out annotations
 e('<g font-size="9" fill="#2f6b74">')
@@ -182,7 +188,7 @@ CN = ["1 缀锦阁在大观楼东、含芳阁在西(十八回,唯一东西向硬
       "4 水系线状五段:外河 → 沁芳闸(东北)→ 洞口 → 东北山坳 → 稻香村 →〔岔口 → 西南〕→ 怡红院后合流 → 墙下出园",
       "5 翠嶂全遮门内视线,正门内不得望见任何院落或正殿(十七回贾政语)",
       "6 十七回游线须连续走通且成环(小径入 / 另一边出),至正殿累计路程 ≈ 全程 55%",
-      "7 暖香坞正门朝南,其北为东西向夹道,西门额「穿云 / 度月」,东门外接山坡(五十回)"]
+      "7 暖香坞正门朝南,院落在东西向夹道之北,西门额「穿云 / 度月」,东门外接山坡(五十回)"]
 e('<rect x="-252" y="296" width="506" height="84" rx="5" fill="%s" stroke="%s" stroke-width="1.2"/>'
   % (C['panel'], C['panelEdge']))
 e('<text x="-242" y="311" font-size="10" fill="%s" letter-spacing="1">七条不可违约束(任何布局调整后须复检 · 出自 04-conflicts.md §四)</text>' % C['ink'])
@@ -312,7 +318,7 @@ RATIO = _c[_j] / RLEN
 
 # ================= legend =================
 LG_Y = y + 18
-LG_H = 252
+LG_H = 270
 panel(RX0, LG_Y, RX1 - RX0, LG_H, '图例')
 gy = LG_Y + 40
 def row(draw, text, gap=16.5):
@@ -334,12 +340,13 @@ row(lambda t: e('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" strok
 row(lambda t: (e('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="3.4" '
                  'marker-end="url(#ah)"/>' % (RX0 + 12, t, RX0 + 42, t, C['route'])),
                e('<circle cx="%.1f" cy="%.1f" r="6" fill="%s" stroke="%s" stroke-width="1.4"/>'
-                 % (RX0 + 26, t, C['route'], C['paper']))), '十七回游线(环线,①→⑭)')
+                 % (RX0 + 26, t, C['route'], C['paper']))), '14个区域站次;29叙事节点及通行待验')
+row(lambda t: e('<rect x="%.1f" y="%.1f" width="34" height="10" fill="#927441" fill-opacity="0.3" stroke="#927441" stroke-dasharray="2 1"/>' % (RX0+12,t-5)), '显式落脚面:土色陆地 / 蓝色跨水 / 青色水洞')
 for tier in ('A', 'B', 'C'):
     row(lambda t, tier=tier: e('<rect x="%.1f" y="%.1f" width="34" height="11" fill="%s" fill-opacity="0.2" '
                                'stroke="%s" stroke-width="2"/>' % (RX0 + 12, t - 5.5, TIER_COLOR[tier], TIER_COLOR[tier])),
         '%s 级 — %s' % (tier, TIER_NAME[tier]))
-for cf, lb in (('high', '信度高(L1 原文明证)'), ('medium', '信度中(L2 共识)'), ('low', '信度低(L4 推测,可改)')):
+for cf, lb in (('high', '关系证据高(L1;轮廓尺寸另作设计)'), ('medium', '关系证据中(L2 共识)'), ('low', '关系证据低(L4 推测,可改)')):
     row(lambda t, cf=cf: e('<rect x="%.1f" y="%.1f" width="34" height="11" fill="none" stroke="%s" '
                            'stroke-width="2" stroke-dasharray="%s"/>' % (RX0 + 12, t - 5.5, C['muted'], CONF_DASH[cf])),
         lb)
@@ -368,7 +375,7 @@ e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">1 svg 单位 = 1 m(世界�
   % (RX0 + 12, SB_Y + 34, C['muted']))
 e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">图上实测:墙内 %.1f ha · 水面 %.2f ha(%.1f%%)· 游线全长 %.0f m</text>'
   % (RX0 + 12, SB_Y + 47, C['muted'], AREA, WAREA, WAREA / AREA * 100, RLEN))
-e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">至正殿累计路程 %.1f%%(约束 6 要求 50–62%%,通过)</text>'
+e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">入口最近控制点占比 %.1f%%(仅折线诊断,非29节点验收)</text>'
   % (RX0 + 12, SB_Y + 60, C['muted'], RATIO * 100))
 e('</g>')
 

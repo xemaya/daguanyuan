@@ -3,17 +3,6 @@ import { isClosedRing, isSimpleRing, signedArea, locatePoint, containsRing,
 
 import { validatePlanObjects } from '../builder/plan/objects.ts';
 
-// Only exact pre-P2 defects are pending. New bad entrances must fail.
-const knownOutside = new Set([
-  'zhengmen:entrance:55,244',
-  'zhengmen:雪白粉墙·下面虎皮石(随势砌去):20,240',
-  'qinfang_ting_qiao:entrance:-4,178',
-  'daoxiangcun:土井·桔槔辘轳:-202,-8',
-  'nuanxiangwu:entrance:148,-22',
-  'nuanxiangwu:夹道西过街门(外额穿云·内额度月):148,-20',
-  'nuanxiangwu:夹道东过街门(外接山坡):208,-20',
-]);
-
 /** Passing implemented assertions is not proof of all seven source constraints. */
 export function auditPlan(plan) {
   const fails = [], pending = [], constraints = [], diagnostics = {};
@@ -27,6 +16,7 @@ export function auditPlan(plan) {
   fails.push(...validatePlanObjects(plan.regions));
   const wallValid = checkRing(plan.wall, '外墙');
   const validRegions = new Set();
+  const padIds = new Set();
   for (const [kind, items] of [['region', plan.regions], ['water', plan.water], ['hill', plan.hills]]) {
     for (const item of items) {
       const label = `${kind} ${item.id ?? item.name}`;
@@ -45,11 +35,27 @@ export function auditPlan(plan) {
     if (!validRegions.has(r.id)) continue;
     const anchor = (name, p) => {
       if (locatePoint(r.polygon, p) !== 'outside') return;
-      (knownOutside.has(`${r.id}:${name}:${p}`) ? pending : fails)
-        .push(`${r.id} 的 ${name} (${p}) 在区域外`);
+      fails.push(`${r.id} 的 ${name} (${p}) 在区域外`);
     };
     for (const e of r.entrances ?? []) anchor('entrance', e);
     for (const b of r.buildings ?? []) anchor(b.name, [b.x, b.z]);
+    ok(r.grading === undefined || ['region','pads'].includes(r.grading), `${r.id} grading 非法`);
+    for (const pad of r.pads ?? []) {
+      ok(typeof pad.id === 'string' && pad.id.startsWith(r.id+'.') && !padIds.has(pad.id), `${r.id} 落脚面id缺失、跨区或重复`);
+      padIds.add(pad.id);
+      ok(['grade','deck','water-opening'].includes(pad.kind), `${pad.id} 落脚面kind非法`);
+      ok(Number.isFinite(pad.elevation_m), `${pad.id} 标高非法`);
+      ok(typeof pad.basis === 'string' && pad.basis.trim().length>0, `${pad.id} 缺施工依据`);
+      if (!checkRing(pad.polygon,pad.id)) continue;
+      ok(containsRing(r.polygon,pad.polygon), `${pad.id} 落脚面越出建设分区`);
+      ok(locatePoint(pad.polygon,pad.anchor)!=='outside', `${pad.id} 锚点不在落脚面内`);
+      if(pad.kind==='grade') for(const w of plan.water)
+        ok(!interiorsOverlap(pad.polygon,w.polygon), `${pad.id} 陆地基础与水体 ${w.name} 重叠`);
+      if(pad.object) {
+        const object=r.buildings.find(b=>b.id===pad.object);
+        ok(object && object.x===pad.anchor[0] && object.z===pad.anchor[1], `${pad.id} 与绑定对象的锚点不同`);
+      }
+    }
   }
   const ids = new Set(plan.regions.map(r => r.id));
   ok(ids.size === plan.regions.length, '区域 id 重复');
@@ -94,11 +100,11 @@ export function auditPlan(plan) {
   const westGate = spot('西过街门', 'nuanxiangwu'), eastGate = spot('东过街门', 'nuanxiangwu');
   const southFacing = southGate?.facing === 'south';
   ok(southFacing, '约束7：暖香坞正门须朝南');
-  const northLane = !!(southGate && westGate && eastGate && westGate.x < eastGate.x &&
-    westGate.z < southGate.z && eastGate.z < southGate.z);
-  diagnostics.nuanxiangLane = { northOfGate: northLane };
-  record(7, southFacing ? ['正门朝南'] : [], [
-    ...(northLane ? [] : ['现有夹道两端位于正门南侧，与裁决的北侧夹道冲突']),
+  const southLane = !!(southGate && westGate && eastGate && westGate.x < eastGate.x &&
+    westGate.z > southGate.z && eastGate.z > southGate.z);
+  ok(southLane, '约束7：夹道须在朝南正门南侧，院落在夹道北侧（第50回已核验结论）');
+  diagnostics.nuanxiangLane = { southOfGate: southLane };
+  record(7, southFacing && southLane ? ['正门朝南、院落位于夹道北侧'] : [], [
     '夹道连续线形、东西门题额及东端接坡仍待整体空间验收',
   ]);
   return { fails, pending, constraints, diagnostics, complete: fails.length === 0 && pending.length === 0 };

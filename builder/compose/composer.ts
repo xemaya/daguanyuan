@@ -239,9 +239,8 @@ const SCENE: Placement[] = [
   ...CAUSEWAY,
 
   // ---- 潇湘馆:院墙 + 月洞门 + 漏窗 + 正房 + 廊 + 竹(锚点 + 平移簇) --
-  // 已知冲突①(报告不修):正房锚点(-105,98)脚下 6m 见方内有 1.30m 高差,
-  // 来源是 plan.water 的「潇湘馆穿院引泉沟」。建筑自己的台基(platform)
-  // 把落脚面钉死平,穿沟的落差留给地形——不挪锚点。
+  // P2：正房地基显式固定在1.0m，引泉沟绕到基础西侧，建筑台基再从此起算。
+  // 院墙/廊的旧平移簇尚待线性构件阶段按plan门位重接，不能据此宣称分区已完成。
   { part: 'garden-building', variant: 'xiaoxiangguan.main-house', region: 'xiaoxiangguan', anchor: 'xiaoxiangguan.main-house', x: 0, z: 0, yaw: 0, tag: '潇湘馆' },
   ...(
     [

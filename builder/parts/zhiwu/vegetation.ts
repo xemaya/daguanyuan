@@ -62,10 +62,10 @@ const VEG = {
    * past the edge of the meshed terrain (~14x the old area — everything
    * downstream, chunk grid included, scales off these four numbers alone).
    */
-  scatterMinX: TERRAIN.minX + 2,
-  scatterMaxX: TERRAIN.maxX - 2,
-  scatterMinZ: TERRAIN.minZ + 2,
-  scatterMaxZ: TERRAIN.maxZ - 2,
+  get scatterMinX() { return TERRAIN.minX + 2; },
+  get scatterMaxX() { return TERRAIN.maxX - 2; },
+  get scatterMinZ() { return TERRAIN.minZ + 2; },
+  get scatterMaxZ() { return TERRAIN.maxZ - 2; },
   /** Grass chunk edge, metres. Trades draw calls against cull granularity. */
   chunk: 13,
   /** Everything beyond this from the camera is hidden. */

@@ -49,6 +49,21 @@ export interface PlanRegion {
   elevation_m: number;
   polygon: [number, number][];
   buildings?: unknown[];
+  /** A region boundary is not necessarily a foundation. Water gates and
+   * mountain terraces use explicit pads instead of flattening the region. */
+  grading?: 'region' | 'pads';
+  pads?: PlanPad[];
+}
+
+export interface PlanPad {
+  id: string;
+  object?: string;
+  kind: 'grade' | 'deck' | 'water-opening';
+  anchor: [number, number];
+  polygon: [number, number][];
+  elevation_m: number;
+  feather_m?: number;
+  basis: string;
 }
 
 export interface GardenPlan {
@@ -223,7 +238,18 @@ function resamplePath(
  * 纵断面坡度限制：前后向各扫一遍 clamp，结果对弧长 Lipschitz ≤ g。
  * 凸碧山、翠嶂上的盘道全靠它把 100%+ 的山坡压成走得上去的路。
  */
-function gradeLimit(t: Float64Array, s: Float64Array, g: number): void {
+function gradeLimit(t: Float64Array, s: Float64Array, g: number, pins: Map<number,number> = new Map()): void {
+  if (pins.size) {
+    const lower = new Float64Array(t.length).fill(-Infinity);
+    for(const [i,y] of pins) { lower[i]=y; t[i]=y; }
+    // The greatest lower envelope imposed by fixed foundation elevations.
+    // Raising a road into this envelope before limiting it avoids cutting a
+    // mountain approach below the terrace it is meant to reach.
+    for(let i=1;i<t.length;i++)lower[i]=Math.max(lower[i],lower[i-1]-g*(s[i]-s[i-1]));
+    for(let i=t.length-2;i>=0;i--)lower[i]=Math.max(lower[i],lower[i+1]-g*(s[i+1]-s[i]));
+    for(const [i,y] of pins)if(lower[i]>y+1e-7)throw new Error('园路相邻固定台地标高无法满足限坡，须修改路线或台地');
+    for(let i=0;i<t.length;i++)t[i]=Math.max(t[i],lower[i]);
+  }
   for (let i = 1; i < t.length; i++) {
     const d = g * (s[i] - s[i - 1]);
     t[i] = clamp(t[i], t[i - 1] - d, t[i - 1] + d);
@@ -306,17 +332,25 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     };
   });
 
-  interface Pad extends Poly2 { elev: number }
+  interface Pad extends Poly2 { elev: number; explicit: boolean; feather: number }
   const pads: Pad[] = plan.regions
-    .filter((r) => r.buildings && r.buildings.length > 0)
-    .map((r) => ({ ...makePoly(r.polygon), elev: r.elevation_m }));
+    .flatMap((r) => [
+      ...(r.grading !== 'pads' && r.buildings?.length
+        ? [{ ...makePoly(r.polygon), elev:r.elevation_m, explicit:false, feather:PAD_FEATHER }] : []),
+      ...(r.pads ?? []).filter(p => p.kind === 'grade').map(p =>
+        ({...makePoly(p.polygon),elev:p.elevation_m,explicit:true,feather:p.feather_m ?? PAD_FEATHER})),
+    ]);
 
   const indexed = opts.spatialIndex !== false;
   const hillIndex = new BoundsIndex<Hill>(32);
   const padIndex = new BoundsIndex<Pad>(32);
   const waterIndex = new BoundsIndex<Water>(32);
+  const foundationIndex = new BoundsIndex<Pad>(32);
   for (const h of hills) hillIndex.add(h, h, HILL_WARP);
-  for (const p of pads) padIndex.add(p, p, PAD_APRON + 0.8);
+  for (const p of pads) {
+    padIndex.add(p,p,p.explicit ? p.feather : PAD_APRON + .8);
+    if (p.explicit) foundationIndex.add(p,p,p.feather);
+  }
   // The same index serves excavation and the 3.5m surface wet band.
   for (const w of waters) waterIndex.add(w, w, Math.max(3.5, w.feather + w.warpA + w.warpB + 0.1));
 
@@ -339,6 +373,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
   }
 
   function padMask(x: number, z: number, p: Pad): number {
+    if (p.explicit) return inBBox(x,z,p,p.feather) ? smoothstep(p.feather,0,signedDist(x,z,p)) : 0;
     if (!inBBox(x, z, p, PAD_FEATHER + 0.8)) return 0;
     const [wx, wz] = warp2(x, z, 0.6, 0.08, 0.2, 0.3);
     const d = signedDist(wx, wz, p);
@@ -347,6 +382,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
   }
 
   function apronMask(x: number, z: number, p: Pad): number {
+    if (p.explicit) return padMask(x,z,p);
     if (!inBBox(x, z, p, PAD_APRON + 0.8)) return 0;
     const [wx, wz] = warp2(x, z, 0.6, 0.08, 0.2, 0.3);
     const d = signedDist(wx, wz, p);
@@ -393,7 +429,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       // 缓坡裙先把地基带向台基标高，核心再压死平。
       const apron = apronMask(x, z, pad);
       if (apron > 0.001) h = lerp(h, pad.elev, apron * PAD_APRON_STRENGTH);
-      const m = padMask(x, z, pad) * (1 - smoothstep(0.25, 0.55, hillSum));
+      const m = padMask(x, z, pad) * (pad.explicit ? 1 : 1 - smoothstep(0.25, 0.55, hillSum));
       if (m > 0.001) h = lerp(h, pad.elev, m);
     }
 
@@ -418,6 +454,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     maxZ: number;
     segments: BoundsIndex<number>;
     segmentIds: number[];
+    pins: Map<number,number>;
   }
 
   const PATH_QUERY_MARGIN = PATH_HALF_WIDTH + PATH_FEATHER + 1.5;
@@ -425,9 +462,13 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     const dense = resamplePath(p.points, 8);
     const t = new Float64Array(dense.xs.length);
     for (let i = 0; i < t.length; i++) t[i] = naturalHeight(dense.xs[i], dense.zs[i]);
-    gradeLimit(t, dense.s, PATH_GRADE);
+    const pins = new Map<number,number>();
+    for(let i=0;i<t.length;i++) for(const pad of foundationIndex.query(dense.xs[i],dense.zs[i])) {
+      if(signedDist(dense.xs[i],dense.zs[i],pad)<=0) pins.set(i,pad.elev);
+    }
+    gradeLimit(t, dense.s, PATH_GRADE, pins);
     smoothProfile(t);
-    gradeLimit(t, dense.s, PATH_GRADE);
+    gradeLimit(t, dense.s, PATH_GRADE, pins);
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (let i = 0; i < dense.xs.length; i++) {
       const x = dense.xs[i], z = dense.zs[i];
@@ -445,7 +486,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
         minZ: Math.min(dense.zs[i], dense.zs[i+1]), maxZ: Math.max(dense.zs[i], dense.zs[i+1]),
       }, i, PATH_QUERY_MARGIN);
     }
-    return { ...dense, t, minX, maxX, minZ, maxZ, segments, segmentIds };
+    return { ...dense, t, minX, maxX, minZ, maxZ, segments, segmentIds, pins };
   });
   // Most splat texels are nowhere near a road. Reject them before evaluating
   // ten octaves of domain warp; padding includes the maximum 0.47m warp.
@@ -518,7 +559,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
         mean /= members.length;
         for (const m of members) pathProfiles[m.path].t[m.i] = mean;
       }
-      for (const p of pathProfiles) gradeLimit(p.t, p.s, PATH_GRADE);
+      for (const p of pathProfiles) gradeLimit(p.t, p.s, PATH_GRADE, p.pins);
     }
     // 最后一轮对齐后不再限坡，让路口严格同高；残余坡度变化已在收敛后微乎其微。
     for (const members of clusters.values()) {
@@ -591,6 +632,16 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       h = lerp(h, path.t, path.w);
       // 百年脚步在路心踩出的几厘米微槽。
       h -= path.w * 0.04;
+    }
+    // Road rutting and hill preservation must not tilt an explicitly authored
+    // foundation. Water still wins outside the dry pad core: feathering is not
+    // permission to fill an adjacent creek or a sluice channel.
+    const foundations = indexed ? foundationIndex.query(x,z) : pads.filter(p=>p.explicit);
+    if (foundations.length && !(indexed ? waterIndex.query(x,z) : waters).some(w=>waterMask(x,z,w)>.001)) {
+      for (const p of foundations) {
+        const w = padMask(x,z,p);
+        if (w>.001) h=lerp(h,p.elev,w);
+      }
     }
     return h;
   }
