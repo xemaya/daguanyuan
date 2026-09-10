@@ -5,7 +5,7 @@
 这一层回答一个问题:**大观园到底长什么样,凭什么这么画。**
 
 做法是"取证 → 判决 → 落图"三段:三路取证(诸家复原方案 / 原文空间证据 / 尺度水系规模)各自带独立核验,
-刻意**不下判断**、冲突并列存档;`04-conflicts.md` 一次裁完;裁决联立后落成机读的 `garden.plan.json`,
+刻意**不下判断**、冲突并列存档;`04-conflicts.md` 一次裁完;裁决联立后落成机读的 `projects/daguanyuan/plan.json`,
 再由生成器渲成可审的 `plan.svg`。下游(`scenes/<区域>.json` → 装配器 → `src/`)只读 JSON 与 04 篇速查表。
 
 状态定义(与 `docs/fashi/` 同口径):**通过** = `refuted=false` 且 `severity=ok/unverifiable`;
@@ -20,7 +20,7 @@
 | [02-evidence.md](02-evidence.md) | 原文空间证据 70 条:回目、逐字引文、URL、推断、可入模型的空间关系、核验状态;含十七回游线节点表与十八回舟行 | 加新景点、改邻接关系时必查 |
 | [03-scale.md](03-scale.md) | 尺度(三里半的读法与换算)、水系(五段走向、闸、港洞、三级水面)、山、27 处景点规模形制表 | 定画布、定水宽山高、定单体体量 |
 | [04-conflicts.md](04-conflicts.md) | **判决书**:28 条冲突(原文内部 13 + 诸家分歧 15)逐条给唯一裁决、依据级别与代价;§三速查表、§四平面拓扑、七条不可违约束 | **下游只读这篇** |
-| [garden.plan.json](garden.plan.json) | 声明式平面**真源**(机读):canvas / wall / gates / water / hills / paths / regions / route_ch17 / conflicts | 装配器、harness |
+| [plan.json](../../../projects/daguanyuan/plan.json) | 声明式平面**真源**(机读):canvas / wall / gates / water / hills / paths / regions / route_ch17 / conflicts | 装配器、harness |
 | [plan.svg](plan.svg) | 可审平面图,`make-plan.py` 由 JSON 直出;**勿手改** | 人审、贴文档 |
 | [make-plan.py](make-plan.py) | 生成器:纯手写 SVG,不引外部资源(无脚本、无图片、无外链字体),中文走 `font-family="serif"` | 改图样式时改这里,再重跑 |
 
@@ -48,7 +48,7 @@
 无"悬而不裁"条目。2 条只到推测级(C-06 大山身份、S-07 出水口方位),1 条声明为可调参数(C-07 尺度),
 3 条裁决带已知代价(C-03 舍二十三回"花瓣流出沁芳闸"的字面、C-04 舍七十四回"村坞紧邻"、S-09 舍七十四回抄检末段的横穿)。
 
-### 落图后的实测(由 `garden.plan.json` 几何直接算出)
+### 落图后的实测(由 `projects/daguanyuan/plan.json` 几何直接算出)
 
 | 量 | 值 | 对照 |
 |---|---|---|
@@ -104,6 +104,6 @@
 
 1. 修 6 / 7 / 8 三处几何 → 重跑 `make-plan.py` → 复核图上实测数字。
 2. 把七条不可违约束落成 harness 断言(约束 6「至正殿 50–62%」已可自动量,当前 51.3% 通过;其余六条需要装配后的场景才能测)。
-3. `garden.plan.json` → `scenes/<区域>.json`:按 tier 分三档细度(A 全法式推导、B 院落级、C 点景级),装配器按区域读。
+3. `projects/daguanyuan/plan.json` → `scenes/<区域>.json`:按 tier 分三档细度(A 全法式推导、B 院落级、C 点景级),装配器按区域读。
 4. 建设次序按游线推进(ROADMAP §2):潇湘馆(有雏形)→ 稻香村 → 蘅芜苑 → 省亲别墅/大观楼 → 怡红院,每加一区游线延长一段,随时可试玩。
 5. 规模基建(ROADMAP §1.5)与分区建设交错:地形分块流式装载、远景 LOD、构件真实例化、阴影随玩家滚动——500×500 m 是当前预算的 25 倍面积,不做这层后面每一区都会被拖垮。

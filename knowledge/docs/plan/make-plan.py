@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""garden.plan.json -> plan.svg (hand-written SVG, no external resources)"""
+"""projects/daguanyuan/plan.json -> plan.svg (hand-written SVG, no external resources)"""
 import json, math, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, 'garden.plan.json')
+SRC = os.path.join(HERE, '..', '..', '..', 'projects', 'daguanyuan', 'plan.json')
 OUT = os.path.join(HERE, 'plan.svg')
 d = json.load(open(SRC, encoding='utf-8'))
 
@@ -65,7 +65,7 @@ e('<rect x="%d" y="%d" width="%d" height="%d" fill="%s"/>' % (VB_X, VB_Y, VB_W, 
 e('<g fill="%s">' % C['ink'])
 e('<text x="-250" y="-352" font-size="26" letter-spacing="3">大观园复原平面图</text>')
 e('<text x="-250" y="-330" font-size="10.5" fill="%s">画布 500 m × 500 m(25 ha)· 上 = 北,下 = 南(svg y = z)· 1 svg 单位 = 1 m</text>' % C['muted'])
-e('<text x="-250" y="-315" font-size="10.5" fill="%s">数据源 docs/plan/garden.plan.json · 裁决源 04-conflicts.md · 取证 01 / 02 / 03 篇</text>' % C['muted'])
+e('<text x="-250" y="-315" font-size="10.5" fill="%s">数据源 projects/daguanyuan/plan.json · 裁决源 04-conflicts.md · 取证 01 / 02 / 03 篇</text>' % C['muted'])
 e('<text x="-250" y="-300" font-size="10" fill="%s">尺度双路会合:三里半周长义 × 营造尺 → 504 m;童力群 372 亩 → 498 m(差 1.2%%),可调 437–564 m</text>' % C['muted'])
 e('</g>')
 
