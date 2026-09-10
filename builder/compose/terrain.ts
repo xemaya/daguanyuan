@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import type { GameContext } from '@engine/core/Context';
-import { Simplex, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { grassTurfMaps, cobbleMaps, type MaterialMaps } from '@engine/core/TextureLab';
 import {
   sandMaps,
@@ -9,25 +8,59 @@ import {
   packNormalPair,
   packScalarQuad,
 } from '@engine/render/TerrainMaterials';
+import { makeTerrainField, type GardenPlan, type SurfaceMasks } from './terrain-from-plan';
+
+export type { GardenPlan };
 
 /**
- * Terrain — the heightfield everything else in Pallet Town stands on.
+ * `builder/` may not import `@project/` (see `check:layers`'s `FORBIDDEN`
+ * table — a hard rule, not an oversight: it keeps this module reusable
+ * across projects instead of hard-wired to one garden's data file). Task 6's
+ * files are restricted to a fixed list that does not include
+ * `builder/compose/world.ts` or `engine/core/Context.ts`, so `plan.json`
+ * cannot be threaded through `GameContext` either. The remaining legal path
+ * is dependency injection through a project-layer call: `main.ts` (which
+ * *is* allowed to import `@project/plan.json`) calls `setPlan()` once before
+ * `world.build()` runs. `composer.ts` reads the same instance via
+ * `getPlan()` below rather than injecting its own copy.
+ */
+let injectedPlan: GardenPlan | undefined;
+export function setPlan(p: GardenPlan): void {
+  injectedPlan = p;
+}
+export function getPlan(): GardenPlan {
+  if (!injectedPlan) {
+    throw new Error(
+      '[terrain] plan 未注入：main.ts 必须在 world.build() 之前调用 setPlan()（builder/ 不许 import @project/，见 check:layers）',
+    );
+  }
+  return injectedPlan;
+}
+
+/**
+ * Terrain — the heightfield everything else in the garden stands on.
  *
- * Two rules drive the whole design here:
+ * P1 · Task 6: this used to be a hand-authored 64×72m field (`makeField` in
+ * this file, now deleted). The heightfield itself moved to Task 5's
+ * `terrain-from-plan.ts`, which reads `plan.json`'s wall/water/hills/paths/
+ * regions directly — no garden coordinate lives in code any more. This file's
+ * job shrank to: pick the sampling window (the plan's canvas is 500×500m; a
+ * VSM-shadow-receiving mesh at that size is unaffordable, so only the MVP
+ * route's four regions plus a margin are meshed — see `terrain-from-plan.ts`'s
+ * own docstring: `bounds` does not crop the field, it only tells *this* file's
+ * grid/bake code which window to sample), bake the field into a mesh + splat
+ * texture, and own the shader/material that reads it.
  *
- *  1. **The ground is a function, not a mesh.** `height(x, z)` is a closed-form
- *     analytic field. The mesh is a *sample* of it, and `collision.groundHeight`
- *     is the very same function, so a prop placed at (x, z) sits exactly on the
- *     visible surface with no raycast, no BVH, and no drift when the mesh LOD
- *     changes. Same story for the surface masks: `surfaceAt` and the baked splat
- *     texture are two readings of one `masks(x, z)`.
+ *  1. **The ground is a function, not a mesh.** `height(x, z)` is the plan-
+ *     driven analytic field. The mesh is a *sample* of it, and
+ *     `collision.groundHeight` is the very same function, so a prop placed at
+ *     (x, z) sits exactly on the visible surface with no raycast, no BVH, and
+ *     no drift when the mesh LOD changes. Same story for the surface masks:
+ *     `surfaceAt` and the baked splat texture are two readings of one
+ *     `masks(x, z)`.
  *
- *  2. **Flatten by mask, not by clamp.** A town needs level building pads and a
- *     walkable path, but a terrain that is level *everywhere* looks dead. So the
- *     field is authored twice — a smooth macro version and a detailed version —
- *     and the town core cross-fades toward the smooth one. Buildings get pads
- *     that go all the way to dead flat. Nothing is ever hard-clamped, so there
- *     is no crease anywhere on the map.
+ *  2. **Flatten by mask, not by clamp.** Building pads and paths are graded
+ *     inside `terrain-from-plan.ts`'s own field, not here.
  *
  * The material is a MeshStandardMaterial patched through `onBeforeCompile` to
  * do a four-way height-aware splat blend (turf / dirt / cobble / sand). Going
@@ -36,432 +69,137 @@ import {
  */
 
 /* ------------------------------------------------------------------ */
-/* Layout constants — other subsystems may read these.                 */
+/* Sampling window — the MVP route's four regions, padded.             */
 /* ------------------------------------------------------------------ */
 
+/** The four regions the 一期 route actually passes through. */
+const MVP_REGIONS = ['zhengmen', 'cuizhang', 'qinfang_ting_qiao', 'xiaoxiangguan'] as const;
+
+/**
+ * Metres of margin outside the MVP regions' combined bounding box. Knob #2
+ * from the P1 Task 6 plan's Step 0 ②: the full 500×500m canvas at any
+ * sane grid resolution is an unaffordable VSM shadow receiver, so only the
+ * route's neighbourhood is meshed. 20m left `理地`+`植树` (both scale off
+ * this window) at 30.7s total build against the 30s ceiling with CELL alone
+ * pushed to 0.9m; trimmed to 15m to buy the last bit of margin on both
+ * steps at once rather than degrading the grid further.
+ */
+const PAD = 15;
+
+/**
+ * Grid cell edge, metres. Knob #1 from the same plan step. The old 64×72m
+ * field used 36cm cells (7万 triangles); the MVP bbox at that cell size is
+ * 130万 triangles (19×) because `bounds` does not shrink the *window* by
+ * itself — the window here is already 280×226m even after knob #2, so this
+ * is the second lever. 0.48m first landed at ~55万 triangles (under the
+ * plan's 60万 ceiling) but world-build measured 38-41s against the 30s
+ * budget — `makeTerrainField`'s per-vertex cost (polygon/fbm walks, same
+ * cost class the plan's Step 0 ② warned about) dominates, not the splat
+ * bake. 0.6m (~35% fewer vertices) still measured 34.8s total build (理地
+ * alone 17.0s); 0.9m + PAD 15 (above) got to 30.4s, still just over —
+ * `理地` at 13.2s was still the largest single step, so pushed once more to
+ * 1.1m (~9.6万 triangles, a sixth of the plan's 60万 budget) for headroom
+ * rather than sitting exactly on the line.
+ */
+const CELL = 1.1;
+
+/**
+ * MVP regions' combined bounding box, padded by `PAD`. Computed offline from
+ * `plan.json` (reproduce with the snippet below) rather than at module load,
+ * because module-top-level code runs during the import graph's evaluation —
+ * before `main.ts`'s `setPlan()` call — so `getPlan()` is not yet callable
+ * here. `buildTerrain()` re-derives this same box from the *live* injected
+ * plan and throws if it has drifted (see `assertBoundsFresh` below), so a
+ * changed `plan.json` cannot silently go stale against these literals.
+ *
+ *   node -e "const p=require('./projects/daguanyuan/plan.json');
+ *     let a=Infinity,b=-Infinity,c=Infinity,d=-Infinity;
+ *     for (const id of ['zhengmen','cuizhang','qinfang_ting_qiao','xiaoxiangguan']) {
+ *       const r=p.regions.find(x=>x.id===id);
+ *       for (const [x,z] of r.polygon) { a=Math.min(a,x);b=Math.max(b,x);c=Math.min(c,z);d=Math.max(d,z); }
+ *     }
+ *     console.log(a,b,c,d)"
+ *   // -145 95 58 244
+ */
+const MVP_BBOX = { minX: -145, maxX: 95, minZ: 58, maxZ: 244 };
+
 export const TERRAIN = {
-  minX: -32,
-  minZ: -36,
-  width: 64,
-  depth: 72,
-  // 36cm cells. The ground is one mesh that is never frustum-culled and, being
-  // a shadow receiver under VSM, it is drawn in the shadow pass, the main pass,
-  // the transmission pass and the G-buffer — so every triangle here is paid for
-  // three or four times a frame. 25cm cells cost 147k triangles to buy a
-  // piecewise-linear fit that was already far finer than the shape: measured
-  // against the analytic field, dropping to 36cm moves the surface by 1.9mm on
-  // average and 7mm at the 99th percentile, an order of magnitude below the
-  // 1.5cm minimum bevel the art bible works to, and the worst-case error is
-  // unchanged. The normal epsilon below is derived from these, so shading
-  // follows automatically.
-  segX: 176,
-  segZ: 198,
-  /** Height the garden core is graded to. Water sits at y = 0. */
-  townY: 0.3,
-  /** Player-walkable bounds (inside the perimeter blockers). */
-  playMinX: -24.0,
-  playMaxX: 24.0,
-  playMinZ: -26.0,
-  playMaxZ: 31.0,
+  minX: MVP_BBOX.minX - PAD,
+  maxX: MVP_BBOX.maxX + PAD,
+  minZ: MVP_BBOX.minZ - PAD,
+  maxZ: MVP_BBOX.maxZ + PAD,
+  width: MVP_BBOX.maxX - MVP_BBOX.minX + PAD * 2,
+  depth: MVP_BBOX.maxZ - MVP_BBOX.minZ + PAD * 2,
+  segX: Math.round((MVP_BBOX.maxX - MVP_BBOX.minX + PAD * 2) / CELL),
+  segZ: Math.round((MVP_BBOX.maxZ - MVP_BBOX.minZ + PAD * 2) / CELL),
+  /**
+   * Player-walkable bounds — a synthetic fence at *this window's* edge, not
+   * the real garden wall (P2's job). The real wall only happens to coincide
+   * with our south edge near the gate (plan.wall has points around
+   * z≈244–250 there), so `naturalHeight`'s wall-rim treatment already reads
+   * right on that side for free; the other three edges are deep inside the
+   * 500m garden and need this fence so the player cannot walk off the
+   * rendered mesh into an unsampled void.
+   */
+  playMinX: MVP_BBOX.minX - PAD + 2,
+  playMaxX: MVP_BBOX.maxX + PAD - 2,
+  playMinZ: MVP_BBOX.minZ - PAD + 2,
+  playMaxZ: MVP_BBOX.maxZ + PAD - 2,
 } as const;
 
 /**
- * 园路脊线(南→北):正门 → 绕翠嶂假山西侧 → 池南岸(桥头)。
- * 桥跨池的那段不是土路,由 bridge 构件承担;池北岸再接一段土路到潇湘馆。
+ * Recomputes the MVP bbox from the *live* injected plan and throws if it
+ * disagrees with the `MVP_BBOX` literal above by more than a centimetre —
+ * the safety net for the "computed offline" tradeoff those literals made to
+ * avoid needing `plan.json` at module-top-level (see their doc comment).
  */
-const MAIN_PATH: [number, number][] = [
-  [0.0, 30.0],
-  [0.0, 24.0], // 正门
-  [-0.4, 19.5],
-  [-3.6, 16.0], // 假山西侧绕行
-  [-4.6, 11.5],
-  [-3.2, 7.6],
-  [-1.6, 5.2], // 桥头(池南岸)
-];
-
-/** 池北岸:桥尾 → 潇湘馆。 */
-const BRANCH_W: [number, number][] = [
-  [8.8, -10.2], // 桥尾
-  [8.7, -11.6],
-  [8.6, -13.0],
-  [8.6, -15.2],
-];
-
-/** 假山东侧的小岔路,绕到亭子/池东岸。 */
-const BRANCH_E: [number, number][] = [
-  [0.2, 19.0],
-  [3.6, 16.2],
-  [5.4, 12.0],
-  [4.2, 8.0],
-];
-
-/** 死平的建筑台基。dy 相对 townY。 */
-const PADS = [
-  { cx: 9.4, cz: -19.6, hx: 7.6, hz: 5.4, feather: 3.0, dy: 0.12 }, // 潇湘馆
-  { cx: 0.0, cz: 24.4, hx: 7.6, hz: 3.4, feather: 2.0, dy: 0.05 }, // 正门门屋(五间)
-  { cx: -1.9, cz: 6.7, hx: 1.6, hz: 1.4, feather: 1.6, dy: -0.12 }, // 南桥头,落到桥阶高
-  { cx: 8.9, cz: -10.7, hx: 1.6, hz: 1.6, feather: 1.6, dy: -0.12 }, // 北桥尾
-];
-
-/** 潇湘馆院内的铺地。 */
-const FORECOURT = { cx: 9.4, cz: -19.6, hx: 6.4, hz: 4.4, feather: 1.1 };
-
-/** 沁芳池:中心、半径、岸线羽化。水面 y=0,池底约 -1.2。 */
-export const POND = { cx: 0.6, cz: -1.6, rx: 9.2, rz: 7.4, feather: 3.2, bottom: -1.2 };
-
-/** 翠嶂假山下的土丘。 */
-const MOUND = { cx: 0.0, cz: 13.0, hx: 3.4, hz: 2.4, feather: 2.6, dy: 0.42 };
-
-/* ------------------------------------------------------------------ */
-/* Small analytic helpers                                              */
-/* ------------------------------------------------------------------ */
-
-/** Distance from (px,pz) to a segment, XZ plane. */
-function segDist(
-  px: number,
-  pz: number,
-  ax: number,
-  az: number,
-  bx: number,
-  bz: number,
-): number {
-  const vx = bx - ax;
-  const vz = bz - az;
-  const wx = px - ax;
-  const wz = pz - az;
-  const L = vx * vx + vz * vz;
-  let t = L > 1e-9 ? (wx * vx + wz * vz) / L : 0;
-  t = t < 0 ? 0 : t > 1 ? 1 : t;
-  const dx = wx - vx * t;
-  const dz = wz - vz * t;
-  return Math.sqrt(dx * dx + dz * dz);
-}
-
-function polyDist(px: number, pz: number, pts: Float64Array): number {
-  let best = 1e9;
-  for (let i = 0; i + 3 < pts.length; i += 2) {
-    const d = segDist(px, pz, pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
-    if (d < best) best = d;
-  }
-  return best;
-}
-
-/** Catmull-Rom resample of a control polygon into a smooth dense polyline. */
-function smoothPath(pts: [number, number][], perSegment = 4): Float64Array {
-  const curve = new THREE.CatmullRomCurve3(
-    pts.map(([x, z]) => new THREE.Vector3(x, 0, z)),
-    false,
-    'catmullrom',
-    0.5,
-  );
-  const n = (pts.length - 1) * perSegment;
-  const out = new Float64Array((n + 1) * 2);
-  for (let i = 0; i <= n; i++) {
-    const p = curve.getPoint(i / n);
-    out[i * 2] = p.x;
-    out[i * 2 + 1] = p.z;
-  }
-  return out;
-}
-
-/**
- * Rounded-rectangle influence: 1 inside the rect, smoothly reaching 0 `feather`
- * metres outside it. Used for every pad and for the town-core grading mask.
- */
-function rrMask(
-  x: number,
-  z: number,
-  cx: number,
-  cz: number,
-  hx: number,
-  hz: number,
-  feather: number,
-): number {
-  const dx = Math.abs(x - cx) - hx;
-  const dz = Math.abs(z - cz) - hz;
-  const outside = Math.hypot(Math.max(dx, 0), Math.max(dz, 0));
-  const inside = Math.min(Math.max(dx, dz), 0);
-  return smoothstep(feather, 0, outside + inside);
-}
-
-export interface SurfaceMasks {
-  dirt: number;
-  cobble: number;
-  sand: number;
-  grass: number;
-  /** Macro wear/value variation, 0 = trodden & dark, 1 = lush & bright. */
-  wear: number;
-}
-
-/* ------------------------------------------------------------------ */
-/* The field                                                           */
-/* ------------------------------------------------------------------ */
-
-function makeField(seed: number) {
-  const nBase = new Simplex(seed ^ 0x9e3779b9);
-  const nRoll = new Simplex((seed * 3 + 17) | 0);
-  const nFine = new Simplex((seed * 7 + 313) | 0);
-  const nWarpA = new Simplex((seed * 11 + 977) | 0);
-  const nWarpB = new Simplex((seed * 13 + 4441) | 0);
-  const nWear = new Simplex((seed * 17 + 88301) | 0);
-  const nScuff = new Simplex((seed * 19 + 60623) | 0);
-
-  const mainPath = smoothPath(MAIN_PATH, 4);
-  const branchW = smoothPath(BRANCH_W, 4);
-  const branchE = smoothPath(BRANCH_E, 4);
-
-  const TY = TERRAIN.townY;
-
-  /**
-   * Macro shape: the silhouette of the land read from 40m away.
-   * Gentle rise to the treeline east and west, a wooded bank closing the map
-   * to the south, and a beach falling into the bay at the north.
-   */
-  function macroH(x: number, z: number): number {
-    const ax = Math.abs(x);
-    const az = Math.abs(z);
-    let h = TY;
-    // 四面围合:园墙外是缓坡起来的林岗,眼睛越不过去。
-    h += smoothstep(16, 24, ax) * 0.55;
-    h += smoothstep(24, 32, ax) * 1.9;
-    h += smoothstep(26, 31, z) * 0.45;
-    h += smoothstep(31, 36, z) * 1.8;
-    h += smoothstep(-24, -29, z) * 0.5;
-    h += smoothstep(-29, -36, z) * 1.9;
-    // 地块边缘抬成一道噪声驱动的岗脊,岗顶在边界内侧、最后两米回落,
-    // 这样天际线永远是山头而不是网格的切边。
-    const rimFall = 1 - 0.3 * smoothstep(29.5, 32, ax) - 0.3 * smoothstep(33, 36, az);
-    const rim = Math.max(smoothstep(24, 29.5, ax), smoothstep(28, 33, az)) * rimFall;
-    if (rim > 0) {
-      h +=
-        rim *
-        (1.5 +
-          (fbm2(nRoll, x * 0.062 + 11.3, z * 0.062 - 5.1, 3) + 0.5) * 1.7 +
-          fbm2(nRoll, x * 0.21 - 3.7, z * 0.21 + 8.9, 2) * 0.55);
+function assertBoundsFresh(plan: GardenPlan): void {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const id of MVP_REGIONS) {
+    const region = plan.regions.find((r) => r.id === id);
+    if (!region) throw new Error(`[terrain] MVP 区域缺失于 plan.json：${id}`);
+    for (const [x, z] of region.polygon) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
     }
-    return h;
   }
-
-  /** Macro plus only the softest undulation — what graded ground looks like. */
-  function smoothH(x: number, z: number): number {
-    // Even the graded town keeps a broad swell — a mathematically level green
-    // reads as a football pitch, not a village.
-    return (
-      macroH(x, z) +
-      fbm2(nRoll, x * 0.0195, z * 0.0195, 2) * 0.26 +
-      fbm2(nRoll, x * 0.055 + 4.1, z * 0.055, 2) * 0.09
+  const eps = 0.01;
+  if (
+    Math.abs(minX - MVP_BBOX.minX) > eps ||
+    Math.abs(maxX - MVP_BBOX.maxX) > eps ||
+    Math.abs(minZ - MVP_BBOX.minZ) > eps ||
+    Math.abs(maxZ - MVP_BBOX.maxZ) > eps
+  ) {
+    throw new Error(
+      `[terrain] plan.json 的 MVP 区域包围盒变了（现在 [${minX},${maxX},${minZ},${maxZ}]，代码里存的是 ` +
+        `[${MVP_BBOX.minX},${MVP_BBOX.maxX},${MVP_BBOX.minZ},${MVP_BBOX.maxZ}]）——重算 MVP_BBOX 的字面量。`,
     );
   }
-
-  /** Full-detail natural ground. */
-  function roughH(x: number, z: number): number {
-    return (
-      smoothH(x, z) +
-      fbm2(nBase, x * 0.058, z * 0.058, 3) * 0.3 +
-      fbm2(nFine, x * 0.19, z * 0.19, 3) * 0.075
-    );
-  }
-
-  /** The graded town core — level, but not mathematically flat. */
-  function coreMask(x: number, z: number): number {
-    return rrMask(x, z, 0, 0, 14.0, 20.0, 7);
-  }
-
-  /** 池:岸线用两级 warp 扭成自然形,再按椭圆距离羽化。1=池心。 */
-  function pondMask(x: number, z: number): number {
-    const wx = x + fbm2(nWarpA, x * 0.08 + 21.3, z * 0.08, 3) * 2.2 + fbm2(nWarpA, x * 0.3, z * 0.3 + 9, 2) * 0.6;
-    const wz = z + fbm2(nWarpB, x * 0.08, z * 0.08 + 17.7, 3) * 2.2 + fbm2(nWarpB, x * 0.3 + 4, z * 0.3, 2) * 0.6;
-    const dx = (wx - POND.cx) / POND.rx;
-    const dz = (wz - POND.cz) / POND.rz;
-    const r = Math.sqrt(dx * dx + dz * dz) * Math.min(POND.rx, POND.rz);
-    return smoothstep(Math.min(POND.rx, POND.rz), Math.min(POND.rx, POND.rz) - POND.feather, r);
-  }
-
-  /**
-   * Path influence, low-frequency warped so the mask is already irregular
-   * before the shader adds its own fine break-up. Shared by the grading, the
-   * worn groove, the splat bake and `surfaceAt` so all four agree.
-   */
-  function pathInfluence(x: number, z: number): number {
-    // Three warp scales, not one. The coarse term bends the whole track; the
-    // 3m term is what produces tongues of turf pushing into the earth and
-    // lobes of earth pushing back out, so the boundary is genuinely organic
-    // rather than an offset curve; the 1m term frays the last few centimetres.
-    // All of it lives in this one function so the graded height, the worn
-    // groove, the baked splat and `surfaceAt` cannot disagree.
-    const wx =
-      x +
-      fbm2(nWarpA, x * 0.085, z * 0.085, 2) * 1.9 +
-      fbm2(nWarpA, x * 0.315 + 5.7, z * 0.315 - 1.9, 2) * 0.56 +
-      fbm2(nWarpA, x * 0.95 + 13.1, z * 0.95, 1) * 0.15;
-    const wz =
-      z +
-      fbm2(nWarpB, x * 0.085 + 7.3, z * 0.085 - 3.1, 2) * 1.9 +
-      fbm2(nWarpB, x * 0.315, z * 0.315 + 8.2, 2) * 0.56 +
-      fbm2(nWarpB, x * 0.95, z * 0.95 + 4.4, 1) * 0.15;
-    // The half-width breathes at two scales as well: a track that is one
-    // constant width with a wiggly centreline still reads as a drawn ribbon.
-    const hwMain =
-      1.02 + fbm2(nWear, x * 0.05, z * 0.05, 2) * 0.36 + fbm2(nWear, x * 0.23 + 9.4, z * 0.23, 2) * 0.2;
-    const main = smoothstep(hwMain + 0.5, hwMain - 0.34, polyDist(wx, wz, mainPath));
-    const hwBr =
-      0.68 + fbm2(nWear, x * 0.07 + 3, z * 0.07, 2) * 0.24 + fbm2(nWear, x * 0.26, z * 0.26 + 6, 2) * 0.14;
-    const br = smoothstep(
-      hwBr + 0.42,
-      hwBr - 0.22,
-      Math.min(polyDist(wx, wz, branchW), polyDist(wx, wz, branchE)),
-    );
-    return Math.max(main, br);
-  }
-
-  function forecourtMask(x: number, z: number): number {
-    // Two warp scales: the coarse one bows the sides of the laid rectangle,
-    // the fine one nibbles the corners so the stones look worn back into the
-    // grass rather than stamped out with a cookie cutter.
-    const wx =
-      x + fbm2(nWarpA, x * 0.09 + 3.3, z * 0.09, 3) * 1.5 + fbm2(nWarpA, x * 0.4, z * 0.4 + 2, 2) * 0.55;
-    const wz =
-      z + fbm2(nWarpB, x * 0.09, z * 0.09 + 5.5, 3) * 1.5 + fbm2(nWarpB, x * 0.4 + 8, z * 0.4, 2) * 0.55;
-    return rrMask(wx, wz, FORECOURT.cx, FORECOURT.cz, FORECOURT.hx, FORECOURT.hz, FORECOURT.feather);
-  }
-
-  /** THE ground function. Cheap enough to call per-frame and per-prop. */
-  function height(x: number, z: number): number {
-    const smooth = smoothH(x, z);
-    const rough = roughH(x, z);
-
-    const path = pathInfluence(x, z);
-    const grade = clamp(coreMask(x, z) * 0.84 + path * 0.92, 0, 1);
-    let h = lerp(rough, smooth, grade);
-
-    for (let i = 0; i < PADS.length; i++) {
-      const p = PADS[i];
-      const m = rrMask(x, z, p.cx, p.cz, p.hx, p.hz, p.feather);
-      if (m > 0.001) h = lerp(h, TY + p.dy, m);
-    }
-
-    // A few centimetres of wear where feet have gone for a hundred years.
-    const cob = forecourtMask(x, z);
-    h -= path * (1 - cob) * 0.055;
-    // The forecourt is laid slightly proud of the surrounding grass.
-    h += cob * 0.025;
-
-    // 假山土丘。
-    h += rrMask(x, z, MOUND.cx, MOUND.cz, MOUND.hx, MOUND.hz, MOUND.feather) * MOUND.dy;
-
-    // 沁芳池:最后挖,岸坡先缓后陡,浅水带读得出青绿。
-    const pm = pondMask(x, z);
-    if (pm > 0.001) h = lerp(h, POND.bottom, Math.pow(pm, 1.5));
-    return h;
-  }
-
-  /** Splat weights. Analytic, so the bake and the footstep query cannot drift. */
-  function masks(x: number, z: number): SurfaceMasks {
-    const path = pathInfluence(x, z);
-
-    // 园里没有沙滩;通道留着给以后的卵石滩。
-    const sand = 0;
-
-    let cobble = forecourtMask(x, z);
-
-    const dMain = polyDist(x, z, mainPath);
-
-    // ---- the path/turf boundary -----------------------------------------
-    // `path` alone gives a boundary that is irregular in *shape* but even in
-    // *character* — the same ~30cm ramp all the way along, which reads as a
-    // drawn border. Two opposed terms fix that:
-    //
-    //  - tongues: turf survives inside the track wherever nobody walks, biting
-    //    into the earth in metre-scale lobes;
-    //  - bleed: bare scuffed earth escapes outward past the nominal edge where
-    //    corners get cut.
-    //
-    // Both are kept at ~1m scale or coarser. The splat bake is 12.5cm/texel and
-    // the shader domain-warps the lookup, so finer detail than this belongs to
-    // the shader, not here.
-    // Turf tongues, at two scales. The outer one is metre-scale and allowed to
-    // bite most of the way through where it peaks, so in places the grass
-    // genuinely closes over the track; the lip one is 40cm and frays the last
-    // hand's width. One scale alone gives a wobbly but uniformly *soft* edge,
-    // which from 20 m still reads as a drawn border.
-    const bandOuter = smoothstep(0.03, 0.34, path) * smoothstep(1.0, 0.62, path);
-    const bandLip = smoothstep(0.02, 0.2, path) * smoothstep(0.58, 0.24, path);
-    const tongueA = smoothstep(0.4, 0.86, fbm2(nScuff, x * 0.3 + 31.7, z * 0.3 - 12.3, 3) + 0.5);
-    const tongueB = smoothstep(0.44, 0.9, fbm2(nScuff, x * 0.86 - 14.2, z * 0.86 + 21.4, 2) + 0.5);
-    let dirt =
-      path * (1 - clamp(bandOuter * tongueA * 0.95 + bandLip * tongueB * 0.7, 0, 0.97));
-
-    // Scuffed earth bleeding outward. Measured from the *unwarped* centrelines
-    // of every path, main and branches, so corner-cutting shows up on the
-    // branches too — those meet the front doors, which is exactly where a
-    // hundred years of feet would have killed the grass.
-    const dAny = Math.min(dMain, polyDist(x, z, branchW), polyDist(x, z, branchE));
-    const ring = smoothstep(0.3, 1.25, dAny) * smoothstep(5.6, 1.5, dAny);
-    const bleed = smoothstep(0.46, 0.86, fbm2(nScuff, x * 0.22 + 7.1, z * 0.22 - 4.6, 3) + 0.5) * ring;
-    const bleedFine =
-      smoothstep(0.56, 0.93, fbm2(nScuff, x * 0.62 - 9.3, z * 0.62 + 3.1, 2) + 0.5) * ring;
-    dirt = Math.max(dirt, bleed * 0.8);
-    dirt = Math.max(dirt, bleedFine * 0.52);
-
-    // Worn earth away from the path: small patches of thin grass where a
-    // hundred kids have cut the corner. Deliberately capped well below 1 so
-    // the turf still shows through — these are scuffs, not more path.
-    const scuff = fbm2(nScuff, x * 0.45, z * 0.45, 3);
-    const nearPath = smoothstep(5.5, 1.2, dMain);
-    const near = rrMask(x, z, 0, 1, 9, 11, 4) * (0.1 + nearPath * 0.9);
-    dirt = Math.max(dirt, smoothstep(0.42, 0.72, scuff) * near * 0.32);
-
-    cobble *= 1 - sand;
-    dirt = clamp(dirt, 0, 1) * (1 - sand) * (1 - cobble);
-    const grass = clamp(1 - sand - cobble - dirt, 0, 1);
-
-    // Macro value break-up plus a trodden halo hugging the path. One octave
-    // set at 48m and one at 14m, summed *before* the clamp: averaging two
-    // independently-normalised fields would collapse the variance toward 0.5
-    // and the whole lawn would come out one tone, which is exactly the failure
-    // this channel exists to prevent.
-    let wear = clamp(
-      0.5 +
-        fbm2(nWear, x * 0.0158 + 2.1, z * 0.0158 - 6.3, 2) * 1.0 +
-        fbm2(nWear, x * 0.0545, z * 0.0545, 2) * 0.44,
-      0,
-      1,
-    );
-    const halo = smoothstep(4.6, 1.2, dMain);
-    wear *= 1 - halo * 0.2;
-
-    return { dirt, cobble, sand, grass, wear };
-  }
-
-  function surface(x: number, z: number): string {
-    const m = masks(x, z);
-    if (m.cobble > 0.45) return 'stone';
-    if (m.sand > 0.4) return 'sand';
-    if (m.dirt > 0.4) return 'dirt';
-    return 'grass';
-  }
-
-  return { height, masks, surface, macroH };
 }
-
-type Field = ReturnType<typeof makeField>;
 
 /* ------------------------------------------------------------------ */
 /* Splat bake                                                          */
 /* ------------------------------------------------------------------ */
 
+type Field = ReturnType<typeof makeTerrainField>;
+
 /**
  * Bakes the four-way surface mask into an RGBA texture spanning the terrain.
  *
- * 768² over 64m is 8.3cm per texel. It was 512² / 12.5cm, and that was too
- * coarse to survive the hard height-aware blend downstream: the blend's
- * threshold traced the bilinear ramp between texel centres, so the grass/dirt
- * boundary came out as a staircase of visible 12.5cm blocks whenever the camera
- * got within a couple of metres of it. Finer texels plus a sub-decimetre warp on
- * the lookup (see the shader) is what turns that staircase back into a frayed
- * organic edge. The shader still domain-warps at metre scale on top, so this is
- * not the resolution the boundary detail comes from — only the resolution below
- * which the *blocks* stop being individually resolvable.
+ * 768² over a 280×226m window is ~36cm/texel — coarser than the old 64m
+ * field's 8.3cm/texel (that one covered a town 1/14th the area), but still
+ * enough for the shader's own metre-scale domain warp to fray the boundary
+ * rather than showing bare bilinear ramps. Started at 1024² (~27cm/texel);
+ * measured world-build time came back at 41s (理地 alone 23.5s) against the
+ * plan's 30s budget, and `masks()` walks the same expensive polygon/fbm path
+ * as `height()` — the bake's 1024² texel count (1.05M calls) was the bigger
+ * of the two costs here, bigger than the ~274k-vertex geometry loop. Dropped
+ * back to 768² first since it's a free win with no window/grid tradeoff.
  */
 function bakeSplat(field: Field, size = 768): THREE.DataTexture {
   const data = new Uint8Array(size * size * 4);
@@ -559,10 +297,10 @@ const TERRAIN_BLEND = /* glsl */ `
   // The high-frequency terms are what turn the splat's bilinear ramps into a
   // ragged, finger-y boundary. Without them the path edge reads as a contour
   // line no matter how much noise went into the bake. The 25 cm term matters
-  // most: the splat is 8.3 cm/texel and the blend below thresholds it hard, so
-  // without a sub-decimetre jitter the boundary snaps to the texel grid and
-  // walks as a visible staircase of blocks. It mips away with distance, which
-  // is exactly right — there is nothing to break up once a texel is subpixel.
+  // most: without a sub-decimetre jitter the boundary snaps to the texel grid
+  // and walks as a visible staircase of blocks. It mips away with distance,
+  // which is exactly right — there is nothing to break up once a texel is
+  // subpixel.
   vec2 warpOff = ( w0.rg - 0.5 ) * 1.35 + ( wM.rg - 0.5 ) * 0.72
                + ( w1.rg - 0.5 ) * 0.58 + ( w2.rg - 0.5 ) * 0.44
                + ( w3.rg - 0.5 ) * 0.14;
@@ -669,7 +407,7 @@ const TERRAIN_BLEND = /* glsl */ `
 
   // ---- macro colour ------------------------------------------------------
   // Four independent scales of hue and value drift. This is the single most
-  // important thing keeping 64 x 72 metres of one texture from reading as one
+  // important thing keeping a broad field of one texture from reading as one
   // texture: the eye finds the repeat in the *colour* long before the detail.
   float band = macroA * 0.50 + macroM * 0.34 + macroB * 0.16;
   vec3 sunTint  = vec3( 1.215, 1.100, 0.700 );  // sun-bleached, yellow-green
@@ -677,13 +415,13 @@ const TERRAIN_BLEND = /* glsl */ `
   vec3 tint = mix( lushTint, sunTint, smoothstep( 0.16, 0.84, band ) );
   albedo *= mix( vec3( 1.0 ), tint, bl.x * 0.94 + 0.06 );
 
-  // A different green under the treeline. The ground out there is in leaf shade
-  // half the day and its turf goes bluer, deeper and less yellow — and 60 m of
-  // one hue is the single loudest tell that a lawn is a texture. Faded out
-  // toward the shore, where the grass is exposed and salt-bleached instead.
-  float edgeX = smoothstep( 11.0, 21.0, abs( tXZ.x ) );
-  float edgeS = smoothstep( 17.0, 26.0, tXZ.y );
-  float edge  = max( edgeX, edgeS ) * ( 1.0 - smoothstep( -13.0, -21.0, tXZ.y ) );
+  // P1 Task 6: the old "different green under the treeline" term keyed off
+  // absolute |x|/z distance from the map centre (tuned to the old 64m town's
+  // fixed treeline at x≈±30). At this window's scale (280×226m, MVP-region
+  // centred rather than origin-centred) that constant would tint nearly the
+  // whole map as "shaded", so it is disabled rather than reworked — there is
+  // no equivalent fixed treeline geometry to key off yet.
+  float edge = 0.0;
   albedo *= mix( vec3( 1.0 ), vec3( 0.855, 0.965, 0.895 ), edge * bl.x * 0.8 );
 
   // Patchy mown-lawn value break-up, three scales stacked. Sun-bleached crowns
@@ -698,9 +436,6 @@ const TERRAIN_BLEND = /* glsl */ `
   albedo = mix( albedo, albedo * vec3( 1.06, 0.90, 0.72 ), slope * bl.x * 0.55 );
 
   // Hollows hold water: the turf goes deeper and cooler where the ground dips.
-  // Gated by a macro noise as well as by height — the town core is graded to
-  // y = 0.3, so a purely height-driven term applied a flat cool cast to the
-  // whole village at once, which is the opposite of what it is for.
   float damp = smoothstep( 0.40, 0.05, vTerH ) * bl.x * ( 0.30 + macroM * 0.95 );
   albedo *= mix( vec3( 1.0 ), vec3( 0.745, 0.885, 0.785 ), clamp( damp, 0.0, 1.0 ) * 0.62 );
 
@@ -738,7 +473,12 @@ const TERRAIN_NORMAL = /* glsl */ `
 /* ------------------------------------------------------------------ */
 
 export function buildTerrain(ctx: GameContext): void {
-  const field = makeField(ctx.seed);
+  const plan = getPlan();
+  assertBoundsFresh(plan);
+  const field = makeTerrainField(plan, {
+    seed: ctx.seed,
+    bounds: { minX: TERRAIN.minX, maxX: TERRAIN.maxX, minZ: TERRAIN.minZ, maxZ: TERRAIN.maxZ },
+  });
 
   // ---- publish the sampler first: everything downstream needs it -------
   ctx.collision.terrainHeight = (x: number, z: number) => field.height(x, z);
@@ -747,6 +487,11 @@ export function buildTerrain(ctx: GameContext): void {
   // ---- geometry --------------------------------------------------------
   const geo = new THREE.PlaneGeometry(TERRAIN.width, TERRAIN.depth, TERRAIN.segX, TERRAIN.segZ);
   geo.rotateX(-Math.PI / 2);
+  // The window is not centred on the world origin (it is centred on the MVP
+  // regions' bbox), so shift the plane's local ±half-extent coordinates into
+  // world space before sampling — everything below then reads world (x, z)
+  // straight off the position attribute.
+  geo.translate((TERRAIN.minX + TERRAIN.maxX) / 2, 0, (TERRAIN.minZ + TERRAIN.maxZ) / 2);
 
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const nrm = geo.attributes.normal as THREE.BufferAttribute;
@@ -843,7 +588,7 @@ export function buildTerrain(ctx: GameContext): void {
       .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = roughness * gRough;')
       .replace('#include <normal_fragment_maps>', TERRAIN_NORMAL);
   };
-  mat.customProgramCacheKey = () => 'terrain-splat-v2';
+  mat.customProgramCacheKey = () => 'terrain-splat-v3';
 
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = 'Terrain';
@@ -855,7 +600,8 @@ export function buildTerrain(ctx: GameContext): void {
 
   // ---- perimeter blockers ---------------------------------------------
   // Tall enough that a jump cannot clear them, deep enough that walking down
-  // the beach never slips under them.
+  // a slope never slips under them. Fences the *sampling window*, not the
+  // real garden wall (see TERRAIN.playMinX/... doc comment above).
   const LO = -6;
   const HI = 9;
   const { playMinX, playMaxX, playMinZ, playMaxZ } = TERRAIN;

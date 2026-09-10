@@ -33,29 +33,34 @@ const ROOT = resolve(__dirname, '..');
  * the starter table).
  */
 /*
- * Coordinates are derived from the built world, not guessed:
- *   terrain    x[-32,32]  z[-36,36]
- *   buildings  x[-13,14]  z[-19,7]     lab north (z~-14), houses z~0..6
- *   shoreline  z ~ -26 and northward
- *   treeline   x ~ +/-30
- *   lab interior floor y=-60, starter table at z=-13.4
+ * P1 Task 6: coordinates moved to plan.json's coordinate system. Each shot's
+ * old position is translated by its cluster's delta (same four constants as
+ * `composer.ts`'s D_ZHENGMEN/D_CUIZHANG/D_QINFANG/D_XIAOXIANG) — this is a
+ * pure translation, not a re-composition, so yaw/pitch (the framing angle)
+ * are kept as-authored; only `grass_close`/`treeline` (which had no single
+ * obvious anchor to follow) were re-picked to an equivalent dry spot in the
+ * new window rather than mechanically translated.
+ *   zhengmen bbox   x[15,95]    z[222,244]
+ *   cuizhang bbox   x[-60,76]   z[184,220]
+ *   qinfang bbox    x[-55,40]   z[116,178]  (南池 water centred ~(-4,148))
+ *   xiaoxiang bbox  x[-145,-65] z[58,125]
  * Yaw convention: forward = (-sin(yaw), 0, -cos(yaw)). yaw 0 faces -Z (north).
  */
 const SHOTS = [
-  { id: 'gate_approach', pos: [2.4, 0, 33.5],  yaw: 0.08,  pitch: -0.02, desc: '园外南望正门——入园前的建立镜头。' },
-  { id: 'mound_block',   pos: [0, 0, 19.5],  yaw: 0.0,   pitch: 0.04,  desc: '刚进门,翠嶂假山迎面挡住视线(曲径通幽)。' },
-  { id: 'mound_west',    pos: [-4.4, 0, 12], yaw: -0.9,  pitch: 0.02,  desc: '绕假山西侧,石壁近看。' },
-  { id: 'pond_reveal',   pos: [-2.6, 0, 7.0], yaw: 0.15, pitch: -0.04, desc: '绕出假山豁然开朗:沁芳池与桥,全园第一眼。' },
-  { id: 'bridge_mid',    pos: [0.6, 0, -1.6], yaw: -0.4, pitch: -0.08, desc: '桥中望池面、驳岸、亭。(桥未建时站在水上)' },
-  { id: 'pond_north',    pos: [8.9, 0, -11.2], yaw: 2.6, pitch: 0.0,   desc: '池北岸(桥尾)回望亭桥与假山——反向建立镜头。' },
-  { id: 'xiaoxiang',     pos: [3.2, 0, -14.6], yaw: -0.62, pitch: 0.05, desc: '潇湘馆:进了月洞门,竹院与小三间。' },
-  { id: 'moon_gate',     pos: [8.6, 0, -11.2], yaw: 0.0,  pitch: 0.02, desc: '桥尾望潇湘馆院墙与月洞门。' },
-  { id: 'gate_plaque',   pos: [0, 0, 31.0],   yaw: 0.0,  pitch: 0.12, desc: '门前人视高抬头看「大观园」匾与开着的门。' },
-  { id: 'ting_plaque',   pos: [-1.8, 0, 6.4], yaw: -0.30, pitch: 0.10, desc: '桥头人视高看沁芳亭正面匾。' },
-  { id: 'bridge_head',   pos: [-3.6, 0, 8.6], yaw: -0.15, pitch: -0.25, desc: '南桥头:桥阶与地面的接缝。' },
-  { id: 'grass_close',   pos: [-4.0, 0, 11.0], yaw: 0.35, pitch: -0.58, desc: '低头看地面材质与接地。' },
-  { id: 'treeline',      pos: [-18.0, 0, -2.0], yaw: 1.10, pitch: 0.14, desc: '园墙外的林带与天。' },
-  { id: 'backlit',       pos: [0, 0, 4.0],    yaw: -2.57, pitch: 0.20,  desc: '逆光——bloom 与轮廓光。' },
+  { id: 'gate_approach', pos: [57.4, 0, 245.1],  yaw: 0.08,  pitch: -0.02, desc: '园外南望正门——入园前的建立镜头。' },
+  { id: 'mound_block',   pos: [8, 0, 208.5],  yaw: 0.0,   pitch: 0.04,  desc: '刚进门,翠嶂假山迎面挡住视线(曲径通幽)。' },
+  { id: 'mound_west',    pos: [3.6, 0, 201], yaw: -0.9,  pitch: 0.02,  desc: '绕假山西侧,石壁近看。' },
+  { id: 'pond_reveal',   pos: [-3.5, 0, 157.4], yaw: 0.15, pitch: -0.04, desc: '绕出假山豁然开朗:沁芳池与桥,全园第一眼。' },
+  { id: 'bridge_mid',    pos: [-0.3, 0, 148.8], yaw: -0.4, pitch: -0.08, desc: '桥中望池面、驳岸、亭。' },
+  { id: 'pond_north',    pos: [8, 0, 139.2], yaw: 2.6, pitch: 0.0,   desc: '池北岸(引桥尽头)回望亭桥与假山——反向建立镜头。' },
+  { id: 'xiaoxiang',     pos: [-111.2, 0, 104.0], yaw: -0.62, pitch: 0.05, desc: '潇湘馆:进了月洞门,竹院与小三间。' },
+  { id: 'moon_gate',     pos: [-105.8, 0, 107.4], yaw: 0.0,  pitch: 0.02, desc: '引桥尽头望潇湘馆院墙与月洞门。' },
+  { id: 'gate_plaque',   pos: [55, 0, 242.6],   yaw: 0.0,  pitch: 0.12, desc: '门前人视高抬头看「大观园」匾与开着的门。' },
+  { id: 'ting_plaque',   pos: [-2.7, 0, 156.8], yaw: -0.30, pitch: 0.10, desc: '桥头人视高看沁芳亭正面匾。' },
+  { id: 'bridge_head',   pos: [-4.5, 0, 159.0], yaw: -0.15, pitch: -0.25, desc: '南引桥头:桥阶与地面的接缝。' },
+  { id: 'grass_close',   pos: [4.0, 0, 200.0], yaw: 0.35, pitch: -0.58, desc: '低头看地面材质与接地。' },
+  { id: 'treeline',      pos: [-45, 0, 170.0], yaw: 1.10, pitch: 0.14, desc: '窗口边缘的林带与天(本窗口不是真墙,见 TERRAIN.playMinX 等阻挡体)。' },
+  { id: 'backlit',       pos: [-0.9, 0, 154.4],    yaw: -2.57, pitch: 0.20,  desc: '逆光——bloom 与轮廓光。' },
 ];
 
 /**

@@ -55,11 +55,17 @@ const wildGrassClearance = (_x: number, _z: number, _pad = 0): number => 1;
 /* ------------------------------------------------------------------ */
 
 const VEG = {
-  /** Ground cover is generated and culled inside this box. */
-  scatterMinX: -25,
-  scatterMaxX: 25,
-  scatterMinZ: -25,
-  scatterMaxZ: 31,
+  /**
+   * Ground cover is generated and culled inside this box. P1 Task 6: this
+   * used to be a hand-tuned 50×56m box around the old town; it now insets
+   * 2m from `TERRAIN`'s own sampling window so it can never scatter grass
+   * past the edge of the meshed terrain (~14x the old area — everything
+   * downstream, chunk grid included, scales off these four numbers alone).
+   */
+  scatterMinX: TERRAIN.minX + 2,
+  scatterMaxX: TERRAIN.maxX - 2,
+  scatterMinZ: TERRAIN.minZ + 2,
+  scatterMaxZ: TERRAIN.maxZ - 2,
   /** Grass chunk edge, metres. Trades draw calls against cull granularity. */
   chunk: 13,
   /** Everything beyond this from the camera is hidden. */
@@ -93,29 +99,39 @@ const VEG = {
  * — a bare halo around a house looks like a bug, a bush touching the cladding
  * looks like a garden.
  */
+/**
+ * P1 Task 6: these are the same clearance boxes as before, each translated
+ * by its cluster's delta (see `builder/compose/composer.ts` — the same four
+ * constants, kept in sync there because that's where the SCENE placements
+ * that these footprints have to match actually live).
+ */
 const FOOTPRINTS: { cx: number; cz: number; hx: number; hz: number }[] = [
-  { cx: 9.4, cz: -19.6, hx: 6.8, hz: 4.8 }, // 潇湘馆
-  { cx: 8.6, cz: -20.0, hx: 9.4, hz: 6.8 }, // 潇湘馆院墙内(竹由装配器种)
-  { cx: 0.0, cz: 24.4, hx: 7.4, hz: 3.2 }, // 正门(五间)
-  { cx: 0.0, cz: 30.5, hx: 4.5, hz: 5.0 }, // 门外甬道净空
-  { cx: 0.0, cz: 25.2, hx: 28.5, hz: 0.7 }, // 南墙
-  { cx: 29.0, cz: 14.0, hx: 0.7, hz: 12.5 }, // 东墙
-  { cx: -29.0, cz: 14.0, hx: 0.7, hz: 12.5 }, // 西墙
-  { cx: 0.0, cz: 13.0, hx: 3.6, hz: 2.6 }, // 翠嶂假山
-  { cx: 0.6, cz: -1.6, hx: 1.6, hz: 1.6 }, // 沁芳亭
+  { cx: -105, cz: 99.0, hx: 6.8, hz: 4.8 }, // 潇湘馆
+  { cx: -105.8, cz: 98.6, hx: 9.4, hz: 6.8 }, // 潇湘馆院墙内(竹由装配器种)
+  { cx: 55, cz: 236, hx: 7.4, hz: 3.2 }, // 正门(五间)
+  { cx: 55, cz: 242.1, hx: 4.5, hz: 5.0 }, // 门外甬道净空
+  { cx: 55, cz: 236.8, hx: 28.5, hz: 0.7 }, // 南墙
+  { cx: 8, cz: 202, hx: 3.6, hz: 2.6 }, // 翠嶂假山
+  { cx: -0.3, cz: 148.8, hx: 1.6, hz: 1.6 }, // 沁芳亭
 ];
 
-/** Hand-placed hero trees inside the town proper. */
+/**
+ * Hand-placed hero trees. P1 Task 6: repositioned by the same cluster deltas
+ * as `composer.ts`'s SCENE (not pixel-exact — just clear of FOOTPRINTS and
+ * on dry ground). Two of the eight landed inside the new, much larger 南池
+ * after a straight translate (the old pond was ~9m radius; this one is
+ * ~30m+) and were manually moved to dry ground nearby instead of drowned.
+ */
 const HERO_TREES: [number, number, number][] = [
   // x, z, species index
-  [-12.9, 8.8, 0],
-  [12.6, -1.4, 5],
-  [-12.2, -8.6, 1],
-  [11.4, 12.4, 0],
-  [-10.2, 19.4, 3],
-  [11.4, 20.2, 2],
-  [-14.4, 16.2, 4],
-  [15.2, 5.6, 1],
+  [-4.9, 197.8, 0], // cuizhang cluster
+  [30, 125, 5], // qinfang cluster — moved off 南池 (raw translate (11.7,149) was underwater)
+  [-126.6, 110, 1], // xiaoxiang cluster
+  [19.4, 201.4, 0], // cuizhang cluster
+  [-2.2, 208.4, 3], // cuizhang cluster
+  [19.4, 209.2, 2], // cuizhang cluster
+  [-6.4, 205.2, 4], // cuizhang cluster
+  [-45, 165, 1], // qinfang cluster — moved off 南池 (raw translate (14.3,156) was underwater)
 ];
 
 /* ------------------------------------------------------------------ */

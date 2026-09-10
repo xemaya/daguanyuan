@@ -2,15 +2,27 @@ import * as THREE from 'three';
 import { Engine } from '@engine/core/Engine';
 import { EVENTS } from '@engine/core/Context';
 import { World } from '@builder/compose/world';
+import { setPlan, type GardenPlan } from '@builder/compose/terrain';
 import { PlayerController } from '@engine/player/PlayerController';
 import { HUD } from '@engine/ui/HUD';
 import { AudioDirector } from '@engine/audio/Audio';
+import planFile from '@project/plan.json' with { type: 'json' };
 
-/** Player spawn: south end of the path, facing north. */
-const SPAWN = new THREE.Vector3(0, 0, 29.5);
+/**
+ * Player spawn: just outside the 正门 gate, facing north into the garden.
+ * P1 Task 6: coordinates are plan.json's now — the gate itself sits at
+ * (55,250) (`plan.gates`), zhengmen's own recorded entrance point is
+ * (55,244); spawn a couple of metres south of that, still inside the wall.
+ */
+const SPAWN = new THREE.Vector3(55, 0, 248);
 const SPAWN_YAW = 0;
 
 async function boot(): Promise<void> {
+  // P1 Task 6: `builder/` may not import `@project/plan.json` itself
+  // (`check:layers`), so the project layer injects it once, before
+  // `world.build()` walks its steps and reaches `buildTerrain`/`buildGarden`.
+  setPlan(planFile as unknown as GardenPlan);
+
   const container = document.getElementById('app')!;
   const engine = new Engine(container);
   engine.initPost();
