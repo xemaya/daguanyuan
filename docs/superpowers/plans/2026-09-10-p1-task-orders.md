@@ -228,15 +228,17 @@
 
 ---
 
-### 单子 G — 仓库卫生与对外可进入（与 E/F 零文件重叠，可立即并行派）
+### 单子 G — 仓库卫生（与 E/F 零文件重叠，可立即并行派）
 
-**来源**：2026-09-10 外部 code review。八条里五条归这张单，两条另议（见下方「不进 G 的两条」），一条待用户拍板（CI）。
+**来源**：2026-09-10 外部 code review。八条里**四条归这张单**，加一条我自己核出来的（G5）。
+**三条不做**：公开版 CONTRIBUTING、CI、拆独立仓——用户 2026-09-10 定「不着急共建」，见 D-22。
+**一条推到 P4**：builder 认识大观园 / scenes/*.json，同上。
 
-> 在 `~/Workspace/games/daguanyuan` 做一批仓库卫生与对外可进入的修补。**这不是功能任务，不要碰任何几何或规则逻辑。**
+> 在 `~/Workspace/games/daguanyuan` 做一批仓库卫生修补。**这不是功能任务，不要碰任何几何或规则逻辑。**
 >
 > 你只碰：`LICENSE`、`README.md`、`THIRD_PARTY_NOTICES.md`（新建）、`.gitignore`、`ART_DIRECTION.md`、
 > `docs/ROADMAP.md`、`tools/check-docs.mjs`（新建）、`package.json`（只加一个 script）、
-> `builder/derive/index.ts`（只改一行，见 G4）、`CONTRIBUTING.md`、`AGENT_CONTRIBUTING.md`（新建）。
+> `builder/derive/index.ts`（只改一行，见 G4）、`builder/compose/world.ts`（只改注释，见 G5）。
 >
 > **单子 E 和 F 正在改 `builder/compose/`、`builder/parts/zhiwu/`、`engine/`、`tools/playtest.mjs`、`tools/capture.mjs`——
 > 这些一个都不许碰。** 上一轮 A/B 就是这么互相覆盖的。
@@ -275,30 +277,35 @@
 > **顺手全仓扫一遍还有没有别的**：`grep -rnE "\* 0\.[0-9]{2}|\+ 0\.[0-9]{2}" builder/derive`，
 > 找到的每一个要么进 `art`，要么说明它是纯几何（如 `Math.PI/2`）。回报扫出几个、处理了几个。
 >
-> **G5 — CONTRIBUTING 分两层**
-> 现在的 `CONTRIBUTING.md` 是内部 agent 协议（要求每次 commit 固定附 `Co-Authored-By: Claude Opus 5` 与 session 链接）。
-> 对我们的 agent 群合理，对一个古建专业的学生或者手写贡献者很怪。
+> **G5 — `world.ts` 的注释在说谎（我核出来的，不在 review 的八条里）**
+> `builder/compose/world.ts` 的头注释写着「buildings claim their footprints before vegetation scatters so trees
+> never grow through a porch」，但实际构建顺序是 `开天 → 理地 → 引水 → 植树 → 起屋叠石`——**植被在建筑之前**。
+> 现在没穿帮，只因为 `vegetation.ts` 自己偷偷维护了一份硬编码 `FOOTPRINTS`，等于**有两份 footprint 真源**。
 >
-> 原样搬成 `AGENT_CONTRIBUTING.md`（内部严格规矩不变，`Co-Authored-By` 那条保留）。
-> 新的 `CONTRIBUTING.md` 面向人，**三条入口**：
-> 1. **我只想报个错** — 开 issue 要带什么（截图、`npm run check:all` 输出、浏览器）。
-> 2. **我想做考据** — 指向 `knowledge/rules/` 与 `knowledge/docs/`，说明规则的五种状态与双人核验，
->    告诉他「驳倒一条比新增一条更值钱」。
-> 3. **我想领建一个构件或景观** — 改哪个文件、跑哪个命令、怎么提交试案。
+> **这一步只改注释，不许调构建顺序。** 把注释改成陈述事实：植被先于建筑散布，靠 `vegetation.ts` 里那份
+> 手抄的 `FOOTPRINTS` 副本避让，**这是已知的技术债**。同时在 `knowledge/rules/missing.rules.json` 补一条
+> `99-25`（`paramSet: "none"`，`status: "missing"`）记下这笔债：真源应当是一份 occupancy prepass，
+> 从 plan + scenes 生成一份 occupancy mask，地形、植被、建筑读同一份；落点 P4。
+> `whereToLook` 指向 `builder/compose/world.ts` 与 `docs/ROADMAP.md §P4`。
 >
-> **判据：一个没读过我们六份架构文档的人，五分钟内知道该改哪个文件、跑哪条命令。**
-> 写完自己扮一遍那个人，把读不懂的地方改掉。
+> **为什么只改注释**：真修法要等 `scenes/*.json` 落地（P4），现在调顺序会让 `FOOTPRINTS` 那份副本
+> 变成唯一真源，把债做得更深。**注释说谎比债本身更危险——它让下一个人以为这里是对的。**
 >
 > **交付**：`npm run check:all`（含新的 `check:docs`）全过、`git ls-files` 里没有 `.DS_Store` 与 `.log`、提交。
 > 回报：路径漂移改了多少处、白名单豁免了哪几条为什么、G4 扫出几个艺术数字。
 
 **规模**：中。**风险**：低。**唯一的失败模式是手伸进 E/F 正在改的文件。**
 
-**不进 G 的两条**（见下）：builder 认识大观园（架构泄漏）、构建顺序与注释不符（潜伏 bug）。这两条是同一件事，且要先定优先级。
+**不做的三条**（用户 2026-09-10 定「不着急共建」，记为 D-22）：
 
-**待拍板**：CI。review 建议每个 PR 跑 `npm ci → check:all → build`，这个建议本身是对的，
-但**前提不成立——这个仓现在还在 `games` monorepo 里，没有自己的 GitHub 远端**（`git remote -v` 只有别的项目）。
-要 CI 就得先把 daguanyuan 拆成独立仓推上去（jiandie 走过这条路）。**拆不拆是产品决定，不是工程决定。**
+- **公开版 `CONTRIBUTING.md` 三条入口** — 为一个还不存在的读者写的。真要开放时再写，那时才知道他们卡在哪。
+- **CI** — 建议本身对，但前提不成立：本仓还在 `games` monorepo 里，没有自己的 GitHub 远端。要 CI 得先拆独立仓。
+- **拆独立仓** — 产品决定，不着急共建就不着急拆。
+
+**推到 P4 的一条**：`builder/` 还认识大观园（`composer.ts` 硬编码整条 SCENE、`terrain.ts` 硬编码潇湘馆台基与沁芳池、
+`vegetation.ts` 硬编码 footprint）。review 把它列为最高工程优先级，理由是"否则外部 builder 领建一个亭子还是要改核心 composer"——
+**理由成立，但它买的是外部贡献者，不是更好的园子**。不着急共建，它在 P4 的位置就是对的。
+提前做属于为通用性而通用性，正是 D-18 要防的。G5 只把这笔债记明白，不提前还。
 
 ---
 
