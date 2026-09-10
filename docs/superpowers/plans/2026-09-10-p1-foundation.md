@@ -902,7 +902,9 @@ test('空网格不产簇', () => {
 - `TerrainChunks.ts`：地形按 `chunkSize`（建议 64 米）切成多块 `Mesh`，各自有包围盒，让 three 自己剔除。
 - `vegetation.ts`：把散布结果喂进 `ClusteredInstancePool` 而不是单个大池。
 
-**shader 注入改成有序 stage**：给注入点排个序（`rtc` → `wind` → `lod`），每段追加而不是各自覆盖 `project_vertex`。
+~~**shader 注入改成有序 stage**~~——**2026-09-11 取消。** 渲染层已定迁 WebGPU + TSL
+（`docs/ROADMAP.md §WG`），给 GLSL 字符串注入盖一套 stage 框架，迁移时整个作废。
+注入顺序留给 WG2 用节点组合表达；现在只有风摆一个注入点,不盖框架也不会打架。
 
 - [ ] **Step 4: 量一遍，证明剔除真的生效**
 

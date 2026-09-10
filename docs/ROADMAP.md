@@ -25,10 +25,12 @@ MVP(2026-09-10)验证了三件事:程序化的表现力、《营造法式》推�
 | **P4** | 分区建设:一区一份 `scenes/<region>.json` | 每区一个 agent | P2 的几何 + P3 的构件 | 未开始 |
 | **P5** | 细节:室内陈设、家具、灯笼、题字石、季相 | 高 | P4 | 未开始 |
 | **PE** | **园林体验层**:造景关系写进数据并可验(障景/对景/框景/漏景/夹景/借景/豁然/声先于景/留白) | 设计单人,补数据可并行 | P2 的几何 | 未开始 |
-| **PX** | 天光与体积云 | 单人 | **无依赖,随时可插** | 未开始 |
+| **WG** | **渲染层迁移到 WebGPU + TSL**:六组自定义 shader 转节点材质、后期改 RenderPipeline、剔除与阴影约定重对 | 迁移期渲染文件必须单人独占 | P1 收尾 | 未开始([方案](reviews/2026-09-11-webgpu-migration-plan.md)) |
+| **PX** | 天光与体积云 | 单人 | **无依赖,但必须排在 WG 之后**(见下) | 未开始 |
 
 关键路径是 `P0 → P2 → PE → P4`。P1 与 P2 可同时开,P3 只等 P1 的参数集那一条,不等 P1 全部。
-PX 不在关键路径上,想什么时候看见好看的天就什么时候插。
+WG 不在关键路径上,但**它是 PX 的前置**:PX 要写一整套体积云 shader,先用 GLSL 写一遍再翻成 TSL 是白干。
+原先"PX 随时可插"这句作废——想插 PX,先做 WG。
 
 **PE 挤在 P4 前面是有意的**:分区并行建设时,每个 agent 都在做一个漂亮院子,没人负责院子
 之间那口气。造景关系不先写进数据,就只能靠每个 agent 自己领悟,结果必然是"十个人各做
@@ -183,6 +185,37 @@ PX 不在关键路径上,想什么时候看见好看的天就什么时候插。
 
 按 `ART_DIRECTION.md` §7:游线上标出开合段落,密处(石壁夹道)与疏处(水面草坡)交替,
 `intentional_void` 让散布器绕开。
+
+## WG. 渲染层迁移到 WebGPU + TSL(2026-09-11 由 codex 方案引入)
+
+方案全文:[`docs/reviews/2026-09-11-webgpu-migration-plan.md`](reviews/2026-09-11-webgpu-migration-plan.md)。
+分 WG0 冻结基线 → WG1 棚拍端最小链 → WG2 六组 shader 接通整园 → WG3 恢复后期与质量档 →
+WG4 实景验收切默认 → WG5(可选)WebGPU 特有优化。
+
+**核过的事实**(2026-09-11,对本机 three 0.185.1 源码逐条核):
+
+- `three` 0.185.1,`./webgpu` 与 `./tsl` 两个导出入口都在。
+- 新 `Info` 里 `render.calls` 与 `render.drawCalls` **是两个不同字段**——
+  `tools/capture.mjs:263` 现在取的是 `info.render.calls`,照抄过去口径就变了。
+- `ShadowNode.js` 里 VSM 与 `onBeforeShadow`/`onAfterShadow` 都在(33 处命中),
+  所以不必为迁移换阴影算法。
+- `Frustum.setFromProjectionMatrix(m, coordinateSystem = WebGLCoordinateSystem, reversedDepth = false)`
+  ——`engine/scatter/instancing.ts:290` 现在只传第一个参数,在 WebGPU backend 下会**静默剔错**。
+- 七个自定义 shader 注入点确实在:`engine/core/PostFX.ts`、`engine/render/Clouds.ts`、
+  `engine/render/SkyShader.ts`、`engine/render/Water.ts`、`builder/compose/terrain.ts`、
+  `builder/parts/zhiwu/foliage-materials.ts`、`builder/parts/zhiwu/bamboo.ts`。
+
+**它买的是什么,不买什么**:买的是渲染层的余量与 WG5 的 compute 可能性。
+**不买帧率承诺**(方案自己声明没跑过性能测试),也**不解决我们当前的痛**——
+P1 实测的 28 秒世界构建是 CPU 侧解析场求值,与渲染器无关,方案第 9 行明说了这一点。
+
+**为什么排在 P2 之后而不是紧接 P1**:迁移成功了玩家一个像素都看不出来,做砸了满屏是黑的。
+先让园子值得一看,再换发动机。P2/P4/PE 的数据与几何工作与它不冲突(方案第 124 行同此),
+但**碰 `terrain.ts` / `vegetation.ts` / `PostFX.ts` 的改动必须排单一窗口**。
+
+**对 P1 单子 F 的即时影响**:F 原计划把 shader 注入做成有序 stage(`rtc` → `wind` → `lod`)。
+既然路线已定 TSL,**别再为 GLSL 字符串注入盖一套框架**——那套东西迁移时整个作废。
+F 保留分块、分簇、空间索引与构建性能那几项,stage 排序留给 WG2 用节点组合表达。
 
 ## PX. 天光与体积云(无依赖,随时可插)
 

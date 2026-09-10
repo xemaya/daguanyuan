@@ -28,6 +28,17 @@ const ALLOW = [
     file: 'docs/superpowers/specs/2026-09-10-layered-architecture-design.md',
     why: 'P0 架构 spec:记录的目录布局是搬家前状态,属历史设计稿',
   },
+  ...[
+    'src/renderers/common/RenderPipeline.js',
+    'src/renderers/common/Info.js',
+    'extras/PMREMGenerator.js',
+    'src/nodes/lighting/ShadowNode.js',
+    'src/math/Frustum.js',
+  ].map((path) => ({
+    file: 'docs/reviews/2026-09-11-webgpu-migration-plan.md',
+    path,
+    why: '核对来源:指向 node_modules/three 0.185.1 的源码树,不是本仓文件(本仓引用仍逐条校验)',
+  })),
   {
     file: 'docs/tellux-borrowing.md',
     why: '外部调研笔记:src/Viewer.ts、hism/pipeline/ 等路径指向 tellux 项目的源码树,不是本仓文件',

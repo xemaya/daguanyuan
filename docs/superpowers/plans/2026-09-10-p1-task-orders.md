@@ -326,6 +326,11 @@
 > **先砍这两处，预算是世界构建 ≤ 15 秒**，量法与三处改法在计划的 Step 0 里。
 > 顺带一条：草丛数跟着散布盒涨了 14 倍（2.7 万 → 约 60 万），会顶穿 790 万三角上限，见 Step 0b。
 >
+> **2026-09-11 收窄:shader 注入的有序 stage 不做了。** 渲染层已定路线迁 WebGPU + TSL
+> （[方案](../../reviews/2026-09-11-webgpu-migration-plan.md)，`docs/ROADMAP.md §WG`）。
+> 给 GLSL 字符串注入盖一套 stage 框架，迁移时整个作废。**F 只做分块、分簇、空间索引与构建性能**，
+> 注入顺序留给 WG2 用节点组合表达。现在只有风摆一个注入点，不盖框架也不会打架。
+>
 > **开工前读 `docs/tellux-borrowing.md` 第 4、5 条。** 两个要点：实例按固定网格分簇每簇一个包围球做视锥剔除；shader 注入要做成**有序 stage**（`rtc` → `wind` → `lod`），现在只有风摆一个所以没暴露，后面加实例偏移和 LOD 形变时三方会争抢 `project_vertex`。
 >
 > `engine/` 不许 import `builder/`——`cluster.ts` 和 `TerrainChunks.ts` 都是内容无关的机制，别把园子的知识漏进去。
