@@ -73,7 +73,10 @@ export class Engine {
     this.renderer.toneMappingExposure = 1.0;
 
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.VSMShadowMap;
+    // The local shadow window exposes VSM moment acne on thin walls and also
+    // renders every receiver into the map. PCF keeps contact shadows without
+    // replaying the whole grass layer as casters (see the P1 environment review).
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     container.appendChild(this.renderer.domElement);
 

@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ClusterGrid, BoundsIndex, distanceToPolyline } from '@engine/scatter/cluster.ts';
 import { buildTerrainChunks } from '@engine/render/TerrainChunks.ts';
-import { ClusteredInstancePool } from '@engine/scatter/instancing.ts';
+import { ClusteredInstancePool, makeInstanced } from '@engine/scatter/instancing.ts';
+import { makeRng } from '@engine/core/Noise.ts';
+import { instanceWindPadding } from '@engine/scatter/wind.ts';
 import * as THREE from 'three';
 
 test('网格分簇保留成员，负坐标与边界不会混入错误格', () => {
@@ -18,6 +20,27 @@ test('远近草密度按整条路段判断，长段中间不能被当作远离�
   assert.equal(distanceToPolyline(50,3,[[0,0],[100,0]]),3);
   assert.equal(distanceToPolyline(-3,4,[[0,0],[100,0]]),5);
   assert.equal(distanceToPolyline(3,4,[[0,0],[0,0]]),5);
+});
+
+test('实例包围球的风动余量覆盖叶片加柔和最大实例振幅',()=>{
+  const geo=new THREE.PlaneGeometry();
+  geo.setAttribute('aFlex',new THREE.Float32BufferAttribute([1.45,0,1,0,.2,0,0,0],2));
+  geo.setAttribute('aWind',new THREE.InstancedBufferAttribute(new Float32Array([0,1.45]),2));
+  const mat=new THREE.MeshStandardMaterial();mat.userData.windScale=1.25;
+  const mesh=new THREE.InstancedMesh(geo,mat,1);
+  assert.ok(instanceWindPadding(mesh)>2.7);
+  geo.dispose();mat.dispose();
+});
+
+test('独立草簇共享原型顶点，保留各自的实例风数据',()=>{
+ const geo=new THREE.PlaneGeometry(),mat=new THREE.MeshStandardMaterial();
+ const a=makeInstanced(geo,mat,2,makeRng(1)),b=makeInstanced(geo,mat,3,makeRng(2));
+ assert.notEqual(a.geometry,b.geometry);
+ assert.equal(a.geometry.attributes.position,b.geometry.attributes.position);
+ assert.equal(a.geometry.index,b.geometry.index);
+ assert.notEqual(a.geometry.attributes.aWind,b.geometry.attributes.aWind);
+ assert.equal(a.geometry.attributes.aWind.count,2);assert.equal(b.geometry.attributes.aWind.count,3);
+ a.geometry.dispose();b.geometry.dispose();geo.dispose();mat.dispose();
 });
 
 test('簇包围球包含每个成员的实际范围', () => {
@@ -75,6 +98,8 @@ test('实例分簇保持矩阵、颜色和风相位对应，画面外投影者�
   const pool=new ClusteredInstancePool(root,32);pool.add([source]);
   const camera=new THREE.PerspectiveCamera();camera.position.set(0,1,0);camera.updateMatrixWorld();pool.update(camera);
   assert.equal(root.children.length,2);
+  assert.equal(new Set(root.children.map(m=>m.geometry.attributes.position)).size,1);
+  assert.equal(new Set(root.children.map(m=>m.geometry.attributes.aWind)).size,2);
   for(const mesh of root.children){
     assert.equal(mesh.visible,true);assert.equal(mesh.frustumCulled,true);
     const m=new THREE.Matrix4();mesh.getMatrixAt(0,m);

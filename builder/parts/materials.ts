@@ -343,14 +343,16 @@ export function bambooMaterial(): THREE.MeshStandardMaterial {
   });
 }
 
-export function paperMaterial(): THREE.MeshPhysicalMaterial {
+export function paperMaterial(): THREE.MeshStandardMaterial {
   return memo('paper', () => {
-    return new THREE.MeshPhysicalMaterial({
+    return new THREE.MeshStandardMaterial({
       color: CN.paper,
       roughness: 0.9,
       metalness: 0,
-      transmission: 0.35,
-      thickness: 0.002,
+      // P-05: rough window paper needs a soft light lift, not a second render
+      // of every opaque object behind the pane.
+      emissive: CN.paper,
+      emissiveIntensity: 0.18,
       side: THREE.DoubleSide,
       map: cached('cn.paper.albedo', () =>
         bakeColorMap({

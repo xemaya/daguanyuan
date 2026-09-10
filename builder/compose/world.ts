@@ -39,6 +39,8 @@ export class World {
 
   /** Per-step build durations in ms, populated by build(). */
   buildTimings: [string, number][] = [];
+  /** Includes asynchronous preparation and inter-step paint yields. */
+  buildDurationMs = 0;
 
   constructor(engine: Engine) {
     this.root.name = 'World';
@@ -108,6 +110,7 @@ export class World {
           .join(', '),
     );
     this.buildTimings = timings;
+    this.buildDurationMs = total;
 
     onProgress?.('请入园', 1);
     this.ctx.events.emit(EVENTS.WORLD_READY);

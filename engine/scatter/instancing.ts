@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { applyWind } from './wind';
+import { applyWind, instanceWindPadding } from './wind';
 import { ClusterGrid } from './cluster';
 
 /**
@@ -15,6 +15,10 @@ export function makeInstanced(
   windMul = 1,
 ): THREE.InstancedMesh {
   const g = geo.clone();
+  g.setIndex(geo.index);
+  for(const [name,attribute] of Object.entries(geo.attributes)) {
+    if(!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute)g.setAttribute(name,attribute);
+  }
   applyWind(g, count, rng, windMul);
   const mesh = new THREE.InstancedMesh(g, mat, count);
   mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
@@ -43,13 +47,13 @@ export class ClusteredInstancePool {
     this.root = root; this.cellSize = cellSize;
   }
 
-  add(sources: THREE.InstancedMesh[], options: {maxDist?:number;skipShadow?:THREE.InstancedMesh[]} = {}): void {
+  add(sources: THREE.InstancedMesh[], options: {maxDist?:number;skipShadow?:THREE.InstancedMesh[];cellSize?:number} = {}): void {
     if (!sources.length || sources[0].count === 0) return;
-    const grid = new ClusterGrid<number>(this.cellSize);
-    const matrix = new THREE.Matrix4(), sphere = new THREE.Sphere(), union = new THREE.Box3();
-    const point = new THREE.Vector3();
+    const grid = new ClusterGrid<number>(options.cellSize ?? this.cellSize);
+    const matrix = new THREE.Matrix4(), sphere = new THREE.Sphere();
+    const windPadding=Math.max(0,...sources.map(instanceWindPadding));
     for (let i=0;i<sources[0].count;i++) {
-      union.makeEmpty();
+      const combined = new THREE.Sphere().makeEmpty();
       for (const source of sources) {
         if (source.count !== sources[0].count) throw new Error('Clustered instance layouts must match');
         if (!source.geometry.boundingSphere) source.geometry.computeBoundingSphere();
@@ -57,19 +61,24 @@ export class ClusteredInstancePool {
         source.getMatrixAt(i,matrix);
         matrix.premultiply(source.matrix);
         sphere.copy(source.geometry.boundingSphere!).applyMatrix4(matrix);
-        union.expandByPoint(point.copy(sphere.center).addScalar(sphere.radius));
-        union.expandByPoint(point.copy(sphere.center).addScalar(-sphere.radius));
+        if(combined.isEmpty())combined.copy(sphere);
+        else combined.union(sphere);
       }
-      const combined=union.getBoundingSphere(new THREE.Sphere());
-      combined.radius+=0.8; // Wind may move the rest-pose boundary into either camera.
+      combined.radius+=windPadding;
       grid.add(combined.center.x,combined.center.z,i,combined.center.y,combined.radius);
     }
     for (const cluster of grid.cells()) {
       const members=cluster.items;
       const meshes=sources.map(source=>{
         const geometry=source.geometry.clone();
+        // Vertex/index buffers are immutable for the world's lifetime. Only
+        // the per-instance streams differ between clusters; sharing the base
+        // attributes prevents re-uploading one prototype for every cell.
+        geometry.setIndex(source.geometry.index);
         for (const [key,attribute] of Object.entries(source.geometry.attributes)) {
-          if (!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) continue;
+          if (!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) {
+            geometry.setAttribute(key,attribute);continue;
+          }
           const attr=attribute as THREE.InstancedBufferAttribute;
           const ArrayType=attr.array.constructor as {new(length:number):typeof attr.array};
           const data=new ArrayType(members.length*attr.itemSize);

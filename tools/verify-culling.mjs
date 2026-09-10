@@ -23,7 +23,7 @@ try {
     g.engine.renderer.setPixelRatio(1);g.engine.postfx.setSize(innerWidth,innerHeight);
     g.hud.dialogue.close();
   });
-  const report = { mode, errors, shots: [] };
+  const report = { mode, scope: 'vegetation+terrain+static', errors, shots: [] };
   for (const shot of [
     {id:'pond_reveal',x:-3.5,z:157.4,yaw:.15,pitch:-.04},
     {id:'treeline',x:-45,z:170,yaw:1.10,pitch:.14},
@@ -43,6 +43,9 @@ try {
         const debug=g.world.root.getObjectByName('Vegetation').userData.vegDebug;
         if(mode==='all')debug.setCulling(on);
         else debug.setFrustumCulling(on);
+        for(const name of ['Terrain','GardenStatic'])g.world.root.getObjectByName(name)?.traverse(object=>{
+          if(object.isMesh)object.frustumCulled=on;
+        });
         // Re-render twice with the same clock and camera; no player or adaptive-resolution tick.
         g.world.update(0,12);g.engine.postfx.render(0);
         g.world.update(0,12);g.engine.postfx.render(0);

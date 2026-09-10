@@ -5,7 +5,7 @@ import '@builder/parts/index';
 import type { BuildingResult } from '@builder/parts/damu/building';
 import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
-import { mergeByMaterial } from '@builder/parts/merge';
+import { assembleStatic } from '@builder/parts/static-batches';
 import { getPlan } from './terrain';
 
 /**
@@ -448,7 +448,7 @@ export function buildGarden(ctx: GameContext): void {
       group.add(pier);
     }
   }
-  const merged = mergeByMaterial(staticGroup);
+  const merged = assembleStatic(staticGroup);
   merged.name = 'GardenStatic';
   group.add(merged);
   console.info(`[garden] ${calls} 件, ${cache.size} 种, 合并后 ${merged.children.length} 个 mesh`);

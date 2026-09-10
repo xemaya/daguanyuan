@@ -466,6 +466,7 @@ export function buildTerrain(ctx: GameContext): void {
   // ---- publish the sampler first: everything downstream needs it -------
   ctx.collision.terrainHeight = (x: number, z: number) => field.height(x, z);
   ctx.collision.surfaceAt = (x: number, z: number) => field.surface(x, z);
+  ctx.terrain = { bounds: TERRAIN, waterLevel: 0 };
 
   // ---- textures --------------------------------------------------------
   const turf = timed('turf maps', () => sharpen(grassTurfMaps()));

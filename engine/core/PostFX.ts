@@ -94,6 +94,9 @@ class GBufferPass extends Pass {
 
     const prevTarget = renderer.getRenderTarget();
     const prevAutoClear = renderer.autoClear;
+    const prevShadowAuto = renderer.shadowMap.autoUpdate;
+    const prevShadowNeedsUpdate = renderer.shadowMap.needsUpdate;
+    const prevOverride = this.scene.overrideMaterial;
     renderer.getClearColor(this.prevClear);
     const prevAlpha = renderer.getClearAlpha();
 
@@ -112,16 +115,23 @@ class GBufferPass extends Pass {
     renderer.setClearColor(this.clearColor, 1.0);
     renderer.clear();
 
-    this.scene.overrideMaterial = this.overrideMaterial;
-    renderer.render(this.scene, this.camera);
-    this.scene.overrideMaterial = null;
-
-    for (const o of this.hidden) o.visible = true;
-    this.hidden.length = 0;
-
-    renderer.autoClear = prevAutoClear;
-    renderer.setClearColor(this.prevClear, prevAlpha);
-    renderer.setRenderTarget(prevTarget);
+    try {
+      // The main scene pass has already updated shadows for this frame. The
+      // normal/depth-only pass neither reads them nor needs a second shadow draw.
+      renderer.shadowMap.autoUpdate = false;
+      renderer.shadowMap.needsUpdate = false;
+      this.scene.overrideMaterial = this.overrideMaterial;
+      renderer.render(this.scene, this.camera);
+    } finally {
+      this.scene.overrideMaterial = prevOverride;
+      renderer.shadowMap.autoUpdate = prevShadowAuto;
+      renderer.shadowMap.needsUpdate = prevShadowNeedsUpdate;
+      for (const o of this.hidden) o.visible = true;
+      this.hidden.length = 0;
+      renderer.autoClear = prevAutoClear;
+      renderer.setClearColor(this.prevClear, prevAlpha);
+      renderer.setRenderTarget(prevTarget);
+    }
   }
 
   dispose(): void {

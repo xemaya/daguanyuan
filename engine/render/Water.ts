@@ -4,62 +4,26 @@ import { Simplex, clamp } from '@engine/core/Noise';
 import { waterSwellNormal, waterChopNormal, waterDetailTexture } from './WaterMaterials';
 
 /**
- * Water — the bay closing Pallet Town to the north.
- *
- * Three ideas carry the whole system:
- *
- *  1. **The sea knows the shape of the land.** Before anything is drawn, the
- *     terrain's own `groundHeight` is sampled into a *seabed map*: signed depth
- *     at every point of the bay, plus the signed **horizontal** distance to the
- *     waterline (height divided by local slope) and the slope itself. That map
- *     is what makes the depth ramp exact and — far more importantly — lets the
- *     foam be authored in metres of beach rather than in metres of altitude, so
- *     the wash band stays a constant width whether the sand is steep or flat.
- *     No depth prepass, no scene depth texture, no cost after load.
- *
- *  2. **Stylised water is colour and foam, not a mirror.** The surface is a
- *     `MeshPhysicalMaterial` patched through `onBeforeCompile`, so it keeps the
- *     PMREM environment, the fog and the HDR pipeline, but its diffuse term is
- *     a hand-authored turquoise→deep-blue ramp and it is genuinely translucent
- *     in the shallows, letting the sand read through. Reflection arrives only
- *     as Fresnel-weighted ambient specular. A chrome sheet would be physically
- *     closer and artistically wrong.
- *
- *  3. **The shoreline is animated, everything else scrolls.** Two ripple normal
- *     maps drift at different scales and directions; the foam band advances and
- *     retreats on two out-of-phase sine terms plus a per-place noise offset, so
- *     the wash breaks along the beach rather than pulsing as one rigid ring.
- *
- * The mesh is a radial disc rather than a plane: its rings are distributed
- * exponentially so the near shore gets metre-scale tessellation for the wave
- * displacement while the horizon costs almost nothing, and its far edge sits
- * inside the sky dome at a constant radius in every direction, which is what
- * makes the horizon line read as a horizon instead of the corner of a square.
+ * Garden water shares the terrain's world-space sampling domain. The signed
+ * bed map carries depth and shore distance; pixels above the water level or
+ * outside that domain are discarded instead of becoming an invented sea.
+ * Two normal layers, restrained displacement and the sky Fresnel response
+ * retain the existing stylised material. Reflection work belongs to P3.
  */
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
 /* ------------------------------------------------------------------ */
 
-const SEA = {
-  /** Comfortably inside the sky dome (460) and the camera far plane (600). */
-  radius: 420,
-  rings: 76,
-  spokes: 108,
-};
+export interface WaterWindow {
+  minX:number; minZ:number; width:number; depth:number; resX:number; resZ:number;
+}
 
-/** Seabed map window. 25 cm per texel over the whole bay and its headlands. */
-const BED = {
-  minX: -46,
-  minZ: -46,
-  width: 92,
-  depth: 92,
-  resX: 368,
-  resZ: 368,
-};
-
-/** Beyond the terrain mesh there is no land — force open sea. */
-const LAND = { hx: 31.6, minZ: -35.6, maxZ: 35.6 };
+export function makeWaterWindow(bounds: {minX:number;maxX:number;minZ:number;maxZ:number}, cell=.5): WaterWindow {
+  const width=bounds.maxX-bounds.minX,depth=bounds.maxZ-bounds.minZ;
+  if(![bounds.minX,bounds.maxX,bounds.minZ,bounds.maxZ,cell].every(Number.isFinite) || !(width>0 && depth>0 && cell>0)) throw new Error('Invalid water sampling domain');
+  return {minX:bounds.minX,minZ:bounds.minZ,width,depth,resX:Math.ceil(width/cell),resZ:Math.ceil(depth/cell)};
+}
 
 /** Encoding range for the depth channel, metres. */
 const DEPTH_RANGE = 4.0;
@@ -86,31 +50,20 @@ function enc(x: number, range: number): number {
   return s * 0.5 + 0.5;
 }
 
-function bakeSeabed(ground: (x: number, z: number) => number): THREE.DataTexture {
-  const { minX, minZ, width, depth, resX, resZ } = BED;
+export function bakeSeabed(ground: (x: number, z: number) => number, window: WaterWindow, waterLevel=0): THREE.DataTexture {
+  const { minX, minZ, width, depth, resX, resZ } = window;
   const dx = width / resX;
   const dz = depth / resZ;
 
-  // Pass 1: heights. One `groundHeight` call per texel — the gradient comes
+  // Pass 1: heights. One terrain-height call per texel — the gradient comes
   // from the grid itself rather than four extra samples, which is a 5x saving
   // on the most expensive function in the build.
   const h = new Float32Array(resX * resZ);
   for (let j = 0; j < resZ; j++) {
     const z = minZ + (j + 0.5) * dz;
-    const cz = Math.min(LAND.maxZ, Math.max(LAND.minZ, z));
     for (let i = 0; i < resX; i++) {
       const x = minX + (i + 0.5) * dx;
-      const cx = Math.min(LAND.hx, Math.max(-LAND.hx, x));
-      const outside = Math.hypot(x - cx, z - cz);
-      // Past the edge of the terrain mesh the seabed is extrapolated rather
-      // than stamped flat: the nearest real depth, forced under water, then
-      // falling away. A hard cut here would print a dead-straight colour
-      // boundary right across the bay at 40 m — the single most obvious tell
-      // that the sea is a texture on a plane.
-      h[j * resX + i] =
-        outside < 1e-6
-          ? ground(x, z)
-          : Math.max(-DEPTH_RANGE, Math.min(ground(cx, cz), -0.35) - outside * 0.3);
+      h[j * resX + i] = ground(x,z) - waterLevel;
     }
   }
 
@@ -156,60 +109,6 @@ function bakeSeabed(ground: (x: number, z: number) => number): THREE.DataTexture
 }
 
 /* ------------------------------------------------------------------ */
-/* Geometry                                                            */
-/* ------------------------------------------------------------------ */
-
-/**
- * Radial disc with exponentially spaced rings: ~2.4 m quads where the surf is,
- * hundreds of metres out at the horizon, 14k triangles total.
- */
-function buildSeaDisc(radius: number, rings: number, spokes: number): THREE.BufferGeometry {
-  const k = 5.5;
-  const denom = Math.exp(k) - 1;
-  const ringR: number[] = [];
-  for (let r = 1; r <= rings; r++) ringR.push((radius * (Math.exp((k * r) / rings) - 1)) / denom);
-
-  const vertCount = 1 + rings * spokes;
-  const pos = new Float32Array(vertCount * 3);
-  const nrm = new Float32Array(vertCount * 3);
-  for (let i = 0; i < vertCount; i++) nrm[i * 3 + 1] = 1;
-
-  let p = 3; // vertex 0 is the centre, already (0,0,0)
-  for (let r = 0; r < rings; r++) {
-    const rad = ringR[r];
-    for (let s = 0; s < spokes; s++) {
-      const a = (s / spokes) * Math.PI * 2;
-      pos[p++] = Math.cos(a) * rad;
-      pos[p++] = 0;
-      pos[p++] = Math.sin(a) * rad;
-    }
-  }
-
-  const idx: number[] = [];
-  for (let s = 0; s < spokes; s++) {
-    const a = 1 + s;
-    const b = 1 + ((s + 1) % spokes);
-    idx.push(0, b, a);
-  }
-  for (let r = 0; r < rings - 1; r++) {
-    const base = 1 + r * spokes;
-    const next = base + spokes;
-    for (let s = 0; s < spokes; s++) {
-      const s1 = (s + 1) % spokes;
-      idx.push(base + s, next + s1, next + s);
-      idx.push(base + s, base + s1, next + s1);
-    }
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
-  geo.setIndex(idx);
-  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), radius * 1.02);
-  return geo;
-}
-
-/* ------------------------------------------------------------------ */
 /* Shader                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -227,15 +126,8 @@ float decSigned( float e, float range ) {
 }
 vec4 sampleBed( vec2 p, out float inside ) {
   vec2 uv = ( p - uBedWindow.xy ) / uBedWindow.zw;
-  // Feather the window edge rather than cutting it. A binary in/out test drops
-  // every bed channel to its open-sea constant in one texel, which draws a
-  // dead-straight seam right across the bay at the far edge of the baked map.
-  // The feather is 14 m wide and the window clears the shoreline by more than
-  // twice that, so the surf band never sees it.
-  vec2 feather = vec2( 14.0 ) / uBedWindow.zw;
-  vec2 e = smoothstep( vec2( 0.0 ), feather, uv ) *
-           smoothstep( vec2( 0.0 ), feather, vec2( 1.0 ) - uv );
-  inside = e.x * e.y;
+  // Unsampled space is land, not an invented ocean around the garden.
+  inside = step(0.0,uv.x)*step(uv.x,1.0)*step(0.0,uv.y)*step(uv.y,1.0);
   return texture2D( uBed, clamp( uv, vec2( 0.002 ), vec2( 0.998 ) ) );
 }
 `;
@@ -251,7 +143,7 @@ const VERT_BODY = /* glsl */ `
 
   float inside;
   vec4 bed = sampleBed( seaWp.xz, inside );
-  float bedH = mix( -4.0, decSigned( bed.r, 4.0 ), inside );
+  float bedH = mix( 4.0, decSigned( bed.r, 4.0 ), inside );
   vBedH = bedH;
   float depth = max( -bedH, 0.0 );
 
@@ -294,10 +186,12 @@ float t = uTime;
 
 float inside;
 vec4 bed = sampleBed( P, inside );
-float bedH = mix( -4.0, decSigned( bed.r, 4.0 ), inside );
-float shoreD = mix( -8.0, decSigned( bed.g, 8.0 ), inside );
+float bedH = mix( 4.0, decSigned( bed.r, 4.0 ), inside );
+float shoreD = mix( 8.0, decSigned( bed.g, 8.0 ), inside );
 float slope = mix( 0.55, bed.b, inside );
 float placeN = bed.a;
+
+if (inside < 0.5 || bedH > 0.0) discard;
 
 float depth = max( -bedH, 0.0 );
 // Horizontal metres from the waterline, positive out to sea.
@@ -475,7 +369,10 @@ const FRAG_GLITTER = /* glsl */ `
 /* ------------------------------------------------------------------ */
 
 export function buildWater(ctx: GameContext): void {
-  const bed = bakeSeabed((x, z) => ctx.collision.groundHeight(x, z));
+  if (!ctx.terrain) throw new Error('Water requires the terrain sampling domain');
+  const window = makeWaterWindow(ctx.terrain.bounds);
+  const waterLevel = ctx.terrain.waterLevel;
+  const bed = bakeSeabed((x, z) => ctx.collision.terrainHeight(x, z), window, waterLevel);
 
   const swell = waterSwellNormal();
   const chop = waterChopNormal();
@@ -489,7 +386,7 @@ export function buildWater(ctx: GameContext): void {
 
   const uniforms = {
     uBed: { value: bed },
-    uBedWindow: { value: new THREE.Vector4(BED.minX, BED.minZ, BED.width, BED.depth) },
+    uBedWindow: { value: new THREE.Vector4(window.minX, window.minZ, window.width, window.depth) },
     uTime: { value: 0 },
     uWaveAmp: { value: 0.25 },
     uSwell: { value: swell },
@@ -530,11 +427,14 @@ export function buildWater(ctx: GameContext): void {
       .replace('#include <normal_fragment_maps>', FRAG_NORMAL)
       .replace('#include <emissivemap_fragment>', FRAG_GLITTER);
   };
-  mat.customProgramCacheKey = () => 'dgy-pond-v1';
+  mat.customProgramCacheKey = () => 'garden-water-domain-v2';
 
-  const mesh = new THREE.Mesh(buildSeaDisc(SEA.radius, SEA.rings, SEA.spokes), mat);
+  const geometry = new THREE.PlaneGeometry(window.width,window.depth,Math.ceil(window.width/2),Math.ceil(window.depth/2));
+  geometry.rotateX(-Math.PI/2);
+  const mesh = new THREE.Mesh(geometry, mat);
   mesh.name = 'Sea';
-  mesh.position.y = 0;
+  mesh.position.set(window.minX+window.width/2,waterLevel,window.minZ+window.depth/2);
+  mesh.userData.water = { window, waterLevel, bed };
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   // Transparent surfaces sort by distance to their origin; the disc's origin is

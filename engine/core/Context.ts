@@ -29,6 +29,11 @@ export interface GameContext {
   events: EventBus;
   /** Time-of-day / weather state, owned by the Atmosphere system. */
   env: EnvironmentState;
+  /** Rendered world domain, published by the terrain before water/vegetation build. */
+  terrain?: {
+    bounds: { minX:number; maxX:number; minZ:number; maxZ:number };
+    waterLevel: number;
+  };
 }
 
 export interface EnvironmentState {

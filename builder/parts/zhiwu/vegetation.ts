@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
-import { poissonScatter, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline } from '@engine/scatter';
+import { poissonScatter, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter';
 import { metaSurface, noiseDisplace, boxProjectedUV, type Ball } from '@builder/parts/sculpt';
 import {
   createFoliageMaterial,
@@ -1464,25 +1464,24 @@ export function buildVegetation(ctx: GameContext): void {
   /* ---------------- tree placement --------------------------------- */
 
   /**
-   * Treeline density. Zero inside the town, ramping to solid at the map edge,
-   * broken up by a low-frequency clump field so the wall of trees has bays and
-   * promontories instead of a constant thickness.
+   * Background planting reads the current terrain domain and route clearance.
+   * A low-frequency clump field gives dry rising land distinct copses while
+   * preserving the route foreground for later region-specific planting.
    */
+  const treePaths = getPlan().paths;
   const treeDensity = (x: number, z: number): number => {
-    // 四面林带:园墙外全是树。
-    const side = smoothstep(16.0, 22.0, Math.abs(x));
-    const south = smoothstep(24.0, 29.0, z);
-    const north = smoothstep(-20.0, -26.0, z);
-    let d = Math.max(Math.max(side, south), north);
-    if (d <= 0) return 0;
-    // Grass only, and never on a pad or the path.
+    if (x < VEG.scatterMinX || x > VEG.scatterMaxX || z < VEG.scatterMinZ || z > VEG.scatterMaxZ) return 0;
     const m = mask.at(x, z);
     if (m < 0.55) return 0;
-    d *= outsideBuildings(x, z, 1.4);
-    // Clumping: copses and clearings.
+    if (HERO_TREES.some(([hx,hz]) => Math.hypot(x-hx,z-hz)<2.5)) return 0;
+    // Background copses occupy dry rising land, leaving the authored route and
+    // its sightline foreground open until region-specific planting lands in P3.
+    const routeDistance = Math.min(...treePaths.map(p => distanceToPolyline(x,z,p.points)));
+    const routeClearance = smoothstep(18,28,routeDistance);
+    if (routeClearance <= 0) return 0;
+    const land = 0.045 + smoothstep(1.8,5.5,ground(x,z)) * 0.55;
     const c = fbm2(clump, x * 0.09, z * 0.09, 3) * 0.5 + 0.5;
-    // The wild-grass lobes are a deliberate clearing: no trunks in them.
-    return clamp(d * (0.35 + c * 0.95), 0, 1) * 0.92 * wildGrassClearance(x, z, 1.6);
+    return clamp(land * (0.35+c*0.95),0,1) * routeClearance * outsideBuildings(x,z,1.4);
   };
 
   /**
@@ -1501,9 +1500,10 @@ export function buildVegetation(ctx: GameContext): void {
    * 1.5 m hard separation so nothing interpenetrates.
    */
   const treeSpots: Spot[] = [];
+  const treeBudget = Math.min(180, Math.ceil(TERRAIN.width*TERRAIN.depth/400));
   {
     const copses = poissonScatter({
-      minX: -30.5, maxX: 30.5, minZ: -31, maxZ: 34,
+      minX: VEG.scatterMinX, maxX: VEG.scatterMaxX, minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
       radius: 3.7, tries: 24000, density: treeDensity, rng,
     });
     // Bucketed by copse for the separation test: over a few hundred trees a
@@ -1511,20 +1511,20 @@ export function buildVegetation(ctx: GameContext): void {
     // members and its immediate neighbours, so test against a local window.
     const MIN_SEP2 = 1.5 * 1.5;
     for (const c of copses) {
+      if (treeSpots.length >= treeBudget) break;
       // Cluster size skewed low: mostly singles and pairs, occasional thicket.
       const n = 1 + Math.floor(Math.pow(rng(), 1.35) * 5);
       const spread = rangeOf(rng, 0.9, 3.1);
-      const start = treeSpots.length;
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < n && treeSpots.length < treeBudget; i++) {
         const a = rng() * Math.PI * 2;
         const r = i === 0 ? 0 : spread * Math.pow(rng(), 0.55);
         const x = c.x + Math.cos(a) * r;
         const z = c.z + Math.sin(a) * r;
         if (treeDensity(x, z) <= 0.02) continue;
         let ok = true;
-        // Own copse, plus the tail of the list (spatially adjacent, since
-        // Poisson emits in dart order and neighbours cluster in that order too).
-        for (let k = Math.max(0, Math.min(start, treeSpots.length - 24)); k < treeSpots.length; k++) {
+        // Copses arrive in random order, so checking only the previous 24
+        // entries cannot enforce separation against a nearby older copse.
+        for (let k = 0; k < treeSpots.length; k++) {
           const dx = treeSpots[k].x - x;
           const dz = treeSpots[k].z - z;
           if (dx * dx + dz * dz < MIN_SEP2) {
@@ -1541,7 +1541,7 @@ export function buildVegetation(ctx: GameContext): void {
     const b = built[speciesIdx];
     // Bigger trees deeper into the wood; the trees nearest the town are the
     // small ones, which keeps the treeline from crowding the eye line.
-    const edge = clamp((Math.max(Math.abs(x) - 14, z - 21) / 12), 0, 1);
+    const edge = smoothstep(1.0, 5.5, ground(x,z));
     // A 1.75 : 1 spread on top of the species' own 2.3 : 1 height spread. The
     // old 0.82–1.08 was a 1.3 : 1 band, which is inside the range a viewer
     // reads as "the same asset".
@@ -1671,7 +1671,7 @@ export function buildVegetation(ctx: GameContext): void {
 
       // Only things the player can reach need a blocker; the perimeter boxes
       // already stop them long before the outer wood.
-      if (Math.abs(sp.x) < 23 && sp.z < 27 && sp.z > -27) {
+      if (sp.x >= TERRAIN.playMinX && sp.x <= TERRAIN.playMaxX && sp.z >= TERRAIN.playMinZ && sp.z <= TERRAIN.playMaxZ) {
         ctx.collision.addCircle(
           sp.x, sp.z,
           b.geo.trunkR * girth * 1.05 + 0.12,
@@ -1709,7 +1709,10 @@ export function buildVegetation(ctx: GameContext): void {
     // the permutation so crowns stay on their trunks. No distance cut: a tree
     // is silhouette, and the treeline thinning out would be the first thing a
     // reviewer noticed.
-    culler.add([trunkMesh, canopyMesh, fringeMesh], { skipShadow: [fringeMesh] });
+    // Trees remain visible much farther than ground cover. Larger tree-only
+    // buckets trade some clipped vertices for fewer material submissions;
+    // grass and small plants keep their finer spatial buckets.
+    culler.add([trunkMesh, canopyMesh, fringeMesh], { skipShadow: [fringeMesh], cellSize: 128 });
   }
 
   /* ---------------- bushes ----------------------------------------- */
@@ -2130,7 +2133,7 @@ export function buildVegetation(ctx: GameContext): void {
       // frame and it is not worth having.
       mesh.name = `Grass_${ci}_${v}`;
       mesh.computeBoundingSphere();
-      mesh.boundingSphere!.radius += 0.5;
+      mesh.boundingSphere!.radius += instanceWindPadding(mesh);
       generated.push(mesh);
     }
     return generated;
@@ -2375,6 +2378,8 @@ export function buildVegetation(ctx: GameContext): void {
     setDistanceCulling: (on: boolean) => culler.setDistanceCulling(on),
     stats: () => culler.stats(),
   };
+  group.userData.treePlacements = treeBases;
+  group.userData.naturalTreeCount = treeSpots.length;
   group.userData.grassCoverage = { denseChunks: denseChunks.filter(Boolean).length,
     chunks: denseChunks.length, nearCell: VEG.grassCell, farCell: VEG.grassCell * 3 };
 }

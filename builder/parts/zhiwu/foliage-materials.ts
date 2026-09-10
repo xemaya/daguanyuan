@@ -288,6 +288,7 @@ export function createFoliageMaterial(
   if (o.roughnessMap) params.roughnessMap = o.roughnessMap;
 
   const mat = new THREE.MeshStandardMaterial(params);
+  mat.userData.windScale = o.windScale ?? 1;
   if (o.normalMap && o.normalScale !== undefined) {
     mat.normalScale.set(o.normalScale, o.normalScale);
   }
