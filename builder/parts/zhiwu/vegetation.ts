@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
+import { poissonScatter, DensityMask, makeInstanced, InstanceCuller } from '@engine/scatter';
 import { metaSurface, noiseDisplace, boxProjectedUV, type Ball } from '@builder/parts/sculpt';
 import {
   createFoliageMaterial,
@@ -263,46 +264,17 @@ const SPECIES: TreeDef[] = [
  * same function the terrain shader splats from, the mask cannot disagree with
  * what is painted on the ground.
  */
-class PlantMask {
-  readonly w: number;
-  readonly h: number;
-  private data: Float32Array;
-
-  constructor(ctx: GameContext, w = 256, h = 288) {
-    this.w = w;
-    this.h = h;
-    this.data = new Float32Array(w * h);
-    const surfaceAt = ctx.collision.surfaceAt;
-    const groundHeight = ctx.collision.groundHeight;
-    for (let j = 0; j < h; j++) {
-      const z = TERRAIN.minZ + ((j + 0.5) / h) * TERRAIN.depth;
-      for (let i = 0; i < w; i++) {
-        const x = TERRAIN.minX + ((i + 0.5) / w) * TERRAIN.width;
-        const grass = surfaceAt(x, z) === 'grass' ? 1 : 0;
-        const dry = groundHeight(x, z) > VEG.minPlantY ? 1 : 0;
-        this.data[j * w + i] = grass * dry;
-      }
-    }
-  }
-
-  /** Bilinear sample. The blur across cells is what softens the path edge. */
-  at(x: number, z: number): number {
-    const u = ((x - TERRAIN.minX) / TERRAIN.width) * this.w - 0.5;
-    const v = ((z - TERRAIN.minZ) / TERRAIN.depth) * this.h - 0.5;
-    const i0 = Math.floor(u);
-    const j0 = Math.floor(v);
-    const fx = u - i0;
-    const fz = v - j0;
-    const g = (i: number, j: number) => {
-      if (i < 0 || j < 0 || i >= this.w || j >= this.h) return 0;
-      return this.data[j * this.w + i];
-    };
-    return lerp(
-      lerp(g(i0, j0), g(i0 + 1, j0), fx),
-      lerp(g(i0, j0 + 1), g(i0 + 1, j0 + 1), fx),
-      fz,
-    );
-  }
+function makePlantMask(ctx: GameContext): DensityMask {
+  const surfaceAt = ctx.collision.surfaceAt;
+  const groundHeight = ctx.collision.groundHeight;
+  return new DensityMask(
+    (x, z) => {
+      const grass = surfaceAt(x, z) === 'grass' ? 1 : 0;
+      const dry = groundHeight(x, z) > VEG.minPlantY ? 1 : 0;
+      return grass * dry;
+    },
+    { minX: TERRAIN.minX, minZ: TERRAIN.minZ, width: TERRAIN.width, depth: TERRAIN.depth },
+  );
 }
 
 /** 1 outside every building footprint, 0 inside, with a short feather. */
@@ -324,410 +296,6 @@ function outsideBuildings(x: number, z: number, pad = 0): number {
 interface Spot {
   x: number;
   z: number;
-}
-
-/**
- * Dart-throwing Poisson-disc rejection over a density field. Used where spacing
- * has to be genuinely enforced — trees, bushes, flower clusters — because a
- * jittered grid there produces visible rows the moment two neighbours line up.
- */
-function poisson(
-  rng: () => number,
-  o: {
-    minX: number; maxX: number; minZ: number; maxZ: number;
-    minDist: number; attempts: number;
-    density: (x: number, z: number) => number;
-  },
-): Spot[] {
-  const cell = o.minDist / Math.SQRT2;
-  const gw = Math.ceil((o.maxX - o.minX) / cell) + 1;
-  const gh = Math.ceil((o.maxZ - o.minZ) / cell) + 1;
-  const grid = new Int32Array(gw * gh).fill(-1);
-  const out: Spot[] = [];
-  const d2 = o.minDist * o.minDist;
-
-  for (let a = 0; a < o.attempts; a++) {
-    const x = rangeOf(rng, o.minX, o.maxX);
-    const z = rangeOf(rng, o.minZ, o.maxZ);
-    const dens = o.density(x, z);
-    if (dens <= 0.001 || rng() > dens) continue;
-
-    const gi = Math.floor((x - o.minX) / cell);
-    const gj = Math.floor((z - o.minZ) / cell);
-    let ok = true;
-    for (let j = Math.max(0, gj - 2); j <= Math.min(gh - 1, gj + 2) && ok; j++) {
-      for (let i = Math.max(0, gi - 2); i <= Math.min(gw - 1, gi + 2); i++) {
-        const id = grid[j * gw + i];
-        if (id < 0) continue;
-        const s = out[id];
-        const dx = s.x - x;
-        const dz = s.z - z;
-        if (dx * dx + dz * dz < d2) {
-          ok = false;
-          break;
-        }
-      }
-    }
-    if (!ok) continue;
-    grid[gj * gw + gi] = out.length;
-    out.push({ x, z });
-  }
-  return out;
-}
-
-/* ------------------------------------------------------------------ */
-/* Instanced mesh helper                                               */
-/* ------------------------------------------------------------------ */
-
-/**
- * Creates an InstancedMesh with its own copy of the geometry so the
- * per-instance `aWind` buffer cannot be shared between two meshes that need
- * different phases.
- */
-function makeInstanced(
-  geo: THREE.BufferGeometry,
-  mat: THREE.Material,
-  count: number,
-  rng: () => number,
-  windMul = 1,
-): THREE.InstancedMesh {
-  const g = geo.clone();
-  const wind = new Float32Array(count * 2);
-  for (let i = 0; i < count; i++) {
-    wind[i * 2] = rng() * Math.PI * 2 * 3.7;
-    wind[i * 2 + 1] = windMul * (0.55 + rng() * 0.9);
-  }
-  g.setAttribute('aWind', new THREE.InstancedBufferAttribute(wind, 2));
-  const mesh = new THREE.InstancedMesh(g, mat, count);
-  mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
-  return mesh;
-}
-
-/* ------------------------------------------------------------------ */
-/* Per-instance culling                                                */
-/* ------------------------------------------------------------------ */
-
-/**
- * Frustum- and distance-culls the *instances* of an InstancedMesh, not just the
- * mesh.
- *
- * The problem this solves: `InstancedMesh.computeBoundingSphere()` spans every
- * instance, and that one sphere is what the renderer's frustum test uses. A
- * single mesh holding all 66 oak trees therefore has a bounding sphere the size
- * of the map — it intersects the frustum no matter where you stand, so all 66
- * trees are submitted every frame whether you are looking at the wood or at
- * your feet. The same was true of every bush, every clover and every flower in
- * the town. Measured, that was 1.65M triangles drawn in full in *every* frame
- * regardless of view direction, which is most of the overdraw in this scene.
- *
- * The fix keeps one draw call per mesh (chunking into many small meshes would
- * trade the triangles straight back for draw calls, and the draw-call budget is
- * tight too). Instead the instance matrices are permuted in place each frame so
- * the visible ones occupy a prefix, and `count` is set to the length of that
- * prefix.
- *
- * Shadows are the subtlety, and they apply to *everything* here, not just the
- * obvious casters. The sun is low and to the south-east, so a tree behind the
- * camera legitimately casts into frame; culling it against the camera frustum
- * would delete its shadow. Less obviously, this project uses VSM shadows, and
- * three.js renders a mesh into a VSM shadow map when it either casts *or*
- * receives:
- *
- *     object.castShadow || ( object.receiveShadow && type === VSMShadowMap )
- *
- * Every plant in this file sets `receiveShadow = true`, so the grass, clover,
- * flowers, weeds and leaf fringe are all in the shadow pass despite having
- * `castShadow = false`. An earlier version of this culler only restored the
- * count for meshes it thought were casters, and quietly dropped ~286k triangles
- * of receivers out of the shadow map.
- *
- * So every group keeps its full permutation in the buffer — hidden instances
- * are written after the visible prefix rather than dropped — and
- * `onBeforeShadow`/`onAfterShadow` raise `count` back to the full set for the
- * shadow pass and drop it again afterwards.
- */
-/** One per-instance buffer that has to travel with the permutation. */
-interface CullBuffer {
-  attr: THREE.BufferAttribute;
-  itemSize: number;
-  base: Float32Array;
-  live: Float32Array;
-}
-
-/**
- * A set of meshes that share one instance layout — a trunk, its canopy and its
- * leaf fringe — culled as a single unit.
- *
- * They must share the decision as well as the layout. Trunk, canopy and fringe
- * have different bounding radii, so culled independently they would disagree at
- * the frustum edge and you would watch a crown wink out above a trunk that
- * stayed. They also share one `aWind` buffer by design, so a permutation
- * applied to one and not the others would slide every crown off its trunk.
- */
-interface CullGroup {
-  meshes: THREE.InstancedMesh[];
-  n: number;
-  /** Union bounding sphere of the whole group, per instance, in world space. */
-  cx: Float32Array;
-  cy: Float32Array;
-  cz: Float32Array;
-  cr: Float32Array;
-  buffers: CullBuffer[];
-  maxDist2: number;
-  /** The maxDist2 the world was authored with; QA can override maxDist2. */
-  authoredMaxDist2: number;
-  wasVisible: Uint8Array;
-  visibleCount: number;
-  primed: boolean;
-}
-
-class InstanceCuller {
-  private groups: CullGroup[] = [];
-  private frustum = new THREE.Frustum();
-  private projScreen = new THREE.Matrix4();
-  private viewInverse = new THREE.Matrix4();
-  private camPos = new THREE.Vector3();
-  private sphere = new THREE.Sphere();
-
-  /**
-   * @param meshes Meshes sharing one instance layout. Instance `i` must be the
-   *               same plant in every one of them.
-   * @param extra  Per-instance attributes beyond matrix and colour that must be
-   *               permuted alongside — deduplicated, so a buffer shared between
-   *               several meshes is only permuted once.
-   */
-  add(
-    meshes: THREE.InstancedMesh[],
-    opts: {
-      maxDist?: number;
-      extra?: THREE.BufferAttribute[];
-      /** Meshes a solid caster already covers; kept out of the shadow map. */
-      skipShadow?: THREE.InstancedMesh[];
-    },
-  ): void {
-    const live = meshes.filter((m) => m.count > 0);
-    if (live.length === 0) return;
-    const n = live[0].count;
-
-    // Union of each mesh's geometry sphere, so the group's radius covers the
-    // canopy even when we are iterating the trunk's matrices.
-    let gcx = 0;
-    let gcy = 0;
-    let gcz = 0;
-    let grad = 0;
-    for (const m of live) {
-      if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
-      const s = m.geometry.boundingSphere!;
-      gcx += s.center.x;
-      gcy += s.center.y;
-      gcz += s.center.z;
-    }
-    gcx /= live.length;
-    gcy /= live.length;
-    gcz /= live.length;
-    const gc = new THREE.Vector3(gcx, gcy, gcz);
-    for (const m of live) {
-      const s = m.geometry.boundingSphere!;
-      grad = Math.max(grad, gc.distanceTo(s.center) + s.radius);
-    }
-
-    const cx = new Float32Array(n);
-    const cy = new Float32Array(n);
-    const cz = new Float32Array(n);
-    const cr = new Float32Array(n);
-    const m4 = new THREE.Matrix4();
-    const c = new THREE.Vector3();
-    const s3 = new THREE.Vector3();
-    for (let i = 0; i < n; i++) {
-      live[0].getMatrixAt(i, m4);
-      c.copy(gc).applyMatrix4(m4);
-      // Largest axis scale: instances are scaled non-uniformly and a radius
-      // that under-covers would pop the plant out at the edge of frame.
-      s3.setFromMatrixScale(m4);
-      cx[i] = c.x;
-      cy[i] = c.y;
-      cz[i] = c.z;
-      // 4% of slack on the radius. The wind shader displaces vertices beyond
-      // the geometry's authored bounds, and a plant that is culled one frame
-      // before it leaves the screen is far more noticeable than one drawn a
-      // frame longer than it needed to be.
-      cr[i] = grad * Math.max(s3.x, s3.y, s3.z) * 1.04;
-    }
-
-    const buffers: CullBuffer[] = [];
-    const seen = new Set<THREE.BufferAttribute>();
-    const track = (attr: THREE.BufferAttribute | null | undefined): void => {
-      if (!attr || seen.has(attr)) return;
-      seen.add(attr);
-      const arr = attr.array as Float32Array;
-      buffers.push({ attr, itemSize: attr.itemSize, base: arr.slice(), live: arr });
-    };
-    for (const m of live) {
-      track(m.instanceMatrix);
-      track(m.instanceColor);
-      // Every per-instance attribute has to travel with the permutation, not
-      // just the matrix. `makeInstanced` gives each geometry an `aWind` buffer
-      // holding that plant's phase and stiffness; permuting the matrices while
-      // leaving it behind hands each plant a stranger's wind and visibly slides
-      // it across the ground. Discovering these off the geometry rather than
-      // listing them by hand is what stops that happening again. The Set also
-      // handles the tree case, where trunk, canopy and fringe deliberately
-      // share one `aWind` buffer and it must be permuted exactly once.
-      for (const attr of Object.values(m.geometry.attributes)) {
-        if ((attr as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) {
-          track(attr as THREE.BufferAttribute);
-        }
-      }
-    }
-    for (const e of opts.extra ?? []) track(e);
-
-    const group: CullGroup = {
-      meshes: live,
-      n,
-      cx, cy, cz, cr,
-      buffers,
-      maxDist2: opts.maxDist === undefined ? Infinity : opts.maxDist * opts.maxDist,
-      authoredMaxDist2: opts.maxDist === undefined ? Infinity : opts.maxDist * opts.maxDist,
-      wasVisible: new Uint8Array(n),
-      visibleCount: n,
-      primed: false,
-    };
-    this.groups.push(group);
-
-    const shadowSkip = new Set<THREE.InstancedMesh>(opts.skipShadow ?? []);
-    for (const m of live) {
-      // We own the decision now. The renderer's whole-mesh test could only ever
-      // agree with us, and it would apply the camera frustum to the shadow pass
-      // too, which needs the full set.
-      m.frustumCulled = false;
-      // Under VSM, three.js draws every *receiver* into the shadow map as well
-      // as every caster, so `castShadow = false` does not keep a mesh out of
-      // it. For the leaf fringe that is pure waste: the canopy blob and the
-      // bush shell sit inside the same volume and already cast that crown's
-      // shadow, so the forty thousand alpha-tested cards on top of them can
-      // only add noise to the edge of a shadow that is already there — which is
-      // exactly the reasoning behind their `castShadow = false` in the first
-      // place. Zeroing the instance count skips the draw outright
-      // (`renderInstances` early-outs at zero) while leaving `receiveShadow`
-      // alone, so the cards are still lit and shadowed exactly as before.
-      //
-      // Ground scatter is deliberately NOT treated this way. Grass, clover,
-      // flowers and weeds have no solid proxy underneath them, so taking them
-      // out of the map removes real contact shadowing and visibly flattens the
-      // turf. Measured at ~530k triangles a frame, and not worth it.
-      const skipShadow = shadowSkip.has(m);
-      m.onBeforeShadow = () => { m.count = skipShadow ? 0 : group.n; };
-      m.onAfterShadow = () => { m.count = group.visibleCount; };
-    }
-  }
-
-  /**
-   * Restores every instance to its authored order and full count.
-   *
-   * This is the A/B hook for visual QA: it puts the scene back to "no instance
-   * culling at all" so a frozen capture can prove that culling changed the
-   * triangle count and nothing else. Without it there is no way to tell a
-   * culling bug from a wind-phase difference in a screenshot diff.
-   */
-  setEnabled(on: boolean): void {
-    this.enabled = on;
-    if (on) {
-      for (const g of this.groups) g.primed = false;
-      return;
-    }
-    for (const g of this.groups) {
-      for (const b of g.buffers) {
-        b.live.set(b.base);
-        b.attr.needsUpdate = true;
-      }
-      g.visibleCount = g.n;
-      g.wasVisible.fill(1);
-      g.primed = false;
-      for (const m of g.meshes) m.count = g.n;
-    }
-  }
-
-  private enabled = true;
-
-  /** QA hook: drop only the distance cuts, keeping frustum culling. */
-  setDistanceCulling(on: boolean): void {
-    for (const g of this.groups) {
-      if (on) {
-        g.maxDist2 = g.authoredMaxDist2;
-      } else {
-        g.maxDist2 = Infinity;
-      }
-      g.primed = false;
-    }
-  }
-
-  update(camera: THREE.Camera): void {
-    if (!this.enabled) return;
-    // The renderer refreshes these during `render()`, which has not happened
-    // yet this frame — the tick runs first. Using them as they stand would test
-    // against the *previous* frame's frustum and pop plants in at the edge of
-    // frame whenever the camera turns quickly.
-    camera.updateMatrixWorld();
-    this.viewInverse.copy(camera.matrixWorld).invert();
-    this.projScreen.multiplyMatrices(camera.projectionMatrix, this.viewInverse);
-    this.frustum.setFromProjectionMatrix(this.projScreen);
-    camera.getWorldPosition(this.camPos);
-    const px = this.camPos.x;
-    const py = this.camPos.y;
-    const pz = this.camPos.z;
-
-    for (const g of this.groups) {
-      const { n, cx, cy, cz, cr, wasVisible } = g;
-      let changed = !g.primed;
-      let k = 0;
-
-      // Pass 1: decide, and notice whether anything actually flipped. Rewriting
-      // and re-uploading thousands of matrices for a camera that has not moved
-      // far enough to change the set is pure waste.
-      for (let i = 0; i < n; i++) {
-        const r = cr[i];
-        let vis = 1;
-        if (g.maxDist2 !== Infinity) {
-          const dx = cx[i] - px;
-          const dy = cy[i] - py;
-          const dz = cz[i] - pz;
-          const d = Math.sqrt(dx * dx + dy * dy + dz * dz) - r;
-          if (d > 0 && d * d > g.maxDist2) vis = 0;
-        }
-        if (vis) {
-          this.sphere.center.set(cx[i], cy[i], cz[i]);
-          this.sphere.radius = r;
-          if (!this.frustum.intersectsSphere(this.sphere)) vis = 0;
-        }
-        if (wasVisible[i] !== vis) {
-          wasVisible[i] = vis;
-          changed = true;
-        }
-        if (vis) k++;
-      }
-
-      if (!changed) continue;
-      g.primed = true;
-
-      // Pass 2: compact the visible instances into a prefix, and write the
-      // hidden ones after it. The tail is not optional: the shadow pass raises
-      // `count` back to the full set, so every instance must be somewhere in
-      // the buffer with a valid matrix.
-      let head = 0;
-      let tail = k;
-      for (let i = 0; i < n; i++) {
-        const slot = wasVisible[i] ? head++ : tail++;
-        for (const b of g.buffers) {
-          const w = b.itemSize;
-          b.live.set(b.base.subarray(i * w, i * w + w), slot * w);
-        }
-      }
-
-      g.visibleCount = k;
-      for (const b of g.buffers) b.attr.needsUpdate = true;
-      for (const m of g.meshes) m.count = k;
-    }
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1721,7 +1289,7 @@ function weedGeometry(seed: number, size: number): THREE.BufferGeometry {
 export function buildVegetation(ctx: GameContext): void {
   const rng = makeRng(ctx.seed ^ 0x5eed1e5);
   const ground = ctx.collision.groundHeight;
-  const mask = new PlantMask(ctx);
+  const mask = makePlantMask(ctx);
   const clump = new Simplex(ctx.seed ^ 0x0c10ff);
 
   const group = new THREE.Group();
@@ -1918,9 +1486,9 @@ export function buildVegetation(ctx: GameContext): void {
    */
   const treeSpots: Spot[] = [];
   {
-    const copses = poisson(rng, {
+    const copses = poissonScatter({
       minX: -30.5, maxX: 30.5, minZ: -31, maxZ: 34,
-      minDist: 3.7, attempts: 24000, density: treeDensity,
+      radius: 3.7, tries: 24000, density: treeDensity, rng,
     });
     // Bucketed by copse for the separation test: over a few hundred trees a
     // naive all-pairs check is fine, but a copse only ever collides with its own
@@ -2170,9 +1738,9 @@ export function buildVegetation(ctx: GameContext): void {
     return d * outsideBuildings(x, z, 0.25) * wildGrassClearance(x, z);
   };
 
-  const bushSpots = poisson(rng, {
+  const bushSpots = poissonScatter({
     minX: -24, maxX: 24, minZ: -24, maxZ: 30,
-    minDist: 2.5, attempts: 9000, density: bushDensity,
+    radius: 2.5, tries: 9000, density: bushDensity, rng,
   });
 
   const bushBuckets: { x: number; z: number }[][] = [[], [], []];
@@ -2277,11 +1845,11 @@ export function buildVegetation(ctx: GameContext): void {
     }
     // Plus a drift through the wood itself so the ground between the trunks is
     // not clean turf either.
-    for (const s of poisson(lRng, {
+    for (const s of poissonScatter({
       minX: -28, maxX: 28, minZ: -28, maxZ: 32,
       // Widened with the patch size, so the drift covers the same ground for
       // roughly half the instances it used to take.
-      minDist: 1.25, attempts: 14000,
+      radius: 1.25, tries: 14000,
       density: (x, z) => {
         if (mask.at(x, z) < 0.6) return 0;
         // The z band starts at 19 rather than 17. Litter is what falls off a
@@ -2292,6 +1860,7 @@ export function buildVegetation(ctx: GameContext): void {
         const n = fbm2(clump, x * 0.19 + 61, z * 0.19, 3) * 0.5 + 0.5;
         return clamp(wood * (0.2 + n * 0.8), 0, 1) * outsideBuildings(x, z, 0.2) * wildGrassClearance(x, z);
       },
+      rng: lRng,
     })) {
       litSpots.push({ x: s.x, z: s.z, v: lRng() < 0.5 ? 0 : 1 });
     }
@@ -2336,19 +1905,20 @@ export function buildVegetation(ctx: GameContext): void {
       deadfallGeometry(ctx.seed ^ 0xfa12, 2.30, 0.105),
     ];
     const fRng2 = makeRng(ctx.seed ^ 0xfa1100);
-    const fallSpots = poisson(fRng2, {
+    const fallSpots = poissonScatter({
       minX: -27, maxX: 27, minZ: -27, maxZ: 31,
       // 3.5 m rather than 2.6 m. At 2.6 the wood had a fallen branch every
       // couple of paces, which is not a forest floor, it is a woodpile — and
       // deadfall is the most expensive floor detail per unit of read, since each
       // stick is a swept tube rather than a card. Fewer, further apart, larger.
-      minDist: 3.5, attempts: 5000,
+      radius: 3.5, tries: 5000,
       density: (x, z) => {
         if (mask.at(x, z) < 0.7) return 0;
         if (ground(x, z) < 0.3) return 0;
         const wood = Math.max(smoothstep(11.5, 17.5, Math.abs(x)), smoothstep(17.5, 23.5, z));
         return clamp(wood * 0.8, 0, 1) * outsideBuildings(x, z, 0.8) * wildGrassClearance(x, z);
       },
+      rng: fRng2,
     });
     const fallBuckets: { x: number; z: number }[][] = [[], []];
     for (const s of fallSpots) fallBuckets[fRng2() < 0.62 ? 0 : 1].push(s);
@@ -2549,11 +2119,12 @@ export function buildVegetation(ctx: GameContext): void {
     });
 
     const cRng = makeRng(ctx.seed ^ 0xc10e5);
-    const patches = poisson(cRng, {
+    const patches = poissonScatter({
       minX: VEG.scatterMinX, maxX: VEG.scatterMaxX,
       minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
-      minDist: 2.3, attempts: 2600,
+      radius: 2.3, tries: 2600,
       density: (x, z) => (mask.at(x, z) > 0.85 ? 0.85 * outsideBuildings(x, z, 0.1) : 0),
+      rng: cRng,
     });
 
     const spots: { x: number; z: number }[] = [];
@@ -2611,10 +2182,10 @@ export function buildVegetation(ctx: GameContext): void {
 
     // Flowers grow in single-species drifts. A mixed confetti scatter is the
     // classic procedural tell; real meadows are patchy and monochrome per patch.
-    const drifts = poisson(fRng, {
+    const drifts = poissonScatter({
       minX: VEG.scatterMinX + 1, maxX: VEG.scatterMaxX - 1,
       minZ: VEG.scatterMinZ + 1, maxZ: VEG.scatterMaxZ - 1,
-      minDist: 3.1, attempts: 2200,
+      radius: 3.1, tries: 2200,
       density: (x, z) => {
         if (mask.at(x, z) < 0.9) return 0;
         // Denser on the town green and along the treeline skirt.
@@ -2622,6 +2193,7 @@ export function buildVegetation(ctx: GameContext): void {
         const skirt = smoothstep(9.5, 13.5, Math.abs(x)) * smoothstep(20, 14, Math.abs(x));
         return clamp(0.22 + green * 0.6 + skirt * 0.55, 0, 1) * outsideBuildings(x, z, 0.2);
       },
+      rng: fRng,
     });
 
     const buckets: { x: number; z: number }[][] = ACCENTS.map(() => []);
@@ -2700,10 +2272,10 @@ export function buildVegetation(ctx: GameContext): void {
     });
 
     const geos = [weedGeometry(ctx.seed ^ 0x4e1, 0.48), weedGeometry(ctx.seed ^ 0x4e2, 0.74)];
-    const spots = poisson(wRng, {
+    const spots = poissonScatter({
       minX: VEG.scatterMinX, maxX: VEG.scatterMaxX,
       minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
-      minDist: 0.7, attempts: 12000,
+      radius: 0.7, tries: 12000,
       density: (x, z) => {
         if (mask.at(x, z) < 0.8) return 0;
         // Weeds go where a mower would not: against the wood, the south shelf,
@@ -2721,6 +2293,7 @@ export function buildVegetation(ctx: GameContext): void {
         return clamp((Math.max(wood, south) * 0.75 + wall * 0.7) * (0.3 + n), 0, 1) *
           outsideBuildings(x, z, 0.1);
       },
+      rng: wRng,
     });
 
     const groups: { x: number; z: number }[][] = [[], []];

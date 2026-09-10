@@ -1,3 +1,7 @@
+/**
+ * 真新镇遗留的温带叶材质。卡片朝向与半透机制本应进 engine/scatter/（见 spec §7），
+ * 但它与具体叶片贴图缠在一起，剥离要连着换中式树种一起做——P3 的活，不在 P0。
+ */
 import * as THREE from 'three';
 import type { EnvironmentState } from '@engine/core/Context';
 import { Simplex, tileableFbm, worley, clamp, smoothstep, lerp, makeRng } from '@engine/core/Noise';
