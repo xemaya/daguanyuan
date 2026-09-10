@@ -57,7 +57,7 @@ export class LoadingScreen {
     inner.appendChild(bar);
 
     const row = el('div', 'pt-loading__row');
-    this.stepEl = el('div', 'pt-loading__step', 'Waking the town…');
+    this.stepEl = el('div', 'pt-loading__step', '正在造园…');
     this.pctEl = el('div', 'pt-loading__pct', '0%');
     row.appendChild(this.stepEl);
     row.appendChild(this.pctEl);
