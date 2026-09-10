@@ -32,6 +32,11 @@ BASE=/daguanyuan/ npm run build   # 部署到 hub 子路径
 | 5 | [docs/ROADMAP.md](docs/ROADMAP.md) | 下一步做什么，怎么分期 |
 | 6 | [CONTRIBUTING.md](CONTRIBUTING.md) | 协作规矩：碰哪些文件、过哪些门、怎么提交 |
 
+外部调研（要用先看它们各自的使用说明）：
+
+- [docs/kg-paper-borrowing.md](docs/kg-paper-borrowing.md) — 同题论文（知识图谱驱动的大观园重塑）对照：该抄什么、不该抄什么
+- [docs/tellux-borrowing.md](docs/tellux-borrowing.md) — tellux 开源 Earth Engine 的规模基建模式
+
 要动某一块时再读对应的：
 
 - 改建筑推导 → `knowledge/docs/fashi/README.md`、`knowledge/docs/qingshi/README.md`、`knowledge/docs/qingshi/tiers.md`
