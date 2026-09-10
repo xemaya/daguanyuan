@@ -440,6 +440,51 @@
       },
       "needs": [],
       "paramSet": "none"
+    },
+    {
+      "id": "99-23",
+      "name": "环园东路从凸碧山山顶穿过",
+      "status": "missing",
+      "statement": "plan.json 的环园东路 [184,100]→[194,72] 段离凸碧山质心仅 0.03 m,即环路翻越全园最高山的山顶。地形生成器按 10% 限坡切山,该点只能到约 5.5 m,与 18 m 标称峰高不可兼得——高程断言与限坡断言互相排斥。修法:让环园东路绕山脚走,或把凸碧山的标称峰位与路分开。改完 tests/terrain-plan.test.mjs 的 SKIP_HILL 应清空。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/plan/04-conflicts.md",
+          "《红楼梦》第七十六回 凸碧堂品笛感凄清"
+        ],
+        "keywords": [
+          "凸碧山 山脊 山坳 山脚",
+          "环园东路 折线",
+          "盘道 绕山脚"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-10 由 P1 Task 5 地形生成器实测发现;当时按任务单约定只跳断言不改 plan.json。"
+    },
+    {
+      "id": "99-24",
+      "name": "三个区的质心落在水里,台基高程无处可依",
+      "status": "missing",
+      "statement": "xiaoxiangguan(穿院引泉沟距质心 0.1 m)、qinfangzha(闸跨水,质心在沁芳溪北段河道内 3.2 m)、liaoting_huaxu(港洞渡口,质心压在北段岸线 0.4 m)三个区,区域质心不在陆地上,所以「区域中心即台基位置」这个默认不成立。这不是锚点越界(那是 99-20),是几何事实。修法:给这三个区在 plan.json 里显式标出台基锚点(building anchor)与标高,不再用质心兜底。潇湘馆在 MVP 游线上,优先。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/plan/04-conflicts.md",
+          "《红楼梦》第十七回 大观园试才题对额"
+        ],
+        "keywords": [
+          "潇湘馆 引泉 开沟仅尺许",
+          "沁芳闸 跨水",
+          "蓼汀花溆 港洞 渡口",
+          "台基锚点 标高"
+        ]
+      },
+      "needs": [
+        "99-20"
+      ],
+      "paramSet": "none",
+      "notes": "2026-09-10 由 P1 Task 5 地形生成器实测发现;与 99-20 的 4 个越界锚点是两回事。"
     }
   ]
 }
