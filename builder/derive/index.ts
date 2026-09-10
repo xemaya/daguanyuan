@@ -1,16 +1,24 @@
 /**
  * 大木作推导器:把一栋屋的输入契约(材等、间架、铺作、屋类)推成
- * 一张以米计的骨架表,供 src/cn/parts/building.ts 出几何。
+ * 一张以米计的骨架表,供 builder/parts/damu/building.ts 出几何。
  *
- * 这里只做"数",不碰 three.js。每个字段的来源规则号见各子模块。
+ * 这里只做"数",不碰 three.js——分层门查这条。
+ *
+ * **所有营造数字来自 knowledge/rules/*.json,代码里没有一个字面量。**
+ * 每次推导都会带回一份 provenance:哪些数有出处(evidence)、哪些是我们在
+ * 存疑口径里做的裁决(inference)、哪些是为体验主动做的偏离(art)。
  */
 import { makeCai, type Cai, type CaiSpec } from '@builder/derive/fashi/cai';
 import { derivePuzuo, type Puzuo, type PuzuoSpec } from '@builder/derive/fashi/puzuo';
 import { deriveZhu, type Zhu, type Hall } from '@builder/derive/fashi/zhu';
-import { deriveJuzhe, type Juzhe, type RoofClass, type Era } from '@builder/derive/fashi/juzhe';
-import { deriveYanchu, type Yanchu } from '@builder/derive/fashi/yanchu';
+import { deriveJuzhe, type Juzhe, type RoofClass } from '@builder/derive/fashi/juzhe';
+import { defaultRafterDiaFen, deriveYanchu, type Yanchu } from '@builder/derive/fashi/yanchu';
+import { eraOptions, type Era } from '@builder/derive/profiles';
+import { RuleBook, type RuleBookOptions } from '@builder/derive/rules';
+import type { Provenance } from '@builder/derive/provenance';
 
 export type RoofType = '歇山' | '硬山' | '悬山' | '攒尖';
+export type { Era };
 
 export interface BuildingSpec {
   cai: CaiSpec;
@@ -19,14 +27,19 @@ export interface BuildingSpec {
   bayWidthsFen: number[];
   /** 进深总椽架数(偶数)。 */
   rafters: number;
-  /** 每架平长(分)[04-11],缺省 110。 */
+  /** 每架平长(分)[04-11];不给取该规则的参考区间上限。 */
   jiaFen?: number;
   /** 铺作;不出跳者传 null(柱头作)。 */
   puzuo?: PuzuoSpec | null;
   roofType: RoofType;
   roofClass?: RoofClass;
+  /** 时代口径预设,缺省宋(法式本位)。见 builder/derive/profiles.ts。 */
   era?: Era;
-  /** 椽径(分)[05-02];缺省按屋类。 */
+  /** 逐条覆盖预设的口径选择,或给缺失规则显式值(会记进 provenance.art)。 */
+  rules?: RuleBookOptions;
+  /** 举高比。选中口径给的是区间时必须给,是艺术决策。 */
+  raiseRatio?: number;
+  /** 椽径(分)[05-02];不给按屋类取区间下限。 */
   rafterDiaFen?: number;
   /** 飞子 [05-05];缺省 true。 */
   feizi?: boolean;
@@ -43,6 +56,8 @@ export interface Frame {
   zhu: Zhu;
   juzhe: Juzhe;
   yanchu: Yanchu;
+  /** 这一栋屋每个数字的来路,分证据/推定/艺术三支。 */
+  provenance: Provenance;
   /** 以下全部为米。 */
   m: {
     /** 面阔柱位 x(自西向东,原点在中),z 前后檐柱位(±)。 */
@@ -80,47 +95,60 @@ export interface Frame {
 }
 
 export function deriveBuilding(spec: BuildingSpec): Frame {
-  const cai = makeCai(spec.cai);
+  const era = spec.era ?? 'song';
+  const book = RuleBook.create('fashi', eraOptions(era, spec.rules ?? {}));
+  return deriveWithBook(book, spec, era);
+}
+
+/** 同 deriveBuilding,但用调用方给的规则本。突变测试与多参数集分派走这条。 */
+export function deriveWithBook(book: RuleBook, spec: BuildingSpec, era: Era = 'song'): Frame {
+  const cai = makeCai(book, spec.cai);
   const f = cai.fenM;
-  const puzuo = spec.puzuo ? derivePuzuo(spec.puzuo) : null;
-  const zhu = deriveZhu({
+  const puzuo = spec.puzuo ? derivePuzuo(book, spec.puzuo) : null;
+
+  const zhu = deriveZhu(book, {
     hall: spec.hall,
     bayWidthsFen: spec.bayWidthsFen,
-    fenCun: cai.fenCm / (cai.chiCm / 10),
+    fenCun: cai.fenCun,
     columnHeightFen: spec.columnHeightFen,
     columnDiameterFen: spec.columnDiameterFen,
-    cejiao: spec.era !== 'tang',
+    // [03-08 乙注] 唐构无侧脚。
+    cejiao: era !== 'tang',
   });
 
   if (spec.rafters % 2 !== 0 || spec.rafters < 2) throw new Error('椽架数须为 ≥2 的偶数');
-  const jia = spec.jiaFen ?? 110;
+  // [04-11] 椽每架平长参考 100~125 分,上限 150。不给取参考区间上限。
+  const jia = spec.jiaFen ?? book.pickInRange('04-11', 'fenRange', 'hi');
   const depthFen = jia * spec.rafters; // 前后檐柱心距
   const outFen = puzuo ? puzuo.outFen : 0;
   // [04-02] 殿阁取前后橑檐枋心距;不出跳者取檐柱心距。
   const spanL = depthFen + 2 * outFen;
-  const juzhe = deriveJuzhe({
+
+  const cls = spec.roofClass ?? (spec.hall === '殿阁' ? '殿阁' : '筒瓦厅堂');
+  const juzhe = deriveJuzhe(book, {
     spanL,
     halfRafters: spec.rafters / 2,
-    cls: spec.roofClass ?? (spec.hall === '殿阁' ? '殿阁' : '筒瓦厅堂'),
-    era: spec.era,
+    cls,
+    ratio: spec.raiseRatio,
   });
 
   const width = zhu.xFen[zhu.xFen.length - 1];
   const columnX = zhu.xFen.map((x) => (x - width / 2) * f);
   const columnH = zhu.columnHeightFen * f;
   const puzuoH = puzuo ? puzuo.heightFen * f : 0;
-  // 橑檐枋 30 分高 [04-26];不出跳者用替木+槫,近似 21 分。
-  const fangH = (puzuo ? 30 : 21) * f;
+  // [04-26] 橑檐枋广 30 分;不出跳者用替木 + 槫,近似一足材 [01-04]。
+  const fangHFen = puzuo ? book.num('04-26', 'liaoyanFangGuangFen') : cai.mod.zuCai;
+  const fangH = fangHFen * f;
   const eaveY = columnH + puzuoH + fangH;
 
-  const fenCun = cai.fenCm / (cai.chiCm / 10);
-  const yc = deriveYanchu({
-    rafterDiaFen: spec.rafterDiaFen ?? (spec.hall === '殿阁' ? 9.5 : spec.hall === '厅堂' ? 7.5 : 6.5),
-    fenCun,
+  const yc = deriveYanchu(book, {
+    rafterDiaFen: spec.rafterDiaFen ?? defaultRafterDiaFen(book, spec.hall),
+    fenCun: cai.fenCun,
     bays: spec.bayWidthsFen.length,
     feizi: spec.feizi,
     qiqiaoFen: spec.qiqiaoFen,
-    xieshanTurn: spec.hall === '厅堂' || spec.hall === '殿阁' ? 2 : 1,
+    // [05-11] 厦两头角梁转椽数:厅堂/殿阁 2,亭榭 1。
+    xieshanTurn: spec.hall === '余屋' ? 1 : 2,
   });
   const yanchu = yc.totalFen * f;
   const lastSlope = juzhe.slopes[juzhe.slopes.length - 1];
@@ -131,6 +159,7 @@ export function deriveBuilding(spec: BuildingSpec): Frame {
     zhu,
     juzhe,
     yanchu: yc,
+    provenance: book.provenance(),
     m: {
       columnX,
       depthHalf: (depthFen / 2) * f,
@@ -144,10 +173,12 @@ export function deriveBuilding(spec: BuildingSpec): Frame {
       purlins: juzhe.purlins.map((p) => ({ x: p.x * f, y: p.y * f, name: p.name })),
       ridgeY: eaveY + juzhe.H * f,
       yanchu,
+      // 檐口最外点:椽尾沿下架坡度外伸再下垂。0.85 是**几何近似**不是营造数字
+      // ——飞子起翘会把实际下垂压小,原文对此无定量 [05-13]。
       eaveTip: { out: yanchu, drop: yanchu * lastSlope * 0.85 },
       qiqiao: yc.qiqiaoFen * f,
       shengchu: yc.shengchuFen * f,
-      rafterDia: (spec.rafterDiaFen ?? 7.5) * f,
+      rafterDia: yc.rafterPitchFen / book.num('05-03', 'rafterPitchToDiaRatio') * f,
       rafterPitch: yc.rafterPitchFen * f,
       lan: { w: zhu.lan.w * f, t: zhu.lan.t * f },
       base: zhu.baseFen * f,
@@ -156,3 +187,7 @@ export function deriveBuilding(spec: BuildingSpec): Frame {
     },
   };
 }
+
+export { RuleBook, type RuleBookOptions } from '@builder/derive/rules';
+export type { Provenance } from '@builder/derive/provenance';
+export { AmbiguousRuleError, MissingRuleError, RefutedRuleError, RuleError } from '@builder/derive/errors';

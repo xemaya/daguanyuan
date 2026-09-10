@@ -1,33 +1,51 @@
 /**
- * 举折:屋面曲线的真源。规则出处见 docs/fashi/04-jiaozhe.md。
+ * 举折:屋面曲线的真源。数字全部来自规则表 [04-*]。
  *
  * 举屋之法定脊槫高 H,折屋之法逐缝下折得每一槫的 (x, y)。
  * 坐标系:x 自脊槫心向檐(一侧),y 自橑檐枋背向上;单位与输入一致(分)。
  */
+import type { RuleBook } from '../rules';
+import { AmbiguousRuleError } from '../errors';
 
 export type RoofClass = '殿阁' | '筒瓦厅堂' | '筒瓦廊屋' | '板瓦厅堂' | '板瓦廊屋';
-export type Era = 'fashi' | 'tang' | 'liao' | 'fayuan';
+
+/** 屋类 → 举高规则号 [04-03..04-06]。 */
+const RATIO_RULE: Record<RoofClass, string> = {
+  殿阁: '04-03',
+  筒瓦厅堂: '04-04',
+  筒瓦廊屋: '04-05',
+  板瓦厅堂: '04-05',
+  板瓦廊屋: '04-06',
+};
+
+export function ratioRuleId(cls: RoofClass): string {
+  return RATIO_RULE[cls];
+}
 
 /**
- * 举高比 H/L [04-03..04-06]。
- * - 法式:殿阁 1/3;筒瓦厅堂 L/4×1.08(梁思成 0.27,陈彤 0.33);筒瓦廊屋/板瓦厅堂 ×1.05;板瓦廊屋 ×1.03。
- * - 唐:≈L/4.4~4.8(佛光寺 0.225)[04-03 乙注];辽:≈L/4。
- * 江南提栈见 fayuan.ts。
+ * 举高比 H/L [04-03..04-06]。每条都是多口径的存疑条目
+ * (法式/唐/辽,或梁思成乘法/陈彤加法),必须在 RuleBook 的 choices 里显式选。
+ *
+ * 选中的口径若是一个**区间**(如唐构 [0.208, 0.227]),这里不替调用方取中值
+ * ——中值没有出处。要单一数值就在 spec 里显式给 ratio,会记进 provenance 的 art。
  */
-export function raiseRatio(cls: RoofClass, era: Era = 'fashi', chenTong = false): number {
-  if (era === 'tang') return 0.225;
-  if (era === 'liao') return 0.25;
-  switch (cls) {
-    case '殿阁':
-      return 1 / 3;
-    case '筒瓦厅堂':
-      return chenTong ? 0.25 + 0.08 : 0.25 * 1.08;
-    case '筒瓦廊屋':
-    case '板瓦厅堂':
-      return chenTong ? 0.25 + 0.05 : 0.25 * 1.05;
-    case '板瓦廊屋':
-      return chenTong ? 0.25 + 0.03 : 0.25 * 1.03;
+export function raiseRatio(book: RuleBook, cls: RoofClass): number {
+  const id = RATIO_RULE[cls];
+  const v = book.choice<number | number[]>(id);
+  if (Array.isArray(v)) {
+    throw new AmbiguousRuleError(
+      id,
+      `规则 ${id} 选中的口径给的是区间 [${v.join(', ')}],不是单值。` +
+        ` 区间内取哪一点原文无据,在 JuzheSpec.ratio 里显式给,会记进 provenance 的 art 分支。`,
+    );
   }
+  return v;
+}
+
+/** 选中口径给出的区间(唐/辽等实测档),供调用方在区间内取点。 */
+export function raiseRatioRange(book: RuleBook, cls: RoofClass): [number, number] | null {
+  const v = book.choice<number | number[]>(RATIO_RULE[cls]);
+  return Array.isArray(v) ? [v[0], v[v.length - 1]] : null;
 }
 
 export interface JuzheSpec {
@@ -37,10 +55,9 @@ export interface JuzheSpec {
   jiaLengths?: number[];
   /** 半跨椽架数(总椽数/2),jiaLengths 缺省时用。 */
   halfRafters?: number;
-  /** 举高比;缺省按 raiseRatio(cls, era)。 */
+  /** 举高比;不给按 raiseRatio(cls)。显式给等于在存疑区间里取点,是艺术决策。 */
   ratio?: number;
   cls?: RoofClass;
-  era?: Era;
 }
 
 export interface Purlin {
@@ -62,8 +79,16 @@ export interface Juzhe {
 
 const NAMES = ['脊槫', '上平槫', '中平槫', '下平槫'];
 
+function withSlopes(purlins: Purlin[], H: number, ratio: number): Juzhe {
+  const slopes: number[] = [];
+  for (let i = 1; i < purlins.length; i++) {
+    slopes.push((purlins[i - 1].y - purlins[i].y) / (purlins[i].x - purlins[i - 1].x));
+  }
+  return { H, ratio, purlins, slopes };
+}
+
 /** 折屋之法 [04-08][04-10]。 */
-export function deriveJuzhe(spec: JuzheSpec): Juzhe {
+export function deriveJuzhe(book: RuleBook, spec: JuzheSpec): Juzhe {
   const half = spec.spanL / 2;
   let a: number[];
   if (spec.jiaLengths) a = spec.jiaLengths.slice();
@@ -76,11 +101,16 @@ export function deriveJuzhe(spec: JuzheSpec): Juzhe {
     // 架道不匀时按比例缩到半跨 [04-09]。
     a = a.map((v) => (v * half) / sum);
   }
-  const ratio = spec.ratio ?? raiseRatio(spec.cls ?? '殿阁', spec.era ?? 'fashi');
+  const cls = spec.cls ?? '殿阁';
+  const ratio = spec.ratio ?? raiseRatio(book, cls);
   const H = ratio * spec.spanL;
 
+  // [04-08] 第一缝下折 H/10,以下逐缝减半。
+  const firstFold = book.num('04-08', 'firstFoldRatio');
+  const decay = book.num('04-08', 'foldDecay');
+
   const purlins: Purlin[] = [{ x: 0, y: H, name: NAMES[0] }];
-  let fold = H / 10;
+  let fold = H * firstFold;
   let px = 0;
   let py = H;
   for (let k = 1; k < a.length; k++) {
@@ -90,40 +120,35 @@ export function deriveJuzhe(spec: JuzheSpec): Juzhe {
     purlins.push({ x, y, name: k < NAMES.length ? NAMES[k] : `平槫${k}` });
     px = x;
     py = y;
-    fold /= 2;
+    fold *= decay;
   }
   purlins.push({ x: half, y: 0, name: '橑檐枋' });
-
-  const slopes: number[] = [];
-  for (let i = 1; i < purlins.length; i++) {
-    slopes.push((purlins[i - 1].y - purlins[i].y) / (purlins[i].x - purlins[i - 1].x));
-  }
-  return { H, ratio, purlins, slopes };
+  return withSlopes(purlins, H, ratio);
 }
 
 /**
  * 斗尖(攒尖)亭榭 [04-29]:自橑檐枋背至角梁底举 1/5,至上簇角梁举 1/2;
- * 只用板瓦者 4/10。簇角梁三折同折屋之制。这里给出沿角梁方向的剖面。
- * @param D 对角方向橑檐枋心距(四角亭=边长×√2)
+ * 只用板瓦者 4/10。簇角梁三折同折屋之制 [04-08]。
+ * @param D 对角方向橑檐枋心距(四角亭 = 边长 × √2)
+ * @param upperFrac 上段水平占半跨的比例。原文无定量,是编码假设,调用方给。
  */
-export function deriveDoujian(D: number, banwa = false, upperFrac = 0.42): Juzhe {
+export function deriveDoujian(book: RuleBook, D: number, banwa = false, upperFrac = 0.42): Juzhe {
   const half = D / 2;
-  const lower = banwa ? 0.4 * D : D / 5;
-  // 下段(橑檐枋→角梁底)举 1/5,上段(→簇角梁顶)按半跨 1/2。
+  const lowerRatio = book.num('04-29', 'lowerRatio');
+  const upperRatio = book.num('04-29', 'upperRatio');
+  const banwaRatio = book.num('04-29', 'banwaRatio');
+
+  const lower = banwa ? banwaRatio * D : lowerRatio * D;
   const xUpper = half * upperFrac;
-  const H = banwa ? lower : lower + xUpper * 0.5 * 2 * 0.5; // 上段举高 = 上段水平 × 1/2
+  const H = banwa ? lower : lower + xUpper * upperRatio;
+
   const purlins: Purlin[] = [
     { x: 0, y: H, name: '簇角梁顶' },
-    { x: xUpper, y: banwa ? H * 0.55 : lower, name: '角梁底' },
+    { x: xUpper, y: lower, name: '角梁底' },
     { x: half, y: 0, name: '橑檐枋' },
   ];
-  // 三折同折屋之制:在角梁底与檐之间再折一缝。
-  const fold = H / 10;
-  const mid = { x: (xUpper + half) / 2, y: purlins[1].y / 2 - fold, name: '折缝' };
-  purlins.splice(2, 0, mid);
-  const slopes: number[] = [];
-  for (let i = 1; i < purlins.length; i++) {
-    slopes.push((purlins[i - 1].y - purlins[i].y) / (purlins[i].x - purlins[i - 1].x));
-  }
-  return { H, ratio: H / D, purlins, slopes };
+  // 三折同折屋之制 [04-08]:在角梁底与檐之间再折一缝。
+  const fold = H * book.num('04-08', 'firstFoldRatio');
+  purlins.splice(2, 0, { x: (xUpper + half) / 2, y: purlins[1].y / 2 - fold, name: '折缝' });
+  return withSlopes(purlins, H, H / D);
 }
