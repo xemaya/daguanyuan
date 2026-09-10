@@ -14,7 +14,14 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@engine/*": ["engine/*"],
+      "@builder/*": ["builder/*"],
+      "@knowledge/*": ["knowledge/*"],
+      "@project/*": ["projects/daguanyuan/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["engine", "builder", "projects", "tools"]
 }

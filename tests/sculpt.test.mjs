@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { metaSurface, roundedBox, noiseDisplace } from '../src/fx/Sculpt.ts';
+import { metaSurface, roundedBox, noiseDisplace } from '@builder/parts/sculpt.ts';
 
 /**
  * Guards the marching-cubes mesher.

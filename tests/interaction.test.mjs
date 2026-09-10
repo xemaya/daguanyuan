@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { InteractionSystem } from '../src/world/Interaction.ts';
+import { InteractionSystem } from '@engine/player/Interaction.ts';
 
 function lookAt(camera, x, z) {
   camera.lookAt(x, camera.position.y, z);

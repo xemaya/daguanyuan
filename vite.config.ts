@@ -12,6 +12,15 @@ import { defineConfig } from 'vite';
  * usual suspects have to be repeated here or the watcher walks node_modules.
  */
 export default defineConfig({
+  /** 分层别名。跨层一律走别名，不写 ../.. ——分层门会查这条。 */
+  resolve: {
+    alias: {
+      '@engine': fileURLToPath(new URL('./engine', import.meta.url)),
+      '@builder': fileURLToPath(new URL('./builder', import.meta.url)),
+      '@knowledge': fileURLToPath(new URL('./knowledge', import.meta.url)),
+      '@project': fileURLToPath(new URL('./projects/daguanyuan', import.meta.url)),
+    },
+  },
   /** 部署到 games.findu.life/daguanyuan/ 时 `BASE=/daguanyuan/ npm run build`。 */
   base: process.env.BASE ?? '/',
   /**

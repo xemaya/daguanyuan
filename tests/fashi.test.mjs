@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeCai, GRADES, pickGrade } from '../src/fashi/cai.ts';
-import { derivePuzuo } from '../src/fashi/puzuo.ts';
+import { makeCai, GRADES, pickGrade } from '@builder/derive/fashi/cai.ts';
+import { derivePuzuo } from '@builder/derive/fashi/puzuo.ts';
 
 const within = (actual, expected, pct, label) => {
   const err = Math.abs(actual - expected) / expected;
@@ -49,7 +49,7 @@ test('法式标准跳距 30 分,七铺作第二跳减四分 → 116 分 [02-04][
   assert.deepEqual(p.jumpsFen, [30, 26, 30, 30]);
 });
 
-import { deriveZhu } from '../src/fashi/zhu.ts';
+import { deriveZhu } from '@builder/derive/fashi/zhu.ts';
 
 test('柱:厅堂径 36 分、阑额 30×20、础方 2D、生起当心 0 角最大 [03-01][03-13][03-21][03-04]', () => {
   const z = deriveZhu({ hall: '厅堂', bayWidthsFen: [200, 250, 200], fenCun: 0.44 });
@@ -73,7 +73,7 @@ test('佛光寺:檐柱高 ≈ 252 分,柱径实物 29 分可覆盖,唐构无侧�
   assert.equal(z.riseFen[0], 0);
 });
 
-import { deriveJuzhe, raiseRatio } from '../src/fashi/juzhe.ts';
+import { deriveJuzhe, raiseRatio } from '@builder/derive/fashi/juzhe.ts';
 
 test('折屋之法 worked example [04-10]:殿阁 8 椽 L=60 尺 → 20/13.000/7.667/3.333/0', () => {
   const j = deriveJuzhe({ spanL: 60, halfRafters: 4, cls: '殿阁' });
@@ -93,7 +93,7 @@ test('举高比时代性 [04-03 乙注]:保国寺 ≈ 0.33,佛光寺 ≈ 0.225',
   within(deriveJuzhe({ spanL: 21548, era: 'tang', halfRafters: 4 }).H, 4851, 0.01, '佛光寺举高 mm');
 });
 
-import { deriveBuilding } from '../src/fashi/derive.ts';
+import { deriveBuilding } from '@builder/derive/index.ts';
 
 test('推导器:六等材小三间厅堂,数值在合理量级', () => {
   const fr = deriveBuilding({
@@ -114,7 +114,7 @@ test('推导器:六等材小三间厅堂,数值在合理量级', () => {
   assert.ok(m.yanchu > 0.8 && m.yanchu < 1.8, `檐出 ${m.yanchu}`);
 });
 
-import { deriveYanchu } from '../src/fashi/yanchu.ts';
+import { deriveYanchu } from '@builder/derive/fashi/yanchu.ts';
 
 test('檐出 [05-04][05-05]:椽径 3 寸→35 寸,飞子 0.6 → 总 56 寸;三间生出 5 寸 [05-08]', () => {
   // 三等材 0.5 寸/分:椽径 6 分 = 3 寸。
