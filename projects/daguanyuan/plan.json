@@ -1839,7 +1839,42 @@
           "z": 148,
           "plaque": "沁芳",
           "id": "qinfang_ting_qiao.pavilion",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "pavilion",
+              "chiCm": 32,
+              "jieCount": 4,
+              "roofType": "攒尖",
+              "ridgeStyle": "raised",
+              "shape": "square",
+              "sideM": 3.3,
+              "suanSeq": [
+                5,
+                7
+              ],
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。原plan的“卷棚攒尖”不能作为单个屋顶，选方形攒尖；原文未限定四角形制，记为艺术选择。",
+                "columnBaseWidthM": 0.48,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24
+              }
+            },
+            "options": {
+              "front": "open",
+              "sides": "open",
+              "back": "open",
+              "platformH": 0.4,
+              "railing": true,
+              "railingSides": [
+                "e",
+                "w"
+              ],
+              "plaque": "沁芳"
+            }
+          }
         },
         {
           "name": "石桥三港(兽面衔吐)",
@@ -1863,7 +1898,42 @@
           "z": 166,
           "plaque": "滴翠亭",
           "id": "qinfang_ting_qiao.dicui-pavilion",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "pavilion",
+              "chiCm": 32,
+              "jieCount": 4,
+              "roofType": "攒尖",
+              "ridgeStyle": "raised",
+              "shape": "square",
+              "sideM": 3.6,
+              "suanSeq": [
+                5,
+                7
+              ],
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。原plan的“卷棚攒尖”不能作为单个屋顶，选方形攒尖；原文未限定四角形制，记为艺术选择。",
+                "columnBaseWidthM": 0.48,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24
+              }
+            },
+            "options": {
+              "front": "open",
+              "sides": "open",
+              "back": "open",
+              "platformH": 0.4,
+              "railing": true,
+              "railingSides": [
+                "e",
+                "w"
+              ],
+              "plaque": "滴翠亭"
+            }
+          }
         },
         {
           "name": "白石栏(环抱池沿)",
@@ -1982,7 +2052,40 @@
           "z": 98,
           "plaque": "有凤来仪",
           "id": "xiaoxiangguan.main-house",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45,
+              "plaque": "有凤来仪"
+            }
+          }
         },
         {
           "name": "后院退步",
@@ -1994,7 +2097,38 @@
           "z": 76,
           "plaque": null,
           "id": "xiaoxiangguan.rear-house",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                2.6,
+                2.6
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45
+            }
+          }
         },
         {
           "name": "曲折游廊",
@@ -2860,7 +2994,42 @@
           "z": -66,
           "plaque": "藕香榭",
           "id": "ouxiangxie.waterside-hall",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "歇山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "columnHeightM": 3.0,
+              "qiangjiao": true,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "hipSetbackM": 1.65,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "window",
+              "back": "window",
+              "platformH": 0.45,
+              "plaque": "藕香榭"
+            }
+          }
         },
         {
           "name": "左右曲廊(跨水接岸)",
@@ -3126,7 +3295,40 @@
           "z": 10,
           "plaque": "秋爽斋",
           "id": "qiushuangzhai.main-house",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45,
+              "plaque": "秋爽斋"
+            }
+          }
         },
         {
           "name": "晓翠堂",
@@ -3138,7 +3340,40 @@
           "z": 26,
           "plaque": "晓翠堂",
           "id": "qiushuangzhai.xiaocui-hall",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45,
+              "plaque": "晓翠堂"
+            }
+          }
         },
         {
           "name": "后廊檐",
@@ -3271,7 +3506,42 @@
           "z": 170,
           "plaque": "栊翠庵",
           "id": "longcuian.mountain-gate",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 4,
+              "roofType": "硬山",
+              "ridgeStyle": "raised",
+              "bayWidthsM": [
+                3.2
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "suanSeq": [
+                5,
+                6.5
+              ],
+              "columnHeightM": 3.2,
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "door",
+              "platformH": 0.45,
+              "plaque": "栊翠庵"
+            }
+          }
         },
         {
           "name": "大殿",
@@ -3283,7 +3553,38 @@
           "z": 150,
           "plaque": null,
           "id": "longcuian.main-hall",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "raised",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45
+            }
+          }
         },
         {
           "name": "东禅堂",
@@ -3295,7 +3596,39 @@
           "z": 148,
           "plaque": null,
           "id": "longcuian.east-hall",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45
+            }
+          }
         },
         {
           "name": "院墙",
@@ -3418,7 +3751,42 @@
           "z": 86,
           "plaque": "凸碧山庄",
           "id": "tubi_aojing.tubi-hall",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "歇山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "columnHeightM": 3.0,
+              "qiangjiao": true,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "hipSetbackM": 1.65,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "open",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45,
+              "plaque": "凸碧山庄"
+            }
+          }
         },
         {
           "name": "凹晶溪馆(洼而近水·房宇不多且又矮小)",
@@ -3430,7 +3798,41 @@
           "z": 20,
           "plaque": "凹晶溪馆",
           "id": "tubi_aojing.aojing-hall",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "columnHeightM": 3.0,
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。原plan未完整限定两山形制，本侧样选硬山，不宣称源于原文。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45,
+              "plaque": "凹晶溪馆"
+            }
+          }
         },
         {
           "name": "池沿一带竹栏(直通藕香榭的路径)",
@@ -3571,7 +3973,40 @@
           "z": -70,
           "plaque": "蓼风轩",
           "id": "nuanxiangwu.liaofeng-house",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45,
+              "plaque": "蓼风轩"
+            }
+          }
         },
         {
           "name": "暖香坞(惜春卧房·门斗题额)",
@@ -3583,7 +4018,40 @@
           "z": -54,
           "plaque": "暖香坞",
           "id": "nuanxiangwu.nuanxiang-house",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45,
+              "plaque": "暖香坞"
+            }
+          }
         },
         {
           "name": "向南的正门",
@@ -3595,7 +4063,41 @@
           "z": -28,
           "plaque": null,
           "id": "nuanxiangwu.south-gate",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 4,
+              "roofType": "硬山",
+              "ridgeStyle": "raised",
+              "bayWidthsM": [
+                3.2
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "suanSeq": [
+                5,
+                6.5
+              ],
+              "columnHeightM": 3.2,
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "door",
+              "platformH": 0.45
+            }
+          }
         },
         {
           "name": "夹道西过街门(外额穿云·内额度月)",
@@ -3607,7 +4109,42 @@
           "z": -20,
           "plaque": "穿云/度月",
           "id": "nuanxiangwu.west-street-gate",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 4,
+              "roofType": "硬山",
+              "ridgeStyle": "raised",
+              "bayWidthsM": [
+                3.2
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "suanSeq": [
+                5,
+                6.5
+              ],
+              "columnHeightM": 3.2,
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。原plan未完整限定两山形制，本侧样选硬山，不宣称源于原文。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "door",
+              "platformH": 0.45,
+              "plaque": "穿云/度月"
+            }
+          }
         },
         {
           "name": "夹道东过街门(外接山坡)",
@@ -3619,7 +4156,41 @@
           "z": -20,
           "plaque": null,
           "id": "nuanxiangwu.east-street-gate",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "B",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 4,
+              "roofType": "硬山",
+              "ridgeStyle": "raised",
+              "bayWidthsM": [
+                3.2
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "suanSeq": [
+                5,
+                6.5
+              ],
+              "columnHeightM": 3.2,
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。原plan未完整限定两山形制，本侧样选硬山，不宣称源于原文。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "door",
+              "platformH": 0.45
+            }
+          }
         },
         {
           "name": "里边游廊(通卧房)",
@@ -4122,7 +4693,44 @@
           "z": 112,
           "plaque": "嘉荫堂",
           "id": "jiayintang.main-hall",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "歇山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                2.7,
+                3.0,
+                3.6,
+                3.0,
+                2.7
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "columnHeightM": 3.0,
+              "qiangjiao": true,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "hipSetbackM": 1.65,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45,
+              "plaque": "嘉荫堂"
+            }
+          }
         },
         {
           "name": "堂前月台(焚斗香·羊角大灯)",
@@ -4274,7 +4882,42 @@
           "z": -140,
           "plaque": "牡丹亭",
           "id": "huajia_huapu.mudan-pavilion",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "pavilion",
+              "chiCm": 32,
+              "jieCount": 4,
+              "roofType": "攒尖",
+              "ridgeStyle": "raised",
+              "shape": "square",
+              "sideM": 3.6,
+              "suanSeq": [
+                5,
+                7
+              ],
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。原plan的“卷棚攒尖”不能作为单个屋顶，选方形攒尖；原文未限定四角形制，记为艺术选择。",
+                "columnBaseWidthM": 0.48,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24
+              }
+            },
+            "options": {
+              "front": "open",
+              "sides": "open",
+              "back": "open",
+              "platformH": 0.4,
+              "railing": true,
+              "railingSides": [
+                "e",
+                "w"
+              ],
+              "plaque": "牡丹亭"
+            }
+          }
         },
         {
           "name": "红香圃(芍药圃内三间小敞厅)",
@@ -4286,7 +4929,41 @@
           "z": -152,
           "plaque": "红香圃",
           "id": "huajia_huapu.hongxiang-hall",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 6,
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.0,
+                3.6,
+                3.0
+              ],
+              "jieDepthChi": 3.5,
+              "hallKind": "厅",
+              "columnHeightM": 3.0,
+              "qiangjiao": false,
+              "design": {
+                "note": "P2园林施工侧样：尺长32cm沿用项目尺度口径；面阔/界深/柱高等输入按当前院落容积与第一人称净空选择，并非原著实测尺寸。柱础、连机高度及椽中距是P1未给定项，在此显式作艺术选择。原plan未完整限定两山形制，本侧样选硬山，不宣称源于原文。卷棚顶用双脊桁与切线连续圆顺曲面；0.45m半跨为艺术侧样输入。",
+                "columnBaseWidthM": 0.42,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.45
+              }
+            },
+            "options": {
+              "front": "open",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.45,
+              "plaque": "红香圃"
+            }
+          }
         },
         {
           "name": "蔷薇院",

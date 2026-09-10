@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { registerPart, type PartBuild } from '@builder/parts/registry';
 import { deriveBuilding, type BuildingSpec, type Frame } from '@builder/derive/index';
+import { deriveFayuanBuilding, type FayuanBuildingSpec, type FayuanBuildingFrame } from '@builder/derive/fayuan/building';
 import {
   CN,
   woodMaterial,
@@ -16,7 +17,7 @@ import { makeRng, smoothstep, lerp, clamp } from '@engine/core/Noise';
 import { mergeByMaterial } from '@builder/parts/merge';
 
 /**
- * 大木作建筑:所有数字来自 src/fashi/ 的推导表,这里只负责把数变成面。
+ * 大木作建筑:结构尺寸来自推导表，原型支持法式及法原，不以材分字段伪装江南构造。
  *
  * 局部坐标:原点在台基中心地面,+X 沿面阔向东,+Z 朝正面(南)。
  * 屋面 = 举折剖面(自橑檐枋背到脊)+ 檐出,沿面阔放样;歇山在角部以 45° 收进
@@ -24,15 +25,15 @@ import { mergeByMaterial } from '@builder/parts/merge';
  */
 
 export interface BuildingOptions {
-  spec: BuildingSpec;
+  spec: BuildingSpec | FayuanBuildingSpec;
   /** 匾额文字;空则不挂。 */
   plaque?: string;
   /** 前檐处理:格扇门/敞开/粉墙。 */
-  front?: 'door' | 'open' | 'wall';
+  front?: 'door' | 'open' | 'wall' | 'window';
   /** 两山:粉墙/敞开。 */
-  sides?: 'wall' | 'open';
+  sides?: 'wall' | 'open' | 'window';
   /** 后檐:粉墙/敞开/格扇门;缺省同 sides。 */
-  back?: 'wall' | 'open' | 'door';
+  back?: 'wall' | 'open' | 'door' | 'window';
   /** 亭/廊的美人靠。 */
   railing?: boolean;
   /** 美人靠装在哪几面(亭):e 东 w 西 n 北(后) s 南(前);缺省东西北。 */
@@ -51,7 +52,7 @@ export interface BuildingOptions {
 }
 
 export interface BuildingResult extends PartBuild {
-  frame: Frame;
+  frame: Frame | FayuanBuildingFrame;
   /** 台基平台(局部坐标),装配器登记用。 */
   platform: { hx: number; hz: number; y: number };
   /** 需要阻挡的柱与墙(局部坐标)。 */
@@ -70,9 +71,10 @@ interface ProfilePt {
 }
 
 /** 从推导表取一侧的屋面剖面:檐尖 → 橑檐枋背 → 各槫 → 脊。 */
-function roofProfile(fr: Frame): { pts: ProfilePt[]; sEave: number; sRidge: number } {
+function roofProfile(fr: Frame | FayuanBuildingFrame): { pts: ProfilePt[]; sEave: number; sRidge: number } {
   const m = fr.m;
   const tipX = m.eaveHalf + m.yanchu;
+  if ('roofSection' in fr) return { pts: fr.roofSection, sEave: m.yanchu, sRidge: tipX };
   const pts: ProfilePt[] = [{ s: 0, y: m.eaveY - m.eaveTip.drop }];
   // 槫自脊向檐排列,反过来自檐向脊。
   const purl = m.purlins.slice().reverse();
@@ -305,7 +307,9 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
 /* ------------------------------------------------------------------ */
 
 export function buildBuilding(opts: BuildingOptions): BuildingResult {
-  const fr = deriveBuilding(opts.spec);
+  const fr = 'paramSet' in opts.spec ? deriveFayuanBuilding(opts.spec) : deriveBuilding(opts.spec);
+  const legacy = 'cai' in fr ? fr : null;
+  const rolled = 'ridgeStyle' in fr && fr.ridgeStyle === 'rolled';
   const m = fr.m;
   const seed = opts.seed ?? 7;
   const root = new THREE.Group();
@@ -324,6 +328,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const isTing = opts.spec.roofType === '攒尖';
   const isXieshan = opts.spec.roofType === '歇山';
   const isYingshan = opts.spec.roofType === '硬山' || opts.spec.roofType === '悬山';
+  if (isYingshan && opts.sides === 'window')
+    throw new Error('硬山窗墙尚需上部山墙独立构造，不得省掉山墙');
 
   const wallT0 = 0.26;
 
@@ -402,16 +408,19 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   }
   for (const x of [colXs[0], colXs[colXs.length - 1]]) addBeam(x, rowsZ[0], x, rowsZ[1], m.lan.w, m.lan.t, lanTop, wood);
   // 普拍枋:一圈扁枋压在阑额上 [03-19]。
-  const pupai = 0.09;
+  // 法原连机/夹堂高度已在推导的檐高里计入，不再叠加宋式普拍枋。
+  const pupai = legacy ? 0.09 : 0;
   const ring = new THREE.Group();
-  for (const z of rowsZ) addBeam(colXs[0] - 0.15, z, colXs[colXs.length - 1] + 0.15, z, pupai, m.lan.t * 1.3, lanTop + pupai, wood);
-  for (const x of [colXs[0], colXs[colXs.length - 1]]) addBeam(x, rowsZ[0] + 0.15, x, rowsZ[1] - 0.15, pupai, m.lan.t * 1.3, lanTop + pupai, wood);
+  if (pupai > 0) {
+    for (const z of rowsZ) addBeam(colXs[0] - 0.15, z, colXs[colXs.length - 1] + 0.15, z, pupai, m.lan.t * 1.3, lanTop + pupai, wood);
+    for (const x of [colXs[0], colXs[colXs.length - 1]]) addBeam(x, rowsZ[0] + 0.15, x, rowsZ[1] - 0.15, pupai, m.lan.t * 1.3, lanTop + pupai, wood);
+  }
   root.add(ring);
 
   /* ---- 铺作(简化) -------------------------------------------------- */
   const puzuoTop = lanTop + pupai + m.puzuoH;
-  if (fr.puzuo) {
-    const f = fr.cai.fenM;
+  if (legacy?.puzuo) {
+    const f = legacy.cai.fenM;
     const ludou = new THREE.Mesh(roundedBox(32 * f, 20 * f, 32 * f, 0.01, 1), wood);
     const gong = new THREE.Mesh(roundedBox(72 * f, 21 * f, 10 * f, 0.01, 1), wood);
     const linggong = new THREE.Mesh(roundedBox(72 * f, 15 * f, 10 * f, 0.01, 1), wood);
@@ -420,12 +429,12 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       const l = ludou.clone();
       l.position.y = 10 * f;
       g.add(l);
-      const out = fr.puzuo!.outFen * f;
+      const out = legacy.puzuo!.outFen * f;
       // 华栱沿出跳方向,令栱横向,叠到铺作高。
       let y = 20 * f;
-      for (let j = 0; j < fr.puzuo!.T; j++) {
+      for (let j = 0; j < legacy.puzuo!.T; j++) {
         const h = gong.clone();
-        h.position.set(outward.x * out * 0.5 * (j + 1) / fr.puzuo!.T, y + 10.5 * f, outward.y * out * 0.5 * (j + 1) / fr.puzuo!.T);
+        h.position.set(outward.x * out * 0.5 * (j + 1) / legacy.puzuo!.T, y + 10.5 * f, outward.y * out * 0.5 * (j + 1) / legacy.puzuo!.T);
         h.rotation.y = Math.abs(outward.x) > 0.5 ? 0 : Math.PI / 2;
         g.add(h);
         y += 21 * f;
@@ -484,10 +493,10 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const tipX = eaveHalfX + m.yanchu;
   const qiqiao = m.qiqiao;
   const shengchu = m.shengchu;
-  const turnJia = fr.yanchu.xieshanTurn;
-  // 转过 n 椽的平面距离(自檐尖):檐出 + n 架平长。
-  const jiaPlan = m.depth / opts.spec.rafters;
-  const sTurn = isTing ? sRidge : isXieshan ? Math.min(sRidge - 0.05, m.yanchu + m.puzuoOut + turnJia * jiaPlan) : 0;
+  // 法式转椽与法原显式侧样是两条尺寸来源，不借用材分或屋顶预设互相冒充。
+  const legacyTurn = legacy && !('paramSet' in opts.spec)
+    ? Math.min(sRidge - 0.05, m.yanchu + m.puzuoOut + legacy.yanchu.xieshanTurn * m.depth / opts.spec.rafters) : 0;
+  const sTurn = isTing ? sRidge : isXieshan ? ('hipSetbackM' in fr ? fr.hipSetbackM : legacyTurn) : 0;
   const cornerLen = Math.max(0.8, sTurn * 0.9);
 
   const cornerT = (x: number, hw: number) => clamp((Math.abs(x) - (hw - cornerLen)) / cornerLen, 0, 1);
@@ -599,7 +608,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
 
   /* ---- 脊 --------------------------------------------------------- */
   const ridgeY = pts[pts.length - 1].y;
-  if (isYingshan || isXieshan) {
+  if ((isYingshan || isXieshan) && !rolled) {
     const hwRidge = isYingshan ? m.width / 2 + (opts.chuji ?? 0.35) : tipX - sTurn;
     const ends = 0.16; // 纹头脊:两端微翘。
     const p: THREE.Vector3[] = [];
@@ -738,7 +747,26 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const front = opts.front ?? (isTing ? 'open' : 'door');
   const sides = opts.sides ?? (isTing ? 'open' : 'wall');
   const back = opts.back ?? sides;
+  const addWindowWall = (x0: number, z0: number, x1: number, z1: number) => {
+    const len = Math.hypot(x1-x0,z1-z0), sillH = wallH * 0.36;
+    const rotation = -Math.atan2(z1-z0,x1-x0);
+    addWall(x0,z0,x1,z1,sillH,platH);
+    const panels = Math.max(2, Math.ceil(len / 0.85));
+    for (let k=0;k<panels;k++) {
+      const g = makeGeshan(len/panels-.015,wallH-sillH-.08,wood,paper,seed+80+k);
+      const t = (k+.5)/panels;
+      g.position.set(lerp(x0,x1,t),platH+sillH+(wallH-sillH)/2,lerp(z0,z1,t));
+      g.rotation.y=rotation;
+      root.add(g);
+    }
+    blockers.push({cx:(x0+x1)/2,cz:(z0+z1)/2,hx:len/2,hz:wallT/2,h:platH+wallH,rot:rotation});
+  };
   if (back === 'wall') addWall(colXs[0], rowsZ[1], colXs[colXs.length - 1], rowsZ[1], wallH, platH);
+  if (back === 'window') addWindowWall(colXs[0],rowsZ[1],colXs[colXs.length-1],rowsZ[1]);
+  if (sides === 'window') {
+    addWindowWall(colXs[0],rowsZ[0],colXs[0],rowsZ[1]);
+    addWindowWall(colXs[colXs.length-1],rowsZ[0],colXs[colXs.length-1],rowsZ[1]);
+  }
   if (back === 'door') {
     const span = colXs[colXs.length - 1] - colXs[0] - 2 * colR;
     const gw = span / 4;
@@ -763,6 +791,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   }
   if (front === 'wall') {
     addWall(colXs[0], rowsZ[0], colXs[colXs.length - 1], rowsZ[0], wallH, platH);
+  } else if (front === 'window') {
+    addWindowWall(colXs[0],rowsZ[0],colXs[colXs.length-1],rowsZ[0]);
   } else if (front === 'door') {
     // 每间四扇格扇;当心间为门(可开),次间为槛窗(下半粉墙)。
     const center = Math.floor((colXs.length - 1) / 2);
@@ -862,9 +892,9 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     const pl = makePlaque(opts.plaque, pw);
     // 挂在铺作外皮之前、橑檐枋之下,人从院子里一眼看到;略向前俯 8°。
     const ph = pw * 0.36;
-    const zFront = rowsZ[0] + (fr.puzuo ? m.puzuoOut + 0.22 : 0.16);
+    const zFront = rowsZ[0] + (m.puzuoH > 0 ? m.puzuoOut + 0.22 : 0.16);
     // 竖向落在铺作层的中段(没铺作就贴阑额下),别钻进屋面板。
-    const yMid = fr.puzuo ? platH + colH + pupai + m.puzuoH * 0.5 : platH + colH - m.lan.w - ph / 2 - 0.05;
+    const yMid = m.puzuoH > 0 ? platH + colH + pupai + m.puzuoH * 0.5 : platH + colH - m.lan.w - ph / 2 - 0.05;
     pl.position.set(0, yMid, zFront);
     pl.rotation.x = 0.14;
     root.add(pl);
@@ -872,8 +902,11 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
 
   const merged = mergeByMaterial(root);
   merged.name = 'Building';
+  merged.userData.construction = { paramSet: 'paramSet' in fr ? fr.paramSet : 'fashi',
+    spec: opts.spec, dimensions: fr.m, provenance: fr.provenance, surfaces: {front,sides,back} };
 
   return {
+    kind: 'building',
     root: merged,
     frame: fr,
     platform: { hx: platHX, hz: platHZ, y: platH },
@@ -988,6 +1021,7 @@ export function menSpec(): BuildingOptions {
 }
 
 const PRESETS: Record<string, () => BuildingOptions> = {
+  default: tangSpec,
   ting: tingSpec,
   tang: tangSpec,
   lang: langSpec,
@@ -995,7 +1029,7 @@ const PRESETS: Record<string, () => BuildingOptions> = {
 };
 
 registerPart('building', (variant) => {
-  const [kind] = variant.split(':');
-  const mk = PRESETS[kind] ?? PRESETS.tang;
+  const mk = PRESETS[variant];
+  if (!mk) throw new Error(`未登记建筑预设 ${variant}，不可静默替换为潇湘馆`);
   return buildBuilding(mk());
 });

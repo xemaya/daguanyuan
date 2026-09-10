@@ -73,6 +73,13 @@ function interpRow(a: SuanliRow, b: SuanliRow, at: number): SuanliRow {
 
 /** 厅堂:各界提栈高(尺),自檐向脊。 */
 function hallRisesChi(book: RuleBook, spec: TizhanInput): number[] {
+  // Explicitly authored side sections are allowed, but never masquerade as
+  // another row from the six-jie historical table (including short corridors).
+  if (spec.suanSeq) {
+    book.artChoice('99-08', '由施工spec显式给各界算数；不是05-09六界算例表的史料值', spec.suanSeq);
+    const perSuan = book.num('05-04', 'perSuan');
+    return spec.suanSeq.map(s => spec.jieDepthChi * s / perSuan);
+  }
   if (spec.halfJie !== 3) {
     // 05-09 算例表只覆盖六界(每坡 3 界)。七界的逐界递加只在 05-06 的更正值里,
     // 而 05-06 整条是 refuted——更正值待重写回「通过」档前,这里只能诚实地抛。
@@ -84,8 +91,6 @@ function hallRisesChi(book: RuleBook, spec: TizhanInput): number[] {
   }
   const rows = book.table<SuanliRow>('05-09');
   const d = spec.jieDepthChi;
-
-  if (spec.suanSeq) return spec.suanSeq.map((s) => (d * s) / 10);
 
   const exact = rows.find((r) => Math.abs(r.界深尺 - d) < EPS);
   if (exact) {
@@ -189,6 +194,10 @@ function checkRidgeCap(book: RuleBook, spec: TizhanInput, suan: number[]): void 
 }
 
 export function deriveTizhan(book: RuleBook, spec: TizhanInput): Tizhan {
+  if (!Number.isInteger(spec.halfJie) || spec.halfJie < 1) throw new Error('halfJie 须为正整数');
+  if (spec.suanSeq && (spec.suanSeq.length !== spec.halfJie ||
+    spec.suanSeq.some(s => !Number.isFinite(s) || s <= 0)))
+    throw new Error('suanSeq 须为每界一个有限正算数，长度等于 halfJie');
   const perSuan = book.num('05-04', 'perSuan');
   const dM = spec.jieDepthM;
   const dChi = spec.jieDepthChi;
@@ -207,10 +216,9 @@ export function deriveTizhan(book: RuleBook, spec: TizhanInput): Tizhan {
   checkRidgeCap(book, spec, suan);
 
   // 自脊向檐拼桁坐标;y 自廊(檐)桁背 [05-04 自廊桁推算至脊桁]。
-  const names: string[] =
-    spec.kind === 'hall'
-      ? ['脊桁', ...Array.from({ length: spec.halfJie - 2 }, () => '金桁'), '步桁', '廊桁']
-      : ['灯心木', ...Array.from({ length: spec.halfJie - 2 }, () => '金桁'), '步桁', '檐桁'];
+  const names = [spec.kind === 'hall' ? '脊桁' : '灯心木',
+    ...Array.from({ length: spec.halfJie - 1 }, (_, i) => i === spec.halfJie - 2 ? '步桁' : '金桁'),
+    spec.kind === 'hall' ? '廊桁' : '檐桁'];
   const purlins: Purlin[] = [];
   let x = 0;
   let y = risesM.reduce((a, b) => a + b, 0);

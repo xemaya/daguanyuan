@@ -7,6 +7,7 @@ import { PlayerController } from '@engine/player/PlayerController';
 import { HUD } from '@engine/ui/HUD';
 import { AudioDirector } from '@engine/audio/Audio';
 import planFile from '@project/plan.json' with { type: 'json' };
+import './construction';
 
 /**
  * Player spawn: just outside the 正门 gate, facing north into the garden.

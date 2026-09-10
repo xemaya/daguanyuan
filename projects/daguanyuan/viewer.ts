@@ -6,6 +6,7 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildPart, partNames } from '@builder/parts/registry';
 import '@builder/parts/index';
+import './construction';
 
 /**
  * 构件棚拍台。
@@ -20,7 +21,10 @@ import '@builder/parts/index';
  */
 
 const params = new URLSearchParams(location.search);
-const [subject, variant = 'default'] = (params.get('subject') ?? partNames()[0] ?? 'probe').split(':');
+const selection = params.get('subject') ?? partNames()[0] ?? 'probe';
+const separator = selection.indexOf(':');
+const subject = separator < 0 ? selection : selection.slice(0, separator);
+const variant = separator < 0 ? 'default' : selection.slice(separator + 1);
 const angleName = params.get('angle') ?? 'three_quarter';
 const bg = params.get('bg') ?? 'studio';
 

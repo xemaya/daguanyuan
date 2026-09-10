@@ -287,7 +287,10 @@ for (const shot of selected) {
   await captureShot(shot);
 }
 
-writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ shots: manifest, consoleErrors }, null, 2));
+const constructions = await page.evaluate(() =>
+  window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.constructions ?? []);
+const buildMs = await page.evaluate(() => window.__GAME__.world.buildDurationMs);
+writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ shots: manifest, consoleErrors, constructions, buildMs }, null, 2));
 
 if (consoleErrors.length) {
   console.log(`\n${consoleErrors.length} console error(s):`);

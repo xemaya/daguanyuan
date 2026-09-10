@@ -20,7 +20,7 @@ export interface FayuanSpec extends JieInput {
   suanSeq?: number[];
   /** 界深在 05-09 算例表外时的插值方式;不给就抛(99-08)。 */
   interpolate?: 'linear' | 'nearest';
-  /** 厅堂要不要发戗;亭必发戗(tiers.md Tier C),此项只对 tier B 生效。 */
+  /** 厅堂要不要发戗;亭必发戗。 */
   qiangjiao?: boolean;
   /** 嫩戗发戗(缺省)或水戗发戗 [05-19]。 */
   faciang?: 'nen' | 'shui';
@@ -75,8 +75,9 @@ export function deriveFayuan(book: RuleBook, spec: FayuanSpec): FayuanFrame {
   const chiM = spec.chiCm / 100;
 
   const jie = deriveJie(book, spec);
+  const isPavilion = (spec.form ?? (spec.tier === 'C' ? 'pavilion' : 'hall')) === 'pavilion';
   const tizhan = deriveTizhan(book, {
-    kind: spec.tier === 'C' ? 'ting' : 'hall',
+    kind: isPavilion ? 'ting' : 'hall',
     shape: spec.shape,
     jieDepthM: jie.jieDepthM,
     jieDepthChi: jie.jieDepthChi,
@@ -88,9 +89,9 @@ export function deriveFayuan(book: RuleBook, spec: FayuanSpec): FayuanFrame {
   const chuyan = deriveChuyan(book, { jieDepthChi: jie.jieDepthChi, chiCm: spec.chiCm });
 
   const qiangjiao =
-    spec.tier === 'C' || spec.qiangjiao
+    isPavilion || spec.qiangjiao
       ? deriveQiangjiao(book, {
-          shape: spec.tier === 'C' ? (spec.shape as TingShape) : 'rect',
+          shape: isPavilion ? (spec.shape as TingShape) : 'rect',
           tier: spec.tier,
           jieDepthM: jie.jieDepthM,
           jieDepthChi: jie.jieDepthChi,

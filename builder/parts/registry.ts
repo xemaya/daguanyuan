@@ -8,6 +8,8 @@ import * as THREE from 'three';
  * 构件必须以米为单位、原点落在地面中心、+Z 朝正面(观者方向)。
  */
 export interface PartBuild {
+  /** Structural output family, independent of the project's registry name. */
+  kind?: 'building';
   /** 构件根节点。 */
   root: THREE.Object3D;
   /** 可选每帧更新(风、水)。 */

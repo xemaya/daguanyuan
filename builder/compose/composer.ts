@@ -222,8 +222,8 @@ const SCENE: Placement[] = [
     tag: '沁芳桥',
   },
   {
-    part: 'building',
-    variant: 'ting',
+    part: 'garden-building',
+    variant: 'qinfang_ting_qiao.pavilion',
     region: 'qinfang_ting_qiao',
     anchor: 'qinfang_ting_qiao.pavilion',
     x: 0,
@@ -242,7 +242,7 @@ const SCENE: Placement[] = [
   // 已知冲突①(报告不修):正房锚点(-105,98)脚下 6m 见方内有 1.30m 高差,
   // 来源是 plan.water 的「潇湘馆穿院引泉沟」。建筑自己的台基(platform)
   // 把落脚面钉死平,穿沟的落差留给地形——不挪锚点。
-  { part: 'building', variant: 'tang', region: 'xiaoxiangguan', anchor: 'xiaoxiangguan.main-house', x: 0, z: 0, yaw: 0, tag: '潇湘馆' },
+  { part: 'garden-building', variant: 'xiaoxiangguan.main-house', region: 'xiaoxiangguan', anchor: 'xiaoxiangguan.main-house', x: 0, z: 0, yaw: 0, tag: '潇湘馆' },
   ...(
     [
       ['wall', 'plain', 2.6, -13.5, 0, undefined],
@@ -382,6 +382,10 @@ export function buildGarden(ctx: GameContext): void {
   const stone = stoneMaterial(1);
   const group = new THREE.Group();
   group.name = 'Garden';
+  // Static merging discards individual roots. Keep their construction identity
+  // and provenance separately so a batched scene is still reviewable.
+  const constructionRecords: Record<string, unknown>[] = [];
+  group.userData.constructions = constructionRecords;
   ctx.scene.add(group);
   // 静态件(墙/石/桥/屋)先收进这里,最后按材质合并;会动的(竹)直接进 group。
   const staticGroup = new THREE.Group();
@@ -418,6 +422,9 @@ export function buildGarden(ctx: GameContext): void {
     obj.position.set(wx, y, wz);
     obj.rotation.y = yaw;
     obj.name = p.tag ?? key;
+    if (part.kind === 'building') constructionRecords.push({ id: p.anchor ?? key,
+      name: obj.name, position: [wx, y, wz], yaw,
+      ...obj.userData.construction, planObject: obj.userData.planObject });
     if (part.update) group.add(obj);
     else staticGroup.add(obj);
 
@@ -467,7 +474,7 @@ function registerColliders(
 ): void {
   const col = ctx.collision;
   const kind = variant.replace(/[:\d].*$/, '');
-  if (part === 'building') {
+  if (built.kind === 'building') {
     const b = built as BuildingResult;
     col.addPlatform(x, z, b.platform.hx, b.platform.hz, y + b.platform.y, yaw, '台基');
     for (const bl of b.blockers) {
