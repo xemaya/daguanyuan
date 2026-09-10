@@ -43,7 +43,7 @@ const ALLOW = [
   {
     file: 'knowledge/docs/plan/README.md',
     path: 'docs/plan/make-plan.py',
-    why: '知识库内部速写,省略 knowledge/ 前缀;真源 knowledge/docs/plan/make-plan.py。改写属知识库任务范围,先记账',
+    why: '知识库内部速写,省略 knowledge/ 前缀;真源 knowledge/docs/plan/make-plan.py。改写属知识库任务范围;已记在 docs/ROADMAP.md §P5 杂项账',
   },
   {
     file: 'knowledge/docs/qingshi/01-doukou.md',
