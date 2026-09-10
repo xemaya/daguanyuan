@@ -76,16 +76,23 @@ for (const [jsonName, { dir, chapters }] of Object.entries(SETS)) {
   const dangling = doc.rules.flatMap((r) =>
     (r.needs ?? []).filter((n) => !fromJson.has(n)).map((n) => `${r.id} → ${n}`),
   );
+  // 每条必须声明消费它的推导链。文件按来源章节组织，参数集按消费方组织，两个轴不同：
+  // 清《工程做法》06 章屋顶瓦作官式与苏式并存，整章塞进任何一个参数集都是错的。
+  const PARAM_SETS = ['fashi', 'qing', 'fayuan', 'both', 'none'];
+  const noParamSet = doc.rules.filter((r) => !PARAM_SETS.includes(r.paramSet));
 
-  const bad = missingInJson.length + extraInJson.length + mismatched.length + dangling.length;
+  const bad =
+    missingInJson.length + extraInJson.length + mismatched.length + dangling.length + noParamSet.length;
   console.log(
     `${jsonName.padEnd(20)} md ${String(fromMd.size).padStart(3)} 条 / json ${String(fromJson.size).padStart(3)} 条 ` +
-      `/ 缺 ${missingInJson.length} / 多 ${extraInJson.length} / 状态不符 ${mismatched.length} / 悬空依赖 ${dangling.length}`,
+      `/ 缺 ${missingInJson.length} / 多 ${extraInJson.length} / 状态不符 ${mismatched.length} ` +
+      `/ 悬空依赖 ${dangling.length} / 缺参数集 ${noParamSet.length}`,
   );
   for (const id of missingInJson) console.error(`   json 缺 ${id}（${fromMd.get(id).name}）`);
   for (const r of extraInJson) console.error(`   json 多出 ${r.id}，研究稿里没有`);
   for (const r of mismatched) console.error(`   ${r.id} 状态不符：md=${fromMd.get(r.id).status} json=${r.status}`);
   for (const d of dangling) console.error(`   悬空依赖 ${d}`);
+  for (const r of noParamSet) console.error(`   ${r.id} 的 paramSet 非法或缺失：${r.paramSet}`);
   if (bad) failed++;
 }
 

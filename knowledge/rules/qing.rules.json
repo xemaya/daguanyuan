@@ -1,5 +1,8 @@
 {
-  "source": { "book": "清工部《工程做法》(雍正十二年)及清式权衡", "doc": "knowledge/docs/qingshi" },
+  "source": {
+    "book": "清工部《工程做法》(雍正十二年)及清式权衡",
+    "doc": "knowledge/docs/qingshi"
+  },
   "rules": [
     {
       "id": "01-01",
@@ -8,16 +11,63 @@
       "statement": "清式斗科以平身科迎面安翘昂的斗口宽为模数,分十一等:头等 6 寸,二等 5 寸 5 分,自三等至十一等各递减 5 分,至十一等 1 寸。",
       "formula": "doukou_cun(n) = 6.0 - 0.5*(n-1), n=1..11(寸;营造尺)",
       "table": [
-        { "grade": 1, "doukouCun": 6.0 }, { "grade": 2, "doukouCun": 5.5 }, { "grade": 3, "doukouCun": 5.0 },
-        { "grade": 4, "doukouCun": 4.5 }, { "grade": 5, "doukouCun": 4.0 }, { "grade": 6, "doukouCun": 3.5 },
-        { "grade": 7, "doukouCun": 3.0 }, { "grade": 8, "doukouCun": 2.5 }, { "grade": 9, "doukouCun": 2.0 },
-        { "grade": 10, "doukouCun": 1.5 }, { "grade": 11, "doukouCun": 1.0 }
+        {
+          "grade": 1,
+          "doukouCun": 6.0
+        },
+        {
+          "grade": 2,
+          "doukouCun": 5.5
+        },
+        {
+          "grade": 3,
+          "doukouCun": 5.0
+        },
+        {
+          "grade": 4,
+          "doukouCun": 4.5
+        },
+        {
+          "grade": 5,
+          "doukouCun": 4.0
+        },
+        {
+          "grade": 6,
+          "doukouCun": 3.5
+        },
+        {
+          "grade": 7,
+          "doukouCun": 3.0
+        },
+        {
+          "grade": 8,
+          "doukouCun": 2.5
+        },
+        {
+          "grade": 9,
+          "doukouCun": 2.0
+        },
+        {
+          "grade": 10,
+          "doukouCun": 1.5
+        },
+        {
+          "grade": 11,
+          "doukouCun": 1.0
+        }
       ],
-      "params": { "doukouMeasuredTolerance": 0.1, "note": "名义设计表,非实测预测器:实物斗口普遍落在两等之间(长春宫 2.19 寸、太和殿 2.75 寸),禁止把等第值当实测值做误差<10% 的断言" },
+      "params": {
+        "doukouMeasuredTolerance": 0.1,
+        "note": "名义设计表,非实测预测器:实物斗口普遍落在两等之间(长春宫 2.19 寸、太和殿 2.75 寸),禁止把等第值当实测值做误差<10% 的断言"
+      },
       "quote": "凡算斗科上升斗、拱翹等件,長短高厚尺寸,俱以平身科迎面安翹昂斗口寬尺寸爲法,核算。按斗口有頭等才、貳等才以至拾壹等才之分。頭等才迎面安翹昂,斗口寬陸寸;貳等才斗口寬伍寸伍分。自叄等才以至拾壹等才,各遞減伍分,卽得斗口尺寸。",
       "location": "《工程做法》卷二十八·斗科各项尺寸做法",
-      "urls": ["https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcd335gumn", "https://zh.wikisource.org/wiki/%E6%8F%9A%E5%B7%9E%E7%95%AB%E8%88%AB%E9%8C%84/17"],
-      "needs": []
+      "urls": [
+        "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcd335gumn",
+        "https://zh.wikisource.org/wiki/%E6%8F%9A%E5%B7%9E%E7%95%AB%E8%88%AB%E9%8C%84/17"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     },
     {
       "id": "01-02",
@@ -28,9 +78,15 @@
       "correction": "删掉「等第→建筑类型」映射,或降级为非规范性注记(现代整理表,chanzl 转述,梁思成原书未核);若保留「未见实例」一栏,改为「前四等(6/5.5/5/4.5 寸)未见实例」并与「四等=城楼」择一。要用就改成实测锚点:太和殿(重檐庑殿十一间)≈2.75~3.0 寸(七/八等);长春宫(单檐歇山五间)=2.19 寸(九等偏大)。乙驳:太和殿「仅用七等材」3 寸、实测 2.75 寸,规则给「大殿」4 寸误差 +33%~+45%。",
       "quote": "四等材 斗口 4.5 寸(约 14.4 厘米) 城楼;五等材 斗口 4.0 寸(约 12.8 厘米) 大殿;……前四等材在现存实物中从未被证实使用过。清代建筑实际使用的斗口通常集中在六等至八等(三寸半到二寸半)之间。",
       "location": "释圣文化《明清官方营造档案》第四节表(转述梁思成《清式营造则例》,原书未核)",
-      "urls": ["https://www.chanzl.com/archives/37989", "https://www.sohu.com/a/356759542_617491"],
-      "needs": ["01-01"],
-      "notes": "tiers.md 禁用(Tier A/B/C 全禁)"
+      "urls": [
+        "https://www.chanzl.com/archives/37989",
+        "https://www.sohu.com/a/356759542_617491"
+      ],
+      "needs": [
+        "01-01"
+      ],
+      "notes": "tiers.md 禁用(Tier A/B/C 全禁)",
+      "paramSet": "qing"
     },
     {
       "id": "01-03",
@@ -41,8 +97,12 @@
       "correction": "改三分支:style = 大式(带斗科) | 大式(无斗科,卷四~二十三) | 小式(卷二十四~二十七);modulus 与 style 解耦(带斗科用斗口,其余用檐柱径 D)。江南建筑单独走《营造法原》分支,不套此判定(苏州厅堂不用斗栱但进深可达 9~11 檩,会被小式限制卡死)。",
       "quote": "清式大木做法分为大木大式和大木小式两类。(1)大木大式 使用斗拱的大木大式建筑有时又称为殿式建筑……面阔可自 5 间多至 11 间,进深可多至 11 桁。……(2)大木小式 面阔 3 间至 5 间,通进深不多于 7 檩,大梁以 5 架为限。只用单檐悬山和硬山及以下屋顶,不用琉璃瓦和斗拱。",
       "location": "GDUT《中国建筑史》课程页 8.1.1(转述梁思成《清式营造则例》);维基《清式营造则例》条(《营造算例》第三章杂式)",
-      "urls": ["https://courses.gdut.edu.cn/mod/page/view.php?id=2072", "https://zh.wikipedia.org/wiki/%E6%B8%85%E5%BC%8F%E7%87%9F%E9%80%A0%E5%89%87%E4%BE%8B"],
-      "needs": []
+      "urls": [
+        "https://courses.gdut.edu.cn/mod/page/view.php?id=2072",
+        "https://zh.wikipedia.org/wiki/%E6%B8%85%E5%BC%8F%E7%87%9F%E9%80%A0%E5%89%87%E4%BE%8B"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     },
     {
       "id": "01-04",
@@ -50,11 +110,21 @@
       "status": "ok",
       "statement": "大式面阔、进深皆以斗科攒数定,每攒(相邻两攒斗科中至中)宽 11 斗口。",
       "formula": "cuan_dang = 11 * doukou(示例:斗口 2.5 寸 → 攒当 2 尺 7 寸 5 分)",
-      "params": { "cuanDangDk": 11, "pingShenKeEven": true, "note": "明间平身科须为偶数(空当坐中),攒当略大小于 11 斗口时可调横栱长度(马炳坚通则);长春宫实测 10.81~11.34 斗口,误差在 10% 内" },
+      "params": {
+        "cuanDangDk": 11,
+        "pingShenKeEven": true,
+        "note": "明间平身科须为偶数(空当坐中),攒当略大小于 11 斗口时可调横栱长度(马炳坚通则);长春宫实测 10.81~11.34 斗口,误差在 10% 内"
+      },
       "quote": "凡面闊進深,以斗科攢數而定,每攢以口數拾壹分定寬,如斗口貳寸伍分,以科中分算,得斗科每攢寬貳尺柒寸伍分。",
       "location": "《工程做法》卷一·计开第一条;卷二十八·斗科分档",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcd335gumn"],
-      "needs": ["01-01"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcd335gumn"
+      ],
+      "needs": [
+        "01-01"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-05",
@@ -65,9 +135,15 @@
       "correction": "只保留真规则:mianko(n_pingshen) = (n_pingshen + 1) * 11 * doukou;删掉 77/66/55/44/176 的定值。进深括注改为「山面 3 间(明间+两次间,各 44 斗口)+ 前后廊各 22 斗口 = 176 斗口 = 4 丈 4 尺」(仅卷一算例);jinshen_total = Σ(山面各间 44dk) + 2×22dk。间数递减改为可配置攒数序列,并给两个实测档:A「同攒数调攒当」型 次/明≈0.95;B「递减攒数」型 太和殿 明:次:梢=9:6:4 攒 → 1:0.655:0.427。乙驳:太和殿次/明实测 0.655 vs 规则 0.857(低 23.5%),长春宫等次/明≈0.942~0.953,皆不落入规则值。",
       "quote": "如面闊,用平身斗科陸攢,加兩邊柱頭科各半攢,共斗科柒攢,得面闊壹丈玖尺貳寸伍分。如次間收分壹攢,得面闊壹丈陸尺伍寸。稍間同,或再收壹攢,臨期酌定。……再加前後廊各深伍尺伍寸,得通進深肆丈肆尺。",
       "location": "《工程做法》卷一·计开第一条",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"],
-      "needs": ["01-01", "01-04"],
-      "notes": "tiers.md 禁用(Tier A/B/C 全禁)"
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"
+      ],
+      "needs": [
+        "01-01",
+        "01-04"
+      ],
+      "notes": "tiers.md 禁用(Tier A/B/C 全禁)",
+      "paramSet": "qing"
     },
     {
       "id": "01-06",
@@ -77,14 +153,28 @@
       "formula": "H_total = 70*dk; H_net = 70*dk - 2*dk - H_dougong; D_yanzhu = 6*dk; (梁思成) H_net = 60*dk; tenon = 0.3*D",
       "correction": "formula 加 guard:H_total=70*dk 仅适用 单檐、带斗科、卷一型;重檐建筑的下檐檐柱另行取值(太和殿实测≈84 斗口@88mm)。梁思成的 60 斗口与卷一的 56.8 斗口并列写入时要标明两者差 5.6%、不可互换。乙驳(imprecise):太和殿康熙档案檐柱高二丈三尺=7.40m,70 斗口@88mm=6.16m 偏低 20.1%,净高口径偏差 +40%~+48%。",
       "choices": [
-        { "key": "gongchengzuofa_70", "value": 70, "note": "《工程做法》卷一原文:檐柱连平板枋、斗科通高 70 斗口;卷一算例净高 56.8 斗口" },
-        { "key": "liangsicheng_60", "value": 60, "note": "梁思成《清式营造则例》权衡表:檐柱净高 60 斗口(二手转述,原书未核);与卷一净高 56.8 斗口差 5.6%,不可互换" }
+        {
+          "key": "gongchengzuofa_70",
+          "value": 70,
+          "note": "《工程做法》卷一原文:檐柱连平板枋、斗科通高 70 斗口;卷一算例净高 56.8 斗口"
+        },
+        {
+          "key": "liangsicheng_60",
+          "value": 60,
+          "note": "梁思成《清式营造则例》权衡表:檐柱净高 60 斗口(二手转述,原书未核);与卷一净高 56.8 斗口差 5.6%,不可互换"
+        }
       ],
       "quote": "凡檐柱,以斗口柒拾分定高,如斗口貳寸伍分,得檐柱連平板枋、斗科通高壹丈柒尺伍寸。内除平板枋、斗科之高,即得檐柱凈高尺寸。……以斗口陸分定徑寸,如斗口貳寸伍分,得檐柱徑壹尺伍寸。",
       "location": "《工程做法》卷一·凡檐柱条",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.chanzl.com/archives/37989"],
-      "needs": ["01-01"],
-      "notes": "tiers.md 禁用(Tier A;实测偏差 +26%~+82%)"
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.chanzl.com/archives/37989"
+      ],
+      "needs": [
+        "01-01"
+      ],
+      "notes": "tiers.md 禁用(Tier A;实测偏差 +26%~+82%)",
+      "paramSet": "qing"
     },
     {
       "id": "01-07",
@@ -92,11 +182,27 @@
       "status": "ok",
       "statement": "斗科每拽架(每出一跳,正心桁中至挑檐桁中每步)3 斗口;卷一单翘重昂三拽架=2 尺 2 寸 5 分=9 斗口;斗科每踩高 2 斗口;大式上檐出=拽架总长+21 斗口(挑檐桁中至飞椽头),三踩挑 3 斗口、五踩 6 斗口、七踩 9 斗口。",
       "formula": "zhaijia_total = 3*dk*n_zhaijia; cai_height = 2*dk; shangchu_dashi = 3*dk*n_zhaijia + 21*dk",
-      "params": { "perZhaijiaDk": 3, "caiHeightDk": 2, "tiaoyanToFeichuanDk": 21, "outreachDk": { "三踩": 3, "五踩": 6, "七踩": 9 }, "note": "「每踩高 2 斗口」只有二手转述与卷二十八构件高度旁证,无逐踩实测(unverifiable)" },
+      "params": {
+        "perZhaijiaDk": 3,
+        "caiHeightDk": 2,
+        "tiaoyanToFeichuanDk": 21,
+        "outreachDk": {
+          "三踩": 3,
+          "五踩": 6,
+          "七踩": 9
+        },
+        "note": "「每踩高 2 斗口」只有二手转述与卷二十八构件高度旁证,无逐踩实测(unverifiable)"
+      },
       "quote": "如廊深伍尺伍寸,正心桁中至挑檐桁中,叄拽架,得貳尺貳寸伍分",
       "location": "《工程做法》卷一·凡金柱条/凡檐椽条",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.sohu.com/a/390219687_100017881"],
-      "needs": ["01-01"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.sohu.com/a/390219687_100017881"
+      ],
+      "needs": [
+        "01-01"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-08",
@@ -107,8 +213,14 @@
       "correction": "formula 加 guard「单檐、卷一型」;同时把 D_jinzhu 写成 max(D_yanzhu+2寸, D_yanzhu*k) 或直接改用梁表的 6.6 斗口,并注明卷一算例实为 6.8 斗口(两者差 3%)。重檐金柱另开规则。乙驳(imprecise):太和殿金柱径实测 32 寸=1.03m,规则算 @88mm 得 0.59m(实测高 73.8%);「加 2 寸」是绝对尺寸,跨斗口等第不自洽(斗口 1 寸时金柱径比檐柱径大 33%)。",
       "quote": "凡金柱以出廊并正心桁中至挑檐桁中之拽架尺寸加舉定高,如廊深伍尺伍寸……按伍舉加之,得高叄尺捌寸柒分,并檐柱連斗科之通高壹丈柒尺伍寸,得金柱高貳丈壹尺叄寸柒分。……以檐柱徑加貳寸,定徑寸,如柱徑壹尺伍寸,得金柱徑壹尺柒寸。",
       "location": "《工程做法》卷一·凡金柱条",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"],
-      "needs": ["01-01", "01-06"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"
+      ],
+      "needs": [
+        "01-01",
+        "01-06"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-09",
@@ -116,11 +228,19 @@
       "status": "ok",
       "statement": "小额枋高 4 斗口、厚=高减 2 寸;由额垫板高 2 斗口厚 1 斗口;大额枋高 6 斗口、厚=高减 2 寸;平板枋宽 3 斗口高 2 斗口;枋入榫各按柱径 1/4,垫板入榫按柱径 2/10;平板枋扣榫每宽 1 尺加 3 寸;廊子大额枋一头加柱径 1 分为霸王拳。",
       "formula": "xiao_efang: h=4dk, t=h-2寸; youe_dianban: h=2dk, t=1dk; da_efang: h=6dk, t=h-2寸; pingban: w=3dk, h=2dk; tenon_fang = D/4; tenon_dianban = 0.2D; 霸王拳出头 1 柱径",
-      "params": { "juanYiExample": "卷一算例(斗口 2.5 寸):小额枋厚 8 寸=3.2dk,大额枋厚 1 尺 3 寸=5.2dk", "note": "「收 2 寸」是绝对尺寸,跨等第不自洽;乙建议参数化为 −0.8*dk(斗口 2.5 寸时等价),属折算不是原文;无清代实例构件断面实测(unverifiable)" },
+      "params": {
+        "juanYiExample": "卷一算例(斗口 2.5 寸):小额枋厚 8 寸=3.2dk,大额枋厚 1 尺 3 寸=5.2dk",
+        "note": "「收 2 寸」是绝对尺寸,跨等第不自洽;乙建议参数化为 −0.8*dk(斗口 2.5 寸时等价),属折算不是原文;无清代实例构件断面实测(unverifiable)"
+      },
       "quote": "以斗口肆分定高如斗口貳寸伍分,得小額枋高壹尺。以本身高收貳寸,定厚,得厚捌寸。……以斗口陸分定高,如斗口貳寸伍分,得大額枋高壹尺伍寸。……以斗口叄分定寬貳分定高,如斗口貳寸伍分,得平板枋寬柒寸伍分,高伍寸。",
       "location": "《工程做法》卷一",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"],
-      "needs": ["01-01"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"
+      ],
+      "needs": [
+        "01-01"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-10",
@@ -128,11 +248,19 @@
       "status": "ok",
       "statement": "正心桁径 4 斗口;挑檐桁径=正心桁径减 2 寸;老檐桁、下金桁、上金桁、脊桁径皆同正心桁;挑檐枋高 2 斗口厚 1 斗口;正心枋(四层)高 2 斗口、厚 1 斗口外加包掩(卷一 6 分=0.24 斗口);里外拽枋、机枋高厚同挑檐枋;井口枋高=挑檐桁径、厚同拽枋;老檐(金、脊)垫板高 4 斗口厚 1 斗口;老檐枋、金枋、脊枋高厚同小额枋;天花枋高=小额枋高+2 寸、厚=高减 2 寸;桁条搭交榫每径 1 尺加 3 寸。",
       "formula": "zhengxin_heng D=4dk; tiaoyan_heng D=4dk-2寸; 其余各桁 D=4dk; tiaoyan_fang h=2dk,t=1dk; zhengxin_fang h=2dk, t=1dk+baoyan(0.24dk); jingkou_fang h=D_tiaoyanheng; dianban h=4dk,t=1dk; laoyan/jin/ji_fang = xiao_efang; tenon_heng=0.3D",
-      "params": { "note": "无清代实例檩径实测(unverifiable);马炳坚「大式檩径 4~4.5 斗口」与本条 4 斗口差 0~12.5%,上限会在步架推算里被放大" },
+      "params": {
+        "note": "无清代实例檩径实测(unverifiable);马炳坚「大式檩径 4~4.5 斗口」与本条 4 斗口差 0~12.5%,上限会在步架推算里被放大"
+      },
       "quote": "以斗口肆分定徑如斗口貳寸伍分,得正心桁徑壹尺。……以正心桁之徑收貳寸,定徑寸。如正心桁徑壹尺,得挑檐桁徑捌寸。",
       "location": "《工程做法》卷一",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.sohu.com/a/390219687_100017881"],
-      "needs": ["01-01"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.sohu.com/a/390219687_100017881"
+      ],
+      "needs": [
+        "01-01"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-11",
@@ -140,11 +268,21 @@
       "status": "ok",
       "statement": "桃尖梁厚 6 斗口、梁头厚 4 斗口,高=拽架总长按五举+蚂蚱头、撑头木各 2 斗口(卷一:9 斗口×0.5=4.5 斗口+4 斗口=8.5 斗口=2 尺 1 寸 2 分);七架梁厚=金柱径加 2 寸、高=厚每尺加 2 寸(×1.2);五架梁=七架梁高厚各收 2 寸;三架梁=五架梁高厚各收 2 寸;七架随梁枋高厚同大额枋;桃尖随梁枋同小额枋;天花梁高=金柱径加 2 寸、厚=高减 2 寸;梁长=步架数×步架+两端各加桁径 1 分(柁头)。",
       "formula": "taojian: t=6dk, head_t=4dk, h=0.5*zhaijia_total+2*2dk; qijia: t=D_jinzhu+2寸, h=1.2t; wujia: h=h7-2寸, t=t7-2寸; sanjia: h=h5-2寸, t=t5-2寸; L_beam = n_steps*step + 2*D_heng",
-      "params": { "juanYiExample": "七架梁厚 1 尺 9 寸(7.6dk)、高 2 尺 2 寸 8 分;五架梁高 2 尺 8 分/厚 1 尺 7 寸;三架梁高 1 尺 8 寸 8 分/厚 1 尺 5 寸", "note": "「七架随梁枋同大额枋/桃尖随梁枋同小额枋/天花梁高=金柱径加 2 寸」三项未逐字核到定高定厚句,编码前宜补核;链式「收 2 寸」跨等第累积误差,乙建议折斗口并加下限保护 t_min=0.5*t_prev" },
+      "params": {
+        "juanYiExample": "七架梁厚 1 尺 9 寸(7.6dk)、高 2 尺 2 寸 8 分;五架梁高 2 尺 8 分/厚 1 尺 7 寸;三架梁高 1 尺 8 寸 8 分/厚 1 尺 5 寸",
+        "note": "「七架随梁枋同大额枋/桃尖随梁枋同小额枋/天花梁高=金柱径加 2 寸」三项未逐字核到定高定厚句,编码前宜补核;链式「收 2 寸」跨等第累积误差,乙建议折斗口并加下限保护 t_min=0.5*t_prev"
+      },
       "quote": "以拽架加舉定高,如單翹重昂,得叄拽架深貳尺貳寸伍分,按伍舉加之,得高壹尺壹寸貳分。又加螞蚱頭、撑頭木各高伍寸,得桃尖梁高貳尺壹寸貳分。以斗口陸分定厚……得桃尖梁厚壹尺伍寸。……凡柒架梁……以金柱徑加貳寸定厚,如金柱徑壹尺柒寸,得柒架梁厚壹尺玖寸,以本身厚每尺加貳寸定高,得高貳尺貳寸捌分。",
       "location": "《工程做法》卷一",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://courses.gdut.edu.cn/mod/page/view.php?id=2072"],
-      "needs": ["01-01", "01-08"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://courses.gdut.edu.cn/mod/page/view.php?id=2072"
+      ],
+      "needs": [
+        "01-01",
+        "01-08"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-12",
@@ -155,8 +293,13 @@
       "correction": "交金橔一项改为:上金交金瓜柱高 = 本步枋高 + 垫板高(各 4 斗口,合 8 斗口)+ 桁椀(桁径 1/3);宽厚同上金瓜柱。甲驳:原文作「上金交金瓜柱」,其高=本步枋垫之高(各 1 尺共 2 尺)再加桁椀 3 寸 3 分,而非平水高+桁椀;按原规则算得 1 尺 3 寸 3 分,比原文 2 尺 3 寸 3 分少 1 尺(=4 斗口),交金部位会整体塌一层枋垫高度。",
       "quote": "以伍架梁之厚每尺收滚楞貳寸,定寬如伍架梁厚壹尺柒寸,得柁橔寬壹尺叄寸陸分。……凡上金交金瓜柱,其高隨本步枋墊之高,再加桁條徑叄分之壹,作桁椀。如上金枋墊各高壹尺,即瓜柱高貳尺,如桁條徑壹尺,得桁椀高叄寸叄分。",
       "location": "《工程做法》卷一",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"],
-      "needs": ["01-11"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"
+      ],
+      "needs": [
+        "01-11"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-13",
@@ -167,8 +310,14 @@
       "correction": "飞檐椽:先按 1.15 加举得出檐斜长,三分之——出头 1 分(1/3)、后尾 2.5 分(5/6),通长=1/3+5/6=7/6 倍加举出檐(甲驳:statement「后尾 2/3」与原文「后尾二分半」冲突,按 2/3 编码后尾会短约 6 寸)。乙另:formula 里椽径显式选定卷一的 0.35*D_heng,把梁思成表 1.5 斗口降为 notes(两者差 7.1%)。",
       "quote": "凡飛檐椽以出檐定長,如出檐柒尺伍寸,按壹壹伍加舉,得長捌尺陸寸貳分,叄分之。出頭壹分,得長貳尺捌寸柒分,後尾貳分半,得長柒尺壹寸柒分,加之,得飛檐椽通長壹丈肆分。",
       "location": "《工程做法》卷一",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.chanzl.com/archives/37989"],
-      "needs": ["01-10"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.chanzl.com/archives/37989"
+      ],
+      "needs": [
+        "01-10"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-14",
@@ -177,23 +326,76 @@
       "statement": "《工程做法》卷四~二十七无斗科各式,檐柱高与径皆按明间面阔比例。次间稍间柱檩梁枋径寸仍照明间。柱榫:无斗科大木每径 1 尺加 3 寸,小式每径 1 尺加 1 寸 5 分。柱高:柱径≈11.4:1(0.8/0.07);马炳坚取 11:1。",
       "formula": "H_yanzhu = a * W_mingjian; D_yanzhu = b * W_mingjian; tenon = 0.3D(大木) | 0.15D(小式)",
       "table": [
-        { "type": "九檩楼房下檐柱(卷四)", "a": 0.8, "b": 0.07, "example": "面阔 1 丈 3 尺→高 1 丈 4 寸、径 9 寸 1 分" },
-        { "type": "六檩大木(卷十)", "a": 0.8, "b": 0.07, "example": "面阔 1 丈 1 尺→高 8 尺 8 寸、径 7 寸 7 分" },
-        { "type": "五檩大木(卷十一)", "a": 0.8, "b": 0.07, "example": "面阔 1 丈→高 8 尺、径 7 寸" },
-        { "type": "七檩小式(卷二十四)", "a": 0.8, "b": 0.07, "example": "面阔 1 丈 5 寸→高 8 尺 4 寸、径 7 寸 3 分" },
-        { "type": "六檩小式(卷二十五)", "a": 0.75, "b": 0.06, "example": "面阔 1 丈→高 7 尺 5 寸、径 6 寸" },
-        { "type": "五檩小式(卷二十六)", "a": 0.7, "b": 0.05, "example": "面阔 1 丈→高 7 尺、径 5 寸" },
-        { "type": "四檩卷棚小式(卷二十七)", "a": 0.7, "b": 0.05, "example": "面阔 1 丈→高 7 尺、径 5 寸" }
+        {
+          "type": "九檩楼房下檐柱(卷四)",
+          "a": 0.8,
+          "b": 0.07,
+          "example": "面阔 1 丈 3 尺→高 1 丈 4 寸、径 9 寸 1 分"
+        },
+        {
+          "type": "六檩大木(卷十)",
+          "a": 0.8,
+          "b": 0.07,
+          "example": "面阔 1 丈 1 尺→高 8 尺 8 寸、径 7 寸 7 分"
+        },
+        {
+          "type": "五檩大木(卷十一)",
+          "a": 0.8,
+          "b": 0.07,
+          "example": "面阔 1 丈→高 8 尺、径 7 寸"
+        },
+        {
+          "type": "七檩小式(卷二十四)",
+          "a": 0.8,
+          "b": 0.07,
+          "example": "面阔 1 丈 5 寸→高 8 尺 4 寸、径 7 寸 3 分"
+        },
+        {
+          "type": "六檩小式(卷二十五)",
+          "a": 0.75,
+          "b": 0.06,
+          "example": "面阔 1 丈→高 7 尺 5 寸、径 6 寸"
+        },
+        {
+          "type": "五檩小式(卷二十六)",
+          "a": 0.7,
+          "b": 0.05,
+          "example": "面阔 1 丈→高 7 尺、径 5 寸"
+        },
+        {
+          "type": "四檩卷棚小式(卷二十七)",
+          "a": 0.7,
+          "b": 0.05,
+          "example": "面阔 1 丈→高 7 尺、径 5 寸"
+        }
       ],
       "correction": "给这张表加 region 维度:region='官式北方' 用 a=0.8/b=0.07;region='江南(营造法原)' 用 廊柱高=0.8~0.9W(殿庭 1.0W)、柱径=W×0.051~0.064(围径 0.16~0.2W)。大观园若定位江南园林,默认应走后者。乙驳(imprecise):清式柱径比江南粗 9%~37%,柱高:柱径清式 11.4:1 vs 江南≈14.8:1。",
       "choices": [
-        { "key": "guanshi_beifang", "value": { "a": 0.8, "b": 0.07 }, "note": "官式北方:柱高=0.8×明间面阔,柱径=0.07×明间面阔" },
-        { "key": "jiangnan_fayuan", "value": { "a": "0.8~0.9(殿庭 1.0)", "b": "0.051~0.064" }, "note": "江南(《营造法原》):廊柱高按正间面阔八九折、殿庭可满 1.0;柱围径=面阔×0.16~0.2 → 柱径=面阔×0.051~0.064;大观园定位江南默认走此档" }
+        {
+          "key": "guanshi_beifang",
+          "value": {
+            "a": 0.8,
+            "b": 0.07
+          },
+          "note": "官式北方:柱高=0.8×明间面阔,柱径=0.07×明间面阔"
+        },
+        {
+          "key": "jiangnan_fayuan",
+          "value": {
+            "a": "0.8~0.9(殿庭 1.0)",
+            "b": "0.051~0.064"
+          },
+          "note": "江南(《营造法原》):廊柱高按正间面阔八九折、殿庭可满 1.0;柱围径=面阔×0.16~0.2 → 柱径=面阔×0.051~0.064;大观园定位江南默认走此档"
+        }
       ],
       "quote": "凡檐柱以面闊拾分之捌,定高低拾分之柒,定徑寸。如面闊壹丈伍寸,得柱高捌尺肆寸,徑柒寸叄分。",
       "location": "《工程做法》卷二十四(七檩小式)等;注:「拾分之柒定徑寸」按算例实为百分之七",
-      "urls": ["https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pccy8517aa", "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcczq3oylw"],
-      "needs": []
+      "urls": [
+        "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pccy8517aa",
+        "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcczq3oylw"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     },
     {
       "id": "01-15",
@@ -201,11 +403,20 @@
       "status": "ok",
       "statement": "以檐柱径 D、面阔 W、檐柱高 H 为基:金柱径=D+1 寸,金柱高=H+廊深×0.5;抱头梁厚=D+1 寸、高=厚×1.2;穿插枋高厚同檐枋;五架梁厚=金柱径+1 寸、高=厚+2 寸;三架梁=五架梁高厚各收 2 寸;双步梁厚=金柱径+1 寸、高=厚×1.2;单步梁=双步梁各收 2 寸;金瓜柱径=三架梁厚−1 寸(脊瓜柱同);檐枋(金、脊枋同)高=D、厚=D−2 寸,不用垫板时各收 2 寸;垫板宽=檐枋高−1 寸、厚=檩径 3/10;檩径=D;椽见方=檩径 3/10,每丈 20 根;出檐=檐柱高 3/10;平水=垫板高;山柱径同金柱;枋入榫=柱径 1/4;梁长=步架+两端柁头各 1 檩径。",
       "formula": "D_jin=D+1寸; H_jin=H+0.5*lang; baotou: t=D+1寸, h=1.2t; wujia: t=D_jin+1寸, h=t+2寸; sanjia: h=h5-2寸, t=t5-2寸; shuangbu: t=D_jin+1寸, h=1.2t; danbu: shuangbu-2寸; guazhu D=t_sanjia-1寸; yanfang h=D, t=D-2寸; dianban w=h_fang-1寸, t=0.3*D_lin; D_lin=D; chuan=0.3*D_lin, 20根/丈; chuchan=0.3H; tenon_fang=D/4; 柱榫 1.5 寸/尺(0.15D)",
-      "params": { "note": "大量「+1 寸/−2 寸」为绝对尺寸,只有檐柱径≈7 寸 3 分(面阔 1 丈 5 寸)附近才等价于所声称的比例;乙建议折成 D 的倍数并标注折算基准(D=7.3 寸)。双步梁/单步梁、金瓜柱径、平水、山柱径、枋入榫、柁头各条未取到逐字原文,编码前宜补核。无斗科大木(卷十 六檩)取值略大:金柱径=D+2 寸,抱头梁厚=D+2 寸、高=厚×1.3,柱榫 3 寸/尺", "xiaoshiNoDougong": "无清代北方小式民居构件断面实测(unverifiable)" },
+      "params": {
+        "note": "大量「+1 寸/−2 寸」为绝对尺寸,只有檐柱径≈7 寸 3 分(面阔 1 丈 5 寸)附近才等价于所声称的比例;乙建议折成 D 的倍数并标注折算基准(D=7.3 寸)。双步梁/单步梁、金瓜柱径、平水、山柱径、枋入榫、柁头各条未取到逐字原文,编码前宜补核。无斗科大木(卷十 六檩)取值略大:金柱径=D+2 寸,抱头梁厚=D+2 寸、高=厚×1.3,柱榫 3 寸/尺",
+        "xiaoshiNoDougong": "无清代北方小式民居构件断面实测(unverifiable)"
+      },
       "quote": "凡金柱以出廊加舉定高低。如出廊深叄尺,按伍舉加之,得高壹尺伍寸。并檐柱高捌尺肆寸,得通長玖尺玖寸。以檐柱徑加壹寸,定徑寸。",
       "location": "《工程做法》卷二十四·七檩小式大木做法",
-      "urls": ["https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pccy8517aa", "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcczq3oylw"],
-      "needs": ["01-14"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pccy8517aa",
+        "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcczq3oylw"
+      ],
+      "needs": [
+        "01-14"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-16",
@@ -216,8 +427,14 @@
       "correction": "标注 scope='清官式小式(北方)';江南分支另建一张《营造法原》权衡表。乙驳(imprecise):本表 0.0727W 比江南柱径(0.051~0.064W)粗 14%~43%,柱高/柱径 11:1 vs 江南≈15:1,对苏州厅堂亭廊不适用。甲标 unverifiable:所引 kknews 页 403,系二手整理,马炳坚原书页码未核,可作近似经验值不可当原书数据。",
       "quote": "3、柱高柱径确定:柱高为明间面阔的 8/10,柱径为柱高的 1/11……8、五架梁:高 1.5D,厚 1.2D 或金柱径 1 寸,长为四步架加 2D",
       "location": "马炳坚《中国古建筑木作营造技术》(每日头条/kknews 整理,本次 403 未亲验)",
-      "urls": ["https://kknews.cc/zh-cn/design/5reaoz6.html", "https://www.sohu.com/a/390219687_100017881"],
-      "needs": ["01-14"]
+      "urls": [
+        "https://kknews.cc/zh-cn/design/5reaoz6.html",
+        "https://www.sohu.com/a/390219687_100017881"
+      ],
+      "needs": [
+        "01-14"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-17",
@@ -228,8 +445,15 @@
       "correction": "大式步架改为 22*dk(《工程做法》定值,王璞子注释附录表一,卷一自证:通进深 176 斗口÷8 步架=22 斗口/步),把「檩径 4~5 倍」降为无斗科/小式的经验区间。删掉 W_ci=0.8*W_ming 的硬编码,改由攒数决定(见 01-05 correction;太和殿实测次/明=0.655,比 0.8 低 18.1%)。其余各条(台明高、上出下出、收分侧脚)是二手转载,未找到实测比对。",
       "quote": "小式建筑收分的大小一般为柱高的 1/100……大式建筑柱子的收分,《营造算例》规定为 7/1000……无斗拱大式或小式建筑上檐出尺寸定为檐柱高的 3/10……小式房座台明高为柱高的 1/5 或柱径的 2 倍……小式廊步架一般为 4D~5D,金、脊各步一般为 4D",
       "location": "马炳坚《中国古建筑木作营造技术》第一章 通则(搜狐转载)",
-      "urls": ["https://www.sohu.com/a/390219687_100017881", "https://courses.gdut.edu.cn/mod/page/view.php?id=2072"],
-      "needs": ["01-06", "01-10"]
+      "urls": [
+        "https://www.sohu.com/a/390219687_100017881",
+        "https://courses.gdut.edu.cn/mod/page/view.php?id=2072"
+      ],
+      "needs": [
+        "01-06",
+        "01-10"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-18",
@@ -238,26 +462,106 @@
       "statement": "平身科各件的斗口倍数表。",
       "formula": "table",
       "table": [
-        { "part": "大斗(坐斗)", "length": 3, "width": 3, "height": 2, "note": "斗口高 0.8、斗底 2.2×2.2、底高 0.8、腰高 0.4" },
-        { "part": "单翘", "length": 7.1, "width": 1, "height": 2 },
-        { "part": "重翘", "length": 13.1, "width": 1, "height": 2 },
-        { "part": "正心瓜栱", "length": 6.2, "width": 1.24, "height": 2 },
-        { "part": "正心万栱", "length": 9.2, "width": 1.24, "height": 2 },
-        { "part": "单材瓜栱", "length": 6.2, "width": 1, "height": 1.4 },
-        { "part": "单材万栱", "length": 9.2, "width": 1, "height": 1.4 },
-        { "part": "厢栱", "length": 7.2, "width": 1, "height": 1.4 },
-        { "part": "头昂", "length": null, "width": 1, "height": null, "note": "前高 3、中高 2" },
-        { "part": "蚂蚱头/撑头木", "length": null, "width": 1, "height": 2 },
-        { "part": "十八斗", "length": 1.8, "width": 1.48, "height": 1 },
-        { "part": "三才升", "length": 1.3, "width": 1.48, "height": 1 },
-        { "part": "槽升", "length": 1.3, "width": 1.72, "height": 1 },
-        { "part": "桁椀", "length": "6/12/18/24(斗口单昂/单翘单昂并斗口重昂/单翘重昂/重翘重昂)", "width": 1, "height": null }
+        {
+          "part": "大斗(坐斗)",
+          "length": 3,
+          "width": 3,
+          "height": 2,
+          "note": "斗口高 0.8、斗底 2.2×2.2、底高 0.8、腰高 0.4"
+        },
+        {
+          "part": "单翘",
+          "length": 7.1,
+          "width": 1,
+          "height": 2
+        },
+        {
+          "part": "重翘",
+          "length": 13.1,
+          "width": 1,
+          "height": 2
+        },
+        {
+          "part": "正心瓜栱",
+          "length": 6.2,
+          "width": 1.24,
+          "height": 2
+        },
+        {
+          "part": "正心万栱",
+          "length": 9.2,
+          "width": 1.24,
+          "height": 2
+        },
+        {
+          "part": "单材瓜栱",
+          "length": 6.2,
+          "width": 1,
+          "height": 1.4
+        },
+        {
+          "part": "单材万栱",
+          "length": 9.2,
+          "width": 1,
+          "height": 1.4
+        },
+        {
+          "part": "厢栱",
+          "length": 7.2,
+          "width": 1,
+          "height": 1.4
+        },
+        {
+          "part": "头昂",
+          "length": null,
+          "width": 1,
+          "height": null,
+          "note": "前高 3、中高 2"
+        },
+        {
+          "part": "蚂蚱头/撑头木",
+          "length": null,
+          "width": 1,
+          "height": 2
+        },
+        {
+          "part": "十八斗",
+          "length": 1.8,
+          "width": 1.48,
+          "height": 1
+        },
+        {
+          "part": "三才升",
+          "length": 1.3,
+          "width": 1.48,
+          "height": 1
+        },
+        {
+          "part": "槽升",
+          "length": 1.3,
+          "width": 1.72,
+          "height": 1
+        },
+        {
+          "part": "桁椀",
+          "length": "6/12/18/24(斗口单昂/单翘单昂并斗口重昂/单翘重昂/重翘重昂)",
+          "width": 1,
+          "height": null
+        }
       ],
-      "params": { "unit": "斗口", "note": "无清代斗栱构件逐件实测(unverifiable);攒距旁证:维基 10~12 斗口,与长春宫实测 10.81~11.34 相符" },
+      "params": {
+        "unit": "斗口",
+        "note": "无清代斗栱构件逐件实测(unverifiable);攒距旁证:维基 10~12 斗口,与长春宫实测 10.81~11.34 相符"
+      },
       "quote": "大斗壹個,每斗口寬壹寸,大斗應長叄寸,寬叄寸,高貳寸。斗口高捌分,斗底寬貳寸貳分,長貳寸貳分,底高捌分,腰高肆分。單翹每斗口寬壹寸,應長柒寸壹分,高貳寸,寬壹寸。",
       "location": "《工程做法》卷二十八·平身科",
-      "urls": ["https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcd335gumn"],
-      "needs": ["01-01"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/JZ001/chapter/1l6pcd335gumn"
+      ],
+      "needs": [
+        "01-01"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "01-19",
@@ -267,17 +571,45 @@
       "formula": "cm = cun * 3.2; cm = chi * 32",
       "correction": "改为按地域取尺:chi_cm = {官式/北方: 32.0(实测锚 32.16), 吴(苏州/太湖): 27.5, 浙: 27.8, 闽: 29.4~30, 粤: 31.5, 赣: 35~35.5}。大观园若走江南,默认 27.5。乙驳(imprecise):32cm 对北方官式成立(太和殿档案反推 32.16/32.19cm),但苏州及太湖流域用吴尺 27.5cm,用 32cm 还原苏州园林会系统性放大 16.4%。",
       "choices": [
-        { "key": "beifang", "value": 32.0, "note": "官式/北方(太和殿档案实测锚 32.16cm)" },
-        { "key": "wu", "value": 27.5, "note": "吴尺(苏州/太湖);大观园走江南默认此档" },
-        { "key": "zhe", "value": 27.8, "note": "浙尺" },
-        { "key": "min", "value": "29.4~30", "note": "闽尺" },
-        { "key": "yue", "value": 31.5, "note": "粤尺" },
-        { "key": "gan", "value": "35~35.5", "note": "赣尺" }
+        {
+          "key": "beifang",
+          "value": 32.0,
+          "note": "官式/北方(太和殿档案实测锚 32.16cm)"
+        },
+        {
+          "key": "wu",
+          "value": 27.5,
+          "note": "吴尺(苏州/太湖);大观园走江南默认此档"
+        },
+        {
+          "key": "zhe",
+          "value": 27.8,
+          "note": "浙尺"
+        },
+        {
+          "key": "min",
+          "value": "29.4~30",
+          "note": "闽尺"
+        },
+        {
+          "key": "yue",
+          "value": 31.5,
+          "note": "粤尺"
+        },
+        {
+          "key": "gan",
+          "value": "35~35.5",
+          "note": "赣尺"
+        }
       ],
       "quote": "一等材 斗口 6.0 寸(约 19.2 厘米)……八等材 斗口 2.5 寸(约 8.0 厘米)……十一等材 斗口 1.0 寸(约 3.2 厘米)",
       "location": "释圣文化《明清官方营造档案》斗口十一等材制表(32cm 为通行取值,该页仅隐含换算)",
-      "urls": ["https://www.chanzl.com/archives/37989", "https://www.thepaper.cn/newsDetail_forward_22752750"],
-      "needs": []
+      "urls": [
+        "https://www.chanzl.com/archives/37989",
+        "https://www.thepaper.cn/newsDetail_forward_22752750"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     },
     {
       "id": "02-01",
@@ -287,9 +619,13 @@
       "formula": "steps = [廊/檐步, 下金步, (中金步), 上金步, 脊步]; 卷棚 [..., 上金步, 顶步(居中)]; x_i = Σ_{j≤i} s_j(自檐檩中起算);步架起算点 = 檩中至檩中",
       "quote": "清式古建筑木构架中,相邻两檩中一中的水平距离称为步架……廊步(或檐步)、金步、脊步等……最上面居中一步则称为'顶步'",
       "location": "马炳坚《中国古建筑木作营造技术》(搜狐转述);靳宝玥 2020",
-      "urls": ["https://www.sohu.com/a/390219687_100017881", "https://journals.viserdata.com/index.php/ec/article/download/1601/1592"],
+      "urls": [
+        "https://www.sohu.com/a/390219687_100017881",
+        "https://journals.viserdata.com/index.php/ec/article/download/1601/1592"
+      ],
       "needs": [],
-      "notes": "江南实物不用这套词(苏州称界/界深),不能把清式步架名硬套到苏州园林厅堂上"
+      "notes": "江南实物不用这套词(苏州称界/界深),不能把清式步架名硬套到苏州园林厅堂上",
+      "paramSet": "qing"
     },
     {
       "id": "02-02",
@@ -300,9 +636,16 @@
       "correction": "步架不要用 22 斗口生成。大式按建筑规模先定总进深与檩数,s = 总进深 / 步数;实物落点区间 16~40 斗口(檐步显著大于金脊步,尤其带溜金斗栱时——太和殿均步≈38 斗口、奉先殿檐步 40.3/金脊步 16.3 斗口、长春宫檐步 39/金脊步约 20 斗口)。22 斗口只作《工程做法》卷一样例的校核档,标注为教材通行值而非原文;「檩径 4~5 倍」(=16~20 斗口)与 22 斗口择一,不得并列。小式 4~5D 与算例「廊步=0.4×檐柱高、其余=0.8×廊步」标为未验证参数,可用作缺省但需暴露给上层覆盖。",
       "quote": "凡柒架梁,以步架陸分定長,如步架陸分,共深叄丈叄尺,兩頭各加桁條徑壹分",
       "location": "《工程做法》卷一(5.5 尺÷2.5 寸反推);马炳坚通则;靳宝玥 2020 转《营造算例》",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.sohu.com/a/390219687_100017881", "https://journals.viserdata.com/index.php/ec/article/download/1601/1592"],
-      "needs": ["01-01"],
-      "notes": "tiers.md 禁用(Tier A/B/C 全禁;照抄会把几何算歪)"
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.sohu.com/a/390219687_100017881",
+        "https://journals.viserdata.com/index.php/ec/article/download/1601/1592"
+      ],
+      "needs": [
+        "01-01"
+      ],
+      "notes": "tiers.md 禁用(Tier A/B/C 全禁;照抄会把几何算歪)",
+      "paramSet": "qing"
     },
     {
       "id": "02-03",
@@ -312,9 +655,13 @@
       "formula": "k_i = h_i / s_i; h_i = k_i × s_i; k ∈ {0.5, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0}(五举/六举/六五举/七举/七五举/八举/八五举/九举/九五举/十举)",
       "quote": "所谓举架,指木构架相邻两檩中—中的垂直距离(举高)除以对应步架长度所得的系数。",
       "location": "马炳坚系转述;靳宝玥 2020",
-      "urls": ["https://k.sina.com.cn/article_5901594216_15fc32e68001003hrv.html", "https://journals.viserdata.com/index.php/ec/article/download/1601/1592"],
+      "urls": [
+        "https://k.sina.com.cn/article_5901594216_15fc32e68001003hrv.html",
+        "https://journals.viserdata.com/index.php/ec/article/download/1601/1592"
+      ],
       "needs": [],
-      "notes": "各檩径相同时檩中—中距 = 檩底—底距,两种量法一致;实现时选定一种并全章固定"
+      "notes": "各檩径相同时檩中—中距 = 檩底—底距,两种量法一致;实现时选定一种并全章固定",
+      "paramSet": "qing"
     },
     {
       "id": "02-04",
@@ -325,9 +672,13 @@
       "correction": "采纳的更正值:k_檐 = 0.5 仅限清代北方官式,实测容许 0.47~0.53;删去 k_飞椽 = 0.35——《工程做法》口径飞檐椽与檐椽同按五举、加举 1.15 算料,需要斜率时用实装值 檐椽≈0.53、飞椽≈0.46;k_脊 ≤ 0.85(小式)、k_脊 ≤ 1.02(大式,由长春宫实测放宽),亭/城楼 k_脊 ≥ 0.95;江南分支 k_1 = clamp(界深(尺)/10, 0.35, 0.5),不走「五举拿头」。注意:两人驳的是「飞椽三五举」与「一律」的普适性,并非整条作废。",
       "quote": "凡金柱以出廊并正心桁中至挑檐桁中之拽架尺寸加舉定高,如廊深伍尺伍寸……連廊共深柒尺柒寸伍分,按伍舉加之,得高叄尺捌寸柒分",
       "location": "《工程做法》卷一;马炳坚系;程枭翀 2026",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf"],
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf"
+      ],
       "needs": [],
-      "notes": "tiers.md 禁用(Tier A 禁用)"
+      "notes": "tiers.md 禁用(Tier A 禁用)",
+      "paramSet": "qing"
     },
     {
       "id": "02-05",
@@ -336,24 +687,97 @@
       "statement": "清式按檩数与大式/小式配举架。《工程做法》原文实例:五檩(卷十一)檐步五举、脊步七举;六檩前出廊(卷十)廊步五举、金步七举、脊步九举;七檩(卷九)廊步五举、金步七举、脊步九举;九檩庑殿(卷一)檐步五举、下金步七举、上金步八举、脊步九举。马炳坚/梁思成归纳的通行配法另成一档。",
       "formula": "table",
       "table": [
-        { "source": "五檩(原文卷十一,每坡 2 步)", "k": [0.5, 0.7] },
-        { "source": "六檩前出廊(原文卷十)", "k": [0.5, 0.7, 0.9] },
-        { "source": "七檩(原文卷九)", "k": [0.5, 0.7, 0.9] },
-        { "source": "九檩庑殿(原文卷一)", "k": [0.5, 0.7, 0.8, 0.9] },
-        { "source": "七檩小式(马炳坚)", "k": [0.5, 0.65, 0.85] },
-        { "source": "七檩大式(马炳坚/viser)", "k": [0.5, "0.7 或 0.65", "0.9 或 0.8"] },
-        { "source": "九檩大式(营造算例/马炳坚/viser)", "k": [0.5, 0.65, 0.75, 0.9] },
-        { "source": "十一檩大式(马炳坚/viser)", "k": [0.5, 0.6, 0.65, 0.75, 0.9] }
+        {
+          "source": "五檩(原文卷十一,每坡 2 步)",
+          "k": [
+            0.5,
+            0.7
+          ]
+        },
+        {
+          "source": "六檩前出廊(原文卷十)",
+          "k": [
+            0.5,
+            0.7,
+            0.9
+          ]
+        },
+        {
+          "source": "七檩(原文卷九)",
+          "k": [
+            0.5,
+            0.7,
+            0.9
+          ]
+        },
+        {
+          "source": "九檩庑殿(原文卷一)",
+          "k": [
+            0.5,
+            0.7,
+            0.8,
+            0.9
+          ]
+        },
+        {
+          "source": "七檩小式(马炳坚)",
+          "k": [
+            0.5,
+            0.65,
+            0.85
+          ]
+        },
+        {
+          "source": "七檩大式(马炳坚/viser)",
+          "k": [
+            0.5,
+            "0.7 或 0.65",
+            "0.9 或 0.8"
+          ]
+        },
+        {
+          "source": "九檩大式(营造算例/马炳坚/viser)",
+          "k": [
+            0.5,
+            0.65,
+            0.75,
+            0.9
+          ]
+        },
+        {
+          "source": "十一檩大式(马炳坚/viser)",
+          "k": [
+            0.5,
+            0.6,
+            0.65,
+            0.75,
+            0.9
+          ]
+        }
       ],
       "correction": "保留表为北方官式默认,但把上金/脊步改成区间:上金 0.75~0.90、脊 0.90~1.02;另加江南档(提栈):起算 = min(0.5, 界深/10),按「民房六界用二个、七界用三个、殿宇八界用四个」逐界递增 0.05~0.10,系数集 {0.35, 0.4, …, 0.9}。乙驳:上部(上金、脊)系统性偏陡,长春宫脊步实测 1.02 对表值 0.9 为 +13%,奉先殿上金步出界 19%。",
       "choices": [
-        { "key": "yuanwen", "value": "原文实例档(卷九/卷十/卷十一/卷一)", "note": "《工程做法》原文实例,默认档" },
-        { "key": "tongxing", "value": "通行表档(营造算例/马炳坚/viser)", "note": "后人归纳的程式化配法,可选档" }
+        {
+          "key": "yuanwen",
+          "value": "原文实例档(卷九/卷十/卷十一/卷一)",
+          "note": "《工程做法》原文实例,默认档"
+        },
+        {
+          "key": "tongxing",
+          "value": "通行表档(营造算例/马炳坚/viser)",
+          "note": "后人归纳的程式化配法,可选档"
+        }
       ],
       "quote": "凡柁橔以步架加舉定高……按柒舉加之,得高叄尺捌寸伍分……凡脊瓜柱……按玖舉加之,得高肆尺玖寸伍分",
       "location": "《工程做法》卷一/卷九/卷十/卷十一;靳宝玥 2020",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://journals.viserdata.com/index.php/ec/article/download/1601/1592"],
-      "needs": ["02-03"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://journals.viserdata.com/index.php/ec/article/download/1601/1592"
+      ],
+      "needs": [
+        "02-03"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "02-06",
@@ -361,11 +785,20 @@
       "status": "ok",
       "statement": "以檐檩中为原点,沿进深向内逐步累加:第 i 檩 x 坐标为前 i 步步架之和,y 坐标为各步「步架×举架系数」之和。屋脊高度不是预先设定,而是逐步累举得出(与宋式相反)。瓜柱净高 = 本步举高 − 所骑梁之高;脊瓜柱另加平水与桁椀。",
       "formula": "x_0=0, y_0=0; x_i = x_{i-1} + s_i; y_i = y_{i-1} + k_i·s_i; 脊高 H_脊 = Σ k_i s_i; 瓜柱净高_i = k_i·s_i − h_梁(下); 对称后坡 x'_i = L − x_i。原点 = 檐檩中(带斗栱大式为挑檐桁中,檐步含拽架)",
-      "params": { "juanYiCheck": "卷一九檩庑殿:檐步含拽架 7.75×0.5=3.875 尺、下金 5.5×0.7=3.85、上金 5.5×0.8=4.4、脊 5.5×0.9=4.95,累计脊高 17.075 尺(自挑檐桁起),误差 0%" },
+      "params": {
+        "juanYiCheck": "卷一九檩庑殿:檐步含拽架 7.75×0.5=3.875 尺、下金 5.5×0.7=3.85、上金 5.5×0.8=4.4、脊 5.5×0.9=4.95,累计脊高 17.075 尺(自挑檐桁起),误差 0%"
+      },
       "quote": "宋式之举折,先定举高,然后自上而下,每槫缝下折少许,而成曲面线。清式则自下起,第一步五举,第二步六举,第三步六点五举,第四步七点五举乃至九举等。……其屋脊之地位,乃由下逐步递举而得,非若宋式之预定者。",
       "location": "梁思成《中国建筑史》;《工程做法》卷一(柁橔条算术验证)",
-      "urls": ["https://book.douban.com/reading/129789040/", "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"],
-      "needs": ["02-01", "02-03"]
+      "urls": [
+        "https://book.douban.com/reading/129789040/",
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"
+      ],
+      "needs": [
+        "02-01",
+        "02-03"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "02-07",
@@ -373,11 +806,20 @@
       "status": "ok",
       "statement": "每根檩下有平水(垫板高)与桁椀。大式:平水高 = 4 斗口(卷一:斗口 2.5 寸得平水 1 尺),桁椀 = 桁条径 ÷ 3;小式:平水 = 檐枋高 − 1 寸(即垫板高),桁椀 = 檩径 ÷ 3。两山及四角金柱、脊瓜柱在举高之上「加平水一分,再加桁条径三分之一作桁椀」。",
       "formula": "大式 平水 = 4×斗口, 桁椀 = D_桁/3; 小式 平水 = h_檐枋 − 0.1尺 (= h_垫板), 桁椀 = D_檩/3; 脊瓜柱通高 = k_脊·s_脊 + 平水 + 桁椀 − h_三架梁",
-      "params": { "examples": "小式平水实例:卷九 7.4 寸(=檐枋 8.4 寸−1 寸)、卷十一 6 寸(=檐枋 7 寸−1 寸)", "note": "「大式平水=4 斗口」系由「平水壹分高壹尺」÷斗口 2.5 寸反推,因卷一正心桁径恰亦为 1 尺,也可读作「平水=1 檩径」,两种读法在卷一不可区分;无实测(unverifiable)" },
+      "params": {
+        "examples": "小式平水实例:卷九 7.4 寸(=檐枋 8.4 寸−1 寸)、卷十一 6 寸(=檐枋 7 寸−1 寸)",
+        "note": "「大式平水=4 斗口」系由「平水壹分高壹尺」÷斗口 2.5 寸反推,因卷一正心桁径恰亦为 1 尺,也可读作「平水=1 檩径」,两种读法在卷一不可区分;无实测(unverifiable)"
+      },
       "quote": "兩山并肆角金柱加平水壹分,高壹尺,再加桁條徑叄分之壹,作桁椀。如桁條徑壹尺,得桁椀高叄寸叄分",
       "location": "《工程做法》卷一;卷九;卷十一",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjd8w9gmqx"],
-      "needs": ["01-10"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjd8w9gmqx"
+      ],
+      "needs": [
+        "01-10"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "02-08",
@@ -385,12 +827,20 @@
       "status": "ok",
       "statement": "《工程做法》按各步举架给椽子斜长系数:檐椽、飞檐椽(五举)按一一五加举;七举步花架椽按一二五;八举步按一三;九举步脑椽按一三五。庑殿由戗先「方五斜七」取 45° 斜长,再按同步加举系数加长(仔角梁 1.15,下花架由戗 1.25,上花架由戗 1.3,脊由戗 1.35)。",
       "formula": "L_椽 = s × c(k), c(0.5)=1.15, c(0.7)=1.25, c(0.8)=1.30, c(0.9)=1.35(≈√(1+k²)); 由戗 L = s × 1.4(方五斜七) × c(k)",
-      "params": { "geometricCheck": "加举系数 vs √(1+k²):+2.9%/+2.4%/+1.5%/+0.4%;方五斜七 1.4 vs √2=1.414(−1.0%),均在 10% 内" },
+      "params": {
+        "geometricCheck": "加举系数 vs √(1+k²):+2.9%/+2.4%/+1.5%/+0.4%;方五斜七 1.4 vs √2=1.414(−1.0%),均在 10% 内"
+      },
       "quote": "凡檐椽以出廊并出檐加舉定長。如出廊深五尺五寸,又加出檐照单翘重昂斗科三十份,斗口二寸五分,得七尺五寸,共长一丈三尺。又按一一五加举,得通长一丈四尺九寸五分",
       "location": "《工程做法》卷一;程枭翀 2026 转录同段",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf"],
-      "needs": ["02-03"],
-      "notes": "1.15 是算料的几何参数,不等于建成后的实际斜率(檐椽约 0.53、飞椽约 0.46);不要拿加举系数反推屋面坡度"
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf"
+      ],
+      "needs": [
+        "02-03"
+      ],
+      "notes": "1.15 是算料的几何参数,不等于建成后的实际斜率(檐椽约 0.53、飞椽约 0.46);不要拿加举系数反推屋面坡度",
+      "paramSet": "qing"
     },
     {
       "id": "02-09",
@@ -400,14 +850,25 @@
       "formula": "殿阁 R = B/3; 厅堂(瓪瓦) R = B/4 × 1.08; 瓪瓦廊屋/瓪瓦厅堂 R = B/4 × 1.05; 瓪瓦廊屋 R = B/4 × 1.03; 副阶/缠腰 R = B/2(B = 前后橑檐方心距)",
       "correction": "瓦种改正:殿阁楼台 R = B/3;㼧瓦(筒瓦)厅堂 R = (B/4) × 1.08;㼧瓦廊屋 及 瓪瓦厅堂 R = (B/4) × 1.05;瓪瓦廊屋之类 R = (B/4) × 1.03;两椽屋不加 R = B/4;副阶/缠腰 R = B/2。B 取前后橑檐方心距;不出跳(余屋柱梁作)时 B 取前后檐柱心距。甲乙均驳(wrong):原 statement 把两处「㼧瓦(筒瓦)」误作「瓪瓦」,瓪瓦厅堂被同时给了 1.08 与 1.05 两个值。",
       "choices": [
-        { "key": "cheng", "value": "R = (B/4) × 1.08 = 0.270B", "note": "「每一尺加八分」的乘法读法" },
-        { "key": "jia", "value": "R = (1/4 + 0.08) × B = 0.330B", "note": "加法读法;与故宫长春宫实测 0.346 更吻合(差 4.6%;乘法读法差 22%),长春宫论文按此计算;此档选择传导到 02-10 折屋的全部檩位" }
+        {
+          "key": "cheng",
+          "value": "R = (B/4) × 1.08 = 0.270B",
+          "note": "「每一尺加八分」的乘法读法"
+        },
+        {
+          "key": "jia",
+          "value": "R = (1/4 + 0.08) × B = 0.330B",
+          "note": "加法读法;与故宫长春宫实测 0.346 更吻合(差 4.6%;乘法读法差 22%),长春宫论文按此计算;此档选择传导到 02-10 折屋的全部檩位"
+        }
       ],
       "quote": "舉屋之法:如殿閣樓台,先量前後橑簷方心相去遠近,分為三分……從橑簷方背至脊槫背舉起一分。……如㼧瓦廳堂,即四分中舉起一分;又通以四分所得丈尺,每一尺加八分,若㼧瓦廊屋及瓪瓦廳堂,每一尺加五分。或瓪瓦廊屋之類,每一尺加三分。",
       "location": "《营造法式》卷五·举折",
-      "urls": ["https://zh.wikisource.org/wiki/營造法式/第五卷"],
+      "urls": [
+        "https://zh.wikisource.org/wiki/營造法式/第五卷"
+      ],
       "needs": [],
-      "notes": "tiers.md 禁用(Tier A 禁用)"
+      "notes": "tiers.md 禁用(Tier A 禁用)",
+      "paramSet": "qing"
     },
     {
       "id": "02-10",
@@ -417,9 +878,14 @@
       "formula": "y_脊 = R; 对第 n 缝(自上而下):先连线(上一缝槫背 → 橑檐方背),该缝槫背 = 连线上对应点 − R/(10·2^{n-1})",
       "quote": "折屋之法:以舉高尺丈每尺折一寸,每架自上遞減半為法。如舉高二丈,即先從脊槫背上取平,下至橑簷方背,其上第一縫折二尺;又從上第一縫槫背取平,下至橑簷方背,於第二縫折一尺。",
       "location": "《营造法式》卷五·举折",
-      "urls": ["https://zh.wikisource.org/wiki/營造法式/第五卷"],
-      "needs": ["02-09"],
-      "notes": "取平原文小注作「皆從槫心抨繩令緊為則」,与正文槫背取平有细微出入,实现时需择一固定;长春宫按举折算 0.51/0.70/0.92 vs 实测 0.53/0.69/1.02,三步均在 10% 内(脊步擦边);风险在总举高 R 的取法(见 02-09 choices)"
+      "urls": [
+        "https://zh.wikisource.org/wiki/營造法式/第五卷"
+      ],
+      "needs": [
+        "02-09"
+      ],
+      "notes": "取平原文小注作「皆從槫心抨繩令緊為則」,与正文槫背取平有细微出入,实现时需择一固定;长春宫按举折算 0.51/0.70/0.92 vs 实测 0.53/0.69/1.02,三步均在 10% 内(脊步擦边);风险在总举高 R 的取法(见 02-09 choices)",
+      "paramSet": "qing"
     },
     {
       "id": "02-11",
@@ -427,11 +893,17 @@
       "status": "ok",
       "statement": "宋式举折先定总举高(脊高预定),再自上而下逐缝下折成曲线;清式举架自下而上,每步按固定系数递增,脊高由累举得出、无固定标准;结果清式屋盖较宋式陡峻。",
       "formula": "宋: 输入 B → R = B/3(或 /4·系数) → 自上而下折; 清: 输入 s_i, k_i → 自下而上 y_i = Σ k_j s_j(脊高为输出)",
-      "params": { "quantified": "长春宫 L=11m:宋式算 H1=3.63m(1/3.03),清式算 H2=3.849m(1/2.86),清制陡 5.9%;实测 H=3.8m(1/2.89)恰夹两者之间" },
+      "params": {
+        "quantified": "长春宫 L=11m:宋式算 H1=3.63m(1/3.03),清式算 H2=3.849m(1/2.86),清制陡 5.9%;实测 H=3.8m(1/2.89)恰夹两者之间"
+      },
       "quote": "宋式之举折,先定举高,然后自上而下,每槫缝下折少许,而成曲面线。清式则自下起……其结果清式屋盖较宋式屋盖陡峻。",
       "location": "梁思成《中国建筑史》;广工课程页",
-      "urls": ["https://book.douban.com/reading/129789040/", "https://courses.gdut.edu.cn/mod/page/view.php?id=2072"],
-      "needs": []
+      "urls": [
+        "https://book.douban.com/reading/129789040/",
+        "https://courses.gdut.edu.cn/mod/page/view.php?id=2072"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     },
     {
       "id": "02-12",
@@ -442,8 +914,14 @@
       "correction": "把递减率 0.1 改成可调参数(实例落在约 0.10~0.30,且方向可正可负),或对具体建筑直接以实测山面步架作输入;注明「一成」出自工匠手册(《营造算例》是梁思成汇编的匠人手抄本)而非《工程做法》制度——卷一庑殿样例严格按 45° 布角梁由戗、根本未提推山。乙驳:奉先殿前殿按一成推山误差 −5.2%/−24.6%/−20.4%/−30.3%,四步里三步远超 10%。",
       "quote": "除檐步方角不推外,自金步至脊步,按进深步架,每步递减一成。",
       "location": "《营造算例》庑殿推山(百度百科「推山」转引);程枭翀 2026",
-      "urls": ["https://baike.baidu.com/item/%E6%8E%A8%E5%B1%B1", "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf"],
-      "needs": ["02-01"]
+      "urls": [
+        "https://baike.baidu.com/item/%E6%8E%A8%E5%B1%B1",
+        "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf"
+      ],
+      "needs": [
+        "02-01"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "02-13",
@@ -453,9 +931,15 @@
       "formula": "x_山花板外皮 = x_山面正心桁中 − D_正心桁(大式); = x_山面檐檩中 − D_檐檩(小式); 大式 D_正心桁 = 4×斗口(卷一)",
       "quote": "歇山收山法则为:'按正心桁径一份,系正心桁中至立闸山花板外皮。'",
       "location": "程枭翀 2026 引《清式营造则例》;维基《歇山顶》;《工程做法》卷一",
-      "urls": ["https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf", "https://zh.wikipedia.org/wiki/歇山頂"],
-      "needs": ["01-10"],
-      "notes": "「收山=1 正心桁径」只出现在卷十四~十八城楼/箭楼/闸楼样例,是常见做法而非制度,应给可调区间;故宫后左门/后右门收山远大于 1 檩径;正心桁径统一采卷一 4 斗口,4.5 斗口(《清式营造则例》口径)不要混用(差 12.5%)"
+      "urls": [
+        "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf",
+        "https://zh.wikipedia.org/wiki/歇山頂"
+      ],
+      "needs": [
+        "01-10"
+      ],
+      "notes": "「收山=1 正心桁径」只出现在卷十四~十八城楼/箭楼/闸楼样例,是常见做法而非制度,应给可调区间;故宫后左门/后右门收山远大于 1 檩径;正心桁径统一采卷一 4 斗口,4.5 斗口(《清式营造则例》口径)不要混用(差 12.5%)",
+      "paramSet": "qing"
     },
     {
       "id": "02-14",
@@ -466,8 +950,12 @@
       "correction": "删去「以两脊檩中线与垂直脑椽延长线之交点为圆心」这一无源几何构造;改按有源表述:罗锅椽弦长 = 顶步架 + 桁金盘一份,弧度以两脊檩上皮上拱约一椽径起拱。卷棚各步举架系数仍标为待考。",
       "quote": "顶步架:2D~3D 范围内调整(四檩卷棚时,将檐檩中距均分五等份,顶步占一份,檐步各占二份)",
       "location": "马炳坚《中国古建筑木作营造技术》(搜狐转述);百度百科「罗锅椽」",
-      "urls": ["https://www.sohu.com/a/390219687_100017881", "https://baike.baidu.com/item/%E7%BD%97%E9%94%85%E6%A4%BD/3121709"],
-      "needs": []
+      "urls": [
+        "https://www.sohu.com/a/390219687_100017881",
+        "https://baike.baidu.com/item/%E7%BD%97%E9%94%85%E6%A4%BD/3121709"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     },
     {
       "id": "03-01",
@@ -477,9 +965,13 @@
       "formula": "上檐出 = 0.3 × 檐柱高(檐柱中线 → 飞椽头外皮,水平投影);允许上限 = 1/3 × 檐柱高",
       "quote": "4、上出:无斗拱大式或小式建筑上檐出尺寸定为檐柱高的3/10。其中2份为檐椽出头,一份为飞椽出头。",
       "location": "马炳坚《中国古建筑木作营造技术》(古建网转录);故宫博物院词条",
-      "urls": ["https://www.gujian.vip/sys-nd/199.html", "https://www.dpm.org.cn/lemmas/243829.html"],
+      "urls": [
+        "https://www.gujian.vip/sys-nd/199.html",
+        "https://www.dpm.org.cn/lemmas/243829.html"
+      ],
       "needs": [],
-      "notes": "tiers.md 禁用(Tier B/C——套江南会把檐挑长两三成)。本条限定北方清官式无斗拱做法;江南另立:上檐出 = 1.5 × 出檐椽平出,出檐椽斜长 1 尺 6 寸~2 尺 4 寸且≈界深之半,不按柱高取值(江南口径比值 0.17~0.26,对 0.3 为 −43%~−14.5%)"
+      "notes": "tiers.md 禁用(Tier B/C——套江南会把檐挑长两三成)。本条限定北方清官式无斗拱做法;江南另立:上檐出 = 1.5 × 出檐椽平出,出檐椽斜长 1 尺 6 寸~2 尺 4 寸且≈界深之半,不按柱高取值(江南口径比值 0.17~0.26,对 0.3 为 −43%~−14.5%)",
+      "paramSet": "qing"
     },
     {
       "id": "03-02",
@@ -490,8 +982,15 @@
       "correction": "删去 statement 括注「(正心桁)」:21 斗口的起点只能是挑檐桁中;正心桁中至飞椽头 = 21 斗口 + 拽架 = 例中 30 斗口。甲驳:原括注把挑檐桁中与正心桁中当同一起点,与规则自己的公式自相矛盾。",
       "quote": "凡檐椽以出廊并出檐加舉定長,如出廊深伍尺伍寸,又加出檐,照單翹重昂斗科叄拾分,斗口貳寸伍分,得柒尺伍寸,共長壹丈叄尺。",
       "location": "《工程做法》卷一檐椽条;马炳坚通则",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.gujian.vip/sys-nd/199.html"],
-      "needs": ["01-01", "01-07"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.gujian.vip/sys-nd/199.html"
+      ],
+      "needs": [
+        "01-01",
+        "01-07"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "03-03",
@@ -501,9 +1000,13 @@
       "formula": "檐椽平出 = 2/3 × 上檐出; 飞椽平出 = 1/3 × 上檐出; 有斗拱: 檐椽平出 = 14 × 斗口, 飞椽平出 = 7 × 斗口(合 21 斗口)",
       "quote": "无斗拱小式大木的上檐出按柱高的十分之三定。其檐椽出挑为上檐出的三分之二、飞椽为三分之一。",
       "location": "古建网转录马炳坚;《工程做法》卷一飞檐椽条;《营造算例》(飞头=平出 1/3);《营造法原》(飞椽≈出檐椽之半)",
-      "urls": ["https://www.gujian.vip/sys-nd/199.html", "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"],
+      "urls": [
+        "https://www.gujian.vip/sys-nd/199.html",
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"
+      ],
       "needs": [],
-      "notes": "「椽三飞一」四字口诀查无原典,编码时不要把这四个字当术语写进注释;2:1 由北方《工程做法》与江南《营造法原》两个传统独立给出(误差 0%)"
+      "notes": "「椽三飞一」四字口诀查无原典,编码时不要把这四个字当术语写进注释;2:1 由北方《工程做法》与江南《营造法原》两个传统独立给出(误差 0%)",
+      "paramSet": "qing"
     },
     {
       "id": "03-04",
@@ -512,13 +1015,33 @@
       "statement": "《工程做法》:飞檐椽以出檐定长,出檐按 1.15 加举后三等分,出头一份为飞头、后尾两份半;通长 = 3.5 倍飞头 = 7/6 倍出檐加举长;断面见方同檐椽径。马炳坚/《营造算例》系统则按「一头三尾」。",
       "formula": "档A《工程做法》: 飞头 = (出檐 × 1.15) / 3; 飞尾 = 2.5 × 飞头; 飞椽通长 = 3.5 × 飞头 = (7/6) × 出檐 × 1.15; 飞椽见方 = 檐椽径。档B《营造算例》/马炳坚: 飞尾 = 3 × 飞头; 飞椽见方 = 椽径 或 0.95 × 椽径",
       "choices": [
-        { "key": "gongchengzuofa", "value": { "head": "(出檐×1.15)/3", "tail": "2.5×头", "total": "3.5×头 = 7/6×出檐×1.15" }, "note": "《工程做法》卷一原文;例:出檐 7.5 尺 → 8.62 尺 → 头 2.87/尾 7.17/通长 10.04 尺" },
-        { "key": "suanli", "value": { "tail": "3×头" }, "note": "《营造算例》/马炳坚「一头三尾」" }
+        {
+          "key": "gongchengzuofa",
+          "value": {
+            "head": "(出檐×1.15)/3",
+            "tail": "2.5×头",
+            "total": "3.5×头 = 7/6×出檐×1.15"
+          },
+          "note": "《工程做法》卷一原文;例:出檐 7.5 尺 → 8.62 尺 → 头 2.87/尾 7.17/通长 10.04 尺"
+        },
+        {
+          "key": "suanli",
+          "value": {
+            "tail": "3×头"
+          },
+          "note": "《营造算例》/马炳坚「一头三尾」"
+        }
       ],
       "quote": "凡飛檐椽以出檐定長,如出檐柒尺伍寸,按壹壹伍加舉,得長捌尺陸寸貳分,叄分分之。出頭壹分,得長貳尺捌寸柒分,後尾貳分半,得長柒尺壹寸柒分,加之,得飛檐椽通長壹丈肆分,見方與檐椽徑寸同。",
       "location": "《工程做法》卷一·飞檐椽条;程枭翀 2026",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf"],
-      "needs": ["03-03"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf"
+      ],
+      "needs": [
+        "03-03"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "03-05",
@@ -527,13 +1050,35 @@
       "statement": "《清式营造则例》《营造算例》均记飞椽为「三五举」(飞头按 0.35 坡度,加斜系数 1.06);但《工程做法》原文檐椽与飞檐椽长度均按 1.15(五举)加举计算,安装后飞椽实际斜率约 0.46。两法并存,须由上层选定。",
       "formula": "则例/算例档: 飞头斜长 = 飞头平出 × 1.06(三五举 0.35); 工程做法档: 飞椽长 = 出檐 × 1.15 再三等分(五举); 檐步举 = 0.5, 加斜 1.12; 安装后实测斜率(程枭翀): 飞椽 ≈ 0.46, 檐椽 ≈ 0.53",
       "choices": [
-        { "key": "zeli_suanli", "value": { "k": 0.35, "jiaxie": 1.06 }, "note": "《清式营造则例》《营造算例》:飞椽三五举" },
-        { "key": "gongchengzuofa", "value": { "k": 0.5, "jiaxie": 1.15, "installedSlope": { "飞椽": 0.46, "檐椽": 0.53 } }, "note": "《工程做法》口径:飞檐椽与檐椽同按五举、加举 1.15;程枭翀:「三五举」不能视作清式制度" }
+        {
+          "key": "zeli_suanli",
+          "value": {
+            "k": 0.35,
+            "jiaxie": 1.06
+          },
+          "note": "《清式营造则例》《营造算例》:飞椽三五举"
+        },
+        {
+          "key": "gongchengzuofa",
+          "value": {
+            "k": 0.5,
+            "jiaxie": 1.15,
+            "installedSlope": {
+              "飞椽": 0.46,
+              "檐椽": 0.53
+            }
+          },
+          "note": "《工程做法》口径:飞檐椽与檐椽同按五举、加举 1.15;程枭翀:「三五举」不能视作清式制度"
+        }
       ],
       "quote": "最下一举多是五举,飞椽则三五举,最上一举往往在九举之上。(梁思成《清式营造则例》p.41,程枭翀引)",
       "location": "程枭翀《关于〈工程做法〉若干问题的思考》第 5 节",
-      "urls": ["https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf", "https://www.gujian.vip/sys-nd/199.html"],
-      "needs": []
+      "urls": [
+        "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2026.02015.pdf",
+        "https://www.gujian.vip/sys-nd/199.html"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     },
     {
       "id": "03-06",
@@ -544,8 +1089,14 @@
       "correction": "小式椽径应写作 椽径 = 檩(桁)径 / 3,与《工程做法》0.35×桁径同源;「檐柱径/3」只在小式檩径=柱径时才偶然成立,不应作为主公式(甲驳:马炳坚原句基准是檩径,规则原卡主次颠倒)。差值根源:则例桁径记 4.5 斗口(0.35×4.5≈1.5),《工程做法》九檩庑殿实为 4 斗口(0.35×4=1.4)。",
       "quote": "以桁條徑每尺用叄寸伍分定徑,如桁條徑壹尺,得椽徑叄寸伍分。",
       "location": "《工程做法》卷一檐椽条;古建网转录马炳坚",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.gujian.vip/sys-nd/199.html"],
-      "needs": ["01-10"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.gujian.vip/sys-nd/199.html"
+      ],
+      "needs": [
+        "01-10"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "03-07",
@@ -555,9 +1106,14 @@
       "formula": "椽当 = 1 × 椽径; 椽中距 = 2 × 椽径; 每间椽档数 = 偶数 → 每间椽根数 = 档数 + 1 = 奇数(一椽坐中)",
       "quote": "每椽空檔隨椽徑壹分,每間椽數俱應成雙檔之寬窄,隨數均勻。",
       "location": "《工程做法》卷一檐椽条(椽中距另有顺望板条佐证)",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"],
-      "needs": ["03-06"],
-      "notes": "「椽根数为奇数、一椽坐中」是几何推导而非原文字面(原文只说「成雙檔」),作为建模约束可用,不应写成原典原话"
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"
+      ],
+      "needs": [
+        "03-06"
+      ],
+      "notes": "「椽根数为奇数、一椽坐中」是几何推导而非原文字面(原文只说「成雙檔」),作为建模约束可用,不应写成原典原话",
+      "paramSet": "qing"
     },
     {
       "id": "03-08",
@@ -567,8 +1123,15 @@
       "formula": "无斗拱(马炳坚): L_檐椽 = (檐步架 + 2/3 × 上檐出) × 1.12 + 0.5 × 椽径; 工程做法: L_檐椽净 = (出廊 + 出檐) × 1.15 − 飞头长(例:出廊 5.5 尺 + 出檐 7.5 尺 = 13 尺 → 14.95 尺 − 2.87 尺 = 12.08 尺)",
       "quote": "凡檐椽以出廊并出檐加舉定長,如出廊深伍尺伍寸,又加出檐……共長壹丈叄尺。又按壹、壹伍加舉,得通長壹丈肆尺玖寸伍分。内除飛檐頭長貳尺捌寸柒分,得檐椽凈長壹丈貳尺捌分。",
       "location": "《工程做法》卷一檐椽条;古建网转录马炳坚",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.gujian.vip/sys-nd/199.html"],
-      "needs": ["03-03", "03-04"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.gujian.vip/sys-nd/199.html"
+      ],
+      "needs": [
+        "03-03",
+        "03-04"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "03-09",
@@ -578,13 +1141,33 @@
       "formula": "口径①马炳坚放样: 冲出_老角梁 = 2 × 椽径, 冲出_仔角梁 = 3 × 椽径, 斜向 = ×1.414; 口径②《工程做法》: 斜出 = 3 × 椽径直接加在已 ×1.4×1.15 的斜长上,不再乘 1.414(例:椽径 3.5 寸 → 1.05 尺)",
       "correction": "两套口径不可通约,须二选一并声明:①马炳坚放样口径——冲 3 椽径量在正身法线方向,沿角梁斜向为 3 椽径 ×1.414;②《工程做法》口径——3 椽径直接加在斜长上,不再乘 1.414。不可把①的公式配②的例数(1.05 尺)。乙补:江南分支应写作 戗角放叉 = 水平放出一尺(定值),不按椽径倍数。",
       "choices": [
-        { "key": "mabingjian", "value": { "老角梁": "2 椽径", "仔角梁": "3 椽径", "斜向": "×1.414" }, "note": "冲量在正身法线方向,沿角梁斜向再 ×1.414" },
-        { "key": "gongchengzuofa", "value": { "斜出": "3 椽径" }, "note": "直接加在已 ×1.4×1.15 的斜长上,不再乘 1.414" }
+        {
+          "key": "mabingjian",
+          "value": {
+            "老角梁": "2 椽径",
+            "仔角梁": "3 椽径",
+            "斜向": "×1.414"
+          },
+          "note": "冲量在正身法线方向,沿角梁斜向再 ×1.414"
+        },
+        {
+          "key": "gongchengzuofa",
+          "value": {
+            "斜出": "3 椽径"
+          },
+          "note": "直接加在已 ×1.4×1.15 的斜长上,不再乘 1.414"
+        }
       ],
       "quote": "凡仔角梁以出廊并出檐各尺寸,用方伍斜柒舉架定長……再加翼角斜出椽徑叄分,如椽徑叄寸伍分……得仔角梁通長貳丈貳尺陸寸捌分。",
       "location": "《工程做法》卷一仔角梁条;古建网转录马炳坚;ICOMOS 资料",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.gujian.vip/sys-nd/199.html"],
-      "needs": ["03-06"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.gujian.vip/sys-nd/199.html"
+      ],
+      "needs": [
+        "03-06"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "03-10",
@@ -594,9 +1177,15 @@
       "formula": "起翘高 = 4 × 椽径(可选 + 2寸 ≈ 5cm 抬头); 验收: 安装后仔角梁头下皮线成水平线为宜(ICOMOS)",
       "quote": "仔角梁的起翘,由老角梁往外翘平,翘平的高度由老角梁上皮往外至大连檐下皮,一般为四个椽径。也可在四个椽径往上再加二寸(5厘米)抬头。",
       "location": "古建网转录马炳坚·仔角梁作法",
-      "urls": ["https://www.gujian.vip/sys-nd/199.html", "https://www.nbgjz.com/1684.html"],
-      "needs": ["03-06"],
-      "notes": "「起翘点=搭交下金檩对应檐口」未获证:起翘之处按《工程做法》应由 (挑檐桁中出檐 × 1.4 + 廊深 + 拽架) 定出翘数后反推,下金檩只界定角梁椽槽后端;起翘量无清代实例实测(unverifiable);江南嫩戗发戗与「4 椽径」不同量纲"
+      "urls": [
+        "https://www.gujian.vip/sys-nd/199.html",
+        "https://www.nbgjz.com/1684.html"
+      ],
+      "needs": [
+        "03-06"
+      ],
+      "notes": "「起翘点=搭交下金檩对应檐口」未获证:起翘之处按《工程做法》应由 (挑檐桁中出檐 × 1.4 + 廊深 + 拽架) 定出翘数后反推,下金檩只界定角梁椽槽后端;起翘量无清代实例实测(unverifiable);江南嫩戗发戗与「4 椽径」不同量纲",
+      "paramSet": "qing"
     },
     {
       "id": "03-11",
@@ -606,9 +1195,15 @@
       "formula": "仔角梁头撇出 = 0.5 × 椽径(原表述以长度描述角度,编码为几何角度须按 椽径 / 仔角梁头长 换算)",
       "quote": "'撇半椽'是指仔角梁梁头的撇度……即第一根翘飞椽弯曲的夹角为半个椽径",
       "location": "土木在线转录(图注标摹自马炳坚《古建筑木作营造技术》)",
-      "urls": ["https://bbs.co188.com/thread-10371251-1-1.html", "https://baike.baidu.com/item/%E7%BF%BC%E8%A7%92/8672519"],
-      "needs": ["03-06"],
-      "notes": "仅一句二手转述,查不到马炳坚原图;「撇的是梁头侧面偏移还是第一根翘飞椽的夹角」两种读法落到模型上差别很大,现有来源不足以判定(unverifiable);江南体系无对应概念"
+      "urls": [
+        "https://bbs.co188.com/thread-10371251-1-1.html",
+        "https://baike.baidu.com/item/%E7%BF%BC%E8%A7%92/8672519"
+      ],
+      "needs": [
+        "03-06"
+      ],
+      "notes": "仅一句二手转述,查不到马炳坚原图;「撇的是梁头侧面偏移还是第一根翘飞椽的夹角」两种读法落到模型上差别很大,现有来源不足以判定(unverifiable);江南体系无对应概念",
+      "paramSet": "qing"
     },
     {
       "id": "03-12",
@@ -618,9 +1213,15 @@
       "formula": "大式: 厚 = 3 × 斗口, 高 = 4.5 × 斗口; 小式: 厚 = 2 × 椽径, 高 = 3 × 椽径; 老角梁断面 = 仔角梁断面(例:椽径 3.5 寸 → 高 1 尺 0 寸 5 分, 厚 7 寸)",
       "quote": "以椽徑叄分定高貳分,定厚,如椽徑叄寸伍分,得仔角梁高壹尺伍分,厚柒寸。(原文断句应读作「以椽徑叄分定高、貳分定厚」)",
       "location": "《工程做法》卷一仔角梁条;古建网转录马炳坚",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.gujian.vip/sys-nd/199.html"],
-      "needs": ["03-06"],
-      "notes": "「3 椽径高/2 椽径厚」出自九檩庑殿(带斗拱大式)本身,不是小式专属;与则例权衡 4.5/3 斗口是同一构件的两种口径(差 6.7%),非分管大小式;江南老戗断面依坐斗定(四六式戗高 4 寸阔 6 寸),高阔归属与清式相反,不能混用"
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.gujian.vip/sys-nd/199.html"
+      ],
+      "needs": [
+        "03-06"
+      ],
+      "notes": "「3 椽径高/2 椽径厚」出自九檩庑殿(带斗拱大式)本身,不是小式专属;与则例权衡 4.5/3 斗口是同一构件的两种口径(差 6.7%),非分管大小式;江南老戗断面依坐斗定(四六式戗高 4 寸阔 6 寸),高阔归属与清式相反,不能混用",
+      "paramSet": "qing"
     },
     {
       "id": "03-13",
@@ -630,9 +1231,14 @@
       "formula": "L_仔角梁 = (出廊 + 出檐) × 1.4 × 1.15 + 3 × 椽径 + 角梁厚; L_老角梁 = L_仔角梁 − 飞头斜长 − 角梁厚 + 金柱径; 方五斜七 = 1.4; 加举 = 1.15; 套兽榫长 = 角梁厚; 三岔头长 = 金柱径(例:5.5+7.5=13 → 18.2 → 20.93 + 1.05 + 0.7 = 22.68 尺; 老角梁 = 22.68 − 4.02 − 0.7 + 1.7 = 19.66 尺)",
       "quote": "凡仔角梁以出廊并出檐各尺寸,用方伍斜柒舉架定長……得仔角梁通長貳丈貳尺陸寸捌分。……凡老角梁,以仔角梁之長,除飛檐頭并套獸榫定長……得老角梁通長壹丈玖尺陸寸陸分。",
       "location": "《工程做法》卷一",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"],
-      "needs": ["03-12"],
-      "notes": "本章唯一能把每一位数字都验完的规则(全部误差 0%)"
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva"
+      ],
+      "needs": [
+        "03-12"
+      ],
+      "notes": "本章唯一能把每一位数字都验完的规则(全部误差 0%)",
+      "paramSet": "qing"
     },
     {
       "id": "03-14",
@@ -643,9 +1249,14 @@
       "correction": "L_老角梁 = [(檐步架 + 2/3×上檐出 + 2×椽径 + 拽架) × 1.414 + 1.5×檩径×1.414] × 1.12; L_仔角梁 = L_老角梁 + (1/3×上檐出 + 1×椽径) × 1.414 × 1.06 + 套兽榫; 套兽榫(小式) 长 = 2 椽径, 高 = 1 椽径, 鼻子 +0.5 椽径; 套兽榫(大式) 长 3 斗口 / 高厚 1.5 斗口 未核实,不得与小式档并列成同等权威。单元测试(柱高 3m 无斗拱): 上檐出 = 90cm; 檐椽平出 = 60cm; 飞椽平出 = 30cm(原文「38厘米」为转录讹字——按其自身公式 1/3 上檐出 + 1 椽径 = 40cm ×1.414 = 56.56cm 与卡片逐位吻合,38 则得 67.87cm 对不上); 椽径 = 10cm; 檩径 = 30cm; 檐檩中→老角梁头 = 80cm × 1.414 = 113.12cm; 老→仔角梁头 = 40cm × 1.414 = 56.56cm。",
       "quote": "七、老角梁:长按檐步架,并加平出檐的2/3再加冲即二椽径,后加一个半檩径,如有斗拱再加拽架,用1.414加斜,再用一一二加斜定长。",
       "location": "古建网转录马炳坚",
-      "urls": ["https://www.gujian.vip/sys-nd/199.html"],
-      "needs": ["03-06"],
-      "notes": "tiers.md 禁用(Tier A 禁用)"
+      "urls": [
+        "https://www.gujian.vip/sys-nd/199.html"
+      ],
+      "needs": [
+        "03-06"
+      ],
+      "notes": "tiers.md 禁用(Tier A 禁用)",
+      "paramSet": "qing"
     },
     {
       "id": "03-15",
@@ -655,9 +1266,16 @@
       "formula": "现代匠作口径: N = floor((檐步架 + 出踩 + 檐平出) / (k × 椽径)); 《工程做法》原典口径: N = floor((挑檐桁中出檐 × 1.414 + 廊深 + 拽架) / (k × 椽径))(大式挑檐桁中出檐 = 21 斗口); k = 2(矩形) | 2.5(五角) | 3(六角) | 4(八角); if N 为偶 → N − 1(必为单数); 翼角翘椽长径 = 平身檐椽同",
       "quote": "凡翼角翹椽長徑俱與平身檐椽同。其起翹之處,以挑檐桁中出檐尺寸,用方伍斜柒之法,再加廊深,并正心桁中至挑檐桁中之拽架各尺寸,定翹數。……翼角翹椽以成單爲率,如逢雙數,應改成單。",
       "location": "《工程做法》卷一翼角翘椽条;匠作转述",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.nbgjz.com/1684.html"],
-      "needs": ["03-06", "03-02"],
-      "notes": "两名核验者一致要求:两套分子口径须并列(工程做法例两者恰都落 21 根,其他建筑可差 4 根),选定一套后不要引另一套的原文当佐证;分母 2 椽径系由「每椽空档随椽径一分」推出,是推论非原文;「双数减 1」与书本「加 1」的分歧原文没裁"
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.nbgjz.com/1684.html"
+      ],
+      "needs": [
+        "03-06",
+        "03-02"
+      ],
+      "notes": "两名核验者一致要求:两套分子口径须并列(工程做法例两者恰都落 21 根,其他建筑可差 4 根),选定一套后不要引另一套的原文当佐证;分母 2 椽径系由「每椽空档随椽径一分」推出,是推论非原文;「双数减 1」与书本「加 1」的分歧原文没裁",
+      "paramSet": "qing"
     },
     {
       "id": "03-16",
@@ -667,9 +1285,15 @@
       "formula": "椽尾放射中心 = 搭交下金桁交点(建模近似,非原典); 椽槽范围 = 金檩外皮 → 搭角檐檩老中; 椽槽深 d(x): 自檐椽老中处由 0 递增至 0.5 × 椽径(金步处); 翼角下皮线 = 角梁头退 3cm(雀台)再下返 1 椽径 之点 ↔ 金檩外金盘线; 第 i 根椽头: 沿起翘曲线插值(直线→双曲线,「圜和」;无解析公式,仅作图法)",
       "quote": "在翼角椽位置由金檩外皮位置开始至搭角檐檩老中为止凿椽槽,椽槽由檐椽老中处开始,由浅而深,至椽槽后尾最深处为半椽径。",
       "location": "古建网转录马炳坚·放角梁足尺大样第 10 步",
-      "urls": ["https://www.gujian.vip/sys-nd/199.html", "https://www.nbgjz.com/1684.html"],
-      "needs": ["03-06"],
-      "notes": "tiers.md 禁用(Tier B/C——江南不存在此做法)。「椽尾放射中心=搭交下金桁交点」是建模近似并标来源缺失:可考做法是椽尾落入角梁侧面椽槽;江南根本不开椽槽(《营造法原》以戗山木垫高),做江南题材不能直接搬;槽深线性递增也是建模假设"
+      "urls": [
+        "https://www.gujian.vip/sys-nd/199.html",
+        "https://www.nbgjz.com/1684.html"
+      ],
+      "needs": [
+        "03-06"
+      ],
+      "notes": "tiers.md 禁用(Tier B/C——江南不存在此做法)。「椽尾放射中心=搭交下金桁交点」是建模近似并标来源缺失:可考做法是椽尾落入角梁侧面椽槽;江南根本不开椽槽(《营造法原》以戗山木垫高),做江南题材不能直接搬;槽深线性递增也是建模假设",
+      "paramSet": "qing"
     },
     {
       "id": "03-17",
@@ -679,13 +1303,27 @@
       "formula": "R = 仔角梁头退 3cm; S = R 下返 1 椽径; 翘飞头长 = |S N1|; 翘飞尾长 = 3 × 翘飞头长(马炳坚放样档); 翘飞根数 = 翼角椽根数(原文未明说,常识性对应)",
       "correction": "官式档——第一翘长 = 平身飞檐椽长 ×1.414,头尾比沿飞檐椽 1:2.5(原文:10.04×1.4=14.056 vs 「一丈四尺五分」误差 0.04%);马炳坚放样档另记 1:3(对 1:2.5 为 +20%,超容差)。江南档——立脚飞椽逐根加厚,首根 +2 分、次根 +3 分递增,九根以上每根照第九根 +1 分;里口木由 3 寸抬至角上 8~9 寸。",
       "choices": [
-        { "key": "guanshi", "value": "1:2.5", "note": "《工程做法》:翘飞 = 平身飞檐椽整根 ×1.4 放长,头尾比沿飞檐椽 1:2.5" },
-        { "key": "mabingjian", "value": "1:3", "note": "马炳坚放样几何档" }
+        {
+          "key": "guanshi",
+          "value": "1:2.5",
+          "note": "《工程做法》:翘飞 = 平身飞檐椽整根 ×1.4 放长,头尾比沿飞檐椽 1:2.5"
+        },
+        {
+          "key": "mabingjian",
+          "value": "1:3",
+          "note": "马炳坚放样几何档"
+        }
       ],
       "quote": "以平身飛檐椽之長,用方伍斜柒之法定長。如飛檐椽長壹丈肆分,用方伍斜柒加之,第壹翹得長壹丈肆尺零伍分。",
       "location": "《工程做法》卷一翘飞椽条;古建网转录马炳坚·放角梁大样第 11 步",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.gujian.vip/sys-nd/199.html"],
-      "needs": ["03-04"]
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.gujian.vip/sys-nd/199.html"
+      ],
+      "needs": [
+        "03-04"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "03-18",
@@ -695,14 +1333,34 @@
       "formula": "lianyan h=1×椽径, w=1.1~1.2×椽径; xiao_lianyan w=椽径, t=1.5×望板厚; wakou h=0.5×椽径, t=(1/2~3/10)×h; likou h = 椽径 + 1.5×望板厚 ≈ 1.3 椽径; shunwang t = 椽径/3",
       "correction": "里口木高 = 椽径 + 1.5 × 望板厚 ≈ 1.45~1.5 椽径(原文例 5.1寸/椽径3.5寸 = 1.457;删去「约1.3椽径」);大连檐: 高 = 厚 = 1 × 椽径,可将「高」加 1/10 至 1.1 椽径(非宽,无 1.2 一档);小连檐: 宽 = 1 × 椽径,厚 = 1.2 × 望板厚(马炳坚) | 1.5 × 望板厚(《工程做法》翼角段),须分档标注;瓦口: 高 = 0.5 × 椽径,厚 = 0.5 × 高(《工程做法》「以本身之高折半定厚」) | 0.3 × 高(马炳坚),两档,删去「1/2~3/10」含混区间写法;顺望板厚 = 椽径 / 3。甲乙分歧点:瓦口厚 甲依马炳坚判 0.3×高,乙依《工程做法》判 0.5×高(误差 0%),实为两源两档。",
       "choices": [
-        { "key": "gongchengzuofa", "value": { "瓦口厚": "0.5×高", "小连檐厚": "1.5×望板厚" }, "note": "《工程做法》:「以本身之高折半定厚,得厚捌分」(乙按此,误差 0%)" },
-        { "key": "mabingjian", "value": { "瓦口厚": "0.3×高", "小连檐厚": "1.2×望板厚" }, "note": "马炳坚:「宽按高的3/10」「高按望板厚的1.2倍」(甲按此)" }
+        {
+          "key": "gongchengzuofa",
+          "value": {
+            "瓦口厚": "0.5×高",
+            "小连檐厚": "1.5×望板厚"
+          },
+          "note": "《工程做法》:「以本身之高折半定厚,得厚捌分」(乙按此,误差 0%)"
+        },
+        {
+          "key": "mabingjian",
+          "value": {
+            "瓦口厚": "0.3×高",
+            "小连檐厚": "1.2×望板厚"
+          },
+          "note": "马炳坚:「宽按高的3/10」「高按望板厚的1.2倍」(甲按此)"
+        }
       ],
       "quote": "凡瓦口之長與連檐同,以椽徑半分定高,如椽徑叄寸伍分,得瓦口高壹寸柒分(续:以本身之高折半定厚,得厚捌分)……(里口)以椽徑壹分再加望板厚壹分半,定高……得裏口高伍寸壹分",
       "location": "《工程做法》卷一;古建网转录马炳坚",
-      "urls": ["https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva", "https://www.gujian.vip/sys-nd/199.html"],
-      "needs": ["03-06"],
-      "notes": "tiers.md 禁用(Tier A 禁用)"
+      "urls": [
+        "https://www.shidianguji.com/zh/book/7483498839458971659/chapter/1kvwjcv6sodva",
+        "https://www.gujian.vip/sys-nd/199.html"
+      ],
+      "needs": [
+        "03-06"
+      ],
+      "notes": "tiers.md 禁用(Tier A 禁用)",
+      "paramSet": "qing"
     },
     {
       "id": "03-19",
@@ -713,8 +1371,14 @@
       "correction": "拆成两条:①重檐木作——上层檐出 = 下层檐出 + 2 斗口(吐水);②台基——下出 = 0.8×上出 ≈ 2.4 檐柱径,回水 = 上出 − 下出。乙进一步:下出改按屋顶形式分档——硬山/悬山 下出 = 2/3 × 上檐出,歇山/庑殿 下出 = 3/4 × 上檐出(删去 formula 里的单值 0.8;《万寿山准底册》花承阁实测 下出/上出 = 0.697,正落硬山悬山 2/3 档);檐柱径口径保留 2.4 倍作交叉校验(花承阁实测比 2.3 倍);柱高口径 0.2~0.3 只能当区间。重檐吐水 2 斗口只有马炳坚一条转述,未见《工程做法》原文。",
       "quote": "6、上檐出:……如重檐大式的上檐出为在下檐出的尺寸上再加两斗口为'吐水(出水)'。",
       "location": "古建网转录马炳坚;清式通则类资料",
-      "urls": ["https://www.gujian.vip/sys-nd/199.html", "https://www.sohu.com/a/390219687_100017881"],
-      "needs": ["03-01"]
+      "urls": [
+        "https://www.gujian.vip/sys-nd/199.html",
+        "https://www.sohu.com/a/390219687_100017881"
+      ],
+      "needs": [
+        "03-01"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "03-20",
@@ -725,9 +1389,12 @@
       "correction": "定性(刘敦桢原文):水戗发戗只有老戗、无嫩戗,木构本身不起翘,仅戗脊端部翘起——此点与清官式(老角梁+仔角梁,由仔角梁起翘)相反,不是「基本同」;「大体相同」原指两种江南发戗之间的水戗(戗脊)构造。几何(《营造法原》原文,取代原生成式):∠(老戗, 嫩戗) = 90° + 泼水角;泼水角 = atan(1/k), k = 1.2(殿庭「泼足」, 39°48′ → 夹角 129.8°) ~ 1.6(亭阁「酌收」, 32° → 夹角 122.0°),由建筑等级/体量决定,与屋面坡度无关。删除:∠ = 180° − 2θ_老戗;θ_嫩戗 ≈ θ_老戗;濯缨水阁 45°(查无出处)。已核实可保留:嫩戗根缩入老戗头 = 3 寸;檐瓦槽深 = 外 5 分 / 内 1 寸 5 分;菱角木+扁担木拼高 ≥ 2/3 × 嫩戗水平高,宽 = 0.7~0.8 × 嫩戗头宽;乙补法原原文数:嫩戗全长 = 飞椽长 × 3;猢狲面泼水 = 1 寸~1 寸 4 分半,合 55°24′;老戗长 = (出檐椽水平长 + 放出一尺) × 1.4,再依提栈求弦;老戗断面依坐斗(四六式:高 4 寸 阔 6 寸),戗梢按戗头八折(高 3 寸 2 分 阔 4 寸 8 分)。",
       "quote": "水戗发戗的构造较简易,只有老戗(即老角梁)没有嫩戗(子角梁),而木构件本身不起翘,仅戗脊端部翘起。嫩戗发戗的构造较复杂,其老戗下端斜立嫩戗,故屋檐两端升起较大。",
       "location": "刘敦桢《苏州古典园林》(三)建筑构造·1 屋顶·(3)屋角;《营造法原》发戗详细尺寸制度",
-      "urls": ["https://ylj.suzhou.gov.cn/szsylj/ylwh/201903/e2e2a80479bf46b7977a8c6ece126555.shtml"],
+      "urls": [
+        "https://ylj.suzhou.gov.cn/szsylj/ylwh/201903/e2e2a80479bf46b7977a8c6ece126555.shtml"
+      ],
       "needs": [],
-      "notes": "tiers.md 禁用(Tier A 禁用)"
+      "notes": "tiers.md 禁用(Tier A 禁用)",
+      "paramSet": "qing"
     },
     {
       "id": "03-21",
@@ -738,9 +1405,12 @@
       "correction": "判据改为按房屋等级的提栈(正脊处限度:租房四算/民房五算/圆堂六算/厅七算/殿庭八算):等级为四算的简陋房屋不加飞椽,不要用檐界提栈去判(檐界在任何房子里都是最低档,会误判几乎所有江南建筑)。「五算不发戗」标为单一来源待考。「戗角坡度 = 正身提栈/1.414」保留(法原算例吻合 1% 内)。甲另注:取得姚承祖《营造法原》纸本页码前,不要把 0.4/0.5 两个阈值当硬约束写进推导器。",
       "quote": "提栈租四民房五,堂六厅七殿庭八……以上均系正脊处提栈一般规定之限度,皆以界深作为起算",
       "location": "《苏州古典园林营造法式》研究(知乎连载,引《营造法原》图;本环境 403 未亲验)",
-      "urls": ["https://zhuanlan.zhihu.com/p/1951303076037259841"],
+      "urls": [
+        "https://zhuanlan.zhihu.com/p/1951303076037259841"
+      ],
       "needs": [],
-      "notes": "confidence medium;唯一来源(知乎连载)403,甲判 unverifiable 不驳倒,乙驳 wrong(判据挂错量)"
+      "notes": "confidence medium;唯一来源(知乎连载)403,甲判 unverifiable 不驳倒,乙驳 wrong(判据挂错量)",
+      "paramSet": "qing"
     },
     {
       "id": "04-01",
@@ -748,11 +1418,18 @@
       "status": "ok",
       "statement": "清式带斗拱建筑一切构件尺寸以平身科坐斗迎面安翘昂的卯口宽(斗口)为模数。斗口分十一等:头等 6 寸,二等 5 寸 5 分,以下每等递减 5 分至十一等 1 寸(营造尺,1 寸≈3.2cm)。实物常用六至八等(3.5~2.5 寸),一至四等未见实物,十、十一等仅见于牌楼和琉璃门。",
       "formula": "doukou_cun(n) = 6.5 - 0.5*n (n=1..11,单位营造寸;1 营造寸≈3.2cm);任一构件尺寸 = k × doukou",
-      "params": { "常用": "五至八等(乙更正:太庙前殿 4 寸=五等)", "note": "实测斗口(2.2/2.4/2.8 寸)普遍不落在 0.5 寸整档上,十一等是则例的立法阶梯,不是实物的量化结果" },
+      "params": {
+        "常用": "五至八等(乙更正:太庙前殿 4 寸=五等)",
+        "note": "实测斗口(2.2/2.4/2.8 寸)普遍不落在 0.5 寸整档上,十一等是则例的立法阶梯,不是实物的量化结果"
+      },
       "quote": "凡算斗科上升斗、拱翘等件,长短高厚尺寸,俱以平身科迎面安翘昂斗口宽尺寸为法,核算。按斗口有头等才、贰等才以至拾壹等才之分。",
       "location": "《工程做法》卷二十八 斗科各项尺寸做法开后",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn", "https://baike.baidu.com/item/%E6%96%97%E5%8F%A3"],
-      "needs": []
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn",
+        "https://baike.baidu.com/item/%E6%96%97%E5%8F%A3"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     },
     {
       "id": "04-02",
@@ -762,9 +1439,15 @@
       "formula": "zhuaijia = 3*doukou; cai = 2*n_tiao + 1; outreach = 3*n_tiao*doukou = 1.5*(cai-1)*doukou; 桁碗长 = 3*(cai-1)*doukou(三/五/七/九踩 = 6/12/18/24 斗口)",
       "quote": "正心桁中至挑檐桁中,叁拽架,得贰尺贰寸伍分",
       "location": "《工程做法》卷一/卷二/卷二十八;「每拽架三斗口」系由卷一卷二实例反推(原书无直述句)",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7", "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"],
-      "needs": ["04-01"],
-      "notes": "乙更正:改写为「清中期以后趋于每拽架 3 斗口;清初实物(奉先殿)各跳不等,实测 2.7~3.0 斗口」,还原清初可留 ±10% 逐跳抖动;桁碗长无实测(unverifiable)"
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7",
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"
+      ],
+      "needs": [
+        "04-01"
+      ],
+      "notes": "乙更正:改写为「清中期以后趋于每拽架 3 斗口;清初实物(奉先殿)各跳不等,实测 2.7~3.0 斗口」,还原清初可留 ±10% 逐跳抖动;桁碗长无实测(unverifiable)",
+      "paramSet": "qing"
     },
     {
       "id": "04-03",
@@ -772,11 +1455,20 @@
       "status": "ok",
       "statement": "清式斗拱各层构件高度以 2 斗口为足材:大斗高 2 斗口(口高 0.8+腰 0.4+底 0.8),翘高 2,昂中高 2(前高 3),蚂蚱头高 2,撑头木高 2,正心瓜拱/万拱高 2(宽 1.24);单材拱(单才瓜拱、万拱、厢拱)高 1.4 斗口、宽 1 斗口;十八斗高 1、三才升/槽升高 1。梁思成:「其材之高则变为二斗口(二十分)」。",
       "formula": "h_layer = 2*doukou(足材); h_单材拱 = 1.4*doukou; w_拱 = 1*doukou; 大斗 3×3×2; 正心拱宽 1.24",
-      "params": { "tableDk": "正心瓜拱 6.2/1.24/2、正心万拱长 9.2、单翘长 7.1、重翘长 13.1、厢拱长 7.2、十八斗 1.8/1.48/1、昂前高 3(单位斗口)", "note": "奉先殿「用材高宽比 2:1」与大高玄殿 0.5 斗口级差拟合 98% 两处精测正面支持" },
+      "params": {
+        "tableDk": "正心瓜拱 6.2/1.24/2、正心万拱长 9.2、单翘长 7.1、重翘长 13.1、厢拱长 7.2、十八斗 1.8/1.48/1、昂前高 3(单位斗口)",
+        "note": "奉先殿「用材高宽比 2:1」与大高玄殿 0.5 斗口级差拟合 98% 两处精测正面支持"
+      },
       "quote": "大斗壹个,每斗口宽壹寸,大斗应长叁寸,宽叁寸,高贰寸。斗口高捌分,斗底宽贰寸贰分,长贰寸贰分,底高捌分,腰高肆分。",
       "location": "《工程做法》卷二十八平身科各件尺寸;梁思成《中国建筑史》",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn", "https://www.sohu.com/a/802326416_121124776"],
-      "needs": ["04-01"]
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn",
+        "https://www.sohu.com/a/802326416_121124776"
+      ],
+      "needs": [
+        "04-01"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "04-04",
@@ -787,9 +1479,16 @@
       "correction": "70 斗口只能当作《工程做法》各卷示例的立法值/生成缺省,不能当实物规律。实测檐柱通高区间约 52~88 斗口(奉先殿前殿≈88、太和殿≈97、长春宫≈61 含枋科)。建模时柱高应由开间/等级独立给定,再反算斗口,而不是由斗口乘 70。乙驳(wrong):奉先殿前殿通高约 88.4 斗口比 70 高 +26.3%,太和殿净高比 56.8 斗口高 +47%。",
       "quote": "凡檐柱,以斗口柒拾分定高……得檐柱连平板枋、斗科通高壹丈柒尺伍寸。内除平板枋、斗科之高,即得檐柱净高尺寸。如平板枋高伍寸,斗科高贰尺捌寸,得檐柱净高壹丈肆尺贰寸",
       "location": "《工程做法》卷一/卷二/卷三",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7", "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2022.01009.pdf"],
-      "needs": ["04-01", "04-03"],
-      "notes": "tiers.md 禁用(Tier A 禁用)"
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7",
+        "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2022.01009.pdf"
+      ],
+      "needs": [
+        "04-01",
+        "04-03"
+      ],
+      "notes": "tiers.md 禁用(Tier A 禁用)",
+      "paramSet": "qing"
     },
     {
       "id": "04-05",
@@ -799,9 +1498,14 @@
       "formula": "zandang = 11*doukou(翘昂斗科); zandang_一斗三升 = 8*doukou(low confidence,未在原书核实)",
       "quote": "凡斗科分档尺寸,每斗口壹寸,应档宽壹尺壹寸。从两斗底中线算,如斗口贰寸伍分,每壹档应宽贰尺柒寸伍分。",
       "location": "《工程做法》卷二十八斗科分档条",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"],
-      "needs": ["04-01"],
-      "notes": "乙的更正(必须补的限定):数值保留 11 斗口但改为区间 10.0~11.4 斗口,并把因果反过来——实物是先定开间再按「分布令远近皆匀」配攒数,攒当是被除出来的余数,不是模数(奉先殿/养心殿/太庙/长春宫/大高玄殿/太和殿六处实测全落 10.0~11.4)"
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"
+      ],
+      "needs": [
+        "04-01"
+      ],
+      "notes": "乙的更正(必须补的限定):数值保留 11 斗口但改为区间 10.0~11.4 斗口,并把因果反过来——实物是先定开间再按「分布令远近皆匀」配攒数,攒当是被除出来的余数,不是模数(奉先殿/养心殿/太庙/长春宫/大高玄殿/太和殿六处实测全落 10.0~11.4)",
+      "paramSet": "qing"
     },
     {
       "id": "04-06",
@@ -812,9 +1516,15 @@
       "correction": "保留 W=(N+1)×11 斗口 作为生成式,但把攒数当输入而非常数:实物明间 6 攒(奉先殿/长春宫/太庙)或 8 攒(太和殿),次间常与明间同攒数而开间不同,廊间实测 2 攒。「次间收 1 攒」降级为《工程做法》示例,不作实物规律。乙驳:奉先殿攒数分布 6/6/4/4,与「次间收 1 攒」矛盾;奉先殿廊间实测 36.2 斗口对规则 22 斗口为 +64.5%;太和殿明/次=1.526 对则例 1.167 高 +30.8%。",
       "quote": "凡面阔进深,以斗科攒数而定,每攒以口数拾壹分定宽……如面阔,用平身斗科陆攒,加两边柱头科各半攒,共斗科柒攒,得面阔壹丈玖尺贰寸伍分。",
       "location": "《工程做法》卷一「凡面阔进深」条",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7", "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2022.01009.pdf"],
-      "needs": ["04-05"],
-      "notes": "tiers.md 禁用(Tier A 禁用)"
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7",
+        "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2022.01009.pdf"
+      ],
+      "needs": [
+        "04-05"
+      ],
+      "notes": "tiers.md 禁用(Tier A 禁用)",
+      "paramSet": "qing"
     },
     {
       "id": "04-07",
@@ -825,9 +1535,15 @@
       "correction": "檐柱径实测约 6.8~8.1 斗口(不是 6),金柱径实测比檐柱径大约 +35%~48%(不是 +2 寸)。可保留的只有柱高:柱径,取值区间 7.8~9.3:1。乙驳(wrong):奉先殿前殿檐柱径 8.11 斗口(+35.2%),内金柱实测超 +36.0%(对规则 6.6 斗口为 +82%)。檐椽径 0.35×桁径一项无实测(unverifiable)。",
       "quote": "以斗口陆分定径寸,如斗口贰寸伍分,得檐柱径壹尺伍寸。……以檐柱径加贰寸,定径寸,如柱径壹尺伍寸,得金柱径壹尺柒寸。",
       "location": "《工程做法》卷一",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7", "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2022.01009.pdf"],
-      "needs": ["04-01"],
-      "notes": "tiers.md 禁用(Tier A/B 禁用;斗口正推总尺度全线被推翻)"
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7",
+        "https://www.jgcm.ac.cn/jah/cn/article/pdf/preview/10.12329/20969368.2022.01009.pdf"
+      ],
+      "needs": [
+        "04-01"
+      ],
+      "notes": "tiers.md 禁用(Tier A/B 禁用;斗口正推总尺度全线被推翻)",
+      "paramSet": "qing"
     },
     {
       "id": "04-08",
@@ -837,9 +1553,14 @@
       "formula": "D_正心桁 = 4*doukou; D_挑檐桁 = D_正心桁 - 2寸; 挑檐枋 h=2,t=1; 正心枋 h=2,t=1+包掩(=1.24); 垫板(老檐/金/脊) h=4,t=1; 枋(老檐/金/脊/小额) h=4,t=h−2寸; 大额枋 h=6,t=h−2寸; 由额垫板 h=2,t=1; 平板枋 w=3,h=2; 桁碗=D_桁/3(单位斗口)",
       "quote": "凡正心桁……以斗口肆分定径如斗口贰寸伍分,得正心桁径壹尺。……(挑檐桁)以正心桁之径收贰寸,定径寸。如正心桁径壹尺,得挑檐桁径捌寸。",
       "location": "《工程做法》卷一各条",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7"],
-      "needs": ["04-01"],
-      "notes": "编码分歧:搜狐(马炳坚)给大额枋 6.6×5.4、小额枋 4.8×4、正心桁 4.5、挑檐桁 3,与原书示例略异——编码以原书为主、权衡表为备选;乙 unverifiable(无逐件檩枋实测断面表)"
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7"
+      ],
+      "needs": [
+        "04-01"
+      ],
+      "notes": "编码分歧:搜狐(马炳坚)给大额枋 6.6×5.4、小额枋 4.8×4、正心桁 4.5、挑檐桁 3,与原书示例略异——编码以原书为主、权衡表为备选;乙 unverifiable(无逐件檩枋实测断面表)",
+      "paramSet": "qing"
     },
     {
       "id": "04-09",
@@ -849,9 +1570,15 @@
       "formula": "出檐_挑檐桁中 = 21*doukou; 出檐_正心桁中 = 21 + 3*n_tiao_out(斗口); 五踩 27, 七踩 30, 九踩 33(推算)",
       "quote": "又加出檐,照单翘重昂斗科叁拾分,斗口贰寸伍分,得柒尺伍寸……如挑檐桁中出檐长伍尺贰寸伍分",
       "location": "《工程做法》卷一(七踩)/卷二(五踩)/卷三(斗口重昂五踩)",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7", "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc2ch5yqw"],
-      "needs": ["04-02"],
-      "notes": "21 斗口目前只有《工程做法》两组自洽算例支撑,属规则内部一致而非实物验证(unverifiable)"
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7",
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc2ch5yqw"
+      ],
+      "needs": [
+        "04-02"
+      ],
+      "notes": "21 斗口目前只有《工程做法》两组自洽算例支撑,属规则内部一致而非实物验证(unverifiable)",
+      "paramSet": "qing"
     },
     {
       "id": "04-10",
@@ -860,15 +1587,30 @@
       "statement": "斗拱高与柱高之比:辽宋约 1/2,明清仅 1/5~1/6;补间/平身科由唐宋 1~2 朵→元每间 2 朵→明初 4~6 朵、长陵祾恩殿 8 朵→明清当心间 8 朵成定律;用材由宋八等材改清十一等斗口,常用斗口仅 2.5~3.5 寸,一至四等无实物;斗口值=宋材分值×10;梁思成《清式营造则例》归纳宋元明清斗拱演变:由大而小、由简而繁、由雄壮而纤巧、由结构的而装饰的、由真结构而假刻(昂)、分布由疏朗而繁密。",
       "formula": "table",
       "table": [
-        { "item": "斗拱高/柱高", "value": "辽宋 1/2、明清 1/5~1/6" },
-        { "item": "补间朵数", "value": "唐宋 1~2、元 2、明初 4~6(长陵 8)、明清当心间 8(《工程做法》示例 6)" },
-        { "item": "用材", "value": "宋 8 等 → 清 11 等;清常用斗口 2.5~3.5 寸;斗口/宋分值 = 10 倍;清最大斗口(头等)6 寸≈19.2cm" }
+        {
+          "item": "斗拱高/柱高",
+          "value": "辽宋 1/2、明清 1/5~1/6"
+        },
+        {
+          "item": "补间朵数",
+          "value": "唐宋 1~2、元 2、明初 4~6(长陵 8)、明清当心间 8(《工程做法》示例 6)"
+        },
+        {
+          "item": "用材",
+          "value": "宋 8 等 → 清 11 等;清常用斗口 2.5~3.5 寸;斗口/宋分值 = 10 倍;清最大斗口(头等)6 寸≈19.2cm"
+        }
       ],
       "correction": "「当心间 8 攒成定律」改为「当心间常见 6 攒,最高等级(太和殿)用 8 攒」(奉先殿/长春宫/太庙实测均 6 攒);「斗拱高/柱高 1/5~1/6」改为「清代大殿实测约 1/6.7~1/7.5」(奉先殿 1/6.72、太和殿 1/7.5,两例都跌出 1/5~1/6,这条低估了缩小程度)。",
       "quote": "斗拱之高,在辽宋为柱高之半者,至明清仅为柱高五分或六分之一。",
       "location": "梁思成《中国建筑史》;《清式营造则例》(百度百科转述)",
-      "urls": ["https://www.sohu.com/a/802326416_121124776", "https://baike.baidu.com/item/%E6%96%97%E6%8B%B1/868864"],
-      "needs": ["04-01"]
+      "urls": [
+        "https://www.sohu.com/a/802326416_121124776",
+        "https://baike.baidu.com/item/%E6%96%97%E6%8B%B1/868864"
+      ],
+      "needs": [
+        "04-01"
+      ],
+      "paramSet": "qing"
     },
     {
       "id": "04-11",
@@ -879,9 +1621,13 @@
       "correction": "编码时以此为准:①H_檐柱 = 0.8 × W_明间——保留,可放心用(江南厅堂/方亭原样吻合,误差 0%)。②D_山柱 = D + 1寸——按《工程做法》五檩小式原文;D+2 寸 只能标为后世权衡表备选值,不可作为原书结论或默认公式(甲驳:statement 与自家引文自相矛盾)。③柱径与柱高解耦:不再用 0.07/0.05 这对与柱高绑死的系数,改为按建筑类型给柱高:柱径,实测区间 7.8~16.7:1(养心殿 7.79、清式小式 11~11.4、苏州方亭 10、苏州廊 16.7)。④五/四檩「柱高=0.7 面阔」无实物支撑,降级为《工程做法》示例值(苏州廊实测 0.833,高 +19%)。⑤亭需另立条目:六角亭柱高=1.5×面宽,八角亭=1.6×面宽(苏州市园林局)。",
       "quote": "凡檐柱以面阔拾分之捌,定高低拾分之柒,定径寸。如面阔壹丈伍寸,得柱高捌尺肆寸,径柒寸叄分。",
       "location": "《工程做法》卷二十四(七檩小式)/卷二十六(五檩小式)",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6", "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd0eb1kbn"],
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6",
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd0eb1kbn"
+      ],
       "needs": [],
-      "notes": "tiers.md 禁用(Tier A/B/C 全禁);柱高一半成立、柱径一半不成立,必须拆成两半重写"
+      "notes": "tiers.md 禁用(Tier A/B/C 全禁);柱高一半成立、柱径一半不成立,必须拆成两半重写",
+      "paramSet": "qing"
     },
     {
       "id": "04-12",
@@ -890,15 +1636,31 @@
       "statement": "小式无斗拱建筑檐部不用斗拱,檐檩直接落在抱头梁梁头(柁头)上/柱头上,檐枋联系檐柱柱头,檩与枋之间填垫板,檩、垫板、枋自上而下叠合称「檩三件」;金柱上亦以金檩、金垫板、金枋成檩三件;民间小式有时省垫板只用檩、枋(枋端可用银锭榫)。抱头梁一头搭檐柱头承檐檩、一头插入金柱,穿插枋在其下拉结檐金柱。",
       "formula": "table",
       "table": [
-        { "item": "层序(自上而下)", "value": "檩 → 垫板 → 枋" },
-        { "item": "檐檩支承", "value": "抱头梁柁头(出檐柱径一份)/柱头" },
-        { "item": "垫板长", "value": "面阔−柁头厚+两头入榫(柁头厚每尺加滚楞 2 寸)" },
-        { "item": "枋长", "value": "面阔−柱径+两头入榫(各柱径/4)" }
+        {
+          "item": "层序(自上而下)",
+          "value": "檩 → 垫板 → 枋"
+        },
+        {
+          "item": "檐檩支承",
+          "value": "抱头梁柁头(出檐柱径一份)/柱头"
+        },
+        {
+          "item": "垫板长",
+          "value": "面阔−柁头厚+两头入榫(柁头厚每尺加滚楞 2 寸)"
+        },
+        {
+          "item": "枋长",
+          "value": "面阔−柱径+两头入榫(各柱径/4)"
+        }
       ],
       "quote": "凡抱头梁以出廊定长短。如出廊深叁尺,壹头加径壹分,得柁头分位;壹头加金柱径半分,又出榫照檐柱径半分",
       "location": "《工程做法》七檩小式;百度百科「檩三件」",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6", "https://baike.baidu.com/item/%E6%AA%A9%E4%B8%89%E4%BB%B6/6023390"],
-      "needs": []
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6",
+        "https://baike.baidu.com/item/%E6%AA%A9%E4%B8%89%E4%BB%B6/6023390"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     },
     {
       "id": "04-13",
@@ -908,9 +1670,13 @@
       "formula": "七檩 D_檩 = D; 枋 h=D, t=D−2寸; 垫板 h=D−1寸(若 h>6 寸), t=0.3*D_檩。五檩 D_檩 = D+1寸; 枋 h=D, t=D−2寸; 垫板 h=D, t=0.3*D_檩。桁碗 = D_檩/3。示例:七檩(面阔 1 丈 5 分)D=7.3 寸,枋 7.3×5.3,垫板 6.3×2.1;五檩(面阔 1 丈)D=5 寸,檩径 6 寸,枋 5×3,垫板 5×1.8",
       "quote": "凡金脊檐枋……以檐柱径寸定高,如柱径柒寸叁分,即高柒寸叁分,厚按本身高收贰寸,得厚伍寸叁分。",
       "location": "《工程做法》卷二十四(七檩小式)/卷二十六(五檩小式)",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6", "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd0eb1kbn"],
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6",
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd0eb1kbn"
+      ],
       "needs": [],
-      "notes": "「桁碗高=檩径/3」「平水高=垫板高」两句在这两章未查到对应原文,属未单独坐实的附加项;乙 unverifiable(无小式实测断面表)"
+      "notes": "「桁碗高=檩径/3」「平水高=垫板高」两句在这两章未查到对应原文,属未单独坐实的附加项;乙 unverifiable(无小式实测断面表)",
+      "paramSet": "qing"
     },
     {
       "id": "04-14",
@@ -920,9 +1686,12 @@
       "formula": "D_檩 = D(或 0.9D); 檐枋 h=D,t=0.8D; 金枋 h=D|0.8D, t=0.8D|0.65D; 上金枋/脊枋 h=0.8D,t=0.65D; 檐垫板 h=0.8D,t=0.25D; 金/脊垫板 h=0.65D,t=0.25D; 扶脊木 0.8D; 椽 d=D/3",
       "quote": "{'构件名称': '檐枋', '长': '随面宽', '高': 'D', '厚(或进深)': '0.8D'} … {'构件名称': '檐檩、金檩、脊檩', '径': 'D或0.9D'}",
       "location": "马炳坚《中国古建筑木作营造技术》表 1-2(GitHub ssffd/jiangshu 第三方转录)",
-      "urls": ["https://raw.githubusercontent.com/ssffd/jiangshu/main/raw_data.py"],
+      "urls": [
+        "https://raw.githubusercontent.com/ssffd/jiangshu/main/raw_data.py"
+      ],
       "needs": [],
-      "notes": "confidence: medium。双重 unverifiable:只能追到第三方开源转录,无法确认与纸本一致;乙的更正:垫板厚标为区间 0.2~0.3D 并注明三源分歧(权衡表 0.25D、搜狐文 0.2D、《工程做法》七檩小式 0.3×檩径);权衡表数值在拿到马炳坚纸本前不应与《工程做法》原书数值并列为同等可信"
+      "notes": "confidence: medium。双重 unverifiable:只能追到第三方开源转录,无法确认与纸本一致;乙的更正:垫板厚标为区间 0.2~0.3D 并注明三源分歧(权衡表 0.25D、搜狐文 0.2D、《工程做法》七檩小式 0.3×檩径);权衡表数值在拿到马炳坚纸本前不应与《工程做法》原书数值并列为同等可信",
+      "paramSet": "qing"
     },
     {
       "id": "04-15",
@@ -932,9 +1701,15 @@
       "formula": "原书 t_抱头梁 = D+1寸; h_抱头梁 = 1.2*t; L = 廊深 + D + 0.5*D_金 + 0.5*D。权衡表 h=1.4D, t=1.1D(或 D+1 寸), L=廊步架+D; 穿插枋 h=D, t=0.8D",
       "quote": "凡抱头梁以出廊定长短。如出廊深叁尺,壹头加径壹分,得柁头分位;壹头加金柱径半分,又出榫照檐柱径半分,得通长肆尺伍寸壹分。以檐柱径加壹寸,定厚,如柱径柒寸叁分,得厚捌寸叄分。高按本身厚,每尺加贰寸,得高玖寸玖分。",
       "location": "《工程做法》七檩小式;马炳坚表 1-2(GitHub 转录)",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6", "https://raw.githubusercontent.com/ssffd/jiangshu/main/raw_data.py"],
-      "needs": ["04-13"],
-      "notes": "搜狐「檐头檩枋构件」文称抱头梁「高按柱径加 4 寸,宽按柱径加 2 寸」,与原书不合,疑混入大式,不采;乙 unverifiable"
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6",
+        "https://raw.githubusercontent.com/ssffd/jiangshu/main/raw_data.py"
+      ],
+      "needs": [
+        "04-13"
+      ],
+      "notes": "搜狐「檐头檩枋构件」文称抱头梁「高按柱径加 4 寸,宽按柱径加 2 寸」,与原书不合,疑混入大式,不采;乙 unverifiable",
+      "paramSet": "qing"
     },
     {
       "id": "04-16",
@@ -945,8 +1720,12 @@
       "correction": "飞檐椽引文应改用卷五该页实际原文「凡飞檐椽,以出檐定长短,如出檐贰尺陆寸肆分叁分分之,出头壹分,得长捌寸捌分,后尾贰分,得长壹尺柒寸陆分」;若要保留「如用飞檐椽……作飞檐头」的措辞,需另行指明其真实所在卷章,不可挂在卷五名下。甲驳:数值结论全对,是引文与出处失准(imprecise)。乙 unverifiable:四项均无清代小式或江南实测;江南出檐普遍比北方深远,用于苏州厅堂亭廊需另找《营造法原》实测。",
       "quote": "又加出檐尺寸,照檐柱高拾分之叁,得贰尺伍寸贰分……以径拾分之叁定见方,如径柒寸参分,得见方贰寸壹分",
       "location": "《工程做法》七檩小式/五檩小式/卷五飞檐椽条",
-      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6", "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc72chjc8"],
-      "needs": []
+      "urls": [
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pccy850un6",
+        "https://www.shidianguji.com/book/JZ001/chapter/1l6pcc72chjc8"
+      ],
+      "needs": [],
+      "paramSet": "qing"
     }
   ]
 }

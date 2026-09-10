@@ -2,50 +2,143 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "机读规则表",
   "type": "object",
-  "required": ["source", "rules"],
+  "required": [
+    "source",
+    "rules"
+  ],
   "properties": {
     "source": {
       "type": "object",
-      "required": ["book", "doc"],
+      "required": [
+        "book",
+        "doc"
+      ],
       "properties": {
-        "book": { "type": "string", "description": "书名" },
-        "doc": { "type": "string", "description": "对应研究稿目录，相对仓库根" }
+        "book": {
+          "type": "string",
+          "description": "书名"
+        },
+        "doc": {
+          "type": "string",
+          "description": "对应研究稿目录，相对仓库根"
+        }
       }
     },
     "rules": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "name", "status", "statement"],
+        "required": [
+          "id",
+          "name",
+          "status",
+          "statement",
+          "paramSet"
+        ],
         "properties": {
-          "id": { "type": "string", "pattern": "^\\d{2}-\\d{2}$" },
-          "name": { "type": "string" },
-          "status": { "enum": ["ok", "contested", "refuted", "missing"] },
-          "statement": { "type": "string", "description": "现代中文表述" },
-          "formula": { "type": "string", "description": "可编码公式；是表则写 \"table\"" },
-          "table": { "type": "array", "description": "formula 为 table 时的数据" },
-          "params": { "type": "object" },
-          "correction": { "type": "string", "description": "status=contested 时代码应采用的更正值" },
+          "id": {
+            "type": "string",
+            "pattern": "^\\d{2}-\\d{2}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "contested",
+              "refuted",
+              "missing"
+            ]
+          },
+          "statement": {
+            "type": "string",
+            "description": "现代中文表述"
+          },
+          "formula": {
+            "type": "string",
+            "description": "可编码公式；是表则写 \"table\""
+          },
+          "table": {
+            "type": "array",
+            "description": "formula 为 table 时的数据"
+          },
+          "params": {
+            "type": "object"
+          },
+          "correction": {
+            "type": "string",
+            "description": "status=contested 时代码应采用的更正值"
+          },
           "choices": {
             "type": "array",
             "description": "并存的多个口径。调用方必须显式选一个 key，否则 derive 抛 AmbiguousRuleError。",
             "items": {
               "type": "object",
-              "required": ["key", "value", "note"],
-              "properties": { "key": { "type": "string" }, "value": {}, "note": { "type": "string" } }
+              "required": [
+                "key",
+                "value",
+                "note"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {},
+                "note": {
+                  "type": "string"
+                }
+              }
             }
           },
-          "quote": { "type": "string", "description": "原文逐字引文" },
-          "location": { "type": "string", "description": "卷/篇/页" },
-          "urls": { "type": "array", "items": { "type": "string" } },
-          "needs": { "type": "array", "items": { "type": "string" }, "description": "依赖的规则 id" },
+          "quote": {
+            "type": "string",
+            "description": "原文逐字引文"
+          },
+          "location": {
+            "type": "string",
+            "description": "卷/篇/页"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "needs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "依赖的规则 id"
+          },
           "whereToLook": {
             "type": "object",
             "description": "status=missing 时，下一轮该查什么",
             "properties": {
-              "books": { "type": "array", "items": { "type": "string" } },
-              "keywords": { "type": "array", "items": { "type": "string" } }
+              "books": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "keywords": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
+          },
+          "paramSet": {
+            "enum": [
+              "fashi",
+              "qing",
+              "fayuan",
+              "both",
+              "none"
+            ],
+            "description": "哪条推导链消费这条规则。与文件名无关——文件按来源章节组织，参数集按消费方组织，两个轴不同。'none' 用于原文事实、花木名录、缺口条目。清《工程做法》06 章屋顶瓦作官式与苏式并存，逐条判归属，见 knowledge/rules/README.md。"
           }
         }
       }
