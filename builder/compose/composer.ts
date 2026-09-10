@@ -7,13 +7,14 @@ import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
 import { getPlan } from './terrain';
+import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
 
 /**
  * 装配器:把构件按 scene 表放进园子,并把每类构件的落脚(平台)与阻挡登记
  * 到碰撞层。构件自己不知道园子,园子也不读构件内部——只认 registry 的名字。
  *
  * P1 · Task 6:落位坐标系换成 plan.json 的(见 docs/superpowers/plans/
- * 2026-09-10-p1-foundation.md Task 6 · 更正④)。plan 点了名的构件(正门、
+ * 2026-09-10-p1-foundation.md Task 6 · 更正④)。plan 中按稳定 id 登记的构件(正门、
  * 翠嶂白石群、沁芳亭、石桥三港、潇湘馆正房)按 `buildings[]`/`rocks[]` 的
  * 绝对 x/z 落位——这是平面真源写下的锚点,不是我们算出来的区域质心派生量,
  * 派生量不许盖过真源(`missing.rules.json` 99-24)。没点名的(墙段、竹丛、
@@ -24,18 +25,13 @@ import { getPlan } from './terrain';
 
 /** plan.json 里 composer 需要的字段——terrain-from-plan.ts 的 GardenPlan
  *  没有 buildings/rocks/entrances(那个模块不消费它们),这里单独声明。 */
-interface PlanNamedPoint {
-  name: string;
-  x: number;
-  z: number;
-}
 interface PlanRegionFull {
   id: string;
   name?: string;
   elevation_m: number;
   polygon: [number, number][];
-  buildings?: PlanNamedPoint[];
-  rocks?: PlanNamedPoint[];
+  buildings?: NamedPlanAnchor[];
+  rocks?: NamedPlanAnchor[];
   entrances?: [number, number][];
 }
 interface PlanWaterFull {
@@ -77,15 +73,9 @@ function regionCentroid(region: PlanRegionFull): [number, number] {
   return [x / n, z / n];
 }
 
-/** 按前缀在区域的 buildings/rocks 里找锚点。找不到就抛——静默退回质心正是
- *  `missing.rules.json` 99-24 驳的那个默认,不许再犯。 */
-function findAnchor(region: PlanRegionFull, prefix: string): [number, number] {
-  const hit =
-    (region.buildings ?? []).find((b) => b.name.startsWith(prefix)) ??
-    (region.rocks ?? []).find((b) => b.name.startsWith(prefix));
-  if (!hit) {
-    throw new Error(`[garden] 区域 ${region.id} 里找不到锚点 "${prefix}"（buildings/rocks 均未命中）`);
-  }
+/** Stable ids prevent similarly named halls from stealing an existing anchor. */
+function findAnchor(region: PlanRegionFull, id: string): [number, number] {
+  const hit = requirePlanAnchor(region, id);
   return [hit.x, hit.z];
 }
 
@@ -94,7 +84,7 @@ interface Placement {
   variant?: string;
   /** plan.json 的区域 id。给了 anchor 或把 x/z 当局部偏移时必填。 */
   region?: string;
-  /** plan.json 里该区 buildings[].name 或 rocks[].name 的前缀,按它的 x/z 落位。 */
+  /** plan.json 里该区 buildings[].id 或 rocks[].id，按其 x/z 落位。 */
   anchor?: string;
   /** 有 region 无 anchor 时,x/z 是相对该区质心的局部偏移;都没有时是世界坐标。
    *  有 anchor 时,x/z 是相对锚点的局部微调(通常是 0,0)。 */
@@ -191,7 +181,7 @@ const CAUSEWAY: Placement[] = [
 /** 十七回游线:正门 → 翠嶂 → 沁芳亭桥 → 潇湘馆。 */
 const SCENE: Placement[] = [
   // ---- 正门与南墙(锚点 + 平移簇) ----------------------------------
-  { part: 'building', variant: 'men', region: 'zhengmen', anchor: '正门', x: 0, z: 0, yaw: 0, tag: '正门' },
+  { part: 'building', variant: 'men', region: 'zhengmen', anchor: 'zhengmen.main-gate', x: 0, z: 0, yaw: 0, tag: '正门' },
   // 只留南墙(六段,紧贴正门的粉墙——plan.json 的 zhengmen.buildings 里确实有
   // 「雪白粉墙·下面虎皮石」这一项)。旧场景里另有六段东西墙,那是旧 64×72m
   // 小镇自己的外边界标记("东西墙(只做南段,北段由林岗围合)"——只框住
@@ -215,7 +205,7 @@ const SCENE: Placement[] = [
   }),
 
   // ---- 翠嶂假山:进门迎面,缝从南入北出(锚点 + 平移簇) ------------
-  { part: 'taihu', variant: 'mound', region: 'cuizhang', anchor: '白石峻嶒', x: 0, z: 0, yaw: 0, tag: '翠嶂' },
+  { part: 'taihu', variant: 'mound', region: 'cuizhang', anchor: 'cuizhang.screen-rocks', x: 0, z: 0, yaw: 0, tag: '翠嶂' },
   { part: 'taihu', variant: 'peak2', ...pt(shift([-6.2, 15.5], D_CUIZHANG)), yaw: 0.6 },
   { part: 'taihu', variant: 'edge3', ...pt(shift([4.4, 10.2], D_CUIZHANG)), yaw: 1.2 },
 
@@ -224,7 +214,7 @@ const SCENE: Placement[] = [
     part: 'bridge',
     variant: 'zigzag',
     region: 'qinfang_ting_qiao',
-    anchor: '石桥三港',
+    anchor: 'qinfang_ting_qiao.three-opening-bridge',
     x: 0,
     z: 0,
     yaw: Math.PI / 2,
@@ -235,7 +225,7 @@ const SCENE: Placement[] = [
     part: 'building',
     variant: 'ting',
     region: 'qinfang_ting_qiao',
-    anchor: '沁芳亭',
+    anchor: 'qinfang_ting_qiao.pavilion',
     x: 0,
     z: 0,
     // 亭子预设 railingSides:['e','w'],开口在 n/s(局部 +Z 世界方向 =
@@ -252,7 +242,7 @@ const SCENE: Placement[] = [
   // 已知冲突①(报告不修):正房锚点(-105,98)脚下 6m 见方内有 1.30m 高差,
   // 来源是 plan.water 的「潇湘馆穿院引泉沟」。建筑自己的台基(platform)
   // 把落脚面钉死平,穿沟的落差留给地形——不挪锚点。
-  { part: 'building', variant: 'tang', region: 'xiaoxiangguan', anchor: '正房', x: 0, z: 0, yaw: 0, tag: '潇湘馆' },
+  { part: 'building', variant: 'tang', region: 'xiaoxiangguan', anchor: 'xiaoxiangguan.main-house', x: 0, z: 0, yaw: 0, tag: '潇湘馆' },
   ...(
     [
       ['wall', 'plain', 2.6, -13.5, 0, undefined],

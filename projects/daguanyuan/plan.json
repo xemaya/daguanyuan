@@ -1591,7 +1591,9 @@
           "facing": "south",
           "x": 55,
           "z": 236,
-          "plaque": null
+          "plaque": null,
+          "id": "zhengmen.main-gate",
+          "kind": "building"
         },
         {
           "name": "白石台矶(凿西番草花样)",
@@ -1601,7 +1603,9 @@
           "facing": "south",
           "x": 55,
           "z": 241,
-          "plaque": null
+          "plaque": null,
+          "id": "zhengmen.forecourt-terrace",
+          "kind": "platform"
         },
         {
           "name": "雪白粉墙·下面虎皮石(随势砌去)",
@@ -1611,7 +1615,9 @@
           "facing": "south",
           "x": 20,
           "z": 240,
-          "plaque": null
+          "plaque": null,
+          "id": "zhengmen.flanking-wall",
+          "kind": "wall"
         }
       ],
       "plants": [
@@ -1625,7 +1631,8 @@
           "name": "虎皮石墙基",
           "x": 20,
           "z": 241,
-          "note": "随势砌,不取平直"
+          "note": "随势砌,不取平直",
+          "id": "zhengmen.rock-01"
         }
       ],
       "sources": [
@@ -1718,25 +1725,29 @@
           "name": "白石峻嶒群(或如鬼怪,或如猛兽,纵横拱立)",
           "x": 8,
           "z": 202,
-          "note": "全遮门内视线"
+          "note": "全遮门内视线",
+          "id": "cuizhang.screen-rocks"
         },
         {
           "name": "镜面白石(迎面留题处)",
           "x": -34,
           "z": 200,
-          "note": "题「曲径通幽处」"
+          "note": "题「曲径通幽处」",
+          "id": "cuizhang.rock-02"
         },
         {
           "name": "西山口·羊肠小径(入园口)",
           "x": -52,
           "z": 206,
-          "note": "十七回由此入"
+          "note": "十七回由此入",
+          "id": "cuizhang.rock-03"
         },
         {
           "name": "东山脚(出园口,接平坦宽阔大路)",
           "x": 74,
           "z": 206,
-          "note": "C-06 判为同一山之两端"
+          "note": "C-06 判为同一山之两端",
+          "id": "cuizhang.rock-04"
         }
       ],
       "sources": [
@@ -1826,7 +1837,9 @@
           "facing": "south",
           "x": 0,
           "z": 148,
-          "plaque": "沁芳"
+          "plaque": "沁芳",
+          "id": "qinfang_ting_qiao.pavilion",
+          "kind": "building"
         },
         {
           "name": "石桥三港(兽面衔吐)",
@@ -1836,7 +1849,9 @@
           "facing": "north",
           "x": 0,
           "z": 152,
-          "plaque": null
+          "plaque": null,
+          "id": "qinfang_ting_qiao.three-opening-bridge",
+          "kind": "bridge"
         },
         {
           "name": "滴翠亭(池中·四面游廊曲桥)",
@@ -1846,7 +1861,9 @@
           "facing": "west",
           "x": -36,
           "z": 166,
-          "plaque": "滴翠亭"
+          "plaque": "滴翠亭",
+          "id": "qinfang_ting_qiao.dicui-pavilion",
+          "kind": "building"
         },
         {
           "name": "白石栏(环抱池沿)",
@@ -1856,7 +1873,9 @@
           "facing": "north",
           "x": 10,
           "z": 134,
-          "plaque": null
+          "plaque": null,
+          "id": "qinfang_ting_qiao.pool-railing",
+          "kind": "railing"
         }
       ],
       "plants": [
@@ -1874,7 +1893,8 @@
           "name": "石磴穿云·清溪泻雪石隙",
           "x": -28,
           "z": 176,
-          "note": "翠嶂石洞之北"
+          "note": "翠嶂石洞之北",
+          "id": "qinfang_ting_qiao.rock-01"
         }
       ],
       "sources": [
@@ -1960,7 +1980,9 @@
           "facing": "south",
           "x": -105,
           "z": 98,
-          "plaque": "有凤来仪"
+          "plaque": "有凤来仪",
+          "id": "xiaoxiangguan.main-house",
+          "kind": "building"
         },
         {
           "name": "后院退步",
@@ -1970,7 +1992,9 @@
           "facing": "south",
           "x": -105,
           "z": 76,
-          "plaque": null
+          "plaque": null,
+          "id": "xiaoxiangguan.rear-house",
+          "kind": "building"
         },
         {
           "name": "曲折游廊",
@@ -1980,7 +2004,9 @@
           "facing": "east",
           "x": -126,
           "z": 104,
-          "plaque": null
+          "plaque": null,
+          "id": "xiaoxiangguan.corridor",
+          "kind": "corridor"
         },
         {
           "name": "粉垣月洞门",
@@ -1990,7 +2016,9 @@
           "facing": "south",
           "x": -105,
           "z": 120,
-          "plaque": null
+          "plaque": null,
+          "id": "xiaoxiangguan.moon-gate",
+          "kind": "opening"
         }
       ],
       "plants": [
@@ -2016,7 +2044,8 @@
           "name": "石子漫成甬路(羊肠一条)",
           "x": -105,
           "z": 112,
-          "note": "阶下"
+          "note": "阶下",
+          "id": "xiaoxiangguan.rock-01"
         }
       ],
       "sources": [
@@ -2112,7 +2141,9 @@
           "facing": "south",
           "x": -198,
           "z": -52,
-          "plaque": "稻香村"
+          "plaque": "稻香村",
+          "id": "daoxiangcun.main-cottage",
+          "kind": "building"
         },
         {
           "name": "东厢田舍",
@@ -2122,7 +2153,9 @@
           "facing": "west",
           "x": -215,
           "z": -40,
-          "plaque": null
+          "plaque": null,
+          "id": "daoxiangcun.side-cottage",
+          "kind": "building"
         },
         {
           "name": "黄泥矮墙(墙头皆用稻茎掩护)",
@@ -2132,7 +2165,9 @@
           "facing": "south",
           "x": -198,
           "z": -30,
-          "plaque": null
+          "plaque": null,
+          "id": "daoxiangcun.mud-wall",
+          "kind": "wall"
         },
         {
           "name": "两溜青篱",
@@ -2142,7 +2177,9 @@
           "facing": "south",
           "x": -186,
           "z": -26,
-          "plaque": null
+          "plaque": null,
+          "id": "daoxiangcun.fence",
+          "kind": "fence"
         },
         {
           "name": "土井·桔槔辘轳",
@@ -2152,7 +2189,9 @@
           "facing": "north",
           "x": -202,
           "z": -8,
-          "plaque": null
+          "plaque": null,
+          "id": "daoxiangcun.well",
+          "kind": "prop"
         },
         {
           "name": "酒幌(杏帘在望)",
@@ -2162,7 +2201,9 @@
           "facing": "south",
           "x": -190,
           "z": -22,
-          "plaque": "杏帘在望"
+          "plaque": "杏帘在望",
+          "id": "daoxiangcun.wine-banner",
+          "kind": "prop"
         }
       ],
       "plants": [
@@ -2196,7 +2237,8 @@
           "name": "人力穿凿的背山(青山斜阻之余脉)",
           "x": -224,
           "z": -88,
-          "note": "宝玉批「背山山无脉,临水水无源」"
+          "note": "宝玉批「背山山无脉,临水水无源」",
+          "id": "daoxiangcun.rock-01"
         }
       ],
       "sources": [
@@ -2290,7 +2332,9 @@
           "facing": "south",
           "x": -116,
           "z": -158,
-          "plaque": "蘅芷清芬"
+          "plaque": "蘅芷清芬",
+          "id": "hengwuyuan.main-house",
+          "kind": "building"
         },
         {
           "name": "超手游廊",
@@ -2300,7 +2344,9 @@
           "facing": "south",
           "x": -116,
           "z": -142,
-          "plaque": null
+          "plaque": null,
+          "id": "hengwuyuan.corridor",
+          "kind": "corridor"
         },
         {
           "name": "一色水磨砖墙·清瓦花堵",
@@ -2310,7 +2356,9 @@
           "facing": "south",
           "x": -116,
           "z": -132,
-          "plaque": null
+          "plaque": null,
+          "id": "hengwuyuan.courtyard-wall",
+          "kind": "wall"
         },
         {
           "name": "云步石梯(自主池岸下上苑)",
@@ -2320,7 +2368,9 @@
           "facing": "south",
           "x": -104,
           "z": -127,
-          "plaque": null
+          "plaque": null,
+          "id": "hengwuyuan.cloud-steps",
+          "kind": "steps"
         }
       ],
       "plants": [
@@ -2359,13 +2409,15 @@
           "name": "插天大玲珑山石(四面群绕各式石块,遮住所有房屋)",
           "x": -116,
           "z": -136,
-          "note": "入门迎面"
+          "note": "入门迎面",
+          "id": "hengwuyuan.rock-01"
         },
         {
           "name": "大主山所分之脉(皆穿墙而过)",
           "x": -140,
           "z": -176,
-          "note": "山脉入院"
+          "note": "山脉入院",
+          "id": "hengwuyuan.rock-02"
         }
       ],
       "sources": [
@@ -2454,7 +2506,9 @@
           "facing": "south",
           "x": 25,
           "z": -148,
-          "plaque": "省亲别墅"
+          "plaque": "省亲别墅",
+          "id": "shengqin_biesu.stone-archway",
+          "kind": "stone-archway"
         },
         {
           "name": "正殿(顾恩思义殿·月台两陛)",
@@ -2464,7 +2518,9 @@
           "facing": "south",
           "x": 25,
           "z": -180,
-          "plaque": "顾恩思义"
+          "plaque": "顾恩思义",
+          "id": "shengqin_biesu.main-hall",
+          "kind": "building"
         },
         {
           "name": "大观楼(正楼)",
@@ -2474,7 +2530,9 @@
           "facing": "south",
           "x": 25,
           "z": -208,
-          "plaque": "大观楼"
+          "plaque": "大观楼",
+          "id": "shengqin_biesu.daguan-tower",
+          "kind": "building"
         },
         {
           "name": "缀锦阁(东面飞楼·兼作库房)",
@@ -2484,7 +2542,9 @@
           "facing": "south",
           "x": 72,
           "z": -202,
-          "plaque": "缀锦阁"
+          "plaque": "缀锦阁",
+          "id": "shengqin_biesu.zhuijin-pavilion",
+          "kind": "building"
         },
         {
           "name": "含芳阁(西面斜楼)",
@@ -2494,7 +2554,9 @@
           "facing": "south",
           "x": -22,
           "z": -202,
-          "plaque": "含芳阁"
+          "plaque": "含芳阁",
+          "id": "shengqin_biesu.hanfang-pavilion",
+          "kind": "building"
         },
         {
           "name": "迢迢复道萦纡(面面琳宫合抱)",
@@ -2504,7 +2566,9 @@
           "facing": "south",
           "x": 25,
           "z": -194,
-          "plaque": null
+          "plaque": null,
+          "id": "shengqin_biesu.raised-corridor",
+          "kind": "corridor"
         }
       ],
       "plants": [
@@ -2522,7 +2586,8 @@
           "name": "玉栏石砌高台基",
           "x": 25,
           "z": -170,
-          "note": "Tier A 大式高台"
+          "note": "Tier A 大式高台",
+          "id": "shengqin_biesu.rock-01"
         }
       ],
       "sources": [
@@ -2616,7 +2681,9 @@
           "facing": "south",
           "x": 118,
           "z": 176,
-          "plaque": "怡红快绿"
+          "plaque": "怡红快绿",
+          "id": "yihongyuan.main-house",
+          "kind": "building"
         },
         {
           "name": "游廊(一入门两边都是游廊相接)",
@@ -2626,7 +2693,9 @@
           "facing": "south",
           "x": 100,
           "z": 182,
-          "plaque": null
+          "plaque": null,
+          "id": "yihongyuan.corridor",
+          "kind": "corridor"
         },
         {
           "name": "竹篱花障月洞门",
@@ -2636,7 +2705,9 @@
           "facing": "south",
           "x": 112,
           "z": 188,
-          "plaque": null
+          "plaque": null,
+          "id": "yihongyuan.moon-gate",
+          "kind": "opening"
         },
         {
           "name": "粉墙环护",
@@ -2646,7 +2717,9 @@
           "facing": "south",
           "x": 118,
           "z": 190,
-          "plaque": null
+          "plaque": null,
+          "id": "yihongyuan.courtyard-wall",
+          "kind": "wall"
         },
         {
           "name": "后房门(转过花障即青溪)",
@@ -2656,7 +2729,9 @@
           "facing": "north",
           "x": 126,
           "z": 160,
-          "plaque": null
+          "plaque": null,
+          "id": "yihongyuan.rear-gate",
+          "kind": "opening"
         }
       ],
       "plants": [
@@ -2686,7 +2761,8 @@
           "name": "院中点衬几块山石",
           "x": 118,
           "z": 184,
-          "note": "不成堆"
+          "note": "不成堆",
+          "id": "yihongyuan.rock-01"
         }
       ],
       "sources": [
@@ -2782,7 +2858,9 @@
           "facing": "south",
           "x": 66,
           "z": -66,
-          "plaque": "藕香榭"
+          "plaque": "藕香榭",
+          "id": "ouxiangxie.waterside-hall",
+          "kind": "building"
         },
         {
           "name": "左右曲廊(跨水接岸)",
@@ -2792,7 +2870,9 @@
           "facing": "east",
           "x": 46,
           "z": -62,
-          "plaque": null
+          "plaque": null,
+          "id": "ouxiangxie.water-corridor",
+          "kind": "corridor"
         },
         {
           "name": "曲折竹桥(后面暗接)",
@@ -2802,7 +2882,9 @@
           "facing": "north",
           "x": 74,
           "z": -88,
-          "plaque": null
+          "plaque": null,
+          "id": "ouxiangxie.bamboo-bridge",
+          "kind": "bridge"
         }
       ],
       "plants": [
@@ -2820,7 +2902,8 @@
           "name": "驳岸青石叠砌",
           "x": 88,
           "z": -46,
-          "note": "不作直线"
+          "note": "不作直线",
+          "id": "ouxiangxie.rock-01"
         }
       ],
       "sources": [
@@ -2905,7 +2988,9 @@
           "facing": "south",
           "x": -130,
           "z": -100,
-          "plaque": "缀锦楼"
+          "plaque": "缀锦楼",
+          "id": "zilingzhou.zhuijin-tower",
+          "kind": "building"
         },
         {
           "name": "荇叶渚舟埠",
@@ -2915,7 +3000,9 @@
           "facing": "south",
           "x": -118,
           "z": -80,
-          "plaque": "荇叶渚"
+          "plaque": "荇叶渚",
+          "id": "zilingzhou.landing",
+          "kind": "dock"
         },
         {
           "name": "舡坞(棠木舫·采莲船停泊)",
@@ -2925,7 +3012,9 @@
           "facing": "south",
           "x": -148,
           "z": -86,
-          "plaque": null
+          "plaque": null,
+          "id": "zilingzhou.boathouse",
+          "kind": "building"
         }
       ],
       "plants": [
@@ -2946,7 +3035,8 @@
           "name": "洲头叠石驳岸",
           "x": -110,
           "z": -90,
-          "note": "水中洲"
+          "note": "水中洲",
+          "id": "zilingzhou.rock-01"
         }
       ],
       "sources": [
@@ -3034,7 +3124,9 @@
           "facing": "south",
           "x": -62,
           "z": 10,
-          "plaque": "秋爽斋"
+          "plaque": "秋爽斋",
+          "id": "qiushuangzhai.main-house",
+          "kind": "building"
         },
         {
           "name": "晓翠堂",
@@ -3044,7 +3136,9 @@
           "facing": "south",
           "x": -40,
           "z": 26,
-          "plaque": "晓翠堂"
+          "plaque": "晓翠堂",
+          "id": "qiushuangzhai.xiaocui-hall",
+          "kind": "building"
         },
         {
           "name": "后廊檐",
@@ -3054,7 +3148,9 @@
           "facing": "north",
           "x": -62,
           "z": -2,
-          "plaque": null
+          "plaque": null,
+          "id": "qiushuangzhai.rear-corridor",
+          "kind": "corridor"
         },
         {
           "name": "院墙月洞门",
@@ -3064,7 +3160,9 @@
           "facing": "south",
           "x": -62,
           "z": 36,
-          "plaque": null
+          "plaque": null,
+          "id": "qiushuangzhai.moon-gate",
+          "kind": "opening"
         }
       ],
       "plants": [
@@ -3086,7 +3184,8 @@
           "name": "阔朗院地铺地",
           "x": -62,
           "z": 22,
-          "note": "探春素喜阔朗,不作繁石"
+          "note": "探春素喜阔朗,不作繁石",
+          "id": "qiushuangzhai.rock-01"
         }
       ],
       "sources": [
@@ -3170,7 +3269,9 @@
           "facing": "south",
           "x": 206,
           "z": 170,
-          "plaque": "栊翠庵"
+          "plaque": "栊翠庵",
+          "id": "longcuian.mountain-gate",
+          "kind": "building"
         },
         {
           "name": "大殿",
@@ -3180,7 +3281,9 @@
           "facing": "south",
           "x": 203,
           "z": 150,
-          "plaque": null
+          "plaque": null,
+          "id": "longcuian.main-hall",
+          "kind": "building"
         },
         {
           "name": "东禅堂",
@@ -3190,7 +3293,9 @@
           "facing": "west",
           "x": 222,
           "z": 148,
-          "plaque": null
+          "plaque": null,
+          "id": "longcuian.east-hall",
+          "kind": "building"
         },
         {
           "name": "院墙",
@@ -3200,7 +3305,9 @@
           "facing": "south",
           "x": 206,
           "z": 176,
-          "plaque": null
+          "plaque": null,
+          "id": "longcuian.courtyard-wall",
+          "kind": "wall"
         }
       ],
       "plants": [
@@ -3218,7 +3325,8 @@
           "name": "山脚转角石径",
           "x": 192,
           "z": 166,
-          "note": "自怡红院顺山脚刚转过去即见"
+          "note": "自怡红院顺山脚刚转过去即见",
+          "id": "longcuian.rock-01"
         }
       ],
       "sources": [
@@ -3308,7 +3416,9 @@
           "facing": "south",
           "x": 190,
           "z": 86,
-          "plaque": "凸碧山庄"
+          "plaque": "凸碧山庄",
+          "id": "tubi_aojing.tubi-hall",
+          "kind": "building"
         },
         {
           "name": "凹晶溪馆(洼而近水·房宇不多且又矮小)",
@@ -3318,7 +3428,9 @@
           "facing": "west",
           "x": 166,
           "z": 20,
-          "plaque": "凹晶溪馆"
+          "plaque": "凹晶溪馆",
+          "id": "tubi_aojing.aojing-hall",
+          "kind": "building"
         },
         {
           "name": "池沿一带竹栏(直通藕香榭的路径)",
@@ -3328,7 +3440,9 @@
           "facing": "west",
           "x": 154,
           "z": 6,
-          "plaque": null
+          "plaque": null,
+          "id": "tubi_aojing.waterside-railing",
+          "kind": "railing"
         },
         {
           "name": "厅前平台",
@@ -3338,7 +3452,9 @@
           "facing": "south",
           "x": 190,
           "z": 98,
-          "plaque": null
+          "plaque": null,
+          "id": "tubi_aojing.terrace",
+          "kind": "platform"
         }
       ],
       "plants": [
@@ -3356,13 +3472,15 @@
           "name": "山之高脊(凸)",
           "x": 190,
           "z": 80,
-          "note": "高约18m"
+          "note": "高约18m",
+          "id": "tubi_aojing.rock-01"
         },
         {
           "name": "山坳低洼近水处(凹)",
           "x": 164,
           "z": 16,
-          "note": "一上一下,一明一暗"
+          "note": "一上一下,一明一暗",
+          "id": "tubi_aojing.rock-02"
         }
       ],
       "sources": [
@@ -3451,7 +3569,9 @@
           "facing": "south",
           "x": 168,
           "z": -70,
-          "plaque": "蓼风轩"
+          "plaque": "蓼风轩",
+          "id": "nuanxiangwu.liaofeng-house",
+          "kind": "building"
         },
         {
           "name": "暖香坞(惜春卧房·门斗题额)",
@@ -3461,7 +3581,9 @@
           "facing": "south",
           "x": 182,
           "z": -54,
-          "plaque": "暖香坞"
+          "plaque": "暖香坞",
+          "id": "nuanxiangwu.nuanxiang-house",
+          "kind": "building"
         },
         {
           "name": "向南的正门",
@@ -3471,7 +3593,9 @@
           "facing": "south",
           "x": 178,
           "z": -28,
-          "plaque": null
+          "plaque": null,
+          "id": "nuanxiangwu.south-gate",
+          "kind": "building"
         },
         {
           "name": "夹道西过街门(外额穿云·内额度月)",
@@ -3481,7 +3605,9 @@
           "facing": "west",
           "x": 148,
           "z": -20,
-          "plaque": "穿云/度月"
+          "plaque": "穿云/度月",
+          "id": "nuanxiangwu.west-street-gate",
+          "kind": "building"
         },
         {
           "name": "夹道东过街门(外接山坡)",
@@ -3491,7 +3617,9 @@
           "facing": "east",
           "x": 208,
           "z": -20,
-          "plaque": null
+          "plaque": null,
+          "id": "nuanxiangwu.east-street-gate",
+          "kind": "building"
         },
         {
           "name": "里边游廊(通卧房)",
@@ -3501,7 +3629,9 @@
           "facing": "south",
           "x": 178,
           "z": -40,
-          "plaque": null
+          "plaque": null,
+          "id": "nuanxiangwu.corridor",
+          "kind": "corridor"
         }
       ],
       "plants": [
@@ -3519,7 +3649,8 @@
           "name": "夹道东端山坡(宝琴立雪处)",
           "x": 210,
           "z": -18,
-          "note": "出夹道东门即见"
+          "note": "出夹道东门即见",
+          "id": "nuanxiangwu.rock-01"
         }
       ],
       "sources": [
@@ -3603,7 +3734,9 @@
           "facing": "north",
           "x": 197,
           "z": -212,
-          "plaque": "沁芳闸"
+          "plaque": "沁芳闸",
+          "id": "qinfangzha.sluice-bridge",
+          "kind": "bridge"
         },
         {
           "name": "墙下水关(外河入园口)",
@@ -3613,7 +3746,9 @@
           "facing": "north",
           "x": 201,
           "z": -232,
-          "plaque": null
+          "plaque": null,
+          "id": "qinfangzha.inlet-watergate",
+          "kind": "watergate"
         }
       ],
       "plants": [
@@ -3630,7 +3765,8 @@
           "name": "花冢(园之东北畸角)",
           "x": 214,
           "z": -196,
-          "note": "自怡红院去须登山渡水、隔一山坡"
+          "note": "自怡红院去须登山渡水、隔一山坡",
+          "id": "qinfangzha.rock-01"
         }
       ],
       "sources": [
@@ -3719,7 +3855,9 @@
           "facing": "south",
           "x": -34,
           "z": -116,
-          "plaque": "蓼汀花溆"
+          "plaque": "蓼汀花溆",
+          "id": "liaoting_huaxu.water-cave",
+          "kind": "cave"
         },
         {
           "name": "折带朱栏板桥(度过桥去诸路可通)",
@@ -3729,7 +3867,9 @@
           "facing": "west",
           "x": -58,
           "z": -108,
-          "plaque": null
+          "plaque": null,
+          "id": "liaoting_huaxu.red-railing-bridge",
+          "kind": "bridge"
         },
         {
           "name": "山上盘道(无船亦可进去)",
@@ -3739,7 +3879,9 @@
           "facing": "west",
           "x": -52,
           "z": -130,
-          "plaque": null
+          "plaque": null,
+          "id": "liaoting_huaxu.mountain-path",
+          "kind": "path"
         }
       ],
       "plants": [
@@ -3765,7 +3907,8 @@
           "name": "石洞港口(阴森透骨)",
           "x": -30,
           "z": -118,
-          "note": "四十回舟行经此"
+          "note": "四十回舟行经此",
+          "id": "liaoting_huaxu.rock-01"
         }
       ],
       "sources": [
@@ -3853,7 +3996,9 @@
           "facing": "west",
           "x": 120,
           "z": 28,
-          "plaque": "芦雪广"
+          "plaque": "芦雪广",
+          "id": "luxueguang.reed-hall",
+          "kind": "building"
         },
         {
           "name": "临水槛(推窗便可垂钓)",
@@ -3863,7 +4008,9 @@
           "facing": "west",
           "x": 106,
           "z": 28,
-          "plaque": null
+          "plaque": null,
+          "id": "luxueguang.fishing-railing",
+          "kind": "railing"
         },
         {
           "name": "穿芦度苇去径(逶迤通藕香榭竹桥)",
@@ -3873,7 +4020,9 @@
           "facing": "west",
           "x": 102,
           "z": 14,
-          "plaque": null
+          "plaque": null,
+          "id": "luxueguang.reed-path",
+          "kind": "path"
         }
       ],
       "plants": [
@@ -3894,7 +4043,8 @@
           "name": "河滩卵石",
           "x": 112,
           "z": 42,
-          "note": "傍凸碧山西麓"
+          "note": "傍凸碧山西麓",
+          "id": "luxueguang.rock-01"
         }
       ],
       "sources": [
@@ -3970,7 +4120,9 @@
           "facing": "south",
           "x": 120,
           "z": 112,
-          "plaque": "嘉荫堂"
+          "plaque": "嘉荫堂",
+          "id": "jiayintang.main-hall",
+          "kind": "building"
         },
         {
           "name": "堂前月台(焚斗香·羊角大灯)",
@@ -3980,7 +4132,9 @@
           "facing": "south",
           "x": 120,
           "z": 128,
-          "plaque": null
+          "plaque": null,
+          "id": "jiayintang.terrace",
+          "kind": "platform"
         },
         {
           "name": "上山盘道起点(百余步极平稳的宽路)",
@@ -3990,7 +4144,9 @@
           "facing": "east",
           "x": 140,
           "z": 126,
-          "plaque": null
+          "plaque": null,
+          "id": "jiayintang.mountain-path",
+          "kind": "path"
         }
       ],
       "plants": [
@@ -4007,7 +4163,8 @@
           "name": "山脚踏跺",
           "x": 142,
           "z": 124,
-          "note": "接凸碧山盘道"
+          "note": "接凸碧山盘道",
+          "id": "jiayintang.rock-01"
         }
       ],
       "sources": [
@@ -4091,7 +4248,9 @@
           "facing": "south",
           "x": -210,
           "z": -116,
-          "plaque": null
+          "plaque": null,
+          "id": "huajia_huapu.tumi-trellis",
+          "kind": "pergola"
         },
         {
           "name": "木香棚",
@@ -4101,7 +4260,9 @@
           "facing": "south",
           "x": -224,
           "z": -128,
-          "plaque": null
+          "plaque": null,
+          "id": "huajia_huapu.muxiang-canopy",
+          "kind": "pergola"
         },
         {
           "name": "牡丹亭",
@@ -4111,7 +4272,9 @@
           "facing": "south",
           "x": -206,
           "z": -140,
-          "plaque": "牡丹亭"
+          "plaque": "牡丹亭",
+          "id": "huajia_huapu.mudan-pavilion",
+          "kind": "building"
         },
         {
           "name": "红香圃(芍药圃内三间小敞厅)",
@@ -4121,7 +4284,9 @@
           "facing": "south",
           "x": -224,
           "z": -152,
-          "plaque": "红香圃"
+          "plaque": "红香圃",
+          "id": "huajia_huapu.hongxiang-hall",
+          "kind": "building"
         },
         {
           "name": "蔷薇院",
@@ -4131,7 +4296,9 @@
           "facing": "south",
           "x": -206,
           "z": -162,
-          "plaque": null
+          "plaque": null,
+          "id": "huajia_huapu.rose-garden",
+          "kind": "planting"
         },
         {
           "name": "芭蕉坞",
@@ -4141,7 +4308,9 @@
           "facing": "south",
           "x": -222,
           "z": -172,
-          "plaque": null
+          "plaque": null,
+          "id": "huajia_huapu.banana-grove",
+          "kind": "planting"
         }
       ],
       "plants": [
@@ -4169,7 +4338,8 @@
           "name": "抚石依泉(沿溪散石)",
           "x": -196,
           "z": -146,
-          "note": "穿花度柳、抚石依泉"
+          "note": "穿花度柳、抚石依泉",
+          "id": "huajia_huapu.rock-01"
         }
       ],
       "sources": [
@@ -4346,5 +4516,11 @@
       "resolution": "route_ch17 用 14 个 region id 承载 29 个节点:正门→翠嶂(含山口题石/石洞小径)→沁芳亭桥(含出亭过池)→潇湘馆→稻香村(含青山斜阻)→花架花圃群(6 景)→蓼汀花溆(含盘道/池边垂柳/折带朱栏板桥)→蘅芜苑→省亲别墅(正殿·大观楼·牌坊)→沁芳闸→栊翠庵(第 25 节点「山下得幽尼佛寺」)→怡红院(含后院青溪)→翠嶂(大山阻路·山脚一转)→正门(出园)",
       "reason": "02 篇 29 节点按字符位置逐一比对,顺序全部对得上。栊翠庵入列是 02 篇标 medium 的推论(十七、十八回全文无「栊翠」二字,该名首见第四十一回),此处仅作路径经过而非入院。"
     }
-  ]
+  ],
+  "object_contract": {
+    "version": 1,
+    "identity": "id 固定，文字名称仅用于展示；重新排序或改题额不得重编号。",
+    "classification": "kind 是构件消费类别的解释，不补写原著没有给出的尺寸。旧 buildings 数组兼容保留，包含非建筑。",
+    "legacy_bays": "bays 保留原输入，非 building 条目不得作为柱网开间消费；桥港、石牌坊开间须走专用构件。building 的数值也不是完整施工 spec。"
+  }
 }
