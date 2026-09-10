@@ -192,12 +192,18 @@ export { RuleBook, type RuleBookOptions } from '@builder/derive/rules';
 export type { Provenance } from '@builder/derive/provenance';
 export { AmbiguousRuleError, MissingRuleError, RefutedRuleError, RuleError } from '@builder/derive/errors';
 
-// —— 参数集分派:fashi 是本文件的原生链;qing 由 Task 2 接入 ——
+// —— 参数集分派:fashi 是本文件的原生链;qing 与 fayuan 各走自己的推导链 ——
 export { deriveQing, type QingFrame, type QingSpec } from '@builder/derive/qing/index';
 import { deriveQing, type QingFrame, type QingSpec } from '@builder/derive/qing/index';
+export { deriveFayuan, type FayuanFrame, type FayuanSpec } from '@builder/derive/fayuan/index';
+import { deriveFayuan, type FayuanFrame, type FayuanSpec } from '@builder/derive/fayuan/index';
 
 /** 按参数集分派到各自的推导链。 */
-export function deriveByParamSet(book: RuleBook, spec: BuildingSpec | QingSpec): Frame | QingFrame {
+export function deriveByParamSet(
+  book: RuleBook,
+  spec: BuildingSpec | QingSpec | FayuanSpec,
+): Frame | QingFrame | FayuanFrame {
   if (book.paramSet === 'qing') return deriveQing(book, spec as QingSpec);
+  if (book.paramSet === 'fayuan') return deriveFayuan(book, spec as FayuanSpec);
   return deriveWithBook(book, spec as BuildingSpec);
 }
