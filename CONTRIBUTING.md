@@ -1,73 +1,97 @@
-# Contributing
+# 协作规矩
 
-Contributions are welcome. Open an issue for anything large enough that you would be upset to have
-it rejected after the fact; send a pull request for anything smaller.
+这个项目大部分工作由并行的 agent 完成。下面这些规矩存在的唯一理由，是让多个人同时改同一个仓库而不互相拆台。
 
 ```bash
 npm install
-npm run dev          # http://127.0.0.1:5173
-npm run check        # typecheck — must pass
-npm test             # unit tests — must pass
+npm run dev            # http://127.0.0.1:5173
+npm run check          # 类型检查 —— 必须过
+npm test               # 单元测试 —— 必须过
+npm run check:layers   # 分层依赖门 —— 必须过
+npm run check:rules    # 规则一致性门 —— 必须过
 ```
 
-## The rules that are not negotiable
+## 开工前
 
-These are what keep a scene assembled by many hands reading as one place. A pull request that
-breaks one of them will be asked to change, however good the idea underneath is.
+按 [README 的阅读顺序](README.md#先读什么) 读前三份：决策记录、架构 spec、坑点记录。第三份尤其别跳，里面每一条都是花真代价换来的。
 
-**`ART_DIRECTION.md` outranks individual taste.** It is the art bible. If you think it is wrong,
-argue with the document in an issue and change it there first — do not quietly diverge from it in a
-commit.
+做几何或材质的，`ART_DIRECTION.md` 是硬约束，它压过个人品味。
 
-**No binary art assets.** Every texture is baked procedurally at load time, every model is sculpted
-from signed-distance fields, every sound is synthesised in WebAudio. A PNG, GLB, or WAV in a pull
-request is a design change, not an implementation detail, and needs its own discussion.
+## 不可协商的几条
 
-**No `Math.random()` in `src/`.** Every random choice goes through the seeded generator in
-`core/Noise.ts`, keyed off `World.SEED`. The same build must always produce the same town —
-determinism is what makes screenshot review mean anything.
+**分层依赖只能自上而下。** `engine/` 不许 import `builder/` `knowledge/` `projects/`；`builder/` 不许 import `projects/`；`builder/derive/` 不许 import `three`，它只产数。跨层一律走别名 `@engine/ @builder/ @knowledge/ @project/`，不写 `../..` 爬出去。`npm run check:layers` 执行这条。
 
-**One tone-map.** The chain runs in HDR half-float and converts to display range exactly once, at
-the end of the post chain in `PostFX.ts`. Tone mapping stays disabled on the renderer itself.
+**零二进制美术资产。** 贴图现烤、模型程序生成、音效合成。仓库里出现 png、glb、wav 是设计变更，不是实现细节，要单独讨论。唯一的例外是中文字体（匾额要用）。
 
-**One lighting rig.** `world/Atmosphere.ts` owns every outdoor light. Nothing else in the project
-creates one.
+**禁用 `Math.random()`。** 一切随机走 `engine/core/Noise.ts` 的种子生成器。同一份构建必须产出同一个园子，否则截图评审毫无意义。
 
-**Stay inside the performance budget.** 60fps at 1600×900 on `high` quality, ≤ 260 draw calls,
-≤ 2.2M triangles. Anything drawn more than eight times is an `InstancedMesh`.
+**大木作的数字只从 `builder/derive/` 出。** 柱高、柱径、举折、出檐、翼角，不许在构件里手拍一个数。参数集按 tier 选，见 `knowledge/docs/qingshi/tiers.md`。
 
-## Changing how something looks
+**规则的状态要尊重。** 被驳倒的规则不许用，存疑的规则用更正值，有多个并存口径的必须显式选一个，缺失的规则让它抛错——不要为了让代码跑起来填一个编出来的数。这是知识库存在的意义，见 `docs/DECISIONS.md` D-08。
 
-Screenshots are the unit of quality here, so a visual change should come with visual evidence.
+**艺术圣经的硬规则。** 无锐边、无平色面、无纯黑纯白、接地必有裙脚、无 z-fighting、剪影优先。见 `ART_DIRECTION.md` §2。
+
+## 并行时的纪律
+
+**只碰自己任务列出的文件。** 多个 agent 同时在跑，碰别人的文件会互相覆盖。分派单里会写清你能碰哪些。
+
+**不确定就停下来问，不要猜。** 尤其是剥离重构剥不干净、几何断言写不出来、规则誊写遇到研究稿自相矛盾这几类。猜出来的东西后面要花十倍时间拆。
+
+**加新构件门类目录，记得回 `builder/parts/index.ts` 补 glob。** 不补的症状是运行时"未登记构件"，编译期毫无报错。见 `docs/PITFALLS.md` P-02。
+
+## 改动要带证据
+
+改观感的，附**左右对照图**：
 
 ```bash
-node tools/capture.mjs --list                    # the shot list, and what each frames
-node tools/capture.mjs --out shots/review        # every shot, plus draw calls / tris / fps
-node tools/capture.mjs --shots town_reveal,lab_door
-
-node tools/shoot-creature.mjs --subject charmander --angles front,three_quarter,side,back
+node tools/side-by-side.mjs shots/before/x.png shots/after/x.png shots/compare/x.png
 ```
 
-Post before-and-after frames from the same shot names in the pull request. The shot list is a
-contract — same cameras, same seed, same time of day on every run — so a difference in a screenshot
-is always a difference in the art.
+改结构的（重构、搬家、抽层），附**结构数字不变**的证明：
 
-Two things that will waste your time if you do not know them:
+```bash
+node tools/manifest-diff.mjs shots/after shots/baseline
+```
 
-- Editing a file in `src/` mid-capture makes Vite reload and restart the ~20s world build, so the
-  capture times out. Run reviews in a quiet window, or against `npm run build && npm run preview`,
-  which does not hot-reload.
-- Judge a creature on the studio set (`shoot-creature.mjs`) rather than in the town. The grade and
-  the clutter hide exactly the modelling faults you are looking for.
+**不要用逐像素当门**。场景里水面竹叶云一直在动，同一份构建连拍两次就差 97% 的像素。原因与实测数字见 `docs/PITFALLS.md` P-03。
 
-`shots/` is gitignored. It is output, not source — never commit it.
+改碰撞或布局的，跑试玩：
 
-## Pull requests
+```bash
+node tools/playtest.mjs --url http://127.0.0.1:4801/
+```
 
-Keep them focused on one thing. Explain what visual or behavioural difference the change makes and
-why, not just what the code now does. `npm run check` and `npm test` both have to pass.
+它不用 teleport 作弊，逐航点转身按 W，三秒没进展算卡住。静态截图看不出的问题只有它能抓。
 
-## Licence
+改构件的，棚拍：
 
-By contributing you agree that your contributions are licensed under the MIT Licence, the same
-terms that cover the rest of the project.
+```bash
+node tools/shoot-part.mjs --url http://127.0.0.1:4801/viewer.html --subject building:ting --angles front,three_quarter
+```
+
+## 起服务
+
+一律带 `--strictPort`。端口被占时 Vite 会静默换一个，而截图工具还按原端口访问，会截到别人的网站上去。
+
+```bash
+npx vite preview --host 127.0.0.1 --port 4801 --strictPort
+```
+
+## 注释写什么
+
+写**为什么**，不写做了什么。尤其是：这里为什么反直觉、上游那个坑长什么样、换成显然的写法会怎么崩。
+
+这个项目的代码注释是设计史的一部分，很多决定的唯一记录就在注释里。写得像给三个月后的自己看。
+
+## 提交
+
+一次提交做一件事。提交信息说清这个改动带来什么可见的差别，以及为什么，不只是代码现在长什么样。
+
+末尾附：
+
+```
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_011PeksSYynwWg7rdM5qZXcg
+```
+
+`shots/` 是 gitignore 的，它是产物不是源码，永远不要提交。

@@ -1,16 +1,16 @@
 # 大观园
 
-《红楼梦》大观园的纯代码程序化 3D 重建,第一人称在园中走。零美术资产:贴图现烤、
-模型程序生成、音效合成。引擎壳取自 [pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)(MIT),
-中式部分全部新写。
+《红楼梦》大观园的纯代码程序化 3D 重建，第一人称在园中走。零美术资产：贴图现烤、模型程序生成、音效合成。
 
-一期游线照第十七回贾政题匾的路:**正门 → 翠嶂假山(曲径通幽) → 沁芳亭桥 → 潇湘馆**。
+这个项目真正的资产不是园子，是**一条从古籍到几何的编译链**：《营造法式》《工程做法则例》《营造法原》的规则被核验成机读数据，推导器按模数语法把它们算成骨架，构件库把骨架变成面，装配器按平面图把构件摆成园子。换一栋建筑是填表，换一座园子是换数据。
 
 ```bash
 npm install
-npm run dev          # http://127.0.0.1:5173
-npm run check        # 类型检查
-npm test             # 法式推导链断言 + 引擎单测
+npm run dev            # http://127.0.0.1:5173
+npm run check          # 类型检查
+npm test               # 单元测试
+npm run check:layers   # 分层依赖门
+npm run check:rules    # 规则一致性门
 npm run build && npm run preview
 BASE=/daguanyuan/ npm run build   # 部署到 hub 子路径
 ```
@@ -19,68 +19,89 @@ BASE=/daguanyuan/ npm run build   # 部署到 hub 子路径
 
 ---
 
-## 底座:《营造法式》推导器
+## 先读什么
 
-这个项目真正的资产不是园子,是 `src/fashi/`:一条以材分制为语法的大木作推导链。
-给定材等、间架、铺作数、屋顶类型,推出柱高柱径、生起侧脚、出跳与铺作高、举折后每一槫的坐标、
-檐出与翼角。所有数字带规则号,规则来自 `docs/fashi/` 的核验研究稿(155 条,每条两名独立
-核验者:一个对原文逐字,一个对佛光寺/保国寺等实测)。存疑的规则做成参数,不伪造公式。
+按这个顺序，读完就能动手：
 
-| 模块 | 内容 | 章 |
+| 顺序 | 文档 | 回答什么 |
 |---|---|---|
-| `cai.ts` | 八等材、分值、尺长参数、材等选择区间 | 01 |
-| `puzuo.ts` | P=T+3、跳距、出跳总长、铺作高 33+21T | 02 |
-| `zhu.ts` | 柱径按屋类、檐柱高≤间广、生起、侧脚、阑额、柱础 | 03 |
-| `juzhe.ts` | 举高比(法式/唐/辽)、折屋之法逐缝下折 → 槫坐标 | 04 |
-| `yanchu.ts` | 檐出按椽径、飞子 0.6、生出按间数、起翘自由参数 | 05 |
-| `derive.ts` | 组合成一栋屋的骨架表(米) | |
+| 1 | [docs/DECISIONS.md](docs/DECISIONS.md) | 为什么是现在这样。每条决定带理由和代价 |
+| 2 | [docs/superpowers/specs/2026-09-10-layered-architecture-design.md](docs/superpowers/specs/2026-09-10-layered-architecture-design.md) | 四层怎么分、数据契约长什么样、规则状态机怎么工作 |
+| 3 | [docs/PITFALLS.md](docs/PITFALLS.md) | 已经踩过的坑。改代码前扫一眼，能省几个小时 |
+| 4 | [ART_DIRECTION.md](ART_DIRECTION.md) | 艺术圣经。做几何或材质的必读，它压过个人品味 |
+| 5 | [docs/ROADMAP.md](docs/ROADMAP.md) | 下一步做什么，怎么分期 |
+| 6 | [CONTRIBUTING.md](CONTRIBUTING.md) | 协作规矩：碰哪些文件、过哪些门、怎么提交 |
 
-`tests/fashi.test.mjs` 里有 04-10 的 worked example(殿阁八椽 L=60 尺 → 20/13.000/7.667/3.333)
-和佛光寺的几处实测断言。`docs/fashi/README.md` 末尾的批评稿列了从这里到"完整三维大木作生成器"
-还缺的 17 类规则(柱网分槽、梁架拓扑、转角列栱……),那是二期。
+要动某一块时再读对应的：
 
-## 构件库 `src/cn/`
+- 改建筑推导 → `knowledge/docs/fashi/README.md`、`knowledge/docs/qingshi/README.md`、`knowledge/docs/qingshi/tiers.md`
+- 改园子布局 → `knowledge/docs/plan/README.md`、`knowledge/docs/plan/04-conflicts.md`（下游只读这篇判决书）
+- 执行 P0 剩余任务 → `docs/superpowers/plans/2026-09-10-p0-skeleton-migration.md`
 
-- `materials.ts` 一园一色:粉墙/黛瓦/木/青石/太湖石/竹/纸/漆/金。材质实例缓存,装配器靠它把几十件合成几个 draw call。
-- `parts/building.ts` 由推导表出几何:台基、柱、阑额普拍枋、简化铺作、举折屋面、翼角起翘生出、脊、山花、格扇、美人靠、匾额。预设 `ting`(攒尖亭)/`tang`(歇山小三间)/`lang`(廊)/`men`(门屋)。
-- `parts/taihu.ts` 太湖石:metaball 负球挖透孔 + 褶皱位移 + 场采样 AO;`peak` 独峰、`mound` 带走人缝隙的假山、`edge` 驳石。
-- `parts/wall.ts` 粉墙系列:`plain`/`moon` 月洞门/`lattice` 漏窗(冰裂、万字、海棠)/`cloud` 云墙,压顶瓦垄是真几何。
-- `parts/bridge.ts` 三折曲桥(石板拼缝、墩、石栏)、驳岸模块、独立石栏。
-- `parts/bamboo.ts` 竹丛:竿/枝/叶三组 InstancedMesh,风摆在顶点着色器里。
-- `registry.ts` + `parts/` glob 自动登记;`merge.ts` 按材质合并静态件。
+## 四层
 
-每个构件先过棚拍再进园:
-
-```bash
-node tools/shoot-part.mjs --url http://127.0.0.1:5173/viewer.html --subject building:ting,taihu:peak --angles front,three_quarter
+```
+engine/      与内容无关的壳:渲染、输入、后期、散布机制、玩家、UI、音频
+knowledge/   书 → 机读:研究稿(人读,带出处与裁决) + rules/*.json(机读,代码只读它)
+builder/     生产引擎:derive(数)→ parts(面)→ compose(装配)。不认识大观园
+projects/    一个园子一份数据:plan.json + scenes/*.json + 特有构件
 ```
 
-`viewer.html?subject=<name>:<variant>&angle=...&bg=...` 是活的转台。
+依赖只能自上而下。`engine/` 不许 import `builder/`，`builder/` 不许 import `projects/`，`builder/derive/` 不许 import `three`（它只产数）。这三条由 `npm run check:layers` 执行。
 
-## 园子 `src/world/`
+跨层一律走别名 `@engine/ @builder/ @knowledge/ @project/`，不写 `../..`。
 
-- `Terrain.ts` 解析高度场:四面林岗围合、沁芳池按 warp 椭圆挖坑、翠嶂土丘、潇湘馆台基、园路脊线。
-- `Garden.ts` 装配器:`SCENE` 表按 (part, variant, x, z, yaw) 放构件,登记平台(台基/桥面)与阻挡(柱/墙/栏/石),池岸驳石沿"刚露水"等高线自动摆。
-- `Collision.ts` 在真新镇的基础上加了平台层与落水禁行;**旋转约定改成与 three 的 rotation.y 一致**(原版相反,只是没暴露)。
+## 数据流
 
-## 验收
-
-```bash
-node tools/capture.mjs --url http://127.0.0.1:4173/ --out shots/review   # 镜头清单 + draw calls/tris/fps
-node tools/playtest.mjs --url http://127.0.0.1:4173/                      # 键盘走完游线,验门/桥/水/缝
-node tools/console-probe.mjs http://127.0.0.1:4173/ garden                 # 每种构件三角数
+```
+书 → 研究稿 md → rules/*.json
+                     ↓
+plan.json + scenes/*.json → derive(按 tier 选参数集) → Frame(骨架表,米)
+                     ↓
+                   parts(几何生成器) → Object3D + 碰撞/平台元数据
+                     ↓
+                 compose(装配 + 分块) → 场景
 ```
 
-`tools/playtest.mjs` 不用 teleport 作弊:逐航点转身按 W,3 秒没进展算卡住。它抓出过亭子美人靠
-横在出口、桥栏旋转反了、落水线太贴水面三处真 bug。
+## 规则有状态
 
-## 已知未做
+知识库的核心价值不是它记住了什么，是它能说出**自己不知道什么**。每条规则带状态：
 
-- 驳岸模块(`bridge:bank`)没沿岸线摆,岸只靠驳石。
-- 铺作是块体示意,没有栱枓昂的真分件;转角铺作、梁架、山花做法见 `docs/fashi/README.md` 批评稿。
-- 三角数约为真新镇预算的两倍(4~5M 含阴影与 G-buffer 两遍),1600×900 45~60fps;远处竹丛与围墙可加 LOD。
-- 荷花、落叶、青苔、石灯、楹联、人物一概没有。
+| 状态 | 推导器的行为 |
+|---|---|
+| 通过 | 直接用 |
+| 存疑 | 用更正值；有多个并存口径的，调用方必须显式选一个，不选就报错 |
+| 驳倒 | 禁用，引用即抛，错误信息带更正值与出处 |
+| 缺失 | 抛错，说明缺什么、该查哪本书；要覆盖必须显式传值并留痕 |
 
-## 艺术圣经
+第一个"缺失"的案例：Tier A 要求由柱高反算斗口，两本书都没给反函数，六个口径互差 8% 到 21%。所以正门和大观楼现在会直接抛错，而不是拿一个中值蒙混过去。**这是设计意图，不是 bug。**
 
-`ART_DIRECTION.md`:色板、硬规则、江南园林的形、验收清单。多 agent 并行时它压过个人品味。
+## 验收门
+
+| 门 | 查什么 |
+|---|---|
+| `npm run check` | 类型 |
+| `npm test` | 单元测试，含推导链的手算断言（佛光寺、长春宫、月到风来亭） |
+| `npm run check:layers` | 分层依赖 |
+| `npm run check:rules` | 研究稿与机读规则表的条目与状态是否对齐 |
+| `node tools/check-plan.mjs` | 平面几何自检，含七条不可违约束 |
+| `node tools/manifest-diff.mjs A B` | 两次截图的结构数字（draw calls / 三角数 / 几何数 / 材质数） |
+| `node tools/playtest.mjs` | 键盘走完游线，验门、桥、水、假山缝 |
+| `node tools/shoot-part.mjs` | 构件棚拍 |
+| `node tools/side-by-side.mjs` | 出左右对照图交人眼判观感 |
+
+**观感回归不用逐像素**。场景里水面、竹叶、云一直在动，同一份构建连拍两次平均每像素就差 7 到 17 个色阶，噪声底比任何有意义的阈值都高。结构数字是确定性的，人眼判观感。详见 `docs/PITFALLS.md`。
+
+## 现在到哪了
+
+一条游线可走通：正门（五间）→ 翠嶂假山 → 沁芳亭桥 → 潇湘馆，键盘试玩全线通过。
+
+知识库有三份研究稿共 362 条核验规则（法式 155、清式与法原与红楼 207），一份 19 区的平面真源，全部经过两名独立核验者（一个对原文逐字，一个对实测建筑）裁决。
+
+正在做 P0 骨架搬家的收尾。之后按 `docs/ROADMAP.md` 的五期推进。
+
+## 授权
+
+MIT。引擎壳取自 [pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)（MIT），中式部分全部新写。
+
+《红楼梦》原文属公有领域。本项目是同人性质的技术实验。
