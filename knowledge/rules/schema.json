@@ -48,8 +48,10 @@
               "ok",
               "contested",
               "refuted",
+              "underdetermined",
               "missing"
-            ]
+            ],
+            "description": "ok 通过 | contested 存疑(证据互相冲突,用 correction) | refuted 驳倒(禁用,引用即抛) | underdetermined 欠定(证据存在且不冲突,但不足以唯一决定结果——必须给 resolution,不得让美术决策伪装成考据结论) | missing 缺失(抛错并给 whereToLook)"
           },
           "statement": {
             "type": "string",
@@ -139,6 +141,27 @@
               "none"
             ],
             "description": "哪条推导链消费这条规则。与文件名无关——文件按来源章节组织，参数集按消费方组织，两个轴不同。'none' 用于原文事实、花木名录、缺口条目。清《工程做法》06 章屋顶瓦作官式与苏式并存，逐条判归属，见 knowledge/rules/README.md。"
+          },
+          "resolution": {
+            "type": "object",
+            "description": "status=underdetermined 时必填:合法解不唯一,这里说明怎么定下来的。",
+            "required": [
+              "method",
+              "note"
+            ],
+            "properties": {
+              "method": {
+                "enum": [
+                  "artistic_choice",
+                  "seeded_variant"
+                ],
+                "description": "artistic_choice 由艺术圣经定;seeded_variant 由种子生成多个都合法的变体"
+              },
+              "note": {
+                "type": "string",
+                "description": "合法解的范围,以及这次为什么这么定"
+              }
+            }
           }
         }
       }

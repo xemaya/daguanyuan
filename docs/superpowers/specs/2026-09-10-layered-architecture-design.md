@@ -172,9 +172,24 @@ plan.json + scenes/*.json → derive（按 tier 选参数集）→ Frame
 | `ok` | 直接用 |
 | `contested` | 用 `correction`；若该规则有 `choices`，调用方必须在 spec 里显式指定 key，未指定则抛 `AmbiguousRuleError` |
 | `refuted` | 禁用。引用即抛 `RefutedRuleError`，错误信息带更正值与出处 |
+| `underdetermined` | 证据存在且不冲突，但合法解不唯一。**不抛错**，按 `resolution.method` 定：`artistic_choice` 走艺术圣经，`seeded_variant` 由种子生成变体。两者都记入 provenance 的 art 分支，见下 |
 | `missing` | 抛 `MissingRuleError(id, 缺什么, whereToLook)`；调用方可传 `overrides[id]` 显式覆盖，覆盖会记入 `Frame.provenance` |
 
-`Frame` 带 `provenance` 字段：这次推导用了哪些规则、哪些走了覆盖、哪些是存疑的更正值。棚拍与截图 harness 把它写进 manifest，这样任何一张图都能回溯到规则。
+`Frame` 带 `provenance` 字段。**它分三支，不能混成一条链**（2026-09-10 外部 review 后补）：
+
+| 分支 | 装什么 | 例子 |
+|---|---|---|
+| `evidence` | 原文、古籍、实测、论文——有出处的事实 | 潇湘馆"一明两暗三间"；《工程做法》的柱径规则 |
+| `inference` | 我们据证据做的裁决 | 稻香村判在西（原文对撞，降级到多家共识裁） |
+| `art` | 为体验主动做的偏离 | 构件胖 10%；木色比色卡亮一档；欠定项的 `artistic_choice` |
+
+混成一条链的后果是**艺术决策会被当成史料**。分开之后，将来点一根柱子可以告诉玩家：
+"柱网规则出自《工程做法》（史料）· 此处取三开间（推定）· 柱径视觉增粗 10%（艺术偏离）"。
+
+这大概是这个项目区别于其他 3D 大观园的地方——不是更准确，是**能说清自己为什么长这样、
+哪里其实是猜的**。
+
+棚拍与截图 harness 把 provenance 写进 manifest，任何一张图都能回溯。
 
 **第一个案例**：Tier A 的"由柱高反算斗口"在书里不存在（清式批评稿 A1，六个口径互差 8% 到 21%）。迁移后正门与大观楼会抛 `MissingRuleError`，直到有人补规则或显式传覆盖。这是设计意图，不是 bug。
 
