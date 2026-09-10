@@ -210,7 +210,7 @@ PX 不在关键路径上,想什么时候看见好看的天就什么时候插。
 
 **顺带的杂项账**(不值得单开一期,但记着免得忘):
 
-- `knowledge/docs/` 里的自指路径省略了 `knowledge/` 前缀(`docs/fashi/01-caifen.md` 之类,6 处)。
+- `knowledge/docs/` 里的自指路径省略了 `knowledge/` 前缀(写成 "docs/fashi/…" 而非 "knowledge/docs/fashi/…",6 处)。
   P0 搬家的残留,只是行文速写不是失效链接,`tools/check-docs.mjs` 已白名单豁免。
   哪次动这些研究稿时顺手改掉即可。
 

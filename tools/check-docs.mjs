@@ -152,7 +152,10 @@ function exempt(rel, token, why) {
   exempted.add(`${rel}: ${token} — ${why}`);
 }
 
-function checkToken(token, mdFile) {
+function checkToken(raw, mdFile) {
+  // `path/file.ts:123` 与 `path/file.ts:123:45` 是本仓引用代码位置的标准写法
+  // (README 与各 review 都这么写),行号不是路径的一部分,先剥掉。
+  const token = raw.replace(/:\d+(?::\d+)?$/, '');
   if (token.includes('://') || token.startsWith('@')) return;
   if (token.includes('<') || token.includes('>') || token.includes('*')) return;
   if (!token.includes('/')) return;
@@ -164,9 +167,12 @@ function checkToken(token, mdFile) {
   const pairWhy = pathAllow.get(`${rel}\0${token}`) ?? pathAllow.get(`\0${token}`);
   if (pairWhy) return exempt(rel, token, pairWhy);
   // 链接按 md 所在目录解析;行内代码按仓库根解析。两种都试,有一个存在即算通过。
-  const candidates = [resolve(ROOT, token), resolve(dirname(mdFile), token)];
+  // 绝对路径(review 工具常这么产)按其字面解析;其余两解:仓库根与 md 所在目录。
+  const candidates = token.startsWith('/')
+    ? [token]
+    : [resolve(ROOT, token), resolve(dirname(mdFile), token)];
   if (candidates.some((c) => existsSync(c))) return;
-  violations.push(`${rel}: \`${token}\` 不存在`);
+  violations.push(`${rel}: \`${raw}\` 不存在`);
 }
 
 const mdFiles = collectMd(ROOT);
