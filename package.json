@@ -9,6 +9,8 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "check": "tsc --noEmit",
+    "check:layers": "node tools/check-layers.mjs",
+    "check:rules": "node tools/check-rules.mjs",
     "test": "node --experimental-strip-types --import ./tests/ts-resolver.mjs --test tests/*.test.mjs"
   },
   "dependencies": {
