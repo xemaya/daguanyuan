@@ -18,6 +18,10 @@ const SETS = {
   'qing.rules.json': { dir: 'knowledge/docs/qingshi', chapters: /^0[1-4]-/ },
   'fayuan.rules.json': { dir: 'knowledge/docs/qingshi', chapters: /^0[56]-/ },
   'honglou.rules.json': { dir: 'knowledge/docs/qingshi', chapters: /^07-/ },
+  // plants 与 missing 是跨章汇编/缺口清单,研究稿里没有对应的 ### 标题,
+  // chapters 写 /^$/ 匹配不到任何文件:只校验 JSON 合法与依赖不悬空,不做条目对齐。
+  'plants.rules.json': { dir: 'knowledge/docs/qingshi', chapters: /^$/ },
+  'missing.rules.json': { dir: 'knowledge/docs/qingshi', chapters: /^$/ },
 };
 
 const STATUS_ZH = { 通过: 'ok', 存疑: 'contested', 驳倒: 'refuted' };
@@ -56,12 +60,18 @@ for (const [jsonName, { dir, chapters }] of Object.entries(SETS)) {
   }
   const fromJson = new Map(doc.rules.map((r) => [r.id, r]));
 
-  const missingInJson = [...fromMd.keys()].filter((id) => !fromJson.has(id));
+  // chapters 匹配不到任何文件的集合(plants/missing 这类跨章汇编)不做条目对齐
+  const noAlign = chapters.source === '^$';
+  const missingInJson = noAlign ? [] : [...fromMd.keys()].filter((id) => !fromJson.has(id));
   // json 允许多出 status=missing 的条目：那是批评稿指出的缺口，研究稿里本就没有
-  const extraInJson = [...fromJson.values()].filter((r) => !fromMd.has(r.id) && r.status !== 'missing');
-  const mismatched = [...fromJson.values()].filter(
-    (r) => fromMd.has(r.id) && fromMd.get(r.id).status && fromMd.get(r.id).status !== r.status,
-  );
+  const extraInJson = noAlign
+    ? []
+    : [...fromJson.values()].filter((r) => !fromMd.has(r.id) && r.status !== 'missing');
+  const mismatched = noAlign
+    ? []
+    : [...fromJson.values()].filter(
+        (r) => fromMd.has(r.id) && fromMd.get(r.id).status && fromMd.get(r.id).status !== r.status,
+      );
   // 依赖必须指向本集合内已存在的 id
   const dangling = doc.rules.flatMap((r) =>
     (r.needs ?? []).filter((n) => !fromJson.has(n)).map((n) => `${r.id} → ${n}`),
