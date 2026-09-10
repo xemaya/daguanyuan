@@ -1,6 +1,8 @@
 # P1 任务分派单
 
-Task 1 由主会话做（它是脊柱，改动面最宽，也最容易被并发覆盖）。其余六个可分派。
+**Task 1 已完成**（2026-09-10，commit `3dd33f54`）。42/42 测试通过、四门全过、14 镜结构一致、试玩 PASS。其余六个可分派。
+
+写实现时暴露了三处设计错误，计划已更正。**单子 A 与单子 B 照计划 Task 1 一节的「实际接口」写，不要照本节最初的草稿。**
 
 **每个 agent 开工前必读**（按顺序）：
 
@@ -14,7 +16,9 @@ Task 1 由主会话做（它是脊柱，改动面最宽，也最容易被并发�
 - 工作目录 `~/Workspace/games/daguanyuan`，分支 `editor`。
 - 收工前 `npm run check`、`npm test`、`npm run check:layers`、`npm run check:rules` 必须全过。
 - `builder/derive/` 不许 import `three`。它只产数。
-- 大木作的数字只从规则表出，不许在代码里写字面量。
+- 大木作的数字只从规则表出，不许在代码里写字面量。规则表里缺就补规则表，**不要补代码**——`book.num()` 取不到会抛，错误信息里带着 `formula` 原文告诉你该结构化哪个数。
+- **不许用 TypeScript 参数属性、`enum`、`namespace`、装饰器**：`tsc --noEmit` 认，`npm test` 的 strip-only 模式不认，而且不报编译错，整个模块直接挂（PITFALLS P-15）。
+- **规则号只在规则集内唯一**，273 个里 115 个跨文件重号。开工先跑 `book.collisions()`，撞了的写限定形式 `use('fayuan:06-01')`（PITFALLS P-16）。
 - 提交信息末尾附：
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
@@ -28,7 +32,7 @@ Task 1 由主会话做（它是脊柱，改动面最宽，也最容易被并发�
 ## 调度
 
 ```
-主会话:  Task 1 规则加载器+状态机+provenance
+✅ Task 1 规则加载器+状态机+provenance  (commit 3dd33f54)
              ↓
         ┌────┴────┐
      单子 A      单子 B
@@ -43,15 +47,14 @@ Task 1 由主会话做（它是脊柱，改动面最宽，也最容易被并发�
 单子 F   Task 7 分簇剔除 + 地形分块
 ```
 
-**第一批（可立即并行派 2 个）**：单子 C、单子 D
-**第二批（Task 1 完成后并行派 2 个）**：单子 A、单子 B
-**第三批（Task 5 完成后）**：单子 E，然后单子 F
+**现在可并行派 4 个**：单子 A、单子 B（Task 1 已落地）、单子 C、单子 D
+**之后（单子 D 合入后）**：单子 E，然后单子 F
 
 单子 A/B 与单子 D/E 都改 `builder/`，但文件不重叠：A/B 只碰 `builder/derive/`，D/E 只碰 `builder/compose/` 与 `engine/`。
 
 ---
 
-## 第一批
+## 现在可派
 
 ### 单子 C — Task 4 构件级本体（数据层）
 
@@ -93,8 +96,6 @@ Task 1 由主会话做（它是脊柱，改动面最宽，也最容易被并发�
 
 ---
 
-## 第二批（Task 1 完成后）
-
 ### 单子 A — Task 2 `qing` 参数集（斗口制）
 
 > 在 `~/Workspace/games/daguanyuan` 实现 P1 计划的 **Task 2: qing 参数集**。
@@ -102,12 +103,19 @@ Task 1 由主会话做（它是脊柱，改动面最宽，也最容易被并发�
 >
 > 你只碰：`builder/derive/qing/*.ts`（新建目录）、`tests/qing.test.mjs`（新建）、`builder/derive/index.ts`（只加分派的那几行）。
 >
-> **开工前必读**：`knowledge/docs/qingshi/README.md` 的跨章结论、`01-doukou.md`、`02-jujia.md`、`03-chuyan.md`、`04-dougong.md`、`tiers.md` 的 Tier A 一节与**禁用 id 白名单**。
+> **开工前必读**：计划的 **Task 1 一节「实际接口」与「三处更正」**（这是你的依赖契约，最初草稿里的 `RuleBook` 形状是错的）；然后 `knowledge/docs/qingshi/README.md` 的跨章结论、`01-doukou.md`、`02-jujia.md`、`03-chuyan.md`、`04-dougong.md`、`tiers.md` 的 Tier A 一节与**禁用 id 白名单**；最后 `docs/PITFALLS.md` 的 P-14、P-15、P-16。
+>
+> **开工第一条命令**是跑 `RuleBook.create('qing').collisions()`（计划 Task 2 的 Step 0 有现成的），看清自己这套里哪些规则号跟别的集撞了。撞了的一律写 `use('qing:01-05')` 这种限定形式。
 >
 > **三件事不要搞错**：
 > 1. **斗口不由查表定，要由柱高反算，而这条反函数书里没有**（`missing.rules.json` 的 `99-02`，六个口径互差 8%~21%，选哪个决定斗口差一等以上）。所以 Tier A 的建筑现在会抛 `MissingRuleError`。**这是设计意图，不是 bug，有一条测试专门断言它会抛。绝对不要为了让它跑起来编一个除数。**
 > 2. `tiers.md` 白名单里的规则（01-05 攒数推面阔、02-02 步架定尺、04-06、04-07、04-11 等）在规则表里是 `refuted`，引用即抛。碰到就说明推导路径选错了，换一条。
 > 3. 举架系数可用，但**步架长不可用**（02-02 被驳倒，均分法实测偏差 −33% 到 +34%）。步架长由调用方给。
+>
+>
+> **还有两条 Task 1 撞出来的**：
+> - **要不要选口径，由 `choices` 在不在决定，不由状态决定。** `04-03` 状态是"通过"却有三个并存口径，差 32%。`qing` 里带 `choices` 的一律要选，别看状态。口径超过一两条就照 `profiles.ts` 的形状加一份预设——**预设里只放口径的名字，不放数**。
+> - `qing.rules.json` 大概率有不少条的数只写在 `formula` 字符串里没结构化。`book.num()` 取不到会抛并把 `formula` 原文带给你。**补进规则表，别写回代码。** 补的时候只把原文里已有的数抬出来，一个都不新造——Task 1 补了 17 条，可作范本。
 >
 > 长春宫那条断言的容差是 10%：规则档 56.8 斗口算出 3.976 m，实测 3.67 m，偏 +8.3%。**别去调容差凑，也别去改规则凑。**
 >
@@ -124,12 +132,19 @@ Task 1 由主会话做（它是脊柱，改动面最宽，也最容易被并发�
 >
 > 你只碰：`builder/derive/fayuan/*.ts`（新建目录）、`tests/fayuan.test.mjs`（新建）、`builder/derive/index.ts`（只加分派的那几行）。**注意单子 A 也会碰 `index.ts`，只加你自己那一行分派，别动别人的。**
 >
-> **开工前必读**：`knowledge/docs/qingshi/05-fayuan.md`（27 条，篇幅最长）、`06-wuding.md` 里 `paramSet: fayuan` 的那几条、`tiers.md` 的 Tier B 与 Tier C、`verify-suzhou.md` 的 A 部分（月到风来亭手算）。
+> **开工前必读**：计划的 **Task 1 一节「实际接口」与「三处更正」**（这是你的依赖契约）；然后 `knowledge/docs/qingshi/05-fayuan.md`（27 条，篇幅最长）、`06-wuding.md` 里 `paramSet: fayuan` 的那几条、`tiers.md` 的 Tier B 与 Tier C、`verify-suzhou.md` 的 A 部分（月到风来亭手算）；最后 `docs/PITFALLS.md` 的 P-14、P-15、P-16。
+>
+> **你这套是重号重灾区。** 已知 `fayuan` 的 `06-01`（清式屋顶形制等级序列，**已驳倒**，`paramSet: both`）与 `fashi` 的 `06-01`（界深与提栈起算，**通过**）同号，`06-07` 同理。不写限定形式的话你会拿到另一条规则，而错误信息说得头头是道——只是说错了规则。开工第一条命令跑 `RuleBook.create('fayuan').collisions()`，撞了的一律写 `use('fayuan:06-01')`。
 >
 > **三件事不要搞错**：
 > 1. **05-06「个」的读法被两名核验者共同驳倒**，照抄会把屋面抬高一倍。规则表里它是 `refuted`，引用即抛，有测试断言。正确读法在 `correction` 字段：个等于级数，总递加等于个数减一。
 > 2. **提栈逐界插值法是空的**（`missing` 的 `99-08`）。`05-09` 只有四行算例（界深 3.5/4/4.5/5 尺）。界深落在 3.7 或 4.2 这类值上，**必须由 spec 显式声明 `interpolate`，不声明就抛**。书里只有四个点，插值是我们加的，得留痕。
 > 3. **连机、夹堂、枋子那段高度书里没比例**，是檐口高程闭合差的主要来源。它在 `missing` 的 `99-04` 里，`whereToLook` 已经写好该查刘敦桢《苏州古典园林》图版与《营造法原》第十三章，**别自己另编一套出处**。
+>
+>
+> **还有两条 Task 1 撞出来的**：
+> - **要不要选口径，由 `choices` 在不在决定，不由状态决定**（`04-03` 状态"通过"却三档并存差 32%）。`fayuan` 里带 `choices` 的一律要选。
+> - 很多条的数只写在 `formula` 字符串里没结构化，`book.num()` 取不到会抛并带上 `formula` 原文。**补进规则表，别写回代码**，且只把原文里已有的数抬出来，一个都不新造。
 >
 > 月到风来亭对边距断言容差 10%（`verify-suzhou.md` 记录实测 −1.0%）。**别调容差凑。**
 >
@@ -139,7 +154,7 @@ Task 1 由主会话做（它是脊柱，改动面最宽，也最容易被并发�
 
 ---
 
-## 第三批
+## 之后
 
 ### 单子 E — Task 6 世界切到 plan 坐标系
 

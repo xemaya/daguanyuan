@@ -19,7 +19,7 @@ MVP(2026-09-10)验证了三件事:程序化的表现力、《营造法式》推�
 |---|---|---|---|---|
 | **P-1** | 平面图真源:研究稿 + `plan.json` + `plan.svg` | 三路并行 | — | ✅ 完成 |
 | **P0** | 骨架搬家:四层目录、路径别名、三道门、规则表机读化、抽散布机制层 | Task 2 后可并行 5 个 | — | 🔄 Task 1–4、8、9 完成;Task 5–7 在跑 |
-| **P1** | 底层补齐:规则加载器与状态机与 `Frame.provenance` / `qing` 参数集 / `fayuan` 参数集 / 构件级本体 / 地形从 `plan.json` 生成 / 世界切到 plan 坐标系 / 分簇剔除与地形分块 | 三条链,首批可并行 3 个 | P0 | 📋 计划已出([计划](superpowers/plans/2026-09-10-p1-foundation.md) · [分派单](superpowers/plans/2026-09-10-p1-task-orders.md)) |
+| **P1** | 底层补齐:规则加载器与状态机与 `Frame.provenance` / `qing` 参数集 / `fayuan` 参数集 / 构件级本体 / 地形从 `plan.json` 生成 / 世界切到 plan 坐标系 / 分簇剔除与地形分块 | 三条链,首批可并行 3 个 | P0 | 🔄 Task 1 完成(commit 3dd33f54);Task 2–7 待派([计划](superpowers/plans/2026-09-10-p1-foundation.md) · [分派单](superpowers/plans/2026-09-10-p1-task-orders.md)) |
 | **P2** | 几何层补真:区域轮廓、建筑 spec、游线数据模型、远景、线性构件 | 一个人做,跨区一致性要求高 | P0 | 未开始 |
 | **P3** | 构件库扩充:植物、叠山、驳岸、铺地、小木、乡野 | 每类一个 agent | P1 的参数集 | 未开始 |
 | **P4** | 分区建设:一区一份 `scenes/<region>.json` | 每区一个 agent | P2 的几何 + P3 的构件 | 未开始 |

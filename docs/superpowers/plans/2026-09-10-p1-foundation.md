@@ -15,6 +15,8 @@
 - 单位米；构件原点在地面中心，`+Z` 朝正面。
 - 禁用 `Math.random()`，随机走 `@engine/core/Noise` 的种子生成器。
 - **`builder/derive/` 不许 import `three`**。它只产数。分层门查这条。
+- **不许用 TypeScript 参数属性、`enum`、`namespace`、装饰器。** `tsc` 认，`npm test` 的 strip-only 模式不认，而且不报编译错——整个模块直接挂。见 PITFALLS P-15。
+- **规则号只在规则集内唯一**（273 个里 115 个跨文件重号）。开工先跑一次 `book.collisions()`，撞了的写限定形式 `use('fayuan:06-01')`。见 PITFALLS P-16。
 - `engine/` 不许 import `builder/` `knowledge/` `projects/`；`builder/` 不许 import `projects/`。
 - 跨层走别名 `@engine/ @builder/ @knowledge/ @project/`，不写 `../..`。
 - 大木作的数字只从规则表出，不许在代码里写字面量。
@@ -48,575 +50,109 @@
 
 ---
 
-## 链 A · Task 1: 规则加载器、状态机、provenance
+## 链 A · Task 1: 规则加载器、状态机、provenance ✅ 已完成
 
-这是整个 P1 的脊柱。做完之后，代码里不再有手抄的营造数字，知识库第一次真正开始工作。
+**交付于** 2026-09-10，commit `3dd33f54`。Task 2 与 Task 3 照着下面的**实际接口**写，不要照计划最初的草稿——写实现时暴露了三处设计错误，都已更正。
 
-**Files:**
-- Create: `builder/derive/rules.ts`、`builder/derive/errors.ts`、`builder/derive/provenance.ts`
-- Modify: `builder/derive/fashi/cai.ts`、`puzuo.ts`、`zhu.ts`、`juzhe.ts`、`yanchu.ts`、`builder/derive/index.ts`
-- Test: `tests/rules.test.mjs`、`tests/fashi.test.mjs`（改造）
+**已落地的文件**：`builder/derive/{rules,errors,provenance,profiles}.ts`；`fashi/{cai,puzuo,zhu,juzhe,yanchu}.ts` 与 `index.ts` 全部改成从 `RuleBook` 取数；`tests/rules.test.mjs`（13 条）与 `tests/fashi.test.mjs`（19 条，含突变测试）。
 
-**Interfaces:**
-- Produces:
-  - `class RuleBook`，构造 `new RuleBook('fashi', { choices, overrides })`，或测试用 `RuleBook.fromRules(rules, paramSet, opts)`
-  - `book.use(id): Rule` — 判状态、记 provenance、返回可用条目
-  - `book.table<T>(id): T[]` · `book.choice<T>(id): T` · `book.provenance(): Provenance`
-  - `RefutedRuleError` · `AmbiguousRuleError` · `MissingRuleError`（都带 `ruleId`）
-  - `interface Provenance { evidence: Entry[]; inference: Entry[]; art: Entry[] }`，`Entry = { id, name, location?, note? }`
-- Consumes: `@knowledge/rules/{fashi,qing,fayuan}.rules.json`
+**验收结果**：42/42 测试通过 · 四门全过 · 14 镜结构逐项一致 · 键盘试玩 PASS · `grep` 手抄数字无输出。
 
-- [ ] **Step 1: 写失败测试**
-
-```javascript
-// tests/rules.test.mjs
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { RuleBook } from '@builder/derive/rules.ts';
-import { RefutedRuleError, AmbiguousRuleError, MissingRuleError } from '@builder/derive/errors.ts';
-
-const mk = (rules, opts) => RuleBook.fromRules(rules, 'fashi', opts);
-
-test('ok 的规则直接可用，并记进 evidence', () => {
-  const book = mk([
-    { id: '01-05', name: '八等材尺寸表', status: 'ok', statement: '', paramSet: 'fashi',
-      formula: 'table', table: [{ grade: 1, fenCun: 0.6 }], location: '卷四·材' },
-  ]);
-  assert.equal(book.table('01-05')[0].fenCun, 0.6);
-  const p = book.provenance();
-  assert.equal(p.evidence.length, 1);
-  assert.equal(p.evidence[0].id, '01-05');
-  assert.equal(p.inference.length, 0);
-  assert.equal(p.art.length, 0);
-});
-
-test('driven 驳倒的规则引用即抛，错误里带更正值与出处', () => {
-  const book = mk([
-    { id: '05-06', name: '递加个数', status: 'refuted', statement: '', paramSet: 'fashi',
-      correction: '个 = 级数，总递加 = 个数 − 1', location: '营造法原·提栈' },
-  ]);
-  assert.throws(() => book.use('05-06'), (e) => {
-    assert.ok(e instanceof RefutedRuleError);
-    assert.equal(e.ruleId, '05-06');
-    assert.match(e.message, /个 = 级数/);
-    assert.match(e.message, /营造法原/);
-    return true;
-  });
-});
-
-test('存疑且有多口径时，不指定就抛；指定了记进 inference', () => {
-  const rules = [
-    { id: '01-09', name: '宋尺换算', status: 'contested', statement: '', paramSet: 'fashi',
-      choices: [
-        { key: 'chutu', value: 31.2, note: '出土宋尺下限' },
-        { key: 'chen', value: 32.0, note: '陈明达，辽代' },
-      ] },
-  ];
-  assert.throws(() => mk(rules).choice('01-09'), (e) => {
-    assert.ok(e instanceof AmbiguousRuleError);
-    assert.match(e.message, /chutu/);
-    assert.match(e.message, /chen/);
-    return true;
-  });
-  const book = mk(rules, { choices: { '01-09': 'chen' } });
-  assert.equal(book.choice('01-09'), 32.0);
-  assert.equal(book.provenance().inference[0].id, '01-09');
-  assert.match(book.provenance().inference[0].note, /chen/);
-});
-
-test('存疑但无多口径时，用 correction 并记进 inference', () => {
-  const book = mk([
-    { id: '03-01', name: '柱径', status: 'contested', statement: '', paramSet: 'fashi',
-      formula: 'D = 42', correction: '唐构实测约 29 分，允许覆盖' },
-  ]);
-  book.use('03-01');
-  assert.equal(book.provenance().inference.length, 1);
-  assert.match(book.provenance().inference[0].note, /唐构实测/);
-});
-
-test('欠定的规则不抛错，按 resolution 走并记进 art', () => {
-  const book = mk([
-    { id: '90-01', name: '竹丛数', status: 'underdetermined', statement: '', paramSet: 'fashi',
-      resolution: { method: 'seeded_variant', note: '原文「千百竿」只约束量级，丛数取 12~20 的种子变体' } },
-  ]);
-  book.use('90-01');
-  assert.equal(book.provenance().art.length, 1);
-  assert.equal(book.provenance().art[0].method, 'seeded_variant');
-  assert.equal(book.provenance().evidence.length, 0, '欠定项不得记进 evidence');
-});
-
-test('缺失的规则抛错并说明该查哪本书；显式覆盖则记进 art', () => {
-  const rules = [
-    { id: 'ZZ-01', name: '某条书里没有的规则', status: 'missing', statement: '', paramSet: 'fashi',
-      whereToLook: { books: ['营造算例·大木'], keywords: ['檐柱高 斗口 反算'] } },
-  ];
-  assert.throws(() => mk(rules).use('ZZ-01'), (e) => {
-    assert.ok(e instanceof MissingRuleError);
-    assert.match(e.message, /营造算例/);
-    assert.match(e.message, /檐柱高 斗口 反算/);
-    return true;
-  });
-  const book = mk(rules, { overrides: { 'ZZ-01': 52.4 } });
-  assert.equal(book.use('ZZ-01').value, 52.4);
-  assert.equal(book.provenance().art[0].id, 'ZZ-01');
-});
-
-test('缺口条目 paramSet 为 none，但每套参数集都要能看见它', () => {
-  const rules = [
-    { id: '99-02', name: '由规模反算斗口的正向链', status: 'missing', statement: '', paramSet: 'none',
-      whereToLook: { books: ['《营造算例》第一章大木'], keywords: ['檐柱高 斗口 反算'] } },
-  ];
-  for (const ps of ['fashi', 'qing', 'fayuan']) {
-    assert.throws(() => RuleBook.fromRules(rules, ps).use('99-02'), (e) => {
-      assert.ok(e instanceof MissingRuleError);
-      assert.match(e.message, /营造算例/, `${ps} 参数集应看得见缺口条目并带出 whereToLook`);
-      return true;
-    });
-  }
-});
-
-test('按 paramSet 取数，不按文件名：both 的条目两边都收', () => {
-  const rules = [
-    { id: 'A', name: 'a', status: 'ok', statement: '', paramSet: 'qing' },
-    { id: 'B', name: 'b', status: 'ok', statement: '', paramSet: 'both' },
-    { id: 'C', name: 'c', status: 'ok', statement: '', paramSet: 'fayuan' },
-  ];
-  const qing = RuleBook.fromRules(rules, 'qing');
-  assert.deepEqual(qing.ids().sort(), ['A', 'B']);
-  const fayuan = RuleBook.fromRules(rules, 'fayuan');
-  assert.deepEqual(fayuan.ids().sort(), ['B', 'C']);
-});
-```
-
-- [ ] **Step 2: 跑测试确认失败**
-
-Run: `npm test 2>&1 | grep -A3 rules`
-Expected: FAIL，`Cannot find module '@builder/derive/rules.ts'`。
-
-- [ ] **Step 3: 写错误类**
-
-```typescript
-// builder/derive/errors.ts
-/**
- * 规则状态机的四种拒绝。
- *
- * 设计意图见 docs/DECISIONS.md D-08 与 D-16:让"我们不知道"成为程序能表达的状态。
- * 推导器宁可抛错停下,也不拿一个编出来的中值蒙混——那个数会一路传进几何,
- * 然后没人再知道它是猜的。
- */
-export class RuleError extends Error {
-  constructor(readonly ruleId: string, message: string) {
-    super(message);
-    this.name = new.target.name;
-  }
-}
-
-/** 两名核验者都驳倒的规则。禁用。 */
-export class RefutedRuleError extends RuleError {}
-
-/** 存疑且有多个并存口径，调用方没说用哪个。 */
-export class AmbiguousRuleError extends RuleError {}
-
-/** 书里根本没有这条规则。 */
-export class MissingRuleError extends RuleError {}
-```
-
-- [ ] **Step 4: 写 provenance**
-
-```typescript
-// builder/derive/provenance.ts
-/**
- * 出处三分。
- *
- * 一栋屋的数字来自三种性质完全不同的东西,混成一条链的后果是**艺术决策被当成史料**:
- *   evidence  原文/古籍/实测——有出处的事实
- *   inference 我们据证据做的裁决——存疑项选了哪个口径、用了哪个更正值
- *   art       为体验主动做的偏离——欠定项怎么定的、显式覆盖了什么
- *
- * 分开之后,点一根柱子可以说清:柱网规则出自《工程做法》(史料)· 此处取三开间(推定)
- * · 柱径视觉增粗 10%(艺术偏离)。见 spec §5。
- */
-export interface ProvenanceEntry {
-  id: string;
-  name: string;
-  /** 卷/篇/页，evidence 才有。 */
-  location?: string;
-  /** 为什么这么定。inference 与 art 必有。 */
-  note?: string;
-  /** art 分支:artistic_choice | seeded_variant | override */
-  method?: string;
-}
-
-export interface Provenance {
-  evidence: ProvenanceEntry[];
-  inference: ProvenanceEntry[];
-  art: ProvenanceEntry[];
-}
-
-export function emptyProvenance(): Provenance {
-  return { evidence: [], inference: [], art: [] };
-}
-
-/** 合并多个推导步骤的出处，按 id 去重。 */
-export function mergeProvenance(...ps: Provenance[]): Provenance {
-  const out = emptyProvenance();
-  for (const p of ps) {
-    for (const branch of ['evidence', 'inference', 'art'] as const) {
-      for (const e of p[branch]) {
-        if (!out[branch].some((x) => x.id === e.id)) out[branch].push(e);
-      }
-    }
-  }
-  return out;
-}
-```
-
-- [ ] **Step 5: 写加载器与状态机**
+### 实际接口（Task 2/3 的依赖契约）
 
 ```typescript
 // builder/derive/rules.ts
-/**
- * 机读规则表的加载器与状态机。
- *
- * 代码只从这里取营造数字,不许写字面量。规则表是真源(docs/DECISIONS.md D-09),
- * 改一条规则不用改代码,改错了手算断言会红。
- *
- * **按 paramSet 取数,不按文件名**:文件按来源章节组织,参数集按消费方组织,
- * 两个轴不平行。清《工程做法》06 章屋顶瓦作官式与苏式并存,整章塞进任何一个
- * 参数集都是错的。见 knowledge/rules/README.md 与 PITFALLS P-14。
- */
-import fashiFile from '@knowledge/rules/fashi.rules.json';
-import qingFile from '@knowledge/rules/qing.rules.json';
-import fayuanFile from '@knowledge/rules/fayuan.rules.json';
-import { AmbiguousRuleError, MissingRuleError, RefutedRuleError } from './errors';
-import { emptyProvenance, type Provenance } from './provenance';
+type RuleStatus = 'ok' | 'contested' | 'refuted' | 'underdetermined' | 'missing';
+type ParamSet   = 'fashi' | 'qing' | 'fayuan';
+type RuleSet    = 'fashi' | 'qing' | 'fayuan' | 'missing';   // = 来源文件
 
-export type RuleStatus = 'ok' | 'contested' | 'refuted' | 'underdetermined' | 'missing';
-export type ParamSet = 'fashi' | 'qing' | 'fayuan';
-
-export interface RuleChoice {
-  key: string;
-  value: unknown;
-  note: string;
+interface RuleBookOptions {
+  choices?:   Record<string, string>;   // 多口径规则选哪一档
+  overrides?: Record<string, unknown>;  // 给 missing 规则显式值,记进 art
 }
 
-export interface Rule {
-  id: string;
-  name: string;
-  status: RuleStatus;
-  statement: string;
-  paramSet: ParamSet | 'both' | 'none';
-  formula?: string;
-  table?: unknown[];
-  params?: Record<string, unknown>;
-  correction?: string;
-  choices?: RuleChoice[];
-  resolution?: { method: string; note: string };
-  quote?: string;
-  location?: string;
-  urls?: string[];
-  needs?: string[];
-  whereToLook?: { books?: string[]; keywords?: string[] };
-  notes?: string;
-  /** 调用方显式覆盖后填上，见 use()。 */
-  value?: unknown;
-}
+class RuleBook {
+  static create(paramSet: ParamSet, opts?: RuleBookOptions): RuleBook;
+  static fromRules(rules: Rule[], paramSet: ParamSet, opts?: RuleBookOptions): RuleBook;
+  static allRules(): readonly Rule[];          // 突变测试取原始表
 
-interface RuleFile {
-  source: { book: string; doc: string };
-  rules: Rule[];
-}
+  use(id: string): Rule;                       // 执法处:判状态、记出处,或抛
+  table<T>(id: string): T[];                   // 取 table 字段
+  num(id: string, key: string): number;        // 取 params.<key>,取不到就抛
+  nums(id: string, key: string): number[];     // 同上,值是数组
+  param(id: string, key: string): unknown;
+  choice<T>(id: string): T;                    // 取选中口径的值
 
-const ALL: Rule[] = [
-  ...(fashiFile as RuleFile).rules,
-  ...(qingFile as RuleFile).rules,
-  ...(fayuanFile as RuleFile).rules,
-];
+  pickInRange(id, key, at: 'lo'|'mid'|'hi'): number;   // 区间取点,自动记进 art
+  artChoice<T>(id: string, note: string, value: T): T; // 显式登记一次艺术决策
 
-export interface RuleBookOptions {
-  /** 存疑且多口径的规则，指定用哪个 key。不指定就抛 AmbiguousRuleError。 */
-  choices?: Record<string, string>;
-  /** 缺失的规则可以显式给值。会记进 provenance 的 art 分支，留痕。 */
-  overrides?: Record<string, unknown>;
-}
-
-export class RuleBook {
-  private readonly byId = new Map<string, Rule>();
-  private readonly prov = emptyProvenance();
-
-  private constructor(
-    rules: Rule[],
-    readonly paramSet: ParamSet,
-    private readonly opts: RuleBookOptions = {},
-  ) {
-    for (const r of rules) {
-      // 缺口条目在 missing.rules.json 里一律 paramSet: 'none'——一个空缺对每条链都是空缺,
-      // 按参数集过滤会把它们全滤掉,use() 就只剩一句"不在参数集里",丢掉 whereToLook。
-      const keep = r.paramSet === paramSet || r.paramSet === 'both' || r.status === 'missing';
-      if (keep) this.byId.set(r.id, r);
-    }
-  }
-
-  /** 从随仓库打包的规则表建一本。 */
-  static create(paramSet: ParamSet, opts: RuleBookOptions = {}): RuleBook {
-    return new RuleBook(ALL, paramSet, opts);
-  }
-
-  /** 从给定的规则数组建一本。测试用，也让调用方能注入被篡改的表做突变测试。 */
-  static fromRules(rules: Rule[], paramSet: ParamSet, opts: RuleBookOptions = {}): RuleBook {
-    return new RuleBook(rules, paramSet, opts);
-  }
-
-  ids(): string[] {
-    return [...this.byId.keys()];
-  }
-
-  /** 原始条目，不判状态、不记出处。给需要看 notes 的地方用。 */
-  raw(id: string): Rule | undefined {
-    return this.byId.get(id);
-  }
-
-  /**
-   * 取一条可用的规则：判状态、记出处，或者抛错。
-   *
-   * 这是整个知识库的执法处。每一条营造数字都要从这里过一次。
-   */
-  use(id: string): Rule {
-    const r = this.byId.get(id);
-    if (!r) {
-      throw new MissingRuleError(id, `规则 ${id} 不在 ${this.paramSet} 参数集里（或根本不存在）。`);
-    }
-
-    switch (r.status) {
-      case 'ok':
-        this.push('evidence', { id: r.id, name: r.name, location: r.location });
-        return r;
-
-      case 'refuted':
-        throw new RefutedRuleError(
-          id,
-          `规则 ${id}「${r.name}」已被两名核验者驳倒，禁用。` +
-            (r.correction ? ` 更正：${r.correction}` : '') +
-            (r.location ? ` 出处：${r.location}` : ''),
-        );
-
-      case 'contested': {
-        if (r.choices?.length) {
-          const key = this.opts.choices?.[id];
-          if (!key) {
-            const keys = r.choices.map((c) => `${c.key}(${c.note})`).join('、');
-            throw new AmbiguousRuleError(
-              id,
-              `规则 ${id}「${r.name}」有多个并存口径，必须显式选一个：${keys}。` +
-                ` 在 RuleBookOptions.choices 里给 { "${id}": "<key>" }。`,
-            );
-          }
-          const hit = r.choices.find((c) => c.key === key);
-          if (!hit) {
-            throw new AmbiguousRuleError(
-              id,
-              `规则 ${id} 没有口径 "${key}"，可选：${r.choices.map((c) => c.key).join('、')}。`,
-            );
-          }
-          this.push('inference', { id: r.id, name: r.name, note: `选用口径 ${key}：${hit.note}` });
-          return { ...r, value: hit.value };
-        }
-        this.push('inference', {
-          id: r.id,
-          name: r.name,
-          note: r.correction ?? '存疑，按研究稿的更正值使用',
-        });
-        return r;
-      }
-
-      case 'underdetermined': {
-        // 证据在、不冲突，但合法解不唯一。不抛错，但必须记进 art——
-        // 不记的话，艺术选择就伪装成考据结论了（DECISIONS D-16）。
-        const res = r.resolution;
-        this.push('art', {
-          id: r.id,
-          name: r.name,
-          method: res?.method ?? 'artistic_choice',
-          note: res?.note ?? '欠定项，未声明解析方式',
-        });
-        return r;
-      }
-
-      case 'missing': {
-        const ov = this.opts.overrides?.[id];
-        if (ov !== undefined) {
-          this.push('art', { id: r.id, name: r.name, method: 'override', note: `显式覆盖为 ${String(ov)}` });
-          return { ...r, value: ov };
-        }
-        const w = r.whereToLook;
-        throw new MissingRuleError(
-          id,
-          `规则 ${id}「${r.name}」在书里没有，无法推导。` +
-            (w?.books?.length ? ` 该查：${w.books.join('、')}。` : '') +
-            (w?.keywords?.length ? ` 关键词：${w.keywords.join('、')}。` : '') +
-            ` 要先用一个值顶着，在 RuleBookOptions.overrides 里显式给 { "${id}": <值> }，会记入 provenance。`,
-        );
-      }
-    }
-  }
-
-  /** use() 之后取表。 */
-  table<T>(id: string): T[] {
-    const r = this.use(id);
-    if (!Array.isArray(r.table)) {
-      throw new MissingRuleError(id, `规则 ${id}「${r.name}」没有 table 字段。`);
-    }
-    return r.table as T[];
-  }
-
-  /** use() 之后取选中口径的值。 */
-  choice<T>(id: string): T {
-    const r = this.use(id);
-    if (r.value === undefined) {
-      throw new AmbiguousRuleError(id, `规则 ${id} 不是多口径条目，用 use() 或 table()。`);
-    }
-    return r.value as T;
-  }
-
-  provenance(): Provenance {
-    return {
-      evidence: [...this.prov.evidence],
-      inference: [...this.prov.inference],
-      art: [...this.prov.art],
-    };
-  }
-
-  private push(branch: keyof Provenance, e: Provenance['evidence'][number]): void {
-    if (!this.prov[branch].some((x) => x.id === e.id)) this.prov[branch].push(e);
-  }
+  provenance(): Provenance;                    // { evidence, inference, art }
+  collisions(): Record<string, string[]>;      // 本参数集里的重号
+  raw(id: string): Rule | undefined;           // 不判状态、不记出处
+  ids(): string[];
 }
 ```
-
-- [ ] **Step 6: 跑测试确认通过**
-
-Run: `npm test 2>&1 | grep -E "^# (pass|fail)"`
-Expected: 7 条新测试通过，总数从 23 涨到 30。
-
-- [ ] **Step 7: 把 `cai.ts` 的手抄表换成规则表**
-
-现在 `builder/derive/fashi/cai.ts` 里 `GRADES` 是我手敲的字面量，和研究稿只有"照着抄的"这层人肉关联。改成：
 
 ```typescript
-import type { RuleBook } from '../rules';
-
-export interface GradeRow {
-  grade: number;
-  guangCun: number;
-  houCun: number;
-  fenCun: number;
-  use: string;
-}
-
-/** 八等材表 [fashi 01-05]。数字来自规则表，不在代码里写死。 */
-export function grades(book: RuleBook): GradeRow[] {
-  return book.table<GradeRow>('01-05');
-}
-
-/** 材/栔/足材的分值 [fashi 01-02][01-03][01-04]。 */
-export function caiModule(book: RuleBook): { guang: number; hou: number; qiGuang: number; zuCai: number } {
-  const m = book.use('01-02').params as { guang: number; hou: number } | undefined;
-  const q = book.use('01-03').params as { qiGuang: number } | undefined;
-  const guang = Number(m?.guang ?? 15);
-  const hou = Number(m?.hou ?? 10);
-  const qiGuang = Number(q?.qiGuang ?? 6);
-  return { guang, hou, qiGuang, zuCai: guang + qiGuang };
-}
+// builder/derive/profiles.ts
+type Era = 'song' | 'tang' | 'liao';
+function eraOptions(era: Era, extra?: RuleBookOptions): RuleBookOptions;
 ```
-
-`makeCai(spec)` 改成 `makeCai(book, spec)`。**尺长不再有默认值**——`01-09` 是 contested 且带四个 `choices`，调用方必须显式选，这正是我们要的行为。
-
-`puzuo.ts`、`zhu.ts`、`juzhe.ts`、`yanchu.ts` 同样处理：所有字面量数字换成 `book.use(id)` 取值，函数签名首参加 `book: RuleBook`。
-
-`builder/derive/index.ts` 的 `deriveBuilding(spec)` 内部建 book：
 
 ```typescript
-export interface BuildingSpec {
-  // …原有字段…
-  /** 用哪套参数集。缺省 fashi。 */
-  paramSet?: ParamSet;
-  /** 存疑多口径规则的选择，如 { "01-09": "chutu" }。 */
-  choices?: Record<string, string>;
-  /** 缺失规则的显式覆盖，会记入 provenance.art。 */
-  overrides?: Record<string, unknown>;
-}
-
-export interface Frame {
-  // …原有字段…
-  provenance: Provenance;
-}
+// builder/derive/index.ts
+function deriveBuilding(spec: BuildingSpec): Frame;                        // 内部按 spec.era 建 book
+function deriveWithBook(book: RuleBook, spec: BuildingSpec, era?: Era): Frame;
+// Frame 多了一个字段:provenance: { evidence[], inference[], art[] }
+// BuildingSpec 多了:era?: Era · rules?: RuleBookOptions · raiseRatio?: number
 ```
 
-- [ ] **Step 8: 改造 `tests/fashi.test.mjs`**
+### 三处更正——Task 2/3 必须知道
 
-现有断言（佛光寺、折屋 worked example）保持数值不变，但改成经由 `deriveBuilding` 走规则表。另加两条：
+**① 要不要选口径，由 `choices` 在不在决定，不由状态决定。**
 
-```javascript
-test('规则表是真源:改坏 JSON 里的数,断言立刻红', () => {
-  const good = RuleBook.fromRules(realFashiRules, 'fashi', { choices: { '01-09': 'chutu' } });
-  const bad = RuleBook.fromRules(
-    realFashiRules.map((r) =>
-      r.id === '01-05'
-        ? { ...r, table: r.table.map((row) => ({ ...row, fenCun: row.fenCun * 2 })) }
-        : r,
-    ),
-    'fashi',
-    { choices: { '01-09': 'chutu' } },
-  );
-  const g = makeCai(good, { grade: 6 });
-  const b = makeCai(bad, { grade: 6 });
-  assert.ok(Math.abs(b.fenCm - g.fenCm * 2) < 1e-9, '篡改规则表应当直接改变推导结果');
-});
+计划最初把口径选择放在 `case 'contested'` 里，是错的。`04-03` 殿阁举高状态是 `ok`——条文本身没问题——但法式 L/3、唐构实测、辽构 L/4 三档并存，差 32%。状态说的是"这条读得对不对"，口径说的是"这栋屋按谁的读法造"，两个正交的轴。
 
-test('尺长必须显式选口径，不选就抛', () => {
-  const book = RuleBook.create('fashi');
-  assert.throws(() => makeCai(book, { grade: 6 }), /多个并存口径/);
-});
-```
+现在 `use()` 的顺序是：**驳倒 → 口径 → 状态**。一条 `ok` 带 `choices` 的规则不选就抛，选了记进 `inference`（选口径永远是推定，哪怕规则本身通过）。
 
-- [ ] **Step 9: 确认代码里没有残留的手抄数字**
+`qing` 与 `fayuan` 里带 `choices` 的规则，都按这条处理，别再看状态。
 
-```bash
-grep -rnE "guangCun: [0-9]|fenCun: 0\.[0-9]|doukouCun" builder/derive | grep -v "\.d\.ts"
-```
+**② 规则号只在规则集内唯一，重号必须限定。**
 
-Expected: 无输出（除类型声明）。有输出说明还有表没搬。
+273 个 id 里 **115 个跨文件重号**。其中两个真撞在 `fashi` 参数集里：
 
-- [ ] **Step 10: 全门**
+| | id | 状态 | 名 | paramSet |
+|---|---|---|---|---|
+| fashi | 06-01 | ok | 界深与提栈起算 | fashi |
+| fayuan | 06-01 | **refuted** | 清式屋顶形制等级序列 | **both** |
 
-```bash
-npm run check && npm test && npm run check:layers && npm run check:rules
-```
+后加载的静默覆盖先加载的，于是 `use('06-01')` 把一条**通过**的规则判成**驳倒**——错误信息说得头头是道，只是说错了规则。
 
-Expected: 全过。分层门尤其要过——`builder/derive/` 仍然不许 import `three`。
+加载器现在给每条规则打 `set` 标；同一 id 在同一参数集里来自多个集时不覆盖，记成歧义，`use()` 抛错并列出限定形式。**要用就写 `use('fayuan:06-01')`。** `book.collisions()` 列出本参数集全部重号。
 
-- [ ] **Step 11: 结构无变化**
+> **Task 2、Task 3 开工第一件事**：把 `console.log(RuleBook.create('qing').collisions())` 和 `'fayuan'` 那份跑一遍，看清自己这套参数集里哪些号是撞的。撞了的一律写限定形式。
 
-```bash
-npm run build
-pkill -f "port 4801"; (nohup npx vite preview --host 127.0.0.1 --port 4801 --strictPort > preview.log 2>&1 &)
-sleep 3
-node tools/capture.mjs --url http://127.0.0.1:4801/ --out shots/p1t1
-node tools/manifest-diff.mjs shots/p1t1 shots/baseline
-```
+**③ 时代口径做成预设（`profiles.ts`）。**
 
-Expected: `0 镜结构不一致`。换数据源不该改变任何一栋房子——如果变了，说明规则表里的数与我手抄的不一致，**以规则表为准**，回去查是哪一条，并在提交信息里写明差在哪。
+`fashi` 一套就有 8 条多口径规则，每栋屋逐条选一遍太吵，而它们本是同一个决定的不同面。预设把"时代"翻译成一张口径表。
 
-- [ ] **Step 12: 提交**
+**预设里只有口径的名字，没有营造数字。** 数值仍只在规则表里，选中哪档也逐条记进 `provenance.inference`。`qing` 与 `fayuan` 如果也需要（例如官式 vs 苏式的分档），照这个形状加，别在代码里写数。
 
-```bash
-git add builder/derive tests/rules.test.mjs tests/fashi.test.mjs
-git commit -m "feat(derive): 推导器改读知识库——规则加载器、状态机、出处三分
+### 另加一条环境坑
 
-代码里不再有手抄的营造数字。改一条规则不用改代码,改错了手算断言会红。
-状态机四种拒绝:驳倒即抛、多口径不选即抛、缺失即抛并说明该查哪本书、
-欠定不抛但强制记进 art 分支(不记的话艺术选择会伪装成考据结论)。
-provenance 分 evidence/inference/art 三支,混成一条链会让艺术决策被当史料。"
-```
+**Node 的 strip-only 模式不支持 TypeScript 参数属性。** `constructor(readonly ruleId: string)` 这种写法 `tsc --noEmit` 完全不报，但 `npm test` 会整个模块挂掉，报 `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`。字段显式声明 + 构造函数里赋值。`enum`、`namespace`、装饰器同理。见 `docs/PITFALLS.md` P-15。
+
+**推论**：`npm run check` 过了不等于 `npm test` 跑得起来。新建模块后先跑一次测试，别攒到最后。
+
+### 知识库这一步补了什么
+
+17 条规则补了 `params` / `choices`，**数全部从各条自己的 `formula`、`statement`、`correction` 原文里抬出来结构化，一个都没新造**。唯一的数值改动是 `04-03` 法式档由 `0.3333` 补足成 1/3 的双精度展开（条文是 `L/3`，原表存的是四舍五入，把 20 尺算成 19.998）。
+
+`qing` 与 `fayuan` 大概率也要补 `params`——很多条的数只写在 `formula` 字符串里。`book.num()` 取不到会抛，错误信息带上 `formula` 原文告诉你该结构化哪个数。**补进规则表，不要写回代码。**
+
+### 一处几何变化（已接受）
+
+四个预设的骨架表逐字段比对，只有一处变了：**廊（两间）的生出 15.6cm → 12.5cm**。`05-08` 只给 1/3/5 间三档，两间不在表上；旧代码向上取三间档（5 寸），新代码按台阶函数向下取一间档（4 寸）。两个读法都不在书里，取后者。
 
 ---
 
@@ -628,12 +164,23 @@ provenance 分 evidence/inference/art 三支,混成一条链会让艺术决策�
 - Test: `tests/qing.test.mjs`
 
 **Interfaces:**
-- Consumes: Task 1 的 `RuleBook`、`Provenance`；规则来自 `paramSet: 'qing' | 'both'`（注意有 9 条在 `fayuan.rules.json` 文件里，**按字段取不按文件取**）。
-- Produces: `deriveQing(book, spec): Frame` — 与 `fashi` 同一个 `Frame` 契约，字段对照见 `knowledge/docs/qingshi/qingshi.schema.json` 的 `mapping` 段 24 条概念。
+- Consumes: Task 1 的 `RuleBook`（接口见上一节，**照那份写，不要照本节最初的草稿**）、`Provenance`；规则来自 `paramSet: 'qing' | 'both'`（注意有 9 条在 `fayuan.rules.json` 文件里，**按字段取不按文件取**）。
+- Produces: `deriveQing(book, spec): Frame` — 与 `fashi` 同一个 `Frame` 契约（含 `provenance` 字段），字段对照见 `knowledge/docs/qingshi/qingshi.schema.json` 的 `mapping` 段 24 条概念。
+
+- [ ] **Step 0: 先看清自己这套参数集里哪些规则号是撞的**
+
+```bash
+node --experimental-strip-types --import ./tests/ts-resolver.mjs -e "
+import('@builder/derive/rules.ts').then(({RuleBook}) => {
+  console.log('重号:', RuleBook.create('qing').collisions());
+});"
+```
+
+撞了的一律写限定形式 `use('qing:01-05')`，不写会抛 `AmbiguousRuleError`。理由见上一节更正②。
 
 - [ ] **Step 1: 先读，再动手**
 
-必读：`knowledge/docs/qingshi/README.md` 的跨章结论、`01-doukou.md`、`02-jujia.md`、`03-chuyan.md`、`04-dougong.md`、`tiers.md` 的 Tier A 那一节与**禁用 id 白名单**。
+必读：`knowledge/docs/qingshi/README.md` 的跨章结论、`01-doukou.md`、`02-jujia.md`、`03-chuyan.md`、`04-dougong.md`、`tiers.md` 的 Tier A 那一节与**禁用 id 白名单**。另外 `docs/PITFALLS.md` 的 P-14、P-15、P-16 三条是这条链上刚踩过的。
 
 三件要记住的事：
 
@@ -658,6 +205,7 @@ const within = (a, e, pct, label) => {
 
 test('斗口十一等表：一等 6.0 寸，逐等减 0.5 [qing 01-01]', () => {
   const book = RuleBook.create('qing');
+  // 若 collisions() 里有 01-01，就写 book.table('qing:01-01')。
   const t = book.table('01-01');
   assert.equal(t[0].doukouCun, 6.0);
   assert.equal(t[1].doukouCun, 5.5);
@@ -677,7 +225,9 @@ test('由柱高反算斗口是缺失规则，必须抛错并说明该查哪本�
 });
 
 test('显式给了斗口就能推下去：长春宫，斗口 70mm', () => {
-  const book = RuleBook.create('qing', { choices: { '01-19': 'qing' } });
+  // 带 choices 的规则不选就抛,**跟状态无关**——ok 的规则一样要选(更正①)。
+  // 这套参数集的口径如果不止一两条，照 profiles.ts 的形状加一份预设，别逐条塞。
+  const book = RuleBook.create('qing', { choices: { /* 逐条按 collisions/choices 实况填 */ } });
   const fr = deriveQing(book, {
     tier: 'A', doukouMm: 70, bays: 5, rafters: 6, roofType: '歇山',
     bayWidthsM: [6.34, 4.60, 3.60], puzuo: { cai: 7 },
@@ -752,12 +302,23 @@ Tier A 的建筑现在会抛 MissingRuleError:由柱高反算斗口这条反函�
 - Test: `tests/fayuan.test.mjs`
 
 **Interfaces:**
-- Consumes: Task 1 的 `RuleBook`；规则 `paramSet: 'fayuan' | 'both'`。
-- Produces: `deriveFayuan(book, spec): Frame`，同一契约。
+- Consumes: Task 1 的 `RuleBook`（接口见 Task 1 一节，**照那份写**）；规则 `paramSet: 'fayuan' | 'both'`。
+- Produces: `deriveFayuan(book, spec): Frame`，同一契约（含 `provenance`）。
+
+- [ ] **Step 0: 先看清重号——这套是重灾区**
+
+```bash
+node --experimental-strip-types --import ./tests/ts-resolver.mjs -e "
+import('@builder/derive/rules.ts').then(({RuleBook}) => {
+  console.log('重号:', RuleBook.create('fayuan').collisions());
+});"
+```
+
+已知 `fayuan` 的 `06-01`（清式屋顶形制等级序列，**已驳倒**）与 `fashi` 的 `06-01`（界深与提栈起算，**通过**）同号，且前者 `paramSet: both`。`06-07` 同理。撞了的一律写 `use('fayuan:06-01')`——不限定的话你会拿到另一条规则，而错误信息说得头头是道。理由见 Task 1 一节的更正②。
 
 - [ ] **Step 1: 先读**
 
-必读：`knowledge/docs/qingshi/05-fayuan.md`（27 条，篇幅最长）、`06-wuding.md` 里 `paramSet: fayuan` 的那几条、`tiers.md` 的 Tier B 与 Tier C、`verify-suzhou.md` 的 A 部分（月到风来亭手算）。
+必读：`knowledge/docs/qingshi/05-fayuan.md`（27 条，篇幅最长）、`06-wuding.md` 里 `paramSet: fayuan` 的那几条、`tiers.md` 的 Tier B 与 Tier C、`verify-suzhou.md` 的 A 部分（月到风来亭手算）。另外 `docs/PITFALLS.md` 的 P-14、P-15、P-16。
 
 三件要记住的事：
 
@@ -782,7 +343,8 @@ const within = (a, e, pct, label) => {
 
 test('05-06 递加「个」的读法已被驳倒，引用即抛，错误里带正确读法', () => {
   const book = RuleBook.create('fayuan');
-  assert.throws(() => book.use('05-06'), (e) => {
+  // 若 collisions() 里有 05-06，写 book.use('fayuan:05-06')。
+  assert.throws(() => book.use('fayuan:05-06'), (e) => {
     assert.ok(e instanceof RefutedRuleError);
     assert.match(e.message, /个\s*=\s*级数|个 = 级数/);
     return true;
@@ -790,7 +352,8 @@ test('05-06 递加「个」的读法已被驳倒，引用即抛，错误里带�
 });
 
 test('网师园月到风来亭：界深对边距 [fayuan 05-*]，误差 10% 内', () => {
-  const book = RuleBook.create('fayuan', { choices: { '05-01': 'suzuo' } });
+  // choices 逐条按规则表实况填:带 choices 的都要选,跟状态无关(更正①)。
+  const book = RuleBook.create('fayuan', { choices: { /* 按实况填 */ } });
   const fr = deriveFayuan(book, {
     tier: 'C', shape: 'hexagon', sideM: 2.10, columnHeightM: 3.00, jieCount: 4, chiCm: 27.5,
   });
@@ -799,7 +362,7 @@ test('网师园月到风来亭：界深对边距 [fayuan 05-*]，误差 10% 内'
 });
 
 test('提栈逐界递加：脊界最陡，檐界最缓', () => {
-  const book = RuleBook.create('fayuan', { choices: { '05-01': 'suzuo' } });
+  const book = RuleBook.create('fayuan', { choices: { /* 按实况填 */ } });
   const fr = deriveFayuan(book, {
     tier: 'B', bayWidthsM: [3.2, 3.8, 3.2], jieDepthChi: 4.0, jieCount: 6,
     columnHeightM: 3.04, chiCm: 27.5,
@@ -812,7 +375,7 @@ test('提栈逐界递加：脊界最陡，檐界最缓', () => {
 });
 
 test('界深落在算例表之外时，插值方式必须显式声明，否则抛', () => {
-  const book = RuleBook.create('fayuan', { choices: { '05-01': 'suzuo' } });
+  const book = RuleBook.create('fayuan', { choices: { /* 按实况填 */ } });
   assert.throws(
     () => deriveFayuan(book, {
       tier: 'B', bayWidthsM: [3.2, 3.8, 3.2], jieDepthChi: 4.2, jieCount: 6,
