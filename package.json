@@ -1,0 +1,27 @@
+{
+  "name": "daguanyuan",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "大观园 — first-person procedural 3D garden, built on the pallet-town-3d engine shell",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "check": "tsc --noEmit",
+    "check:layers": "node tools/check-layers.mjs",
+    "check:rules": "node tools/check-rules.mjs",
+    "check:plan": "node tools/check-plan.mjs",
+    "check:all": "npm run check && npm run check:layers && npm run check:rules && npm run check:plan && npm test",
+    "test": "node --experimental-strip-types --import ./tests/ts-resolver.mjs --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.1",
+    "playwright": "^1.62.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.5"
+  }
+}

@@ -1,0 +1,490 @@
+{
+  "source": {
+    "book": "批评稿汇编",
+    "doc": "knowledge/docs/qingshi/README.md + knowledge/docs/plan/README.md"
+  },
+  "rules": [
+    {
+      "id": "99-01",
+      "name": "era/region 参数总表",
+      "status": "missing",
+      "statement": "把尺长、模数根、柱高柱径系数、出檐法、翼角法、间广递减率、提栈/举架档、瓦作 system 按 {清官式北方, 江南香山帮, 明官式, 宋法式} 列成一张表,替代各章零散的 correction。这是所有其他补漏的前置。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "清工部《工程做法》卷一",
+          "梁思成《清式营造则例》",
+          "《营造法原》(建工 1986 影印本)",
+          "《营造法式》"
+        ],
+        "keywords": [
+          "营造尺 地域 尺长",
+          "模数 斗口 材分 界深",
+          "清官式 江南 香山帮 对照"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-02",
+      "name": "由规模反算斗口的正向链",
+      "status": "missing",
+      "statement": "tiers.md 要求 Tier A 由开间与柱高定规模、再反算斗口、再用斗口派生断面,但两书均未给反函数;柱高的六个口径(70/60/56.8 斗口等)互差 8%~21%,选哪个决定斗口差一等以上。需给 clamp 区间(檐柱净高 52~88 dk,长春宫 0.66×明间)与容差(±10%),并用 08-13 慈宁宫、08-15 智化寺两个锚点校核默认五等斗口。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《营造算例》第一章大木",
+          "梁思成《清式营造则例》附表·各件权衡尺寸",
+          "长春宫测绘报告"
+        ],
+        "keywords": [
+          "檐柱高 斗口 反算",
+          "平身科攒数 面阔 斗口",
+          "慈宁宫 斗口 实测",
+          "智化寺 斗口 柱高 面阔比"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-03",
+      "name": "步架分档规则(替代已驳倒的 02-02)",
+      "status": "missing",
+      "statement": "02-02'步架 22 斗口'已驳倒(卷一单例反推,实物散布 16~40 斗口)。需按 verify-suzhou §D 结论 3 写成 檐步/金步/脊步 三档数组(金脊 19.6~20.1 dk、檐步 39 dk 另一量级),默认值 + era 覆盖,禁止均分。任何'全部步架等长'或'总进深均分'的写法都带 30% 级误差。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《工程做法》卷一各殿座算例",
+          "故宫大式实测论文",
+          "马炳坚《中国古建筑木作营造技术》"
+        ],
+        "keywords": [
+          "步架 斗口 实测",
+          "檐步 金步 脊步",
+          "进深 分档"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-04",
+      "name": "江南多边形亭几何补充条",
+      "status": "missing",
+      "statement": "05-16 无多边形档:转角斜长六角 2/√3、八角 1/cos22.5°(verify-suzhou 用几何补出,不得沿用方五斜七 1.4,六角亭误差 +21.2%);攒尖亭顶界算数、宝顶高、连机/夹堂/枋子高四项原文无定量,须按刘敦桢图版量取后补成可编码规则。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "刘敦桢《苏州古典园林》",
+          "《营造法原》第十三章 亭"
+        ],
+        "keywords": [
+          "六角亭 八角亭 转角斜长",
+          "攒尖亭 宝顶高",
+          "苏州 亭 实测"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-05",
+      "name": "江南出檐独立规则(替代 Tier B/C 禁用的 03-01)",
+      "status": "missing",
+      "statement": "03-01(0.3×柱高出檐)套江南会把檐挑长两三成,已禁用。替代规则:'上檐出 = 1.5 × 出檐椽平出',出檐椽 1.6~2.4 尺 ≈ 0.5×界深,实得 ≈0.21×柱高;需补苏州亭榭出檐实测坐实。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《营造法原》出檐条(建工 1986 影印本)",
+          "刘敦桢《苏州古典园林》"
+        ],
+        "keywords": [
+          "江南 出檐 界深",
+          "出檐椽 平出",
+          "苏州 亭榭 出檐 实测"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-06",
+      "name": "檐高 clamp 规则(05-02 更正值落地)",
+      "status": "missing",
+      "statement": "05-02(檐高=0.8×正间面阔)在小型厅轩上失效:实测檐高近常数 3.2~3.6 m 而 0.8W 给 2.43~3.90 m。需落成 H_檐 = clamp(0.8×W_正间, 3.2, 3.6 m),并把 08-09 乙的适用域(W≈2.5~3.5 m)写进 guard;前置是解决远香堂檐高 OCR('了.35米' 首位 3 还是 7,决定 08-08 能否被正面证实)。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《苏州古典园林营造法式研究》(远香堂原始测绘)",
+          "刘敦桢《苏州古典园林》"
+        ],
+        "keywords": [
+          "远香堂 檐高 测绘",
+          "苏州厅堂 檐高 面阔 比"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-07",
+      "name": "柱径口径统一条(05-11 vs 05-22 差 66%)",
+      "status": "missing",
+      "statement": "05-11 亭柱径 0.1H 与 05-22 围径法互差 −66%,书中无调和条。需定义围径与直径的换算入口(÷π),裁定亭柱与廊柱各走哪一式,并补苏州亭柱径实测。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《营造法原》(建工 1986 影印本)",
+          "刘敦桢《苏州古典园林》"
+        ],
+        "keywords": [
+          "围径 柱径 营造法原",
+          "苏州 亭柱 柱径 实测"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-08",
+      "name": "提栈逐界插值规则(05-06 驳倒后的空缺)",
+      "status": "missing",
+      "statement": "B 档提栈逐界递加目前只能照 05-09 四行算例表(界深 3.5/4/4.5/5 尺)取值,界深落在表外时如何插值未定。需在四行算例之间给插值法,并按更正后的'个=被点名的提栈级数、总递加=个数−1'重写递推(05-06 原歌诀读法会把屋面抬高整整一倍,已驳倒不可用)。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《营造法原》提栈章(建工 1986 影印本)"
+        ],
+        "keywords": [
+          "提栈 递加 算例",
+          "界深 插值"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-09",
+      "name": "牌科装配规则(禁止分件 naive 叠加)",
+      "status": "missing",
+      "statement": "05-13 通过但书中无装配图口径:栱坐进斗口内,直叠会高出 23%。需按'斗内留胆五分'的坐口做法写成一条带装配偏移的规则。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《营造法原》牌科章(建工 1986 影印本)",
+          "香山帮匠作访谈/图录"
+        ],
+        "keywords": [
+          "牌科 装配 斗内留胆",
+          "一斗三升 坐口"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-10",
+      "name": "飞椽有无/发戗有无的等级判据",
+      "status": "missing",
+      "statement": "'四算不飞椽、五算不发戗'原典未找到(唯一来源 403 且把'戗'讹作'饯'),06-16 已驳倒。更正值落地:改按房屋等级的正脊处提栈限度判(租四/民房五/圆堂六/厅七/殿庭八),不要用檐界提栈判;保留 戗角坡度 = 正身提栈/1.414(法原算例吻合 1% 内)。'五算不发戗'取得纸本页码前标待考。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《营造法原》(建工 1986 影印本)",
+          "姚承祖 原稿"
+        ],
+        "keywords": [
+          "四算不飞椽 五算不发戗 出处",
+          "提栈 等级 正脊"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-11",
+      "name": "翼角冲出口径与翼角椽根数口径的裁定",
+      "status": "missing",
+      "statement": "03-09 冲出口径二选一(马炳坚放样:量在正身法线沿斜向×1.414 / 《工程做法》:3 椽径直接加斜长)与 03-15 翼角椽根数分子口径(现代匠作 vs 方五斜七)都是两名核验者点名要求'选定一套并禁止混引',目前仍双档并列。标准例只差 1%,其他建筑可差 4 根。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《工程做法》卷一",
+          "马炳坚《中国古建筑木作营造技术》(附撇半椽原图)"
+        ],
+        "keywords": [
+          "翼角 冲三 放样",
+          "翼角椽 根数 方五斜七"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-12",
+      "name": "重檐与楼阁两条空白",
+      "status": "missing",
+      "statement": "重檐下檐檐柱与金柱另开规则(01-06/01-08 存疑:70 斗口仅适用单檐带斗科卷一型,太和殿实测下檐檐柱≈84 斗口);大观楼群的平坐、上下层柱接、楼梯、复道断面/净高/坡度——01~08 八章一条依据都没有,全 L4(R-12)。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《营造算例》杂式章",
+          "明清楼阁测绘报告",
+          "太和殿测绘"
+        ],
+        "keywords": [
+          "重檐 檐柱 斗口",
+          "楼阁 平坐 复道",
+          "大观楼 复道 净高"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-13",
+      "name": "台明与下出",
+      "status": "missing",
+      "statement": "01-17 台明高两档口径未裁('台明上皮至挑尖梁下皮 1/4' vs '0.15 柱高');03-19 下出比存疑,需按屋顶分档(硬悬 2/3、歇庑 3/4),删单值 0.8,并补台明高实测。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《工程做法》卷一",
+          "《清式营造则例》"
+        ],
+        "keywords": [
+          "台明高 口径",
+          "下出 上檐出 比"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-14",
+      "name": "瓦作重建(06 章只有 4 条通过)",
+      "status": "missing",
+      "statement": "以《工程做法》卷四十三/四十六后续页(庑殿、博脊、围脊、琉璃样数未阅)+《营造法原》逐号瓦尺寸表重立苏式瓦作与脊型规则;nqiu_ridge(泥鳅脊)在法原脊型序列中的位置一旦核到,回改 tiers.md R-02。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "《工程做法》卷四十三/四十六",
+          "《营造法原》瓦作章(建工 1986 影印本)",
+          "刘敦桢《苏州古典园林》"
+        ],
+        "keywords": [
+          "江南 屋脊类型 甘蔗脊 纹头脊 哺鸡脊 雌毛脊",
+          "泥鳅脊 位置",
+          "蝴蝶瓦 逐号尺寸"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-15",
+      "name": "07 章补摘",
+      "status": "missing",
+      "statement": "07-honglou.md 未摘第五十、六十三、七十九回,栊翠庵(3 属性)与紫菱洲(1 属性)原文摘录严重不足,补摘后 tiers.md §2 第 9、11 条须重写;同时把 source.book 改标为维基文库校汇本、07-53 归属定名后另立'荣国府正门:照样也是三间大门,不进正门只进西边角门'一条。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "维基文库《紅樓夢》第五十/六十三/七十九回",
+          "程甲本(ctext.org,反爬待人工)"
+        ],
+        "keywords": [
+          "栊翠庵 第五十回",
+          "紫菱洲 第七十九回 迎春",
+          "荣国府 正门 角门"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-16",
+      "name": "游线折线蓼汀花溆↔蘅芜苑段反序",
+      "status": "missing",
+      "statement": "plan.json paths[0] 单程东行:沿线到蘅芜苑门在 41.2%、到蓼汀花溆门在 48.0%,而 route_ch17 要求先蓼汀(⑦)后蘅芜(⑧)。原文是过石洞后折回盘道上蘅芜苑(paths[7] 山上盘道正是这段),折线没画这次折返。修法二选一:折线补折返段,或明确声明折线只表大势、站序以 route_ch17 为准。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/plan/README.md §已知缺口 几何层 6",
+          "knowledge/docs/qingshi/07-honglou.md 07-15/07-16"
+        ],
+        "keywords": [
+          "route_ch17",
+          "paths 折线",
+          "折返段"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-17",
+      "name": "怡红院入口离游线折线 46 m",
+      "status": "missing",
+      "statement": "怡红院(⑫)的入口离游线折线 46 m,其余各站均 ≤ 17 m。折线在东南角应向怡红院门口收一收。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/plan/README.md §已知缺口 几何层 7"
+        ],
+        "keywords": [
+          "entrances",
+          "游线 折线 距离"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-18",
+      "name": "围墙折线周长比三里半短 6.0%",
+      "status": "missing",
+      "statement": "围墙折线实测周长 1896 m,比'三里半 = 2016 m'短 6.0%。两条路:认下来(仍在可调带 437–564 m 等效边长内,但图例目标值要改口),或把墙折线整体放大 6%。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/plan/README.md §已知缺口 几何层 8",
+          "knowledge/docs/plan/03-scale.md §1"
+        ],
+        "keywords": [
+          "三里半 周长",
+          "围墙 折线 缩放"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-19",
+      "name": "3 个入口落在自己的多边形外",
+      "status": "missing",
+      "statement": "平面几何门实测:zhengmen、qinfang_ting_qiao、nuanxiangwu 三个区域的 entrance 落在自己的多边形外。P2 修复,修复前 check-plan.mjs 该断言为 warn。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "docs/ROADMAP.md §P2",
+          "tools/check-plan.mjs"
+        ],
+        "keywords": [
+          "entrance 多边形 越界",
+          "zhengmen",
+          "qinfang_ting_qiao",
+          "nuanxiangwu"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-20",
+      "name": "4 个建筑锚点越界",
+      "status": "missing",
+      "statement": "平面几何门实测:正门的粉墙、稻香村的土井桔槔、暖香坞的两座过街门,共 4 个建筑锚点落在所属区域多边形外。P2 修复,修复前 check-plan.mjs 该断言为 warn。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "docs/ROADMAP.md §P2",
+          "tools/check-plan.mjs"
+        ],
+        "keywords": [
+          "建筑锚点 越界",
+          "土井 桔槔",
+          "过街门"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-21",
+      "name": "约束 5(翠嶂障景视线)3 处真违规",
+      "status": "missing",
+      "statement": "翠嶂东边只到 x=76,而怡红院(120,172)、栊翠庵(209,149)、凸碧凹晶(186,52)都在 x>119,正门(55,250)到它们的连线不经过翠嶂。平面合成时曾声称'翠嶂东延至 x=152,17/17 视线全遮断',plan.json 里没有这个延伸,那句话不成立。修法:延长翠嶂,或东移那三个区,或两者都做——改完重跑 check-plan.mjs。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "docs/ROADMAP.md §P2",
+          "knowledge/docs/plan/04-conflicts.md §四 约束 5"
+        ],
+        "keywords": [
+          "翠嶂 障景 视线",
+          "约束 5"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-22",
+      "name": "plan.json 占位几何补真",
+      "status": "missing",
+      "statement": "19 个区域多边形都是同一个椭圆抖出来的七顶点 blob,不表达院墙、轴线、进深;73 栋建筑里 56% 缺间数或屋顶;十七回 29 个节点只落了 14 站;'清堂茅舍/山下佛寺/道房/长廊曲洞/方厦圆亭'五处远景一个都没建;线性构件(墙、篱、夹道、驳岸)用点坐标表达不了,要改折线(scenes 契约:线性构件用 points 折线)。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "docs/ROADMAP.md §P2",
+          "docs/superpowers/specs/2026-09-10-layered-architecture-design.md §3.3/§3.4",
+          "knowledge/docs/plan/04-conflicts.md §三速查表"
+        ],
+        "keywords": [
+          "区域轮廓 多边形",
+          "scenes 折线 points",
+          "远景 五处"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "99-23",
+      "name": "环园东路从凸碧山山顶穿过",
+      "status": "missing",
+      "statement": "plan.json 的环园东路 [184,100]→[194,72] 段离凸碧山质心仅 0.03 m,即环路翻越全园最高山的山顶。地形生成器按 10% 限坡切山,该点只能到约 5.5 m,与 18 m 标称峰高不可兼得——高程断言与限坡断言互相排斥。修法:让环园东路绕山脚走,或把凸碧山的标称峰位与路分开。改完 tests/terrain-plan.test.mjs 的 SKIP_HILL 应清空。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/plan/04-conflicts.md",
+          "《红楼梦》第七十六回 凸碧堂品笛感凄清"
+        ],
+        "keywords": [
+          "凸碧山 山脊 山坳 山脚",
+          "环园东路 折线",
+          "盘道 绕山脚"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-10 由 P1 Task 5 地形生成器实测发现;当时按任务单约定只跳断言不改 plan.json。"
+    },
+    {
+      "id": "99-24",
+      "name": "三个区的质心落在水里,台基高程无处可依",
+      "status": "missing",
+      "statement": "xiaoxiangguan(穿院引泉沟距质心 0.1 m)、qinfangzha(闸跨水,质心在沁芳溪北段河道内 3.2 m)、liaoting_huaxu(港洞渡口,质心压在北段岸线 0.4 m)三个区,区域质心不在陆地上,所以「区域中心即台基位置」这个默认不成立。这不是锚点越界(那是 99-20),是几何事实。修法:给这三个区在 plan.json 里显式标出台基锚点(building anchor)与标高,不再用质心兜底。潇湘馆在 MVP 游线上,优先。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/plan/04-conflicts.md",
+          "《红楼梦》第十七回 大观园试才题对额"
+        ],
+        "keywords": [
+          "潇湘馆 引泉 开沟仅尺许",
+          "沁芳闸 跨水",
+          "蓼汀花溆 港洞 渡口",
+          "台基锚点 标高"
+        ]
+      },
+      "needs": [
+        "99-20"
+      ],
+      "paramSet": "none",
+      "notes": "2026-09-10 由 P1 Task 5 地形生成器实测发现;与 99-20 的 4 个越界锚点是两回事。"
+    }
+  ]
+}

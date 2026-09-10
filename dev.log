@@ -1,0 +1,532 @@
+
+  VITE v7.3.6  ready in 85 ms
+
+  ➜  Local:   http://127.0.0.1:4802/
+12:35:51 AM [vite] (client) page reload src/cn/parts/bridge.ts
+12:36:10 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:36:19 AM [vite] (client) ✨ new dependencies optimized: three/addons/utils/BufferGeometryUtils.js
+12:36:19 AM [vite] (client) ✨ optimized dependencies changed. reloading
+12:36:45 AM [vite] (client) page reload src/cn/parts/bamboo.ts
+12:36:50 AM [vite] (client) Pre-transform error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+12:36:50 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:37:51 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:38:04 AM [vite] (client) page reload src/fashi/cai.ts
+12:38:04 AM [vite] (client) page reload src/fashi/puzuo.ts
+12:38:04 AM [vite] (client) page reload tests/fashi.test.mjs
+12:38:04 AM [vite] (client) Pre-transform error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+12:38:04 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:38:05 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:38:05 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+12:38:05 AM [vite] (client) Pre-transform error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+12:38:05 AM [vite] (client) page reload docs/fashi/03-zhu.md
+12:38:05 AM [vite] (client) Pre-transform error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+12:38:05 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:38:30 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:38:42 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:38:42 AM [vite] (client) Pre-transform error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+12:38:42 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+12:38:42 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+12:38:43 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:38:51 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:38:55 AM [vite] (client) page reload src/fashi/zhu.ts
+12:38:55 AM [vite] (client) Pre-transform error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+12:38:55 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+12:38:55 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+12:38:55 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+12:39:44 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:39:51 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:40:44 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:40:51 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:41:05 AM [vite] (client) page reload src/cn/parts/bridge.ts
+12:41:05 AM [vite] (client) page reload docs/fashi/04-jiaozhe.md
+12:41:05 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+12:41:05 AM [vite] (client) Pre-transform error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+12:41:05 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:41:06 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:41:44 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:41:51 AM [vite] Internal server error: Failed to resolve import "../core/Noise" from "src/cn/parts/bamboo.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/huanghaibin/Workspace/games/daguanyuan/src/cn/parts/bamboo.ts:5:79
+  3  |  import { registerPart } from "../registry";
+  4  |  import { bambooMaterial, CN } from "../materials";
+  5  |  import { makeRng, rangeOf, tileableFbm, worley, clamp, smoothstep, lerp } from "../core/Noise";
+     |                                                                                  ^
+  6  |  import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, NOISE } from "../core/TextureLab";
+  7  |  const NOMINAL_H = 5.2;
+      at TransformPluginContext._formatLog (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29079:43)
+      at TransformPluginContext.error (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:29076:14)
+      at normalizeUrl (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27199:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27257:32
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:27225:4)
+      at async EnvironmentPluginContainer.transform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:28877:14)
+      at async loadAndTransform (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:22746:26)
+      at async viteTransformMiddleware (file:///Users/huanghaibin/Workspace/games/daguanyuan/node_modules/vite/dist/node/chunks/config.js:24622:20)
+12:42:03 AM [vite] (client) page reload src/cn/parts/bamboo.ts
+12:42:22 AM [vite] (client) page reload src/cn/parts/wall.ts
+12:43:15 AM [vite] (client) page reload src/cn/parts/bamboo.ts
+12:43:43 AM [vite] (client) page reload src/cn/parts/wall.ts
+12:44:21 AM [vite] (client) page reload src/cn/parts/bridge.ts
+12:45:07 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:45:58 AM [vite] (client) page reload src/cn/parts/bamboo.ts
+12:47:14 AM [vite] (client) page reload src/cn/parts/bridge.ts
+12:47:55 AM [vite] (client) page reload src/cn/parts/bamboo.ts
+12:48:13 AM [vite] (client) page reload src/cn/parts/wall.ts
+12:48:15 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:48:50 AM [vite] (client) page reload src/cn/parts/bridge.ts
+12:49:07 AM [vite] (client) page reload src/cn/parts/bamboo.ts
+12:49:25 AM [vite] (client) page reload src/cn/parts/building.ts
+12:49:37 AM [vite] (client) page reload src/cn/parts/bridge.ts
+12:49:57 AM [vite] (client) page reload src/cn/parts/building.ts
+12:50:38 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:51:07 AM [vite] (client) page reload src/cn/parts/wall.ts
+12:51:50 AM [vite] (client) page reload src/cn/parts/building.ts
+12:51:51 AM [vite] (client) ✨ new dependencies optimized: three/examples/jsm/utils/BufferGeometryUtils.js
+12:51:51 AM [vite] (client) ✨ optimized dependencies changed. reloading
+12:52:43 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:52:49 AM [vite] (client) page reload src/cn/merge.ts
+12:53:04 AM [vite] (client) page reload src/cn/parts/wall.ts
+12:53:23 AM [vite] (client) page reload src/cn/parts/wall.ts
+12:53:44 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:55:34 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:56:34 AM [vite] (client) page reload src/cn/parts/building.ts
+12:57:46 AM [vite] (client) page reload src/cn/parts/taihu.ts
+12:58:32 AM [vite] (client) page reload src/cn/materials.ts
+12:58:32 AM [vite] (client) page reload src/cn/parts/building.ts
+12:58:32 AM [vite] (client) page reload src/cn/merge.ts
+12:59:03 AM [vite] (client) page reload src/cn/parts/taihu.ts
+1:00:35 AM [vite] (client) page reload src/cn/materials.ts
+1:00:35 AM [vite] (client) page reload src/cn/merge.ts
+1:01:19 AM [vite] (client) page reload src/cn/materials.ts
+1:06:40 AM [vite] (client) page reload src/cn/parts/building.ts
+1:13:16 AM [vite] (client) page reload src/cn/parts/building.ts
+1:15:51 AM [vite] vite.config.ts changed, restarting server...
+1:15:51 AM [vite] server restarted.

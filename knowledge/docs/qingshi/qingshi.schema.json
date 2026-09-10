@@ -1,0 +1,750 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://games.findu.life/daguanyuan/qingshi.schema.json",
+  "title": "斗口制(清工部《工程做法》)与界·提栈(《营造法原》)双参数集大木作契约(草案 2026-09-10)",
+  "description": "把 docs/qingshi/ 八章规则(01 斗口制 / 02 举架 / 03 出檐翼角 / 04 斗拱 / 05 营造法原 / 06 屋顶瓦作 / 07 红楼梦原文 / 08 实测数据集)编成两套并列的 input→derived 契约:param_set='qing' 走斗口制,param_set='fayuan' 走界与提栈。每个字段 description 括注其规则 id;凡该 id 在原章标为『存疑』或『驳倒』的,description 内写明 correction 与『作参数不硬编码』的处理方式。三条贯穿全表的铁律:(1) 尺长 chi_cm 必须是参数,官式北方实测锚 32.16cm、吴尺 27.5cm,差 16.4%(01-19 correction);(2) 大式/小式二分法被 01-03 自身证据推翻,style 改三分支且与 modulus 解耦,江南建筑不套此判定而走 fayuan 分支;(3) 大观园定位江南园林时,柱高/柱径/出檐/举架全部默认走 fayuan 一侧,套清官式北方表会画出粗柱长檐的『北方味』(01-14、01-19、03-01 correction)。顶层 mapping 段列出与 fashi.schema.json 同名同义的 derived 字段,同一个几何生成器可消费三套参数集。",
+  "type": "object",
+  "required": ["param_set"],
+  "properties": {
+    "param_set": {
+      "type": "string",
+      "enum": ["qing", "fayuan"],
+      "description": "参数集选择。qing=清工部《工程做法》斗口制(01/02/03/04/06 章);fayuan=《营造法原》江南香山帮界与提栈(05 章,以正间面阔与界深为根参数,斗口只在牌科内闭环:05-13)。两套不可混算——01-04 乙已证『斗口取值必须与实测同源,别混用名义等第』,同理界深体系不得反折成斗口。"
+    },
+    "qing": {
+      "type": "object",
+      "required": ["input", "derived"],
+      "description": "斗口制模型(param_set='qing')。",
+      "properties": {
+        "input": { "$ref": "#/$defs/QingInput", "description": "斗口制自由参数(01/02/03/04/06 章)。" },
+        "derived": { "$ref": "#/$defs/QingDerived", "description": "斗口制派生量,由 input 按各章公式推出。" }
+      }
+    },
+    "fayuan": {
+      "type": "object",
+      "required": ["input", "derived"],
+      "description": "界与提栈模型(param_set='fayuan')。",
+      "properties": {
+        "input": { "$ref": "#/$defs/FayuanInput", "description": "界与提栈自由参数(05 章,08 章江南实测校验)。" },
+        "derived": { "$ref": "#/$defs/FayuanDerived", "description": "界与提栈派生量,由 input 按 05 章公式推出。" }
+      }
+    }
+  },
+  "$defs": {
+    "QingInput": {
+      "type": "object",
+      "required": ["style", "chi_cm", "bays_n", "depth_steps", "roof_type"],
+      "description": "斗口制输入(01/02/03/04/06 章的自由参数)。",
+      "properties": {
+        "doukou_grade": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 11,
+          "description": "斗口等第 n(01-01 通过):doukou_cun(n)=6.0−0.5×(n−1),头等 6 寸至十一等 1 寸,常用六至八等(3.5/3/2.5 寸,04-10)。01-01 乙的 imprecise 备注:这是『名义设计表』不是『实测预测器』——长春宫实测 70mm=2.19 寸(九等 2 寸,+9.4%)、太和殿实测 88mm=2.75 寸(八等 +10.0%/七等 −8.3%),实物普遍卡在两等之间。作参数不硬编码:带斗科建筑应优先用 doukou_cun_measured 覆盖等第值,禁止把等第值当实测值做误差<10% 的断言。"
+        },
+        "doukou_cun_measured": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "实测斗口(营造寸),覆盖 doukou_grade(01-01 乙、08-13、08-15)。08-12 已驳倒『太和殿=某等材』式的材等归属,故实测建筑一律直接给实测值:慈宁宫 k=0.09m、智化寺智化殿/如来殿 0.08m、其余 0.07m。作参数不硬编码。"
+        },
+        "doukou_measured_tolerance": {
+          "type": "number",
+          "default": 0.1,
+          "description": "斗口实测容差,默认 ±10%(01-01 乙的实现建议)。验收断言必须用此容差,不得把名义等第当实测。"
+        },
+        "chi_cm": {
+          "type": "number",
+          "minimum": 27,
+          "maximum": 36,
+          "description": "营造尺长(cm)。01-19 存疑:原式硬写 1 寸=3.2cm;乙的 correction=『按地域取尺:官式/北方 32.0(实测锚 32.16)、吴(苏州/太湖)27.5、浙 27.8、闽 29.4~30、粤 31.5、赣 35~35.5』。作参数不硬编码;大观园若走江南,默认 27.5(另见 06-12『1 尺(营造法原)=275mm』)。"
+        },
+        "region": {
+          "type": "string",
+          "enum": ["guanshi_bei", "jiangnan", "zhe", "min", "yue", "gan"],
+          "default": "guanshi_bei",
+          "description": "地域体系。01-14 乙的 correction 要求本表加 region 维度:region='官式北方' 才可用 a=0.8/b=0.07 这类清式系数;region='江南' 应改走《营造法原》分支(柱高 0.8~0.9W、柱径 W×0.051~0.064)。作参数不硬编码。"
+        },
+        "style": {
+          "type": "string",
+          "enum": ["dashi_dougong", "dashi_wu_dougong", "xiaoshi", "zashi"],
+          "description": "做法分档。01-03 存疑(乙驳倒 wrong):原 formula『if has_dougong 大式 else 小式』与本章自带证据冲突(《工程做法》卷四~二十三是『无斗科大木』却不标小式;01-17 马炳坚原话即出现『无斗拱大式』;苏州厅堂不用斗栱却常达 9~11 檩,按二分法会被『通进深≤7 檩、大梁≤五架』卡死)。correction=三分支:大式(带斗科,卷一~三)|大式(无斗科,卷四~二十三)|小式(卷二十四~二十七),另留杂式(楼房/钟鼓楼/垂花门/亭/游廊,《营造算例》第三章)。作参数不硬编码。"
+        },
+        "modulus": {
+          "type": "string",
+          "enum": ["doukou", "column_diameter"],
+          "description": "模数来源,与 style 解耦(01-03 correction):带斗科用斗口,其余用檐柱径 D(由明间面阔导出)。江南建筑单独走 fayuan 分支,不套此判定。"
+        },
+        "bays_n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 11,
+          "description": "面阔间数。01-03 存疑档内的『大式 5~11 间、小式 3~5 间』只作提示不作硬约束(该二分法已被驳倒)。"
+        },
+        "bay_cuan_counts": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "各间平身科攒数(自明间向梢间)。01-05 已驳倒『面阔=攒数×11 斗口』的固定攒数表,更正后:攒数是输入不是常量;04-06 存疑档给的明间 6/次间 5/梢间 5 或 4/廊 1/山面 3 只作默认值。W_间=(N_平身科+1)×11×斗口。作参数不硬编码。"
+        },
+        "cuan_dang_doukou": {
+          "type": "number",
+          "default": 11,
+          "description": "攒当(相邻两攒斗科中至中)的斗口倍数,默认 11(01-04、04-05 通过;一斗三升科 8 斗口为 low confidence 未核)。01-04 乙:这是本章少数经得起实测的规则——长春宫 11.34/10.81/10.86/10.81、太和殿反解 10.28~10.69,全在 10% 内。"
+        },
+        "W_mingjian_chi": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "明间(单开间)面阔(尺),无斗科/小式的根参数(01-14、04-16、08-18)。08-08 铁律:必须是单开间实测值,严禁用通面阔或『通面阔/开间数』代入。"
+        },
+        "W_ci_ratio": {
+          "type": "number",
+          "default": 0.8,
+          "description": "次间/明间面阔比。01-17 存疑(乙驳倒):correction=『删掉 W_ci=0.8×W_ming 的硬编码,改由攒数决定』;08-18 甲的更正仍记『次间面宽一般取明间的 8/10,亦可按需调整』。故此处只作 fallback 默认值,带斗科时必须让 bay_cuan_counts 优先。作参数不硬编码。"
+        },
+        "depth_steps": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "进深步架数(檩数−1)。步架命名序列见 02-01 通过:[廊/檐步, 下金步, (中金步), 上金步, 脊步],卷棚为 [..., 上金步, 顶步(居中)]。"
+        },
+        "step_runs_chi": {
+          "type": "array",
+          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "description": "各步架长(尺),自檐檩中向脊依次。02-02 已驳倒『大式一步架=22 斗口/小式=4~5 檩径』的定尺:甲的 correction=『删去或降级 22 斗口为通行教材值(非原文),步架实际由各卷样例给定(卷一 5.5 尺、卷九 3 尺、卷十 3 尺 2 寸、卷十一 3 尺),不宜当全局常数』。必须作参数不硬编码;缺省可用 01-17 的经验区间(廊步 4D~5D、金/脊步 4D、顶步 2D~3D)。"
+        },
+        "juja_coeffs": {
+          "type": "array",
+          "items": { "type": "number", "minimum": 0.35, "maximum": 1.05 },
+          "description": "各步举架系数 k(覆盖表值),自檐步向脊步。02-03 通过:k∈{0.5,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1.0}(五举…十举)。02-05 存疑:按檩数配系数的程式化表,乙的 correction=『保留表为北方官式默认,但把上金/脊步改成区间:上金 0.75~0.90、脊 0.90~1.02』。02-04 部分否决:k_檐=0.5 仅限清代北方官式(实测 0.47~0.53),飞椽『三五举 0.35』不是清式制度、应删或降为匠家说法。作参数不硬编码。"
+        },
+        "cai_count": {
+          "type": "integer",
+          "description": "踩数(带斗科)。04-02 通过:cai=2×n_tiao+1,三/五/七/九踩对应出跳 1/2/3/4。与 n_zhaijia 二者给一即可。"
+        },
+        "n_zhaijia": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "拽架数(单侧出跳数)。01-07 通过:每拽架 3 斗口,单翘重昂(七踩)3 拽架=9 斗口。"
+        },
+        "roof_type": {
+          "type": "string",
+          "enum": ["wudian", "xieshan", "xuanshan", "yingshan", "cuanjian", "juanpeng"],
+          "description": "屋顶形制。06-01 已驳倒『庑殿>歇山>悬山>硬山>攒尖』这条等级序列(攒尖不入序列、重檐才是等级轴),故此字段只作几何形制枚举,禁止用它推等级或瓦色(06-13 乙:瓦色按建筑在院落中的序位定,与屋顶形制正交)。"
+        },
+        "is_chongyan": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否重檐。01-06 存疑,乙的 correction=『H_total=70×dk 仅适用单檐、带斗科、卷一型;重檐建筑下檐檐柱另行取值(太和殿实测≈84 斗口@88mm)』;01-08 同样要求重檐金柱另开规则。作参数不硬编码。"
+        },
+        "is_juanpeng": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否卷棚(元宝脊)。02-14 存疑:甲的 correction 删去『以两脊檩中线与垂直脑椽延长线之交点为圆心』这一无源几何构造,改按罗锅椽弦长=顶步架+桁金盘一份、以两脊檩上皮上拱约一椽径起拱;卷棚各步举架系数标为待考。作参数不硬编码。"
+        },
+        "has_feiyan": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否加飞椽(影响上檐出止点,03-01)。若走江南判据见 fayuan.derived.feichuan_allowed(03-21 correction:按等级提栈判,不用檐界提栈判)。"
+        },
+        "shangyanchu_override_chi": {
+          "type": "number",
+          "description": "上檐出覆盖值(尺)。03-01 通过但乙标 imprecise:0.3×檐柱高只是北方清官式无斗拱做法,找不到北方小式民居独立实测;乙的更正=江南另立『上檐出=1.5×出檐椽平出,出檐椽斜长 1.6~2.4 尺≈界深之半,不按柱高取值』,套 0.3 到江南题材会把檐挑长两三成(实测比值 0.17~0.26)。作参数不硬编码。"
+        },
+        "xiachu_ratio": {
+          "type": "number",
+          "description": "下出(台明外沿)/上檐出。03-19 存疑:乙的 correction=按屋顶形式分档,硬山/悬山 2/3、歇山/庑殿 3/4,删掉单值 0.8;甲的 correction=拆成重檐木作(上层檐出=下层+2 斗口吐水)与台基(下出=0.8×上出≈2.4 檐柱径)两条,并把 2/3、3/4、4/5 三档标为待核。作参数不硬编码。"
+        },
+        "tuishan_rate": {
+          "type": "number",
+          "default": 0.1,
+          "description": "庑殿推山每步递减率。02-12 存疑:乙的 correction=『把递减率 0.1 改成可调参数(实例落在约 0.10~0.30,且方向可正可负),或对具体建筑直接以实测山面步架作输入;『一成』出自工匠手册而非《工程做法》制度』。作参数不硬编码。"
+        },
+        "chong_convention": {
+          "type": "string",
+          "enum": ["mabingjian_fangyang", "gongchengzuofa"],
+          "description": "冲出口径二选一。03-09 存疑:甲的 correction=『①马炳坚放样口径:冲 3 椽径量在正身法线方向,沿角梁斜向为 3 椽径×1.414;②《工程做法》口径:3 椽径直接加在斜长上,不再乘 1.414。不可把①的公式配②的例数(1.05 尺)』。作参数不硬编码,必须显式声明口径。"
+        },
+        "feichuan_convention": {
+          "type": "string",
+          "enum": ["gongchengzuofa", "yingzaosuanli"],
+          "description": "飞椽头尾比档位。03-04 通过(两档并列不合并):档 A《工程做法》飞尾=2.5×飞头、通长=3.5×飞头=(7/6)×出檐×1.15;档 B《营造算例》/马炳坚『一头三尾』飞尾=3×飞头。03-05:则例档飞头三五举加斜 1.06,工程做法档檐椽飞椽同按 1.15 加举、安装后实测斜率檐椽≈0.53、飞椽≈0.46。作参数不硬编码。"
+        },
+        "tile": {
+          "type": "string",
+          "enum": ["tong", "ban", "liuli", "xiaoqing"],
+          "description": "瓦作类型。06-02 存疑:大式/小式瓦作的二分判据(乙:瓦色/瓦种与建筑序位相关,不能由屋顶形制推);06-06 通过给号数尺寸表;06-12 通过给小青瓦(蝴蝶瓦)尺寸。06-15、06-16 已驳倒『苏州园林屋面等级取舍』与『四算不飞椽、五算不发戗』的瓦作版转述,江南瓦作走 fayuan 分支。"
+        },
+        "tile_grade_number": {
+          "type": "integer",
+          "description": "瓦号(06-06 通过):头号/二号/三号/十样 → 每丈垄数 k=11.1/12.5/14.2/22,口宽 8/7/6/3.8 寸,筒瓦长 1.1/0.95/0.75/0.45 尺。琉璃瓦样数一至九样,常用五/六/七样。"
+        },
+        "lu_ming_ratio": {
+          "type": "number",
+          "description": "底瓦露明长/瓦长。06-07 存疑:『大式压七露三 r=0.3、小式压六露四 r=0.4』为北方官式;苏式另口径(底瓦露≤L/3、盖瓦露≤L/4,厅堂大殿≤L/5);两名核验者均指『苏式底瓦间隙 30mm』为误植,已删。作参数不硬编码。"
+        },
+        "beast_count": {
+          "type": "integer",
+          "description": "岔脊走兽数。06-03 存疑:n∈{1,3,5,7,9} 且 n=10 仅太和殿;序列 [龙,凤,狮子,天马,海马,狻猊,押鱼,獬豸,斗牛,行什][0:n]。06-14 已驳倒『王府屋顶与瓦作规制(顺治九年定)』,故亲王府 7 种/余屋 5 种只作参考不作规则。作参数不硬编码。"
+        },
+        "honglou_program": {
+          "type": "object",
+          "description": "《红楼梦》原文给定的形制约束(07 章,69 条通过)。这些是文本硬约束,优先级高于任何权衡表——见项目铁律『原文>清式>法式>江南』。",
+          "properties": {
+            "bays": { "type": "integer", "description": "间数,如正门五间(07-01)、蘅芜苑正房五间清厦连卷棚(07-19)、贾母正房五间(07-54)、怡红院五间抱厦(07-60)、红香圃三间小敞厅(07-71)。" },
+            "form": { "type": "string", "description": "形制词,如清厦/卷棚/抱厦/敞厅/游廊/月洞门/垂花门/抄手游廊/穿堂(07-08、07-19、07-24、07-54、07-59、07-63、07-73)。" },
+            "note": { "type": "string", "description": "存疑条目须标注:07-37 元妃赐名楼阁体系、07-39 大观楼/缀锦阁储物与船坞、07-53『荣国府正门』实为宁国府正门、07-65 芦雪庵(广)构造、07-70 花厅游廊罩棚灯,共 5 条存疑,不得当硬约束。" }
+          }
+        }
+      }
+    },
+    "QingDerived": {
+      "type": "object",
+      "description": "斗口制派生量。所有寸值均以 doukou_cun 与 chi_cm 折算;凡原章写死『收 2 寸』一类绝对尺寸的,一律按乙的 correction 折成斗口倍数并标注折算基准。",
+      "properties": {
+        "doukou_cun": { "type": "number", "description": "斗口值(寸)=6.0−0.5×(grade−1),或 doukou_cun_measured(01-01、04-01、08-19)。" },
+        "doukou_cm": { "type": "number", "description": "斗口(cm)=doukou_cun×chi_cm/10(01-19 correction:尺长按 region 取,不写死 3.2)。" },
+        "cuan_dang_cun": { "type": "number", "description": "攒当(寸)=11×斗口(01-04、04-05 通过;斗口 2.5 寸→2 尺 7 寸 5 分)。" },
+        "bay_widths_chi": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "各间面阔(尺)=(N_平身科+1)×11×斗口(04-06 存疑,01-05 已驳倒固定攒数表)。攒数来自 input.bay_cuan_counts,不得由本式反推等级。"
+        },
+        "column": {
+          "type": "object",
+          "description": "柱(01-06、01-08、01-14、04-04、04-07、08-15、08-17、08-18)。",
+          "properties": {
+            "eave_height_total_cun": { "type": "number", "description": "檐柱高(含平板枋+斗科)=70×斗口。01-06 存疑,乙的 correction=『加 guard:仅适用单檐、带斗科、卷一型;重檐下檐檐柱另取(太和殿实测≈84 斗口@88mm)』。08-15 交叉:明代智化寺如来殿柱高占面阔 60.9%,清则例 77.9%,差 17 个百分点。作参数不硬编码。" },
+            "eave_height_net_cun": { "type": "number", "description": "檐柱净高=70−2(平板枋)−h_斗科(04-04 存疑:h_斗科=2×(n_tiao+2)+2−0.8=(cai+4.2)×斗口,七踩净高 56.8 斗口)。梁思成记 60 斗口,与卷一 56.8 差 5.6%,01-06 correction 要求两值并列写入并标明不可互换。" },
+            "eave_diameter_cun": { "type": "number", "description": "檐柱径=6×斗口(01-06、04-07);无斗科/小式=H/11(01-16、08-18)。04-11 已驳倒『小式基本模数 D 定面阔/柱高/柱径』整条,故小式必须由明间面阔先定柱高再折柱径,不得反过来用 D 推面阔。" },
+            "eave_height_by_bay": { "type": "number", "description": "无斗科/小式檐柱高=a×W_明间。01-14 存疑:a 按檩数分档;08-18 甲的更正=七檩/六檩 a=0.8,五檩/四檩 a=0.7,柱径 d=H/11。乙的 correction 要求加 region 维度,江南走 fayuan。作参数不硬编码。" },
+            "jin_height_cun": { "type": "number", "description": "金柱高=70×斗口+0.5×(廊步+拽架总长)(01-08 存疑);角柱另加平水(4 斗口)+檩径/3。小式:H_jin=H+0.5×廊步(01-15)。" },
+            "jin_diameter_cun": { "type": "number", "description": "金柱径。01-08 存疑,乙的 correction=『写成 max(D_檐+2寸, D_檐×k) 或直接改用梁表 6.6 斗口,并注明卷一算例实为 6.8 斗口(差 3%)』。小式 D_jin=D+1 寸(01-15)。作参数不硬编码。" },
+            "shoufen": { "type": "number", "description": "收分。01-17、08-17 通过:小式 H/100、大式 7H/1000。" },
+            "cejiao": { "type": "number", "description": "侧脚=H/100(01-17、08-17)。与 fashi 的正面 1/100、侧面 8/1000(03-08/03-09)同义但清式不分两向。" },
+            "tenon_len_cun": { "type": "number", "description": "柱榫长=0.3×D(大木)| 0.15×D(小式,即 1.5 寸/尺)(01-06、01-15、04-07)。" }
+          }
+        },
+        "efang": {
+          "type": "object",
+          "description": "额枋与平板枋(01-09 通过但乙标 unverifiable;04-08)。",
+          "properties": {
+            "xiao_efang": { "type": "object", "description": "小额枋 h=4×斗口,t=h−2寸。01-09 乙的更正建议=把『−2 寸』参数化为 −0.8×斗口(斗口 2.5 寸时等价),并标明这是折算不是原文——原式跨等第不自洽(斗口 2.5 寸时大额枋厚 5.2 斗口,斗口 1 寸时 4 斗口,差 23%)。作参数不硬编码。" },
+            "da_efang": { "type": "object", "description": "大额枋 h=6×斗口,t=h−2寸(同上折算为 −0.8×斗口)。廊子大额枋一头加柱径一份为霸王拳(01-09;01-16 记 1D,三岔头 1.25D)。" },
+            "youe_dianban": { "type": "object", "description": "由额垫板 h=2×斗口,t=1×斗口(01-09、04-08)。" },
+            "pingban_fang": { "type": "object", "description": "平板枋 w=3×斗口,h=2×斗口;扣榫每宽 1 尺加 3 寸(01-09、04-08)。" },
+            "tenon_fang_cun": { "type": "number", "description": "枋入榫=D/4;垫板入榫=0.2D(01-09、04-12)。" }
+          }
+        },
+        "purlin_members": {
+          "type": "object",
+          "description": "檩三件(檩/垫板/枋)与斗科层枋(01-10 通过、04-08、04-12、04-13、04-14)。",
+          "properties": {
+            "zhengxin_heng_d_cun": { "type": "number", "description": "正心桁径=4×斗口(01-10、04-08)。歇山收山用它作退进量(02-13)。" },
+            "tiaoyan_heng_d_cun": { "type": "number", "description": "挑檐桁径=正心桁径−2寸(01-10);跨等第不自洽同 01-09,建议同折为 −0.8×斗口。" },
+            "other_heng_d_cun": { "type": "number", "description": "老檐桁/下金桁/上金桁/脊桁径皆同正心桁 4×斗口(01-10、04-08)。" },
+            "dianban": { "type": "object", "description": "垫板:大式 h=4×斗口 t=1×斗口(01-10、04-08);小式《工程做法》七檩 h=D−1寸(若 h>6 寸)t=0.3×D_檩、五檩 h=D t=0.3×D_檩(04-13);马炳坚权衡表 檐垫板 h=0.8D t=0.25D、金/脊垫板 h=0.65D t=0.25D(04-14,confidence medium)。两档二选一并声明。" },
+            "fang": { "type": "object", "description": "老檐枋/金枋/脊枋高厚同小额枋(01-10);小式 枋 h=D t=D−2寸(04-13),权衡表 檐枋 h=D t=0.8D、金枋 h=D|0.8D t=0.8D|0.65D、上金/脊枋 h=0.8D t=0.65D(04-14)。" },
+            "zhengxin_fang": { "type": "object", "description": "正心枋(四层)h=2×斗口,t=1×斗口+包掩(卷一 6 分=0.24 斗口)(01-10、04-08)。" },
+            "tiaoyan_fang": { "type": "object", "description": "挑檐枋 h=2×斗口 t=1×斗口;里外拽枋、机枋同(01-10、04-08)。" },
+            "jingkou_fang": { "type": "object", "description": "井口枋 h=挑檐桁径,厚同拽枋(01-10)。" },
+            "tianhua_fang": { "type": "object", "description": "天花枋 h=小额枋高+2寸,t=h−2寸(01-10;绝对尺寸同样建议折为斗口倍数)。" },
+            "tenon_heng_cun": { "type": "number", "description": "桁条搭交榫=0.3×D(每径 1 尺加 3 寸)(01-10)。" },
+            "fujimu": { "type": "number", "description": "扶脊木 0.8D(04-14 权衡表,confidence medium)。" }
+          }
+        },
+        "beams": {
+          "type": "object",
+          "description": "梁架(01-11 通过但乙标 unverifiable、01-15、04-15)。",
+          "properties": {
+            "taojian_liang": { "type": "object", "description": "桃尖梁 t=6×斗口,梁头 t=4×斗口,h=0.5×拽架总长+2×(2×斗口)(01-11)。" },
+            "qijia_liang": { "type": "object", "description": "七架梁 t=D_金柱+2寸,h=1.2t(01-11;卷一算例 t=1 尺 9 寸=7.6 斗口,h=2 尺 2 寸 8 分)。" },
+            "wujia_liang": { "type": "object", "description": "五架梁 h=h7−2寸,t=t7−2寸(01-11);小式 t=D_金+1寸,h=t+2寸(01-15);权衡表 h=1.5D,t=1.2D,L=4×步架+2D(01-16)。" },
+            "sanjia_liang": { "type": "object", "description": "三架梁 h=h5−2寸,t=t5−2寸(01-11、01-15);权衡表 t=0.8×t5,h=(5/6)×h5(01-16)。01-11 乙的更正建议:链式『收 2 寸』改为按斗口折算并加下限保护(如 t_min=0.5×t_prev),否则小斗口时会收到负值。作参数不硬编码。" },
+            "baotou_liang": { "type": "object", "description": "抱头梁 原书 t=D+1寸,h=1.2t,L=廊深+D+0.5×D_金+0.5×D(04-15);权衡表 h=1.4D,t=1.1D,L=廊步架+D(04-15、01-16 记 h≈1.5D)。两档二选一并声明。" },
+            "chuanchafang": { "type": "object", "description": "穿插枋 h=D,t=0.8D(04-15)。" },
+            "beam_length_cun": { "type": "number", "description": "梁通长=步架数×步架+2×檩径(01-11)。" },
+            "shuangbu_danbu": { "type": "object", "description": "小式双步梁 t=D_金+1寸 h=1.2t;单步梁=双步梁−2寸(01-15;绝对尺寸建议折为 D 的倍数,基准 D=7.3 寸,01-15 乙的更正建议)。" }
+          }
+        },
+        "posts": {
+          "type": "object",
+          "description": "瓜柱/柁橔/角背(01-12 存疑,交金橔一项被甲驳倒)。",
+          "properties": {
+            "tuodun": { "type": "object", "description": "柁橔 w=0.8×t_五架梁,L=2×檩径(01-12)。" },
+            "guazhu": { "type": "object", "description": "瓜柱 t=0.8×t_三架梁,w=t+2寸(01-12);小式瓜柱径=t_三架梁−1寸(01-15)。" },
+            "jiaojin_guazhu_h_cun": { "type": "number", "description": "上金交金瓜柱高。01-12 原式被甲驳倒,correction=『上金交金瓜柱高=本步枋高+垫板高(各 4 斗口,合 8 斗口)+桁椀(桁径 1/3);宽厚同上金瓜柱』。只按更正值使用。" },
+            "jiaobei": { "type": "object", "description": "角背 L=步架,h=w_瓜柱,t=t_瓜柱/3;脊角背 h=脊瓜柱净高/3,t=t_瓜柱/3(01-12)。" },
+            "ji_guazhu_h_cun": { "type": "number", "description": "脊瓜柱通高=k_脊×s_脊+平水+桁椀−h_三架梁(02-07 通过)。" }
+          }
+        },
+        "dougong": {
+          "type": "object",
+          "description": "斗科(01-07、01-18、04-01~04-05、04-10)。",
+          "properties": {
+            "zhaijia_cun": { "type": "number", "description": "每拽架=3×斗口(01-07、04-02 通过)。" },
+            "zhaijia_total_cun": { "type": "number", "description": "拽架总长=3×斗口×n_拽架(01-07);单翘重昂 3 拽架=9 斗口=2 尺 2 寸 5 分@斗口 2.5 寸。决定挑檐桁中相对正心桁中的外移量。" },
+            "cai_count": { "type": "integer", "description": "踩数=2×n_tiao+1(04-02);桁碗长=3×(踩数−1)×斗口,三/五/七/九踩=6/12/18/24 斗口。" },
+            "layer_height_cun": { "type": "number", "description": "每踩(每层)高=2×斗口(足材)(01-07、04-03)。01-07 乙标 unverifiable:只有二手转述,未找到任何公开清代实例逐踩高实测数据可做 10% 比对(已查故宫院刊三篇、马炳坚通则、GDUT 课程页)。作参数不硬编码,禁止拿它做精度断言。" },
+            "dan_cai_h_cun": { "type": "number", "description": "单材栱高=1.4×斗口,栱宽=1×斗口;正心栱宽 1.24 斗口(含包掩)(04-03)。" },
+            "total_height_cun": { "type": "number", "description": "斗科总高=(踩数+4.2)×斗口−(平板枋 2 斗口另计)(04-04 存疑,与 01-06 的 70 斗口互为约束:H_檐柱净=70−2−h_斗科)。" },
+            "gong_lengths_doukou": { "type": "object", "description": "分件长(斗口):正心瓜栱 6.2、正心万栱 9.2、单翘 7.1、重翘 13.1、厢栱 7.2(01-18、04-03);大斗 3×3×2,十八斗 1.8×1.48×1,昂前高 3。" },
+            "shrink_trend": { "type": "object", "description": "斗拱缩小趋势(04-10 存疑,confidence medium):斗拱高/柱高 辽宋 1/2、明清 1/5~1/6;补间朵数 唐宋 1~2、元 2、明初 4~6(长陵 8)、明清当心间 8(《工程做法》示例 6);用材 宋 8 等→清 11 等;斗口/宋分值≈10 倍。只作跨代校验参考,不参与几何生成。" }
+          }
+        },
+        "roof": {
+          "type": "object",
+          "description": "举架与檩位(02 章)。与宋式举折的本质差别见 02-11 通过:宋是『输入总跨→定总举高→自上而下折』,清是『输入各步架与举架系数→自下而上累加,脊高是输出』。",
+          "properties": {
+            "purlins": {
+              "type": "array",
+              "description": "各檩坐标(02-06 通过的递推算法)。x_0=0,y_0=0(原点=檐檩中;带斗科大式为挑檐桁中,檐步含拽架);x_i=x_{i−1}+s_i;y_i=y_{i−1}+k_i×s_i;对称后坡 x'_i=L−x_i。",
+              "items": {
+                "type": "object",
+                "required": ["name", "x_cun", "y_cun"],
+                "properties": {
+                  "name": { "type": "string", "description": "檩名:挑檐桁/正心桁(檐檩)/老檐桁/下金桁/中金桁/上金桁/脊桁;卷棚为双脊檩(02-01、02-14)。" },
+                  "x_cun": { "type": "number", "description": "水平坐标(寸),自檐檩中起算。" },
+                  "y_cun": { "type": "number", "description": "竖向坐标(寸)=Σ k_j×s_j。" },
+                  "step_run_cun": { "type": "number", "description": "本步架长 s_i(02-01;定尺见 02-02 驳倒 correction,由样例给定不作常数)。" },
+                  "k": { "type": "number", "description": "本步举架系数(02-03;02-05 correction 把上金/脊步改为区间 0.75~0.90 / 0.90~1.02)。" },
+                  "diameter_cun": { "type": "number", "description": "檩径(01-10:大式 4×斗口;04-13/04-14:小式 D 或 0.9D)。" },
+                  "pingshui_cun": { "type": "number", "description": "平水:大式=4×斗口,小式=h_檐枋−0.1 尺(=h_垫板)(02-07 通过;小式实例卷九 7.4 寸、卷十一 6 寸)。" },
+                  "hengwan_cun": { "type": "number", "description": "桁椀=D_桁/3(02-07、04-08、04-13)。" }
+                }
+              }
+            },
+            "ridge_height_cun": { "type": "number", "description": "脊高=Σ k_i×s_i(02-06;清式脊高是输出不是输入,02-11)。" },
+            "rafter_slope_factors": { "type": "object", "description": "椽子/由戗加举(斜长)系数(02-08 通过):c(0.5)=1.15、c(0.7)=1.25、c(0.8)=1.30、c(0.9)=1.35(≈√(1+k²));由戗 L=s×1.4(方五斜七)×c(k)。" },
+            "tuishan": { "type": "object", "description": "庑殿推山(02-12 存疑):s'_1=s_1;for i≥2: t=s_i−R, r_i=rate×t, s'_i=t−r_i, R+=r_i;脊檩每端加长=Σ r_i;山面举高不变故 k^山_i=k_i×s_i/s'_i。rate 见 input.tuishan_rate,不硬编码 0.1。" },
+            "shoushan": { "type": "object", "description": "歇山收山(02-13 通过):x_山花板外皮=x_山面正心桁中−D_正心桁(大式)| x_山面檐檩中−D_檐檩(小式)。" },
+            "juanpeng": { "type": "object", "description": "卷棚顶步(02-14 存疑):四架梁 s_顶=L/5、s_檐=2L/5(每侧),约束 2D≤s_顶≤3D;两脊檩 x=L/2±s_顶/2 且等高;罗锅椽弦长=顶步架+桁金盘一份,以两脊檩上皮上拱约一椽径起拱(甲的 correction,原无源圆心构造已删)。" },
+            "songshi_zhezhe_ref": { "type": "object", "description": "宋式举折对照(02-10 通过,仅供跨制式换算):y_脊=R;第 n 缝先连线(上一缝槫背→橑檐方背),该缝槫背=连线上对应点−R/(10×2^(n−1))。02-09 已驳倒『举屋之法』的总举高转述,只按 fashi.schema.json 的 04 章值使用。" }
+          }
+        },
+        "eave": {
+          "type": "object",
+          "description": "出檐与椽(03 章、04-09、04-16)。",
+          "properties": {
+            "shangyanchu_cun": { "type": "number", "description": "上檐出。无斗拱=0.3×檐柱高,上限 1/3(03-01 通过,乙标 imprecise:江南应改 1.5×出檐椽平出,与柱高脱钩);带斗拱=21×斗口+3×斗口×n_拽架,自正心桁中量(03-02 存疑,甲的 correction=『删去(正心桁)——21 斗口的起点只能是挑檐桁中』);04-09 同式,五/七/九踩=27/30/33 斗口。08-13 慈宁宫实测:挑檐桁中→飞椽外皮 19.33 斗口,比则例 21 斗口短 7.9%。作参数不硬编码。" },
+            "yanchuan_chu_cun": { "type": "number", "description": "檐椽平出=2/3×上檐出;带斗拱 14×斗口(03-03 通过,两名核验者判为本章最硬的一条:北方《工程做法》与江南《营造法原》独立给出同一 2:1,误差 0%)。08-17:檐椽出=0.2H。" },
+            "feichuan_chu_cun": { "type": "number", "description": "飞椽平出=1/3×上檐出;带斗拱 7×斗口(03-03)。08-17:飞椽出=0.1H。" },
+            "feichuan": { "type": "object", "description": "飞椽头尾(03-04 通过,两档并列):档 A 飞头=(出檐×1.15)/3,飞尾=2.5×飞头,通长=3.5×飞头=(7/6)×出檐×1.15,见方=檐椽径;档 B 飞尾=3×飞头,见方=椽径或 0.95×椽径。单元测试:出檐 7.5 尺→8.62→头 2.87/尾 7.17/通长 10.04 尺(与原文『壹丈肆分』误差 0.05%)。档位见 input.feichuan_convention。" },
+            "feichuan_slope": { "type": "object", "description": "飞椽举架(03-05 通过,confidence medium 因两套制度冲突):则例/算例档 飞头斜长=飞头平出×1.06(三五举 0.35);工程做法档 出檐×1.15 再三等分(五举);安装后实测斜率 飞椽≈0.46、檐椽≈0.53(程枭翀),建模建议直接采用这组实测值。02-04 已部分否决『飞椽三五举是清式制度』这一定位。" },
+            "yanchuan_length_cun": { "type": "number", "description": "檐椽长(03-08 通过,两步误差均 0%):无斗拱(马炳坚)L=(檐步架+2/3×上檐出)×1.12+0.5×椽径;《工程做法》L_净=(出廊+出檐)×1.15−飞头长(例:5.5+7.5=13→14.95−2.87=12.08 尺)。" },
+            "chuan_diameter_cun": { "type": "number", "description": "檐椽径。03-06 存疑:大式=1.5×斗口,《工程做法》=0.35×桁径(≈1.4 斗口),编码区间 1.4~1.5 斗口;甲的 correction=『小式椽径应写作 檩(桁)径/3,与 0.35×桁径同源;『檐柱径/3』只在小式檩径=柱径时才偶然成立,不应作主公式』。01-13 乙的 correction 也要求显式选定一个(建议 0.35×D_檩),把 1.5 斗口降为 notes。作参数不硬编码。" },
+            "chuan_spacing_cun": { "type": "number", "description": "椽当=1×椽径,椽中距=2×椽径;每间椽档数为偶数、椽根数为奇数(一椽坐中)(03-07 通过;甲附 imprecise:『档数偶→椽数奇』是几何推导不是原文字面,换边界计数约定结论会变,可作建模约束但不可写成原典原话)。04-16:椽密度约 20 根/丈。" },
+            "wangban": { "type": "object", "description": "望板与连檐(01-13、03-18)。顺望板 t=椽径/3、横望板 t=0.2×椽径(01-13)。03-18 已驳倒连檐/瓦口/里口原值,只按更正值使用:见 03-18『更正值(采用)』段,不得再用『大连檐宽 1.1~1.2 椽径』『小连檐厚=1.5 望板厚』『里口木高≈1.3 椽径』三项原值。" },
+            "chuichu_ratio_note": { "type": "string", "description": "重檐吐水与台基下出(03-19 存疑):上层檐出=下层檐出+2×斗口;下出按屋顶形式分档(硬山/悬山 2/3、歇山/庑殿 3/4),回水=上出−下出;柱高口径 0.2~0.3 只能当区间不能当点值。作参数见 input.xiachu_ratio。" }
+          }
+        },
+        "corner": {
+          "type": "object",
+          "description": "翼角(03-09~03-17、08-20)。口诀『冲三翘四撇半椽』。",
+          "properties": {
+            "chong_cun": { "type": "number", "description": "冲出。08-20 通过:冲出=3×椽径(量角梁外端正投影)。03-09 存疑:两套口径不可通约,必须按 input.chong_convention 二选一并声明——①马炳坚放样:冲量在正身法线方向,老角梁 2 椽径/仔角梁 3 椽径,沿角梁斜向再×1.414;②《工程做法》:3 椽径直接加在已×1.4×1.15 的斜长上,不再乘 1.414(例:椽径 3.5 寸→1.05 尺)。乙的 correction:江南分支应写作『戗角放叉=水平放出一尺(定值),不按椽径倍数』。作参数不硬编码。" },
+            "qiao_cun": { "type": "number", "description": "起翘=4×椽径,可选再加 2 寸(≈5cm)抬头(03-10 通过、08-20:翘自正身椽上皮量至最末角椽上皮)。甲的 correction:删去或降级『起翘点=搭交下金檩对应檐口』——《工程做法》定『起翹之處』用 (挑檐桁中出檐×1.4+廊深+拽架) 反推翘数,下金檩只界定角梁椽槽后端。乙标 unverifiable:查不到任何清代实例起翘实测数字;江南嫩戗体系与之不同量纲,不可换算。作参数不硬编码。" },
+            "pie_cun": { "type": "number", "description": "撇半椽=0.5×椽径(03-11 存疑,confidence medium)。甲的保留:原表述以长度描述角度,编码时必须回到马炳坚原图按仔角梁头长换算,不能直接当角度用。乙标 unverifiable 且指出量纲含糊:『撇的是梁头侧面偏移还是第一根翘飞椽的夹角,两种读法落到模型上差别很大』。作参数不硬编码,须显式声明读法。" },
+            "jiaoliang_section": { "type": "object", "description": "角梁断面(03-12 通过):大式 厚 3×斗口、高 4.5×斗口;小式 厚 2×椽径、高 3×椽径;老角梁断面=仔角梁断面,高:厚=1.5 恒定。乙的两条保留:①两套值不是分管大小式,而是同一构件的两种口径(3 椽径=10.5 寸 vs 4.5 斗口=11.25 寸,差 6.7%);②江南老戗依坐斗定(四六式坐斗→戗高 4 寸阔 6 寸),比值仍 1.5 但高与阔归属与清式相反,不能混用。" },
+            "zijiaoliang_length_cun": { "type": "number", "description": "仔角梁通长=(出廊+出檐)×1.4×1.15+3×椽径+角梁厚(套兽榫)(03-13 通过,全章唯一每一位数字都验完的规则;单元测试 5.5+7.5=13→18.2→20.93+1.05+0.7=22.68 尺)。03-14 马炳坚放样法版本已被驳倒,只按 03-14『更正值(采用)』使用。" },
+            "laojiaoliang_length_cun": { "type": "number", "description": "老角梁通长=仔角梁长−飞头斜长−套兽榫+后尾三岔头(长=金柱径)(03-13;22.68−4.02−0.7+1.7=19.66 尺)。" },
+            "yijiao_chuan_count": { "type": "integer", "description": "翼角椽根数(03-15 通过,两名核验者一致要求两口径并列):现代匠作 N=floor((檐步架+出踩+檐平出)/(k×椽径));《工程做法》原典 N=floor((挑檐桁中出檐×1.414+廊深+拽架)/(k×椽径));k=2(矩形)|2.5(五角)|3(六角)|4(八角);N 为偶则减一,必为单数。" },
+            "yijiao_layout": { "type": "object", "description": "翼角椽辐射布置与椽槽(03-16 通过但含建模近似):椽尾放射中心=搭交下金桁交点(建模近似,非原典,见甲的 correction);椽槽范围=金檩外皮→搭角檐檩老中,槽深自檐椽老中处 0 递增至金步 0.5×椽径;翼角下皮线=角梁头退 3cm(雀台)再下返 1 椽径之点↔金檩外金盘线;第 i 根椽头沿起翘曲线插值(直线→双曲线『圜和』),无解析公式仅作图法——生成器须自备插值曲线参数,不得声称照抄原典。" },
+            "qiaofei": { "type": "object", "description": "翘飞椽(03-17 存疑):R=仔角梁头退 3cm,S=R 下返 1 椽径;翘飞头长=|S N1|;翘飞尾长=3×翘飞头长(马炳坚放样档)。乙的 correction=『官式档 第一翘长=平身飞檐椽长×1.414,头尾比沿飞檐椽 1:2.5;马炳坚放样档另记 1:3。江南档 立脚飞椽逐根加厚,首根+2 分、次根+3 分递增,九根以上每根照第九根+1 分;里口木由 3 寸抬至角上 8~9 寸』。翘飞根数=翼角椽根数(原文未明说,常识性对应)。作参数不硬编码。" }
+          }
+        },
+        "roofing": {
+          "type": "object",
+          "description": "屋脊与瓦作(06 章;本章 16 条中 5 条驳倒,只取通过与更正后的存疑条)。",
+          "properties": {
+            "chuiji_split": { "type": "object", "description": "垂脊分段(06-05 通过):L_垂脊(兽后)=2/3×L_坡,L_岔脊(兽前)=1/3×L_坡;走兽置岔脊段,5 或 7 件;垂兽 1 只+兽角 1 对。" },
+            "wa_long_count": { "type": "number", "description": "瓦垄数(06-06 通过)=面阔(丈)×k(号),k={头号 11.1,二号 12.5,三号 14.2,十样 22}。每垄瓦数=(进深+出檐加举后坡长)/露明长−1。" },
+            "zhengji": { "type": "object", "description": "正脊(06-04 存疑):L_正脊=通面阔−2×W_吻;吻座构件=圭角/麻叶头/天混/天盘/吻/剑靶/背兽各 1。原式『H_正吻≈0.1×H_檐柱』已被乙驳倒,删去不用,吻高改由样数(2~9,数越大越小)查件表。作参数不硬编码。" },
+            "qingshuiji": { "type": "object", "description": "清水脊(06-08 通过,北方小式正脊):L=面阔+2×t_山墙外出;每端={鼻子1,盘子1,攛头2,勾头2};叠层=板瓦+苫背+瓦条×2+混砖×1+扣脊筒瓦×1。06-09 存疑:皮条脊=清水脊−蝎子尾+勾头,过垄脊配卷棚顶,叠层细节未核。" },
+            "yankou": { "type": "object", "description": "檐口(06-12 通过):小式=盖楞末端花边瓦+底楞末端滴水;大式=勾头+滴水;排山勾滴与垂脊垂直。W_盖瓦弓面≈220mm,花边下垂≈60mm;五寸筒(3 号)130×260mm、七寸筒(1 号)180×300mm。『望砖 110×210×18mm』出处待查。06-11 已驳倒苏式竖带/水戗/脊高数值,江南屋脊走 fayuan.derived.ridge_type。" }
+          }
+        }
+      }
+    },
+    "FayuanInput": {
+      "type": "object",
+      "required": ["chi_cm", "jie_depths_chi", "building_grade"],
+      "description": "《营造法原》界与提栈输入(05 章)。根参数是正间面阔与界深,斗口/材分只在牌科内闭环(05-13)。",
+      "properties": {
+        "chi_cm": {
+          "type": "number",
+          "default": 27.5,
+          "description": "吴尺尺长(cm),默认 27.5(01-19 correction 的地域取尺表;06-12『1 尺(营造法原)=275mm』)。作参数不硬编码;与官式 32.0 差 16.4%,混用会整体缩放错。"
+        },
+        "building_grade": {
+          "type": "string",
+          "enum": ["zufang", "minfang", "yuantang", "ting", "dianting", "ting_pavilion"],
+          "description": "房屋等级:租屋/民房/圆堂/厅/殿庭/亭。05-07 通过:决定脊桁提栈上限 算_脊_max={租屋 4,民房 5,圆堂 6,厅 7,殿庭 8(歌诀)/9(第三章),亭 10};性质为约数式限度非硬顶(乙的实测:吴中四例雪类堂/任宅/留园楼厅/沧浪亭面水轩实际都只用『二个半』且脊算偏低,雪类堂脊 6.5 算 vs 规定 7 算,−7.1%)。同时按 03-21 correction 作『不加飞椽』的判据:等级为四算的简陋房屋不加飞椽,不要用檐界提栈去判。"
+        },
+        "jie_depths_chi": {
+          "type": "array",
+          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "description": "各界界深(尺),自廊界向脊界。05-01 通过:界↔清式步架↔宋式椽架;六界=廊(1)+内四界(4)+后(1),七界=廊(1)+内四界(4)+后双步(2);depth_total=Σ 界深。08-03 实测锚:网师园看松读画轩进深六界≈8.1m→平均界深≈1.35m。"
+        },
+        "jie_count": {
+          "type": "integer",
+          "minimum": 3,
+          "description": "界数。05-06 已驳倒『六界用二个=总递加 2 算』的读法,更正值:『个』=被点名的提栈级数(步柱/金童/脊柱…),总递加(算)=个数−1。只按更正值使用,不得用原参数表(会把屋面抬高整整一倍)。"
+        },
+        "W_zhengjian_chi": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "正间(明间)面阔(尺)。05-02 存疑的根参数:H_檐=W_正间×0.8=W_次间,W_正间=1.2×W_次间;殿庭 H_檐=W_正间+h_牌科;有牌科厅堂 H_檐=W_次间+h_牌科。08-08 通过给出同式并加铁律:W_明间 必须是单开间实测值,严禁用通面阔或『通面阔/开间数』代入。"
+        },
+        "H_eave_column_chi": {
+          "type": "number",
+          "description": "檐(廊)柱高(尺),可直接给定以覆盖 05-02 的比例式(05-09 算例即以廊柱一丈起算)。作参数不硬编码。"
+        },
+        "tizhan_suan": {
+          "type": "array",
+          "items": { "type": "number", "minimum": 3, "maximum": 10 },
+          "description": "各界提栈档『算』,自廊界向脊界。05-04 通过:算∈{3.5,4,4.5,5,…,9,10},算_max(殿庭)=9、算_max(亭)=10;算≡清式『举』×10(五算=五举=0.5),即屋面坡度正切×10。05-06 更正后的递推:六界 算_k=算_1+0.5×(k−1)(k=1..3);七界 算_k=算_1+1×(k−1);八界重轩 5,6,7,8;算_后双步=算_后步柱−0.5(有轩时固定 4.5)。作参数不硬编码。"
+        },
+        "suan_start_rule": {
+          "type": "string",
+          "enum": ["by_jie_depth", "xuan_five", "chahu_dang"],
+          "description": "起算规则(05-05 通过):算_1=min(界深_尺,5)(五尺封顶);厅堂有轩时 算_1=5 不论轩深;前后廊用茶壶档轩(无轩桁)时 算_1=廊界深_尺。"
+        },
+        "has_xuan": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否用轩。05-21 通过:D_内轩∈[6,10] 尺;斗式=五七式(D_轩≥7 尺)否则四六式|五七式;d_顶界=0.3×D_轩,d_旁=(D_轩−d_顶界)/2;算_轩桁=5。"
+        },
+        "is_huiding": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否回顶(船厅式卷棚)。05-08 存疑:三界回顶总递加 1.5 算;五界(架)回顶实例值 2.5,至脊桁 3;camber_弯椽=顶界深×0.1。作参数不硬编码。"
+        },
+        "hall_type": {
+          "type": "string",
+          "enum": ["bianzuo", "yuantang", "yuanyang", "simian", "chuanting", "gongshi", "hualan", "manxuan"],
+          "description": "厅堂形制(05-20 通过):扁作厅/圆堂/鸳鸯厅/四面厅/船厅(回顶)/贡式/花篮厅/满轩。决定梁断面口径(扁作走 05-23 机面法,圆堂走 05-22 围径歌诀)。"
+        },
+        "paike_grade": {
+          "type": "string",
+          "enum": ["wuqi", "siliu", "shuang_siliu", "none"],
+          "description": "牌科等第(05-13、05-14 均通过):五七式(基准,华丽厅堂/祠堂门第)/四六式(=五七式×0.8,亭阁牌坊)/双四六式(=四六式×2=五七式×1.6,殿庭)/无牌科。江南厅堂普遍不用斗栱,none 是常态——这正是 01-03 二分法在江南失效的原因。"
+        },
+        "chucan_count": {
+          "type": "integer",
+          "description": "出参数(单数)。05-15 通过:出参 N=2×每侧跳数+1,自斗三升起为三/五/七/九/十一出参;宋铺作=(N−1)/2+3;清踩=N(书中未明写,由定义推得,已自标 medium-high)。丁字科只向外出参。"
+        },
+        "faqiang": {
+          "type": "string",
+          "enum": ["nen_qiang", "shui_qiang", "none"],
+          "description": "戗角做法。05-16/05-17 通过给嫩戗发戗的全套尺寸;05-19 存疑给水戗发戗(角梁=老戗+角飞椽,无嫩戗)。03-20 已驳倒『水戗发戗与清官式基本同』『θ_嫩戗≈θ_老戗』『实例起翘 45°』等表述,只按 03-20『更正值(采用)』使用。甲另指出 05-19 后四项属砖筑水戗(筑脊)应与木骨做法分栏。作参数不硬编码。"
+        },
+        "pavilion_shape": {
+          "type": "string",
+          "enum": ["square", "hex", "oct", "round"],
+          "description": "亭平面(05-11 通过):方亭 H_柱=0.8×面宽、D_柱=0.1×H_柱;六角 H_柱=1.5×边长;八角 H_柱=(1.5~1.6)×边长;圆亭同八角法。08-10 通过确认 a=一边边长(非对边距、非对角径)。08-09 存疑,乙的更正带适用域:『H_柱=0.8×W 仅适用 W≈2.5~3.5m 的小方亭;W>5m 的大亭按实测 H_檐/W≈0.51(绣绮亭 0.509、梧竹幽居 0.513 互证)』。作参数不硬编码。"
+        },
+        "chuyan_chuan_chi": {
+          "type": "number",
+          "description": "出檐椽长(尺)。05-18 通过:L_出檐椽∈[1.6,2.4] 尺 step 0.2 ≈0.5×界深;L_飞椽≈0.5×L_出檐椽。这是江南出檐的根参数——03-01 乙的更正:江南出檐由界深决定、与柱高脱钩,套清式 0.3×柱高会把檐挑长约两三成。"
+        },
+        "bays_n": {
+          "type": "integer",
+          "description": "开间数。05-24 通过(殿庭):N_bays∈[3,9];W_次间=0.8×W_正间;进深 D∈[6,12] 界且对称于脊柱。"
+        },
+        "storey": {
+          "type": "integer",
+          "default": 1,
+          "description": "层数。05-03 存疑:H_上层=0.7×H_下层;H_后檐柱=0.8×H_前檐柱;楼厅 H_后檐=0.9×H_前檐;全宅 H_茶厅=0.9×H_门厅、H_正厅=1.2×H_茶厅。作参数不硬编码。"
+        }
+      }
+    },
+    "FayuanDerived": {
+      "type": "object",
+      "description": "界与提栈派生量(05 章,辅以 08 章江南实测校验)。",
+      "properties": {
+        "eave_height_chi": { "type": "number", "description": "檐高=0.8×W_正间=W_次间(05-02 存疑、08-08 通过);殿庭 =W_正间+h_牌科;有牌科厅堂 =W_次间+h_牌科。例:正间 1 丈 6 尺→次间/檐高 1 丈 2 尺 8 寸。08-08 铁律:W_明间 必须单开间实测值。作参数不硬编码。" },
+        "W_ci_chi": { "type": "number", "description": "次间面阔=檐高(05-02、08-08);殿庭 W_次间=0.8×W_正间(05-24)。" },
+        "column_girths_chi": {
+          "type": "object",
+          "description": "各柱与构件围径(05-22 通过的屋料定例歌诀,围径÷π≈直径):C_大梁=0.2×D_内四界(殿 0.3);C_桁=0.15×W_bay;C_步柱=0.2×W_正间;C_山界梁=0.8×C_大梁;C_川=0.64×C_大梁(或 0.6);C_双步=0.7×C_大梁;C_轩步柱=0.9×C_步柱;C_廊柱=0.8×C_步柱;C_边柱=0.7×C_步柱;h_枋=0.1×H_廊柱;C_承重=0.25×D;t_承重=0.2×d_界、h_承重=2t;C_椽=0.2×d_界;h_鼓磴=0.7×D_柱。",
+          "properties": {
+            "bu_zhu": { "type": "number", "description": "步柱围径=0.2×W_正间(05-22)。" },
+            "lang_zhu": { "type": "number", "description": "廊柱围径=0.8×C_步柱(05-22);另 01-14 correction 给江南口径:柱径=W×0.051~0.064(围径 0.16~0.2W)。" },
+            "bian_zhu": { "type": "number", "description": "边柱围径=0.7×C_步柱(05-22)。" },
+            "heng": { "type": "number", "description": "桁围径=0.15×W_bay(05-22);梓桁 D=0.8×D_廊桁(05-18)。" },
+            "chuan": { "type": "number", "description": "椽围径=0.2×d_界(05-22)。" }
+          }
+        },
+        "tizhan_coeffs": { "type": "array", "items": { "type": "number" }, "description": "各界提栈系数=算/10(05-04 通过)。递推按 05-06 更正值(总递加=个数−1),严禁用原条『六界总递加 2 算/七界总递加 3 算』。" },
+        "jie_rises_chi": { "type": "array", "items": { "type": "number" }, "description": "各界升高 rise_i=界深_i×(算_i/10)(05-04 通过)。" },
+        "purlins": {
+          "type": "array",
+          "description": "各桁坐标(05-09 通过的柱高计算法):H_步=H_檐柱+d×算_1/10;H_桁(k)=H_廊柱+Σ_{i≤k} d_i×算_i/10。江南与清式一样是自下而上累加,脊高是输出(对照 02-11)。",
+          "items": {
+            "type": "object",
+            "required": ["name", "x_chi", "y_chi"],
+            "properties": {
+              "name": { "type": "string", "description": "桁名:廊桁/步桁/金桁/脊桁,另有梓桁与轩桁(05-01、05-08、05-18)。" },
+              "x_chi": { "type": "number", "description": "水平坐标(尺),自廊桁起算,累加界深。" },
+              "y_chi": { "type": "number", "description": "竖向坐标(尺)=H_廊柱+Σ rise_i(05-09)。" },
+              "jie_depth_chi": { "type": "number", "description": "本界界深(尺)。" },
+              "suan": { "type": "number", "description": "本界提栈算数(05-04)。" },
+              "offset_chi": { "type": "number", "description": "梓桁偏移=0.8 尺(斗三升)|1.0 尺(斗六升)(05-18)。" }
+            }
+          }
+        },
+        "ridge_column_height_chi": { "type": "number", "description": "脊柱高=H_檐柱+Σ d_i×算_i/10(05-09 通过,书中六界廊柱一丈算例可逐行复现)。" },
+        "fixed_suan": { "type": "object", "description": "固定提栈档(05-08 存疑):算_飞椽=3.5,算_梓桁=3.5,算_轩桁=5;金桁 rise≈界深×算_金/10−酌减(例 0.1 尺,囊金叠步翘瓦头)。作参数不硬编码。" },
+        "avg_suan_for_gable": { "type": "number", "description": "山墙面积扯算用的平均提栈(05-26 存疑):H_脊≈H_檐柱+(D_总/2)×算_avg/10,算_avg={殿庭 6~7,厅堂 5~6,民房 4~5}。性质是工料估算的平均举,不是设计脊高的方法,禁止拿它生成几何。" },
+        "eave": {
+          "type": "object",
+          "description": "出檐与飞椽(05-18 通过、03-01 correction)。",
+          "properties": {
+            "chuyan_chuan_chi": { "type": "number", "description": "出檐椽长∈[1.6,2.4] 尺 step 0.2 ≈0.5×界深(05-18)。" },
+            "feichuan_chi": { "type": "number", "description": "飞椽长≈0.5×出檐椽长(05-18;与清式 03-03 的 2:1 同值,误差 0%)。" },
+            "shangyanchu_chi": { "type": "number", "description": "上檐出=1.5×出檐椽平出(03-01 乙的更正,江南分档)。实测比值 上檐出/檐高=0.17~0.26,对清式 0.3 的误差 −43%~−14.5%。作参数不硬编码,禁止在 fayuan 下调用 0.3×柱高。" },
+            "shuaiwang_chuan_count": { "type": "integer", "description": "摔网椽根数(05-18):厅堂 {9,11,13}(奇数),殿庭 {10…13,15}。" },
+            "feichuan_allowed": { "type": "boolean", "description": "是否加飞椽。03-21 存疑,乙的 correction=『判据改为按房屋等级的提栈(正脊处限度):租房四算/民房五算/圆堂六算/厅七算/殿庭八算,等级为四算的简陋房屋不加飞椽,不要用檐界提栈去判』;甲的 correction=在取得姚承祖原书纸本页码前,不要把 0.4/0.5 两个阈值当硬约束。06-16 已整条驳倒瓦作版的『四算不飞椽、五算不发戗』。作参数不硬编码。" },
+            "faqiang_allowed": { "type": "boolean", "description": "是否发戗。同 03-21,『五算不发戗』标为单一来源待考,只作默认建议不作硬约束。" }
+          }
+        },
+        "qiang": {
+          "type": "object",
+          "description": "戗角(05-16、05-17 通过;03-20 驳倒后的更正值)。",
+          "properties": {
+            "laoqiang_section": { "type": "object", "description": "老戗根断面=坐斗断面(四六式:高 4 寸阔 6 寸),老戗梢=0.8×老戗根(05-16)。注意与清式角梁高阔归属相反,不能混用(03-12 乙)。" },
+            "laoqiang_length_chi": { "type": "number", "description": "老戗长(05-16):L_平面_界内=d_界×1.4;L_平面_挑出=(L_出檐+L_出参+1 尺)×1.4;L_真=√(L_平面²+rise²),rise=d×算/10;用料=L_真_合计+2×0.5 尺。算例:界深 4 尺→界内斜长 5.6 尺、五算高 2 尺→实长 6 尺;出檐 2.8+1=3.8 尺→斜长 5.3 尺、高 1.9 尺→挑出 5.7 尺;合计 11.7 尺→用料 12.7~12.8 尺。" },
+            "nenqiang": { "type": "object", "description": "嫩戗(05-17 通过):w_嫩戗根=0.8×w_老戗头;w_嫩戗头=0.8×w_嫩戗根(=0.64×老戗头);L_嫩戗=3×L_飞椽;θ_嫩戗(殿庭)=atan(1/1.2)=39°48′;θ_嫩戗(亭阁)≥atan(1/1.6)=32°;θ_猢狲面=atan(1.45/1)=55°24′;立脚飞椽 t(n)=base+(n+1)分 (n≤9),其后每根+1 分。03-20 已驳倒『∠(老戗,嫩戗)=180°−2θ_老戗』与『实例起翘约 45°』,只按 03-20 更正值使用。" },
+            "qiang_slope": { "type": "number", "description": "戗角坡度=正身提栈/1.414(03-21 通过,两名核验者一致认可,法原算例实测吻合 1% 内)。这是江南翼角起翘的唯一硬公式。" },
+            "fangcha_chi": { "type": "number", "description": "戗角放叉=水平放出一尺(定值)(03-09 乙的 correction,江南分支不按椽径倍数)。" },
+            "shuiqiang": { "type": "object", "description": "水戗(05-19 存疑,须与木骨做法分栏——甲的 correction):角梁=老戗+角飞椽(无嫩戗);H_竖带∈[1.3,1.5] 尺、T=0.6 尺;H_戗座垫=0.6~0.7 尺;θ_水戗(与垂直)=25°;L_水戗(嫩戗尖→钩头狮)=界深;N_走狮∈{3,5}。后四项属砖筑水戗(筑脊)。06-11 已驳倒苏式竖带/水戗/脊高数值,取值须回原书。作参数不硬编码。" }
+          }
+        },
+        "paike": {
+          "type": "object",
+          "description": "牌科(05-13、05-14 通过)。基准五七式(单位寸):斗面宽×斗高×斗底宽=7×5×5;斗腰:斗底=3:2(上腰 2、下腰 1);栱高×厚=3.5×2.5;一级栱长 17、二级栱长 25;实栱(柱上)高×厚=5×2.5;升高×宽=2.5×3.5;升高五分配 上腰 1/下腰 0.5/升底 1;一斗六升总高×长=13×25;出参一/二/三级=6/4/4;牌科中距 30。四六式=0.8×五七式,双四六式=1.6×五七式;柱头斗 W_底=D_柱、W_面=D_柱+2 寸,梁背斗侧面 W_底=梁背、斗面前后各出 1 寸。",
+          "properties": {
+            "dou": { "type": "object", "description": "坐斗(05-13):五七式 7×5×5 寸,按 paike_grade 乘 0.8 或 1.6(05-14)。" },
+            "gong": { "type": "object", "description": "栱(05-13):高 3.5 厚 2.5 寸;一级长 17 寸、二级长 25 寸(二级=一级+8 寸)。" },
+            "sheng": { "type": "object", "description": "升(05-13):高 2.5 宽 3.5 寸,升底同升高。" },
+            "total_height_cun": { "type": "number", "description": "一斗六升总高=13 寸(自斗底至第二级上升腰底)。05-13 乙给编码者的坑:把分件当积木直叠得 5+3.5+2.5+3.5+1.5=16 寸,比书中 13 寸高 23%——栱是坐进斗口(斗腰 3 寸)里的,不是叠在斗顶面上(原文另有『斗内须留胆高五分』的坐口做法)。生成器必须扣掉坐口深度。" },
+            "spacing_chi": { "type": "number", "description": "两座牌科中距=3 尺(05-13)。" },
+            "chucan_map": { "type": "object", "description": "出参↔宋铺作↔清踩映射(05-15):三出参=宋四铺作=清三踩;五出参=宋五铺作=清五踩;七出参=宋六铺作=清七踩。反推自洽:玄妙观三清殿七出参→每侧 3 跳→6 铺作;府文庙五出参→5 铺作。" }
+          }
+        },
+        "beams": {
+          "type": "object",
+          "description": "梁(05-22、05-23)。",
+          "properties": {
+            "dailiang_h_chi": { "type": "number", "description": "扁作大梁高(05-23 存疑,机面法反推):h_大梁=rise_一界−m_山界梁−h_寒梢栱+m_大梁;t_大梁=h_大梁/2;算例:内四界深 2 丈(每界 5 尺)、提栈五算半→rise=2.75 尺;2.75−0.65−0.8+0.7=2.0 尺高、厚 1 尺。作参数不硬编码。" },
+            "camber": { "type": "number", "description": "圆梁起拱=0.01×L(05-23)。" },
+            "shanjie_liang": { "type": "number", "description": "山界梁围径=0.8×C_大梁(05-22)。" },
+            "chuan_liang": { "type": "number", "description": "川(轩梁)围径=0.64×C_大梁(或 0.6)(05-22)。" },
+            "shuangbu_liang": { "type": "number", "description": "双步围径=0.7×C_大梁(05-22)。" }
+          }
+        },
+        "pavilion": {
+          "type": "object",
+          "description": "亭(05-10、05-11、08-09、08-10)。",
+          "properties": {
+            "column_height_chi": { "type": "number", "description": "方亭 H_柱=0.8×面宽;六角 1.5×边长;八角 (1.5~1.6)×边长;圆亭同八角(05-11 通过、08-10 通过)。08-09 乙的更正(带适用域):0.8×W 仅适用 W≈2.5~3.5m 小方亭,W>5m 的大亭按实测 H_檐/W≈0.51。作参数不硬编码。" },
+            "column_diameter_chi": { "type": "number", "description": "柱径=0.1×柱高(05-11、08-09)。" },
+            "tizhan": { "type": "object", "description": "亭的提栈(05-10 存疑):方亭 算_1=5、算_k∈{7,8,9};六角/八角/尖顶方亭 算_1=6、算_脊≤10;界深_亭≈3 尺。作参数不硬编码。" },
+            "banqiang_paike": { "type": "object", "description": "亭的半墙与牌科(05-11):半墙高≈一尺半≈0.48~0.50m(08-11);牌科多用四六式(05-14)。" }
+          }
+        },
+        "corridor": {
+          "type": "object",
+          "description": "廊(05-12 存疑、08-11 存疑)。",
+          "properties": {
+            "column_height_chi": { "type": "number", "description": "廊柱高。05-12 原条文 H=0.6×W_bay,乙的更正建议改用 0.8;实测 08-11 廊柱高≈2.5m。作参数不硬编码。" },
+            "depth_chi": { "type": "number", "description": "廊进深=0.5×H_柱≈4 尺;复廊 D≈7 尺、墙在中(05-12);实测净宽 1.2~1.5m、柱距≈3m(08-11)。" },
+            "column_diameter_chi": { "type": "number", "description": "廊柱径≈0.15m,d/H=0.06(≈1/16.7)(08-11);比清式细瘦 14%~43%(01-14 correction)。" }
+          }
+        },
+        "dianting": {
+          "type": "object",
+          "description": "殿庭与天井(05-24、05-25 通过)。",
+          "properties": {
+            "luoyi_chi": { "type": "number", "description": "落翼宽=d_廊步;重檐上层 W_落翼=0.5×W_次间(05-24)。" },
+            "shanhua_overhang_chi": { "type": "number", "description": "山花挑出=0.5×d_界;重檐上层 =0.25×W_bay(05-24)。" },
+            "tianjing_chi": { "type": "number", "description": "天井进深(05-25):厅堂 D_天井=D_屋,后天井=0.5×D_屋;圣殿 露台=1×D_殿、天井=3×D_殿;祠堂 天井=3×D_殿。" }
+          }
+        },
+        "ridge_type": { "type": "string", "description": "江南屋脊类型(06-10 存疑):殿庭/寺庙主殿/品官府第=龙吻脊;寺庙厅堂=哺龙脊;厅堂=哺鸡脊|纹头脊;平房/民居=纹头脊|雌毛脊|甘蔗脊;围墙/次要=甘蔗脊;小型临水=黄瓜环脊。筑脊通法:攀脊→瓦条→筑脊(板瓦竖排)→盖头灰,厅堂『滚筒三线』。06-11、06-15、06-16 已驳倒苏式竖带/水戗数值与园林屋面等级取舍,取值须回原书。作参数不硬编码。" },
+        "cross_system_note": { "type": "string", "description": "三制式对照(05-27 通过):江南 rise_i=d_i×算_i/10,算_1=min(d_尺,5);清 rise_i=d_i×举_i,举_檐=0.5、举_飞椽=0.35、举_脊≈0.9;宋 H_total=L_橑檐方心距/3(殿阁)|/4(厅堂,每尺加 8 分),折_1=H_total×0.1、折_k=折_{k−1}/2。三者只在此字段作对照,不得跨制式混算参数。" }
+      }
+    }
+  },
+  "mapping": {
+    "description": "与 docs/fashi/fashi.schema.json 同名同义的 derived 字段对照表。同一个几何生成器可以消费三套参数集(fashi 材分 / qing 斗口 / fayuan 界与提栈)中的对应字段——各自单位不同(分 / 斗口寸 / 吴尺),生成器只需在入口把它们统一折算成 cm(各自乘 fen_cm / doukou_cm / chi_cm),之后的几何逻辑完全共用。凡 fayuan 一侧写 null 的,表示该概念在江南体系里不存在或不可通约,生成器必须走该行注明的替代路径,不得反折。",
+    "entries": [
+      {
+        "concept": "模数基准(1 单位的厘米值)",
+        "fashi": "derived.cai.fen_cm",
+        "qing": "qing.derived.doukou_cm",
+        "fayuan": null,
+        "note": "fashi 分=材广/15;qing 斗口=平身科迎面斗口宽;fayuan 无全局模数——根参数是正间面阔与界深,斗口只在牌科内闭环(05-13)。清斗口≈宋分值 10 倍(04-10,confidence medium),此换算只作跨代校验不作生成。"
+      },
+      {
+        "concept": "营造尺长",
+        "fashi": "input.chi_cm",
+        "qing": "qing.input.chi_cm",
+        "fayuan": "fayuan.input.chi_cm",
+        "note": "三套都必须是参数。宋 30.9~31.7(01-09 fashi)、清官式北方 32.0(实测锚 32.16)、吴尺 27.5(01-19 correction、06-12)。差 16.4%,混用整体缩放错。"
+      },
+      {
+        "concept": "檐柱高",
+        "fashi": "derived.column.eave_height_fen",
+        "qing": "qing.derived.column.eave_height_total_cun / eave_height_net_cun / eave_height_by_bay",
+        "fayuan": "fayuan.derived.eave_height_chi",
+        "note": "三套都无单一公式。fashi 只有约束 H≤当心间广(03-03/03-24,实例 0.72~1.0×间广);qing 带斗科 70 斗口(含平板枋+斗科,须区分总高/净高,差 5.6%)、无斗科 a×W_明间(a=0.8 七六檩 / 0.7 五四檩);fayuan 0.8×正间=次间。生成器应统一消费『柱底到柱头的 cm 净高』,并在入口按各制式剥掉平板枋与斗科/牌科高度。"
+      },
+      {
+        "concept": "檐柱径",
+        "fashi": "derived.column.eave_diameter_fen",
+        "qing": "qing.derived.column.eave_diameter_cun",
+        "fayuan": "fayuan.derived.column_girths_chi.lang_zhu",
+        "note": "fashi 殿阁 42~45 分/厅堂 36/余屋 21~30(01-01 存疑,唐构佛光寺仅 29 分,应作区间);qing 6 斗口或 H/11;fayuan 给的是围径(÷π 才是直径)=0.16~0.2×正间。江南比清式细瘦 14%~43%(01-14 correction)——生成器绝不能用清式径画江南柱。"
+      },
+      {
+        "concept": "内柱/金柱高与径",
+        "fashi": "derived.column.inner_height_fen",
+        "qing": "qing.derived.column.jin_height_cun / jin_diameter_cun",
+        "fayuan": "fayuan.derived.column_girths_chi.bu_zhu",
+        "note": "fashi 厅堂内柱随举势定、殿阁内外柱等高(03-02);qing 金柱高=檐柱高+0.5×(廊步+拽架),径=檐柱径+2 寸(01-08 存疑,correction 建议 max() 或改用 6.6 斗口);fayuan 步柱围径=0.2×正间,高由提栈累加(05-09)。"
+      },
+      {
+        "concept": "柱侧脚/生起/收分",
+        "fashi": "derived.column.cejiao / shengqi_cun",
+        "qing": "qing.derived.column.cejiao / shoufen",
+        "fayuan": null,
+        "note": "fashi 正面 1/100、侧面 8/1000 两向叠加,另有角柱生起 (n−1) 寸(03-04 存疑,实例偏差 20~30%);qing 侧脚=H/100 单值、收分小式 H/100 大式 7H/1000(01-17、08-17),无生起;fayuan 未见对应制度,生成器应置零或按 qing 取值并注明是借用。"
+      },
+      {
+        "concept": "檩/槫/桁坐标(屋架竖向链的核心)",
+        "fashi": "derived.roof.purlins[].x_fen / y_fen",
+        "qing": "qing.derived.roof.purlins[].x_cun / y_cun",
+        "fayuan": "fayuan.derived.purlins[].x_chi / y_chi",
+        "note": "三套是同一几何对象,但生成方向不同(02-11):fashi 举折自上而下(先定总举高 H,再逐缝下折 H/10、H/20…);qing 举架自下而上(y_i=y_{i−1}+k_i×s_i,脊高是输出);fayuan 提栈也是自下而上(y=H_廊柱+Σ d_i×算_i/10)。生成器应统一接受『(x,y) 序列 + 每檩径』,把三种推导都收敛到同一数组,不要在几何层重做推导。"
+      },
+      {
+        "concept": "屋面坡度系数",
+        "fashi": "derived.roof.ratio(总举高比 H/L)",
+        "qing": "qing.derived.roof.purlins[].k(逐步举架系数)",
+        "fayuan": "fayuan.derived.tizhan_coeffs(逐界算/10)",
+        "note": "05-27 通过给出三制式对照:江南算/10 ≡ 清举 ≡ 局部坡度正切;宋 ratio 是总举高比,不是逐架坡度,不可直接与前两者对齐。生成器若要跨制式比较,只能比较同一 (x,y) 序列算出的逐段斜率。"
+      },
+      {
+        "concept": "檩/槫径",
+        "fashi": "derived.roof.purlins[].diameter_fen",
+        "qing": "qing.derived.purlin_members.zhengxin_heng_d_cun / other_heng_d_cun",
+        "fayuan": "fayuan.derived.column_girths_chi.heng",
+        "note": "fashi 殿阁 16~21(30 为上限,04-24 更正)、厅堂 18~21、余屋 16~17;qing 一律 4 斗口(小式 D 或 0.9D);fayuan 桁围径=0.15×开间。三者都直接决定桁椀/金盘与椽的落位。"
+      },
+      {
+        "concept": "斗栱/斗科/牌科的出跳总长(决定橑檐枋心或挑檐桁中的外移量)",
+        "fashi": "derived.puzuo.total_out_fen",
+        "qing": "qing.derived.dougong.zhaijia_total_cun",
+        "fayuan": "fayuan.derived.paike.chucan_map",
+        "note": "fashi Σ 跳距(每跳≤30 分,02-05 存疑:30×T 比唐辽实测高 15~25%);qing 3 斗口×拽架数;fayuan 出参一/二/三级=6/4/4 寸(05-13),出参数↔宋铺作↔清踩映射见 05-15。这是出檐基点在三套里唯一的公共锚。"
+      },
+      {
+        "concept": "斗栱/斗科/牌科总高",
+        "fashi": "derived.puzuo.height_fen",
+        "qing": "qing.derived.dougong.total_height_cun",
+        "fayuan": "fayuan.derived.paike.total_height_cun",
+        "note": "fashi 33+21T(02-29 推算,实测七铺作 110~120 分);qing (踩数+4.2)×斗口(04-04 存疑,与 70 斗口柱高互为约束);fayuan 一斗六升 13 寸(05-13)。三套都有『不能把分件直叠』的坑——fayuan 直叠会高 23%,栱坐进斗口里。"
+      },
+      {
+        "concept": "斗与栱分件尺寸",
+        "fashi": "derived.puzuo.ludou / xiaodou / gong_lengths_fen",
+        "qing": "qing.derived.dougong.gong_lengths_doukou",
+        "fayuan": "fayuan.derived.paike.dou / gong / sheng",
+        "note": "fashi 栌斗 32×32×20、交互斗 18×16×10 等(02-12~02-16);qing 正心瓜栱 6.2 斗口、万栱 9.2、单翘 7.1、厢栱 7.2、大斗 3×3×2(01-18、04-03);fayuan 五七式 斗 7×5×5 寸、栱 3.5×2.5、升 2.5×3.5(05-13),四六式×0.8、双四六式×1.6(05-14)。"
+      },
+      {
+        "concept": "开间与朵当/攒当",
+        "fashi": "derived.puzuo.duodang_fen",
+        "qing": "qing.derived.cuan_dang_cun / bay_widths_chi",
+        "fayuan": "fayuan.derived.W_ci_chi",
+        "note": "fashi 朵当标准 125 分、双补间间广 375、单补间 240~260(01-13 更正);qing 攒当 11 斗口且面阔=(攒数+1)×11×斗口(01-04 通过、01-05 已驳倒固定攒数表,攒数改作输入);fayuan 不按斗栱定开间,W_次间=檐高=0.8×正间(05-02)。"
+      },
+      {
+        "concept": "额枋/阑额",
+        "fashi": "derived.column.lan_e",
+        "qing": "qing.derived.efang.da_efang / xiao_efang",
+        "fayuan": "fayuan.derived.column_girths_chi(h_枋=0.1×H_廊柱)",
+        "note": "fashi 阑额 30×20 分(03-13);qing 大额枋 6 斗口高、小额枋 4 斗口高,厚均『收 2 寸』——须按 01-09 correction 折成 −0.8×斗口才跨等第自洽;fayuan 枋高=0.1×廊柱高(05-22)。"
+      },
+      {
+        "concept": "上檐出(檐口水平总挑出)",
+        "fashi": "derived.eave.total_chu_cun(=1.6×檐出)",
+        "qing": "qing.derived.eave.shangyanchu_cun",
+        "fayuan": "fayuan.derived.eave.shangyanchu_chi",
+        "note": "fashi 基点=橑檐枋心,椽径 3 寸→35 寸、5 寸→40~45 寸内插(05-04);qing 无斗拱 0.3×柱高(上限 1/3)、带斗拱 21 斗口+拽架(基点=挑檐桁中,03-02 correction 已删『正心桁』读法);fayuan 1.5×出檐椽平出,与柱高脱钩(03-01 correction)。铁律:江南套 0.3×柱高会把檐挑长两三成(实测比值 0.17~0.26)。"
+      },
+      {
+        "concept": "檐椽出 : 飞椽/飞子出",
+        "fashi": "derived.eave.yan_chu_cun / feizi_chu_cun(飞子出=0.6×檐出)",
+        "qing": "qing.derived.eave.yanchuan_chu_cun / feichuan_chu_cun(2/3 : 1/3)",
+        "fayuan": "fayuan.derived.eave.chuyan_chuan_chi / feichuan_chi(飞椽≈0.5×出檐椽)",
+        "note": "qing 与 fayuan 的比值完全一致(2:1),03-03 判为最硬的一条:北方《工程做法》与江南《营造法原》独立给出同一比值,误差 0%;fashi 的 0.6 是对『檐出』而非『上檐出』取的,不可直接与 1/3 对齐。"
+      },
+      {
+        "concept": "椽径与椽当",
+        "fashi": "derived.roof.rafter.diameter_fen / spacing_cun",
+        "qing": "qing.derived.eave.chuan_diameter_cun / chuan_spacing_cun",
+        "fayuan": "fayuan.derived.column_girths_chi.chuan(C_椽=0.2×d_界)",
+        "note": "fashi 殿阁 9~10 分/厅堂 7~8/余屋 6~7(04-12,乙主张统一 9~10),椽心距 7.5~9.5 寸;qing 椽径 0.35×檩径(≈1.4~1.5 斗口,03-06 correction 选定 0.35×D_檩),椽当=1 椽径故中距=2 椽径(03-07);fayuan 椽围径=0.2×界深。翼角椽根数在 qing 走 03-15、在 fayuan 走摔网椽 9/11/13(05-18)。"
+      },
+      {
+        "concept": "角梁/大角梁/老戗",
+        "fashi": "derived.corner.jiaoliang",
+        "qing": "qing.derived.corner.jiaoliang_section / zijiaoliang_length_cun / laojiaoliang_length_cun",
+        "fayuan": "fayuan.derived.qiang.laoqiang_section / laoqiang_length_chi",
+        "note": "fashi 大角梁 28~30×18~20 分、长按 √2(法式 1.4)斜长(05-09、05-10);qing 大式 4.5×3 斗口、小式 3×2 椽径,通长走 03-13 原文式;fayuan 老戗断面由坐斗定(四六式→高 4 寸阔 6 寸),高与阔的归属与清式相反(03-12 乙),不能混用。"
+      },
+      {
+        "concept": "起翘(翼角升起量)",
+        "fashi": "derived.corner.qiqiao_fen",
+        "qing": "qing.derived.corner.qiao_cun(翘四=4×椽径)",
+        "fayuan": "fayuan.derived.qiang.qiang_slope / nenqiang",
+        "note": "三套都不好用。fashi 05-13 存疑:原文无定量,推算的 18~21 分已被否决,H 是自由参数只受两条约束(生头木顶≤角梁背,或椽头背=角梁头背−1 椽径);qing 4 椽径(+可选 2 寸抬头),03-10 乙标 unverifiable——查不到任何清代实例起翘实测;fayuan 才有硬公式:戗角坡度=正身提栈/1.414(03-21,法原算例吻合 1% 内),起翘由老戗+嫩戗夹角(殿庭 39°48′、亭阁≥32°)与菱角木拼高决定,与『4 椽径』不同量纲不可换算。生成器应把起翘做成显式参数,三套各走各的求解器。"
+      },
+      {
+        "concept": "冲出/生出(翼角平面外推)",
+        "fashi": "derived.corner.shengchu_cun(1 间 4 寸 / 3 间 5 / 5 间 7)",
+        "qing": "qing.derived.corner.chong_cun(冲三=3×椽径)",
+        "fayuan": "fayuan.derived.qiang.fangcha_chi(放叉=水平 1 尺定值)",
+        "note": "三套量纲全不同:fashi 按间数查表且沿法向还是对角线原文未明(05-08 编码假设 Δ(t)=G×f(t),f 单调);qing 按椽径倍数但有两套不可通约的口径(03-09 correction 必须二选一并声明);fayuan 是定值 1 尺。"
+      },
+      {
+        "concept": "出际/收山/推山(山面处理)",
+        "fashi": "derived.roof.chuji_chi(出际 2~5 尺,殿阁转角造随架)",
+        "qing": "qing.derived.roof.shoushan / tuishan",
+        "fayuan": "fayuan.derived.dianting.shanhua_overhang_chi",
+        "note": "fashi 出际按椽数分档(04-25、05-16);qing 歇山收山=山面正心桁中退一个正心桁径(02-13 通过)、庑殿推山逐步递减(02-12 存疑,递减率须作参数,实例 0.10~0.30 且方向可正可负);fayuan 山花挑出=0.5×界深,重檐上层 0.25×开间(05-24)。"
+      },
+      {
+        "concept": "梁栿/梁架断面",
+        "fashi": "derived.roof.beams",
+        "qing": "qing.derived.beams(七/五/三架梁、桃尖梁、抱头梁)",
+        "fayuan": "fayuan.derived.beams(扁作大梁机面法 / 圆堂围径歌诀)",
+        "note": "fashi 檐栿两材两栔(04-13 已否决原 42 分,取更正值)、厚=广×2/3;qing 逐级『收 2 寸』链式递减(01-11 correction 要求折成斗口并加下限保护 t_min=0.5×t_prev,否则小斗口时收成负值);fayuan 扁作大梁高由提栈反推(05-23 存疑机面法),圆堂走围径歌诀 C_大梁=0.2×内四界深(殿 0.3)。"
+      },
+      {
+        "concept": "屋顶形制",
+        "fashi": "input.roof_type(四阿/厦两头/不厦两头/斗尖)",
+        "qing": "qing.input.roof_type(庑殿/歇山/悬山/硬山/攒尖/卷棚)",
+        "fayuan": "fayuan.input.hall_type / pavilion_shape",
+        "note": "术语可一一对应(四阿=庑殿、厦两头=歇山、不厦两头=悬山、斗尖=攒尖),但 06-01 已驳倒『庑殿>歇山>悬山>硬山>攒尖』的等级序列:形制只作几何枚举,等级轴是重檐与否,瓦色按院落序位定(06-13 乙),与屋顶形制正交。生成器不得由 roof_type 推等级、瓦色或走兽数。"
+      },
+      {
+        "concept": "瓦作与屋脊",
+        "fashi": null,
+        "qing": "qing.derived.roofing",
+        "fayuan": "fayuan.derived.ridge_type",
+        "note": "fashi 侧本目录未编瓦作;qing 走 06 章北方官式(垂脊 2/3、岔脊 1/3,瓦垄数=面阔丈×号数系数);fayuan 走江南脊型表(06-10 存疑)。06-11、06-15、06-16 三条苏式瓦作规则已整条驳倒,江南瓦作数值必须回姚承祖原书取,不得从本 schema 生成。"
+      }
+    ]
+  }
+}
