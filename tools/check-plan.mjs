@@ -12,8 +12,13 @@ const plan = JSON.parse(readFileSync('projects/daguanyuan/plan.json', 'utf8'));
 const fails = [];
 const warns = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
-// P2 已知缺陷：3 个入口落在自己多边形外、部分建筑锚点越界（平面批评稿第 4、5 条）。
-// 暂降级为 warn，不为了让门变绿去改数据；P2 修复后升回 error。
+// P2 已知缺陷，暂降 warn，不为了让门变绿去改数据；P2 修复后升回 error。
+//   一类：3 个入口落在自己多边形外、4 个建筑锚点越界（平面批评稿第 4、5 条）。
+//   二类：约束 5「自正门望不见任何景点」有 3 处真违规——翠嶂东边只到 x=76，
+//         而怡红院(120,172)、栊翠庵(209,149)、凸碧凹晶(186,52) 都在 x>119，
+//         正门(55,250) 到它们的连线根本不经过翠嶂。
+//         注意：平面合成时曾声称「翠嶂东延至 x=152，17/17 视线全遮断」，
+//         plan.json 里并没有这个延伸，那句话不成立。修法是延长翠嶂或东移那三区。
 const warnOk = (cond, msg) => { if (!cond) warns.push(msg); };
 
 /* ---- 基础几何 ---- */
@@ -145,4 +150,10 @@ if (fails.length) {
   for (const f of fails) console.error('  ' + f);
   process.exit(1);
 }
-console.log(`平面几何门通过：${plan.regions.length} 区、${plan.water.length} 水、${plan.hills.length} 山，七条约束全过（${warns.length} 处已知缺陷降为 warn）。`);
+// 摘要必须诚实：有 warn 时不能说「全过」,否则下一个人会信这句话而不去看上面的清单。
+const c5 = warns.filter((w) => w.startsWith('约束5')).length;
+const summary = warns.length
+  ? `平面几何门：硬断言全过；另有 ${warns.length} 处降级缺陷待 P2 修` +
+    (c5 ? `，其中约束 5 有 ${c5} 处真违规（视线未被翠嶂遮断）` : '')
+  : '平面几何门通过：七条约束全过，无降级项';
+console.log(`${summary}。${plan.regions.length} 区、${plan.water.length} 水、${plan.hills.length} 山。`);
