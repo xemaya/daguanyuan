@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
-import { poissonScatter, DensityMask, makeInstanced, InstanceCuller } from '@engine/scatter';
+import { poissonScatter, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline } from '@engine/scatter';
 import { metaSurface, noiseDisplace, boxProjectedUV, type Ball } from '@builder/parts/sculpt';
 import {
   createFoliageMaterial,
@@ -19,7 +19,7 @@ import {
   setFlex,
   bakeCanopyShading,
 } from './foliage-materials';
-import { TERRAIN } from '@builder/compose/terrain';
+import { TERRAIN, getPlan } from '@builder/compose/terrain';
 /** Formerly the tall-grass encounter mask; the garden has none, so everything is clear. */
 const wildGrassClearance = (_x: number, _z: number, _pad = 0): number => 1;
 
@@ -1578,7 +1578,7 @@ export function buildVegetation(ctx: GameContext): void {
 
   /* ---------------- tree instancing -------------------------------- */
 
-  const culler = new InstanceCuller();
+  const culler = new ClusteredInstancePool(group);
   const m4 = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const euler = new THREE.Euler();
@@ -1974,7 +1974,6 @@ export function buildVegetation(ctx: GameContext): void {
 
   /* ---------------- ground cover ----------------------------------- */
 
-  const cullables: THREE.Object3D[] = [];
 
   // ---- grass -------------------------------------------------------
   const grassTex = grassCardTexture('turf', ctx.seed ^ 0x9ea55, 11);
@@ -2014,6 +2013,15 @@ export function buildVegetation(ctx: GameContext): void {
   const chunkCols = Math.ceil((VEG.scatterMaxX - VEG.scatterMinX) / VEG.chunk);
   const chunkRows = Math.ceil((VEG.scatterMaxZ - VEG.scatterMinZ) / VEG.chunk);
   const chunks: ChunkList[] = Array.from({ length: chunkCols * chunkRows }, () => []);
+  const paths = getPlan().paths;
+  const denseChunks = chunks.map((_, ci) => {
+    const x = VEG.scatterMinX + (ci % chunkCols + 0.5) * VEG.chunk;
+    const z = VEG.scatterMinZ + (Math.floor(ci / chunkCols) + 0.5) * VEG.chunk;
+    // Anything visible from a route keeps the original 0.32m lattice. Only
+    // distant ground uses every third cell; path-boundary chunks stay dense.
+    const margin = VEG.drawDist.grass + VEG.chunk * Math.SQRT2 / 2 + 8;
+    return paths.some(p => distanceToPolyline(x,z,p.points) < margin);
+  });
 
   /**
    * One tuft variant per chunk rather than both in every chunk.
@@ -2047,8 +2055,12 @@ export function buildVegetation(ctx: GameContext): void {
         // overlapping grass is exactly what a lawn looks like.
         const x = VEG.scatterMinX + (i + gRng()) * cell;
         const z = VEG.scatterMinZ + (j + gRng()) * cell;
-        if (gRng() > grassDensity(x, z)) continue;
+        const acceptance = gRng();
         const ci = chunkOf(x, z);
+        // Consume the same three draws even for sparse cells, so adding the
+        // distant tier never re-rolls plants beside the route.
+        if (!denseChunks[ci] && (i % 3 !== 0 || j % 3 !== 0)) continue;
+        if (acceptance > grassDensity(x, z)) continue;
         chunks[ci].push({ x, z, v: chunkVariant(ci), g: 0 });
       }
     }
@@ -2075,6 +2087,13 @@ export function buildVegetation(ctx: GameContext): void {
 
   chunks.forEach((list, ci) => {
     if (list.length === 0) return;
+    const colIndex = ci % chunkCols, rowIndex = Math.floor(ci / chunkCols);
+    const cx = VEG.scatterMinX + (colIndex + 0.5) * VEG.chunk;
+    const cz = VEG.scatterMinZ + (rowIndex + 0.5) * VEG.chunk;
+    // The factory owns matrices and attributes; distant chunks retain only placement data.
+    // Conservative height allowance covers steep banks and the grass wind displacement.
+    culler.addLazy(new THREE.Vector3(cx, ground(cx, cz), cz), Math.hypot(VEG.chunk, VEG.chunk) / 2 + 20, () => {
+    const generated: THREE.InstancedMesh[] = [];
     // One mesh per (chunk, tuft variant): variants must not share a geometry.
     for (let v = 0; v < tuftGeos.length; v++) {
       const subset = list.filter((s) => s.v === v);
@@ -2111,9 +2130,11 @@ export function buildVegetation(ctx: GameContext): void {
       // frame and it is not worth having.
       mesh.name = `Grass_${ci}_${v}`;
       mesh.computeBoundingSphere();
-      group.add(mesh);
-      cullables.push(mesh);
+      mesh.boundingSphere!.radius += 0.5;
+      generated.push(mesh);
     }
+    return generated;
+    }, VEG.drawDist.grass);
   });
 
   // ---- clover ------------------------------------------------------
@@ -2344,50 +2365,16 @@ export function buildVegetation(ctx: GameContext): void {
 
   /* ---------------- culling ----------------------------------------- */
 
-  // Grass keeps chunk-granularity culling rather than joining the per-instance
-  // culler. It is by far the biggest instance population (~22k), and permuting
-  // that many matrices every time the camera crosses a chunk edge would cost
-  // more CPU and upload bandwidth than the triangles it saves. The chunk grid
-  // already gives the renderer a small bounding sphere to reject, which is the
-  // property the single-mesh categories were missing.
-  const camPos = new THREE.Vector3();
-  const cullData = cullables.map((o) => {
-    const m = o as THREE.InstancedMesh;
-    m.computeBoundingSphere();
-    const bs = m.boundingSphere!;
-    return { obj: m, cx: bs.center.x, cy: bs.center.y, cz: bs.center.z, r: bs.radius };
-  });
-
-  let grassCull = true;
-  let grassDistCull = true;
-  ctx.tick(() => {
-    ctx.camera.getWorldPosition(camPos);
-    for (const c of cullData) {
-      if (!grassCull || !grassDistCull) {
-        c.obj.visible = true;
-        continue;
-      }
-      const dx = c.cx - camPos.x;
-      const dy = c.cy - camPos.y;
-      const dz = c.cz - camPos.z;
-      c.obj.visible =
-        Math.sqrt(dx * dx + dy * dy + dz * dz) - c.r < VEG.drawDist.grass;
-    }
-    culler.update(ctx.camera);
-  });
-
-  // Visual-QA hook, mirroring `starterDebug`: lets the frozen-capture tool turn
-  // culling off and re-shoot the identical frame, so a screenshot diff isolates
-  // culling from wind phase and resolution.
+  // Prime the spawn neighbourhood before reporting world build complete. Three's
+  // per-camera frustum tests retain off-screen casters in the shadow camera.
+  culler.update(ctx.camera);
+  ctx.tick(() => culler.update(ctx.camera));
   group.userData.vegDebug = {
-    setCulling: (on: boolean) => {
-      grassCull = on;
-      culler.setEnabled(on);
-    },
-    /** Keeps frustum culling but drops every draw-distance cut. */
-    setDistanceCulling: (on: boolean) => {
-      grassDistCull = on;
-      culler.setDistanceCulling(on);
-    },
+    setCulling: (on: boolean) => culler.setEnabled(on),
+    setFrustumCulling: (on: boolean) => culler.setFrustumCulling(on),
+    setDistanceCulling: (on: boolean) => culler.setDistanceCulling(on),
+    stats: () => culler.stats(),
   };
+  group.userData.grassCoverage = { denseChunks: denseChunks.filter(Boolean).length,
+    chunks: denseChunks.length, nearCell: VEG.grassCell, farCell: VEG.grassCell * 3 };
 }

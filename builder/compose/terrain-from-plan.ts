@@ -20,6 +20,7 @@
  */
 
 import { Simplex, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
+import { BoundsIndex } from '@engine/scatter/cluster';
 
 /* ------------------------------------------------------------------ */
 /* plan.json 的数据契约（只取本模块消费的字段）                          */
@@ -76,6 +77,8 @@ export interface TerrainField {
 
 export interface TerrainFieldOptions {
   seed: number;
+  /** Reference path for parity checks; production uses the spatial index. */
+  spatialIndex?: boolean;
   /**
    * 网格采样窗口。场本身是全局解析式，bounds 不改变任何函数值；
    * 它留给 Task 6/7 的网格与分块代码声明「只采这一片」。
@@ -256,6 +259,7 @@ const PAD_FEATHER = 3.5;
  */
 const PAD_APRON = 16;
 const PAD_APRON_STRENGTH = 0.8;
+const HILL_WARP = 1.85;
 
 export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): TerrainField {
   const seed = opts.seed;
@@ -307,9 +311,17 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     .filter((r) => r.buildings && r.buildings.length > 0)
     .map((r) => ({ ...makePoly(r.polygon), elev: r.elevation_m }));
 
+  const indexed = opts.spatialIndex !== false;
+  const hillIndex = new BoundsIndex<Hill>(32);
+  const padIndex = new BoundsIndex<Pad>(32);
+  const waterIndex = new BoundsIndex<Water>(32);
+  for (const h of hills) hillIndex.add(h, h, HILL_WARP);
+  for (const p of pads) padIndex.add(p, p, PAD_APRON + 0.8);
+  // The same index serves excavation and the 3.5m surface wet band.
+  for (const w of waters) waterIndex.add(w, w, Math.max(3.5, w.feather + w.warpA + w.warpB + 0.1));
+
   /* ---- 各要素遮罩 -------------------------------------------------- */
 
-  const HILL_WARP = 1.85; // 1.4 + 0.45
   function hillMask(x: number, z: number, hill: Hill): number {
     if (!inBBox(x, z, hill, HILL_WARP)) return 0;
     const [wx, wz] = warp2(x, z, 1.4, 0.05, 0.45, 0.21);
@@ -371,13 +383,13 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     // 山体核心区让台基让位：凸碧山庄的院子不能削掉凸碧山的主峰，
     // 削了山就没了。hillSum 强的地方台基退场，院落在山坡和山坳上随坡就势。
     let hillSum = 0;
-    for (const hill of hills) {
+    for (const hill of indexed ? hillIndex.query(x, z) : hills) {
       const m = hillMask(x, z, hill);
       hillSum += m;
       h += hill.h * m;
     }
 
-    for (const pad of pads) {
+    for (const pad of indexed ? padIndex.query(x, z) : pads) {
       // 缓坡裙先把地基带向台基标高，核心再压死平。
       const apron = apronMask(x, z, pad);
       if (apron > 0.001) h = lerp(h, pad.elev, apron * PAD_APRON_STRENGTH);
@@ -386,7 +398,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     }
 
     // 岸坡先缓后陡：pow(m, 1.5) 让水线附近留一条浅滩，然后才落到 depth_m。
-    for (const w of waters) {
+    for (const w of indexed ? waterIndex.query(x, z) : waters) {
       const m = waterMask(x, z, w);
       if (m > 0.001) h = lerp(h, -w.depth, Math.pow(m, 1.5));
     }
@@ -404,6 +416,8 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     maxX: number;
     minZ: number;
     maxZ: number;
+    segments: BoundsIndex<number>;
+    segmentIds: number[];
   }
 
   const PATH_QUERY_MARGIN = PATH_HALF_WIDTH + PATH_FEATHER + 1.5;
@@ -422,8 +436,24 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       if (z < minZ) minZ = z;
       if (z > maxZ) maxZ = z;
     }
-    return { ...dense, t, minX, maxX, minZ, maxZ };
+    const segments = new BoundsIndex<number>(16);
+    const segmentIds: number[] = [];
+    for (let i = 0; i + 1 < dense.xs.length; i++) {
+      segmentIds.push(i);
+      segments.add({
+        minX: Math.min(dense.xs[i], dense.xs[i+1]), maxX: Math.max(dense.xs[i], dense.xs[i+1]),
+        minZ: Math.min(dense.zs[i], dense.zs[i+1]), maxZ: Math.max(dense.zs[i], dense.zs[i+1]),
+      }, i, PATH_QUERY_MARGIN);
+    }
+    return { ...dense, t, minX, maxX, minZ, maxZ, segments, segmentIds };
   });
+  // Most splat texels are nowhere near a road. Reject them before evaluating
+  // ten octaves of domain warp; padding includes the maximum 0.47m warp.
+  const pathPresence = new BoundsIndex<boolean>(8);
+  for (const p of pathProfiles) for (let i=0;i+1<p.xs.length;i++) {
+    pathPresence.add({minX:Math.min(p.xs[i],p.xs[i+1]),maxX:Math.max(p.xs[i],p.xs[i+1]),
+      minZ:Math.min(p.zs[i],p.zs[i+1]),maxZ:Math.max(p.zs[i],p.zs[i+1])},true,PATH_QUERY_MARGIN+0.47);
+  }
 
   /*
    * 交叉口纵断面对齐。两条路在 1m 以内相遇就是同一个路口，高程必须一致——
@@ -508,8 +538,9 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       return null;
     }
     let best = Infinity, bt = 0;
-    const n = p.xs.length;
-    for (let i = 0; i + 1 < n; i++) {
+    // Segments outside the padded query bucket cannot affect the path mask.
+    // Candidate order is the original segment order, preserving nearest-point ties.
+    for (const i of indexed ? p.segments.query(x, z) : p.segmentIds) {
       const ax = p.xs[i], az = p.zs[i];
       const vx = p.xs[i + 1] - ax, vz = p.zs[i + 1] - az;
       const wx = x - ax, wz = z - az;
@@ -533,6 +564,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
    * 最近者胜在路口因此不会跳变。
    */
   function pathBlend(x: number, z: number): { w: number; t: number } {
+    if (indexed && pathPresence.query(x,z).length === 0) return {w:0,t:0};
     const [wx, wz] = warp2(x, z, 0.35, 0.045, 0.12, 0.3);
     // 半宽会呼吸：一条等宽的之字带仍然读成画上去的丝带。
     const hw =
@@ -570,7 +602,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
 
     // 水线一圈浅滩沙。园子里没有海滩，这只是池岸的湿脚。
     let sand = 0;
-    for (const w of waters) {
+    for (const w of indexed ? waterIndex.query(x, z) : waters) {
       if (!inBBox(x, z, w, 3.5)) continue;
       const [wx, wz] = warp2(x, z, w.warpA, 0.06, w.warpB, 0.24);
       const sd = signedDist(wx, wz, w);
@@ -581,7 +613,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     // 路与草皮的边界：形状不规则还不够，性格也不能均匀——
     // 没人走的草舌头咬进路面，抄近道的脚把浮土带出路外。
     const bandOuter = smoothstep(0.03, 0.34, path.w) * smoothstep(1.0, 0.62, path.w);
-    const tongue = smoothstep(0.42, 0.88, fbm2(nScuff, x * 0.11 + 31.7, z * 0.11 - 12.3, 3) + 0.5);
+    const tongue = indexed && bandOuter === 0 ? 0 : smoothstep(0.42, 0.88, fbm2(nScuff, x * 0.11 + 31.7, z * 0.11 - 12.3, 3) + 0.5);
     let dirt = path.w * (1 - clamp(bandOuter * tongue * 0.9, 0, 0.95));
 
     const cobble = 0; // 铺地等 scenes 数据，地形层不猜。

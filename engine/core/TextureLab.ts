@@ -21,16 +21,19 @@ export interface HeightFieldOptions {
 
 const canvasCache = new Map<string, THREE.Texture>();
 
-function makeCanvas(size: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
-  const canvas = document.createElement('canvas');
+type BakeCanvas = HTMLCanvasElement | OffscreenCanvas;
+type BakeContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
+function makeCanvas(size: number): { canvas: BakeCanvas; ctx: BakeContext } {
+  const canvas = typeof document === 'undefined' ? new OffscreenCanvas(size, size) : document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true }) as BakeContext;
   return { canvas, ctx };
 }
 
 function finalize(
-  canvas: HTMLCanvasElement,
+  canvas: BakeCanvas,
   srgb: boolean,
   repeat: number,
   anisotropy: number,
@@ -46,6 +49,55 @@ function finalize(
   tex.magFilter = THREE.LinearFilter;
   tex.needsUpdate = true;
   return tex;
+}
+
+/** Only pixel data crosses the worker boundary; texture identity remains owned by this realm. */
+export interface BakedTexture {
+  key: string;
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+  colorSpace: string;
+  wrapS: THREE.Wrapping;
+  wrapT: THREE.Wrapping;
+  minFilter: THREE.MinificationTextureFilter;
+  magFilter: THREE.MagnificationTextureFilter;
+  repeat: [number, number];
+  anisotropy: number;
+  generateMipmaps: boolean;
+  flipY: boolean;
+}
+
+export function exportBakedTextures(): BakedTexture[] {
+  return [...canvasCache].map(([key, texture]) => {
+    const canvas = texture.image as BakeCanvas;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true }) as BakeContext;
+    if (!ctx) throw new Error(`Texture ${key} cannot be transferred as canvas pixels`);
+    const { width, height } = canvas;
+    return { key, width, height, data: ctx.getImageData(0, 0, width, height).data,
+      colorSpace: texture.colorSpace, wrapS: texture.wrapS, wrapT: texture.wrapT,
+      minFilter: texture.minFilter, magFilter: texture.magFilter,
+      repeat: [texture.repeat.x, texture.repeat.y], anisotropy: texture.anisotropy,
+      generateMipmaps: texture.generateMipmaps, flipY: texture.flipY };
+  });
+}
+
+export function adoptBakedTextures(textures: BakedTexture[]): void {
+  for (const baked of textures) {
+    if (canvasCache.has(baked.key)) continue;
+    const { canvas, ctx } = makeCanvas(baked.width);
+    canvas.height = baked.height;
+    const image = ctx.createImageData(baked.width, baked.height);
+    image.data.set(baked.data);
+    ctx.putImageData(image, 0, 0);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = baked.colorSpace;
+    texture.wrapS = baked.wrapS; texture.wrapT = baked.wrapT;
+    texture.minFilter = baked.minFilter; texture.magFilter = baked.magFilter;
+    texture.repeat.set(...baked.repeat); texture.anisotropy = baked.anisotropy;
+    texture.generateMipmaps = baked.generateMipmaps; texture.flipY = baked.flipY;
+    canvasCache.set(baked.key, texture);
+  }
 }
 
 /**

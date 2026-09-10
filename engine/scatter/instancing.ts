@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { applyWind } from './wind';
+import { ClusterGrid } from './cluster';
 
 /**
  * Creates an InstancedMesh with its own copy of the geometry so the
@@ -18,6 +19,128 @@ export function makeInstanced(
   const mesh = new THREE.InstancedMesh(g, mat, count);
   mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
   return mesh;
+}
+
+interface PooledCluster {
+  center: THREE.Vector3;
+  radius: number;
+  maxDist: number;
+  meshes?: THREE.InstancedMesh[];
+  build?: () => THREE.InstancedMesh[];
+}
+
+/** Keep camera culling in Three so each shadow camera gets its own frustum test. */
+export class ClusteredInstancePool {
+  private readonly root: THREE.Object3D;
+  private readonly clusters: PooledCluster[] = [];
+  private enabled = true;
+  private frustumEnabled = true;
+  private distanceEnabled = true;
+  private readonly cameraPosition = new THREE.Vector3();
+  readonly cellSize: number;
+
+  constructor(root: THREE.Object3D, cellSize = 32) {
+    this.root = root; this.cellSize = cellSize;
+  }
+
+  add(sources: THREE.InstancedMesh[], options: {maxDist?:number;skipShadow?:THREE.InstancedMesh[]} = {}): void {
+    if (!sources.length || sources[0].count === 0) return;
+    const grid = new ClusterGrid<number>(this.cellSize);
+    const matrix = new THREE.Matrix4(), sphere = new THREE.Sphere(), union = new THREE.Box3();
+    const point = new THREE.Vector3();
+    for (let i=0;i<sources[0].count;i++) {
+      union.makeEmpty();
+      for (const source of sources) {
+        if (source.count !== sources[0].count) throw new Error('Clustered instance layouts must match');
+        if (!source.geometry.boundingSphere) source.geometry.computeBoundingSphere();
+        source.updateMatrix();
+        source.getMatrixAt(i,matrix);
+        matrix.premultiply(source.matrix);
+        sphere.copy(source.geometry.boundingSphere!).applyMatrix4(matrix);
+        union.expandByPoint(point.copy(sphere.center).addScalar(sphere.radius));
+        union.expandByPoint(point.copy(sphere.center).addScalar(-sphere.radius));
+      }
+      const combined=union.getBoundingSphere(new THREE.Sphere());
+      combined.radius+=0.8; // Wind may move the rest-pose boundary into either camera.
+      grid.add(combined.center.x,combined.center.z,i,combined.center.y,combined.radius);
+    }
+    for (const cluster of grid.cells()) {
+      const members=cluster.items;
+      const meshes=sources.map(source=>{
+        const geometry=source.geometry.clone();
+        for (const [key,attribute] of Object.entries(source.geometry.attributes)) {
+          if (!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) continue;
+          const attr=attribute as THREE.InstancedBufferAttribute;
+          const ArrayType=attr.array.constructor as {new(length:number):typeof attr.array};
+          const data=new ArrayType(members.length*attr.itemSize);
+          members.forEach((id,j)=>{
+            const start=Math.floor(id/attr.meshPerAttribute)*attr.itemSize;
+            for(let c=0;c<attr.itemSize;c++)data[j*attr.itemSize+c]=attr.array[start+c];
+          });
+          geometry.setAttribute(key,new THREE.InstancedBufferAttribute(data,attr.itemSize,attr.normalized));
+        }
+        const mesh=new THREE.InstancedMesh(geometry,source.material,members.length);
+        mesh.name=`${source.name}@${cluster.key}`;
+        mesh.castShadow=source.castShadow;mesh.receiveShadow=source.receiveShadow;
+        mesh.customDepthMaterial=source.customDepthMaterial;
+        mesh.customDistanceMaterial=source.customDistanceMaterial;
+        const color=new THREE.Color();
+        members.forEach((id,j)=>{
+          source.getMatrixAt(id,matrix);matrix.premultiply(source.matrix);mesh.setMatrixAt(j,matrix);
+          if(source.instanceColor){source.getColorAt(id,color);mesh.setColorAt(j,color);}
+        });
+        mesh.instanceMatrix.needsUpdate=true;
+        if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+        // Use the whole plant's union, not a separate tighter trunk/fringe bound.
+        mesh.boundingSphere=new THREE.Sphere(new THREE.Vector3(cluster.center.x,cluster.center.y,cluster.center.z),cluster.radius);
+        if(options.skipShadow?.includes(source)){
+          mesh.onBeforeShadow=()=>{mesh.count=0;};
+          mesh.onAfterShadow=()=>{mesh.count=members.length;};
+        }
+        this.root.add(mesh);
+        return mesh;
+      });
+      this.clusters.push({center:new THREE.Vector3(cluster.center.x,cluster.center.y,cluster.center.z),radius:cluster.radius,maxDist:options.maxDist??Infinity,meshes});
+    }
+    for(const source of sources){source.removeFromParent();source.geometry.dispose();}
+  }
+
+  addLazy(center: THREE.Vector3, radius:number, build:()=>THREE.InstancedMesh[], maxDist:number): void {
+    this.clusters.push({center:center.clone(),radius,maxDist,build});
+  }
+
+  update(camera: THREE.Camera): void {
+    camera.getWorldPosition(this.cameraPosition);
+    for(const cluster of this.clusters){
+      const distance=this.cameraPosition.distanceTo(cluster.center)-cluster.radius;
+      const active=!this.enabled || !this.distanceEnabled || distance<cluster.maxDist;
+      // Prepare one chunk early so normal walking does not meet an unbuilt border.
+      if(!cluster.meshes && (active || distance<cluster.maxDist+13)) {
+        cluster.meshes=cluster.build!();
+        for(const mesh of cluster.meshes){
+          if(!mesh.boundingSphere)mesh.computeBoundingSphere();
+          this.root.add(mesh);
+        }
+        if(cluster.meshes.length){
+          const actual=cluster.meshes[0].boundingSphere?.clone()??new THREE.Sphere();
+          for(const mesh of cluster.meshes.slice(1))if(mesh.boundingSphere)actual.union(mesh.boundingSphere);
+          cluster.center.copy(actual.center);cluster.radius=actual.radius;
+        }
+      }
+      if(cluster.meshes)for(const mesh of cluster.meshes){
+        mesh.visible=active;
+        mesh.frustumCulled=this.enabled && this.frustumEnabled;
+      }
+    }
+  }
+
+  setEnabled(on:boolean): void {this.enabled=on;}
+  setFrustumCulling(on:boolean): void {this.frustumEnabled=on;}
+  setDistanceCulling(on:boolean): void {this.distanceEnabled=on;}
+  stats(): {clusters:number;built:number;instances:number} {
+    return {clusters:this.clusters.length,built:this.clusters.filter(c=>c.meshes).length,
+      instances:this.clusters.reduce((n,c)=>n+(c.meshes?.reduce((sum,m)=>sum+m.instanceMatrix.count,0)??0),0)};
+  }
 }
 
 /* ------------------------------------------------------------------ */

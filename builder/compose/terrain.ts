@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildTerrainChunks } from '@engine/render/TerrainChunks';
 import type { GameContext } from '@engine/core/Context';
 import { grassTurfMaps, cobbleMaps, type MaterialMaps } from '@engine/core/TextureLab';
 import {
@@ -86,22 +87,9 @@ const MVP_REGIONS = ['zhengmen', 'cuizhang', 'qinfang_ting_qiao', 'xiaoxiangguan
  */
 const PAD = 15;
 
-/**
- * Grid cell edge, metres. Knob #1 from the same plan step. The old 64×72m
- * field used 36cm cells (7万 triangles); the MVP bbox at that cell size is
- * 130万 triangles (19×) because `bounds` does not shrink the *window* by
- * itself — the window here is already 280×226m even after knob #2, so this
- * is the second lever. 0.48m first landed at ~55万 triangles (under the
- * plan's 60万 ceiling) but world-build measured 38-41s against the 30s
- * budget — `makeTerrainField`'s per-vertex cost (polygon/fbm walks, same
- * cost class the plan's Step 0 ② warned about) dominates, not the splat
- * bake. 0.6m (~35% fewer vertices) still measured 34.8s total build (理地
- * alone 17.0s); 0.9m + PAD 15 (above) got to 30.4s, still just over —
- * `理地` at 13.2s was still the largest single step, so pushed once more to
- * 1.1m (~9.6万 triangles, a sixth of the plan's 60万 budget) for headroom
- * rather than sitting exactly on the line.
- */
-const CELL = 1.1;
+/** Fine geometry restored after F's indexed sampling and worker texture preparation.
+ * The 270×216m window stays below 600k triangles at this spacing. */
+const CELL = 0.48;
 
 /**
  * MVP regions' combined bounding box, padded by `PAD`. Computed offline from
@@ -188,20 +176,8 @@ function assertBoundsFresh(plan: GardenPlan): void {
 
 type Field = ReturnType<typeof makeTerrainField>;
 
-/**
- * Bakes the four-way surface mask into an RGBA texture spanning the terrain.
- *
- * 768² over a 280×226m window is ~36cm/texel — coarser than the old 64m
- * field's 8.3cm/texel (that one covered a town 1/14th the area), but still
- * enough for the shader's own metre-scale domain warp to fray the boundary
- * rather than showing bare bilinear ramps. Started at 1024² (~27cm/texel);
- * measured world-build time came back at 41s (理地 alone 23.5s) against the
- * plan's 30s budget, and `masks()` walks the same expensive polygon/fbm path
- * as `height()` — the bake's 1024² texel count (1.05M calls) was the bigger
- * of the two costs here, bigger than the ~274k-vertex geometry loop. Dropped
- * back to 768² first since it's a free win with no window/grid tradeoff.
- */
-function bakeSplat(field: Field, size = 768): THREE.DataTexture {
+/** Bake world-space masks at 1024²; F removes repeated work rather than thinning this field. */
+function bakeSplat(field: Field, size = 1024): THREE.DataTexture {
   const data = new Uint8Array(size * size * 4);
   for (let j = 0; j < size; j++) {
     const z = TERRAIN.minZ + ((j + 0.5) / size) * TERRAIN.depth;
@@ -473,6 +449,13 @@ const TERRAIN_NORMAL = /* glsl */ `
 /* ------------------------------------------------------------------ */
 
 export function buildTerrain(ctx: GameContext): void {
+  const timings: [string, number][] = [];
+  const timed = <T>(label: string, build: () => T): T => {
+    const start = performance.now();
+    const result = build();
+    timings.push([label, performance.now() - start]);
+    return result;
+  };
   const plan = getPlan();
   assertBoundsFresh(plan);
   const field = makeTerrainField(plan, {
@@ -484,41 +467,8 @@ export function buildTerrain(ctx: GameContext): void {
   ctx.collision.terrainHeight = (x: number, z: number) => field.height(x, z);
   ctx.collision.surfaceAt = (x: number, z: number) => field.surface(x, z);
 
-  // ---- geometry --------------------------------------------------------
-  const geo = new THREE.PlaneGeometry(TERRAIN.width, TERRAIN.depth, TERRAIN.segX, TERRAIN.segZ);
-  geo.rotateX(-Math.PI / 2);
-  // The window is not centred on the world origin (it is centred on the MVP
-  // regions' bbox), so shift the plane's local ±half-extent coordinates into
-  // world space before sampling — everything below then reads world (x, z)
-  // straight off the position attribute.
-  geo.translate((TERRAIN.minX + TERRAIN.maxX) / 2, 0, (TERRAIN.minZ + TERRAIN.maxZ) / 2);
-
-  const pos = geo.attributes.position as THREE.BufferAttribute;
-  const nrm = geo.attributes.normal as THREE.BufferAttribute;
-  const count = pos.count;
-  const e = TERRAIN.width / TERRAIN.segX; // one cell — normals match the mesh
-  const inv = 1 / (2 * e);
-
-  for (let i = 0; i < count; i++) {
-    const x = pos.getX(i);
-    const z = pos.getZ(i);
-    const h = field.height(x, z);
-    pos.setY(i, h);
-
-    // Central differences of the analytic field: smooth shading with none of
-    // the faceting computeVertexNormals() leaves on a low-amplitude grid.
-    const dhx = (field.height(x + e, z) - field.height(x - e, z)) * inv;
-    const dhz = (field.height(x, z + e) - field.height(x, z - e)) * inv;
-    const len = Math.hypot(dhx, 1, dhz);
-    nrm.setXYZ(i, -dhx / len, 1 / len, -dhz / len);
-  }
-  pos.needsUpdate = true;
-  nrm.needsUpdate = true;
-  geo.computeBoundingSphere();
-  geo.computeBoundingBox();
-
   // ---- textures --------------------------------------------------------
-  const turf = sharpen(grassTurfMaps());
+  const turf = timed('turf maps', () => sharpen(grassTurfMaps()));
   // The worn-track maps, not the shared `dirtPathMaps`. That one is authored for
   // props at arm's length and its pebble layer is a *single* Worley at 22 cells
   // — one cell size everywhere, which is the definition of a lattice: at the
@@ -526,11 +476,11 @@ export function buildTerrain(ctx: GameContext): void {
   // cobblestone. `trackEarthMaps` stacks three incommensurate Worley grids with
   // a drifting size selector and a drifting density, so there is no dominant
   // wavelength left to find.
-  const dirt = sharpen(trackEarthMaps());
-  const cobble = sharpen(cobbleMaps());
-  const sand = sharpen(sandMaps());
-  const splat = bakeSplat(field);
-  const warp = terrainWarpTexture();
+  const dirt = timed('dirt maps', () => sharpen(trackEarthMaps()));
+  const cobble = timed('cobble maps', () => sharpen(cobbleMaps()));
+  const sand = timed('sand maps', () => sharpen(sandMaps()));
+  const splat = timed('splat', () => bakeSplat(field));
+  const warp = timed('warp', () => terrainWarpTexture());
   const nrmTD = packNormalPair('turf-dirt', turf.normalMap, dirt.normalMap);
   const nrmCS = packNormalPair('cobble-sand', cobble.normalMap, sand.normalMap);
   const rough4 = packScalarQuad(
@@ -590,13 +540,15 @@ export function buildTerrain(ctx: GameContext): void {
   };
   mat.customProgramCacheKey = () => 'terrain-splat-v3';
 
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.name = 'Terrain';
-  mesh.receiveShadow = true;
-  mesh.castShadow = false; // the ground is the receiver; nothing gains from it
-  mesh.matrixAutoUpdate = false;
-  mesh.updateMatrix();
-  ctx.scene.add(mesh);
+  const terrain = new THREE.Group();
+  terrain.name = 'Terrain';
+  const chunks = timed('mesh', () => buildTerrainChunks(field, TERRAIN, 64, {
+    segX: TERRAIN.segX, segZ: TERRAIN.segZ, material: mat,
+  }));
+  terrain.add(...chunks);
+  ctx.scene.add(terrain);
+  terrain.userData.chunkCount = chunks.length;
+  terrain.userData.buildTimings = timings;
 
   // ---- perimeter blockers ---------------------------------------------
   // Tall enough that a jump cannot clear them, deep enough that walking down

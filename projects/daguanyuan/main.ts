@@ -25,6 +25,8 @@ async function boot(): Promise<void> {
 
   const container = document.getElementById('app')!;
   const engine = new Engine(container);
+  // Demand-built vegetation must warm the actual spawn before loading completes.
+  engine.camera.position.copy(SPAWN);
   engine.initPost();
 
   const world = new World(engine);

@@ -9,6 +9,7 @@ import { buildTerrain } from './terrain';
 import { buildWater } from '@engine/render/Water';
 import { buildVegetation } from '@builder/parts/zhiwu/vegetation';
 import { buildGarden } from './composer';
+import { prewarmTextures } from './prewarm-textures';
 
 /**
  * World — orchestrates the build order for the garden.
@@ -72,6 +73,7 @@ export class World {
 
   async build(onProgress?: (label: string, pct: number) => void): Promise<void> {
     const steps: [string, (ctx: GameContext) => void | Promise<void>][] = [
+      ['调色', async () => { this.root.userData.textureWarmup = await prewarmTextures(); }],
       ['开天', buildAtmosphere],
       ['理地', buildTerrain],
       ['引水', buildWater],
