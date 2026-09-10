@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BoundsIndex } from '@engine/scatter/cluster';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { poissonScatter, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter';
@@ -283,11 +284,17 @@ const SPECIES: TreeDef[] = [
 function makePlantMask(ctx: GameContext): DensityMask {
   const surfaceAt = ctx.collision.surfaceAt;
   const groundHeight = ctx.collision.groundHeight;
+  const wallEdges = new BoundsIndex<readonly [readonly [number,number],readonly [number,number]]>(16);
+  for(const r of getPlan().regions)for(const wall of r.linears??[])for(let i=1;i<wall.points.length;i++) {
+    const a=wall.points[i-1],b=wall.points[i];
+    wallEdges.add({minX:Math.min(a[0],b[0]),maxX:Math.max(a[0],b[0]),minZ:Math.min(a[1],b[1]),maxZ:Math.max(a[1],b[1])},[a,b],.8);
+  }
   return new DensityMask(
     (x, z) => {
       const grass = surfaceAt(x, z) === 'grass' ? 1 : 0;
       const dry = groundHeight(x, z) > VEG.minPlantY ? 1 : 0;
-      return grass * dry;
+      const atWall=wallEdges.query(x,z).some(edge=>distanceToPolyline(x,z,edge)<.7);
+      return atWall ? 0 : grass * dry;
     },
     { minX: TERRAIN.minX, minZ: TERRAIN.minZ, width: TERRAIN.width, depth: TERRAIN.depth },
   );

@@ -171,7 +171,7 @@ window.addEventListener('keydown', (e) => {
 
 Object.assign(window, {
   __VIEWER__: {
-    scene, camera, renderer, root, part,
+    scene, camera, renderer, root, part, THREE,
     setAngle(a: string) { const v = ANGLES[a]; if (v) frameFrom(v[0], v[1]); },
     triangles: () => stats.triangles,
     drawCalls: () => stats.calls,

@@ -1,6 +1,8 @@
 import plan from './plan.json' with { type: 'json' };
 import { buildBuilding, type BuildingOptions, type BuildingResult } from '@builder/parts/damu/building';
 import { registerPart } from '@builder/parts/registry';
+import { buildWallPath } from '@builder/parts/qiangyuan/wall-path';
+import type { WallPathSpec } from '@builder/plan/wall-path';
 
 /** The project supplies data; generic builders never import a particular garden. */
 export function buildPlannedBuilding(id: string): BuildingResult {
@@ -20,3 +22,11 @@ export function buildPlannedBuilding(id: string): BuildingResult {
 }
 
 registerPart('garden-building', buildPlannedBuilding);
+
+export function buildPlannedWall(id:string) {
+  const regions=plan.regions as unknown as {id:string;linears?:WallPathSpec[]}[];
+  const matches=regions.flatMap(r=>r.linears??[]).filter(w=>w.id===id);
+  if(matches.length!==1)throw new Error(`墙路径 ${id} 须唯一，实际 ${matches.length}`);
+  return buildWallPath(matches[0]);
+}
+registerPart('garden-wall',buildPlannedWall);

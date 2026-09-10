@@ -3,6 +3,7 @@ import type { GameContext } from '@engine/core/Context';
 import { buildPart, type PartBuild } from '@builder/parts/registry';
 import '@builder/parts/index';
 import type { BuildingResult } from '@builder/parts/damu/building';
+import type { WallPathResult } from '@builder/parts/qiangyuan/wall-path';
 import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
@@ -240,19 +241,10 @@ const SCENE: Placement[] = [
 
   // ---- 潇湘馆:院墙 + 月洞门 + 漏窗 + 正房 + 廊 + 竹(锚点 + 平移簇) --
   // P2：正房地基显式固定在1.0m，引泉沟绕到基础西侧，建筑台基再从此起算。
-  // 院墙/廊的旧平移簇尚待线性构件阶段按plan门位重接，不能据此宣称分区已完成。
+  // 院墙已读取plan折线，月洞门按真实锚点接入；西廊仍待线性廊阶段替换。
   { part: 'garden-building', variant: 'xiaoxiangguan.main-house', region: 'xiaoxiangguan', anchor: 'xiaoxiangguan.main-house', x: 0, z: 0, yaw: 0, tag: '潇湘馆' },
   ...(
     [
-      ['wall', 'plain', 2.6, -13.5, 0, undefined],
-      ['wall', 'moon', 8.6, -13.5, 0, '潇湘馆月洞门'],
-      ['wall', 'lattice:wan', 14.6, -13.5, 0, undefined],
-      ['wall', 'plain', 17.6, -16.5, Math.PI / 2, undefined],
-      ['wall', 'plain', 17.6, -22.5, Math.PI / 2, undefined],
-      ['wall', 'cloud', -0.4, -17.5, -Math.PI / 2, undefined],
-      ['wall', 'plain', -0.4, -23.5, -Math.PI / 2, undefined],
-      ['wall', 'plain', 5.6, -26.5, 0, undefined],
-      ['wall', 'plain', 11.6, -26.5, 0, undefined],
       ['building', 'lang', 2.4, -20.0, Math.PI / 2, '潇湘馆西廊'],
       ['taihu', 'peak4', 5.0, -17.0, 0.4, undefined],
     ] as [string, string, number, number, number, string | undefined][]
@@ -260,6 +252,7 @@ const SCENE: Placement[] = [
     const [wx, wz] = shift([x, z], D_XIAOXIANG);
     return { part, variant, x: wx, z: wz, yaw, tag } as Placement;
   }),
+  {part:'garden-wall',variant:'xiaoxiangguan.courtyard-wall',x:0,z:0,tag:'潇湘馆院墙'},
   ...(
     [
       ['grove', 14.2, -17.6],
@@ -385,6 +378,8 @@ export function buildGarden(ctx: GameContext): void {
   // and provenance separately so a batched scene is still reviewable.
   const constructionRecords: Record<string, unknown>[] = [];
   group.userData.constructions = constructionRecords;
+  const linearRecords:Record<string,unknown>[]=[];
+  group.userData.linears=linearRecords;
   ctx.scene.add(group);
   // 静态件(墙/石/桥/屋)先收进这里,最后按材质合并;会动的(竹)直接进 group。
   const staticGroup = new THREE.Group();
@@ -414,9 +409,11 @@ export function buildGarden(ctx: GameContext): void {
       if (part.update) updaters.push(part.update);
     }
     calls++;
-    const [wx, wz] = resolvePosition(p);
+    const wall=part.kind==='wall-path'?part as WallPathResult:null;
+    if(wall&&(p.x!==0||p.z!==0||p.y!==undefined||p.yaw))throw new Error('plan墙路径已含世界位置，不能再叠加Placement变换');
+    const [wx, wz] = wall ? wall.path.origin : resolvePosition(p);
     const yaw = p.yaw ?? 0;
-    const y = p.y ?? ground(wx, wz) + (p.dy ?? 0);
+    const y = wall ? wall.spec.elevation_m : p.y ?? ground(wx, wz) + (p.dy ?? 0);
     const obj = fresh ? part.root : part.root.clone();
     obj.position.set(wx, y, wz);
     obj.rotation.y = yaw;
@@ -424,6 +421,8 @@ export function buildGarden(ctx: GameContext): void {
     if (part.kind === 'building') constructionRecords.push({ id: p.anchor ?? key,
       name: obj.name, position: [wx, y, wz], yaw,
       ...obj.userData.construction, planObject: obj.userData.planObject });
+    if(wall)linearRecords.push({...wall.root.userData.linear,position:[wx,y,wz],
+      blockers:wall.path.blockers.length,joints:wall.path.joints.length,platforms:wall.path.platforms.length});
     if (part.update) group.add(obj);
     else staticGroup.add(obj);
 
@@ -473,6 +472,13 @@ function registerColliders(
 ): void {
   const col = ctx.collision;
   const kind = variant.replace(/[:\d].*$/, '');
+  if(built.kind==='wall-path') {
+    const wall=built as WallPathResult;
+    for(const b of wall.path.blockers)col.addBox(x+b.cx,z+b.cz,b.hx,b.hz,y+b.minY,y+b.maxY,b.rot,wall.spec.id);
+    for(const j of wall.path.joints)col.addCircle(x+j.center[0],z+j.center[1],j.radius,y+j.minY,y+j.maxY,wall.spec.id);
+    for(const p of wall.path.platforms)col.addPlatform(x+p.cx,z+p.cz,p.hx,p.hz,y+p.y,p.rot,'月洞门槛');
+    return;
+  }
   if (built.kind === 'building') {
     const b = built as BuildingResult;
     col.addPlatform(x, z, b.platform.hx, b.platform.hz, y + b.platform.y, yaw, '台基');

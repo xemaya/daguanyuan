@@ -9,7 +9,7 @@ import * as THREE from 'three';
  */
 export interface PartBuild {
   /** Structural output family, independent of the project's registry name. */
-  kind?: 'building';
+  kind?: 'building' | 'wall-path';
   /** 构件根节点。 */
   root: THREE.Object3D;
   /** 可选每帧更新(风、水)。 */

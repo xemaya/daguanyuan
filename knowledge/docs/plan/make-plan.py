@@ -146,6 +146,15 @@ for r in d['regions']:
         colour = {'grade':'#927441','deck':'#386c88','water-opening':'#338884'}[pad['kind']]
         e('<g><title>%s · %s · %.2fm</title><polygon points="%s" fill="%s" fill-opacity="0.3" stroke="%s" stroke-width="0.8" stroke-dasharray="2 1"/></g>' % (esc(pad['id']),pad['kind'],pad['elevation_m'],pts(pad['polygon']),colour,colour))
 
+# Actual wall centerlines and registered openings from P2 linear construction.
+for r in d['regions']:
+    for wall in r.get('linears', []):
+        e('<g><title>%s</title><polyline points="%s" fill="none" stroke="#5a5245" stroke-width="1.1"/>' % (esc(wall['id']),pts(wall['points'])))
+        for insert in wall['inserts']:
+            x,z=insert['at']
+            e('<circle cx="%.2f" cy="%.2f" r="1.8" fill="%s" stroke="#5a5245" stroke-width="0.7"><title>%s</title></circle>' % (x,z,C['paper'],esc(insert.get('object',insert['variant']))))
+        e('</g>')
+
 # ================= gates =================
 e('<!-- 门 -->')
 GATE_LBL = {  # name-key -> (anchor, dx, dz)

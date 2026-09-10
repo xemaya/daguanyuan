@@ -4,6 +4,7 @@ import { registerPart, type PartBuild } from '@builder/parts/registry';
 import { CN, plasterMaterial, stoneMaterial, tileMaterial, woodMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { Simplex, fbm2, makeRng, smoothstep, clamp, lerp } from '@engine/core/Noise';
+import { WALL_STYLE } from './wall-style';
 
 /**
  * 江南园林粉墙系列。
@@ -29,8 +30,8 @@ const BEVEL = 0.02; // 墙体倒角
 const BASE_H = 0.35; // 青石墙脚高
 const BASE_T = 0.38; // 墙脚厚(每侧外凸 4cm)
 const PLINTH_H = 0.05; // 石礓(裙脚)高
-const PLINTH_T = 0.46;
-const BODY_TOP = 2.44; // 墙体顶(藏在压顶里)
+const PLINTH_T = WALL_STYLE.footHalf * 2;
+const BODY_TOP = WALL_STYLE.bodyTop; // 墙体顶(藏在压顶里)
 const COPING_Y = 2.38; // 压顶剖面基准 y
 const COPING_OVERHANG_X = 0.06; // 压顶在墙端外挑
 const RIDGE_LIFT = 0.06; // 脊两端微翘
@@ -354,19 +355,23 @@ function tileBump(x: number): number {
   return TILE_BUMP * Math.sin(f * Math.PI);
 }
 
-function buildCoping(halfLen: number, wave: (x: number) => number): THREE.Mesh[] {
-  const x0 = -halfLen - COPING_OVERHANG_X;
-  const x1 = halfLen + COPING_OVERHANG_X;
+function buildCoping(halfLen: number, wave: (x: number) => number, flush = false): THREE.Mesh[] {
+  const x0 = -halfLen - (flush ? 0 : COPING_OVERHANG_X);
+  const x1 = halfLen + (flush ? 0 : COPING_OVERHANG_X);
   const xs = linspace(x0, x1, SAMPLE_DX);
   const slope = (x: number) => (wave(x + 0.01) - wave(x - 0.01)) / 0.02;
   const frame = (x: number): Frame => ({ y: COPING_Y + wave(x), theta: Math.atan(slope(x)), sy: 1, sz: 1, pivot: 0 });
 
   const { pts, mask } = copingProfile();
-  const copingGeo = sweepX(pts, xs, frame, mask, tileBump, TILE_U, TILE_V);
+  // A short flat end tile seats each joined module on the same profile. The
+  // relief remains in the span, without a 12mm height discontinuity at joins.
+  const relief = flush ? (x:number)=>tileBump(x)*smoothstep(x0,x0+TILE_PITCH,x)*smoothstep(x1,x1-TILE_PITCH,x) : tileBump;
+  const copingGeo = sweepX(pts, xs, frame, mask, relief, TILE_U, TILE_V);
   const coping = new THREE.Mesh(copingGeo, tileMaterial(1, 1));
 
   // 脊:两端微翘(纹头)。只抬脊顶不抬脊底,底始终坐在坡顶里,不露缝。
   const lift = (x: number) => {
+    if (flush) return 0;
     const t = smoothstep(halfLen - RIDGE_LIFT_SPAN, halfLen + COPING_OVERHANG_X, Math.abs(x));
     return t * t;
   };
@@ -565,8 +570,10 @@ function barGeometry(s: Seg): THREE.BufferGeometry {
 
 /** 海棠纹:四瓣花沿 3×3 排布,瓣尖相触;花用闭合方管。 */
 class RoseCurve extends THREE.Curve<THREE.Vector3> {
-  constructor(private cx: number, private cy: number, private R: number) {
+  private cx: number; private cy: number; private R: number;
+  constructor(cx: number, cy: number, R: number) {
     super();
+    this.cx=cx;this.cy=cy;this.R=R;
   }
   getPoint(t: number, target = new THREE.Vector3()): THREE.Vector3 {
     const a = t * Math.PI * 2;
@@ -644,13 +651,18 @@ function shadowed<T extends THREE.Mesh>(m: T): T {
   return m;
 }
 
-function buildWall(variant: string): PartBuild {
-  // 'lattice:wan' 与 'wan' 都接受:棚拍台按冒号只取前两段,子纹样得能当一级 variant 用。
+export function buildWall(variant: string, options: { length?:number; flushEnds?:boolean } = {}): PartBuild {
+  // 保留纹样一级别名；路径与棚拍也可完整传入 lattice:wan 这类变体。
   const parts = variant.split(':');
   const SUBS = ['ice', 'wan', 'haitang'];
   const kind = SUBS.includes(parts[0]) ? 'lattice' : parts[0] || 'plain';
   const sub = SUBS.includes(parts[0]) ? parts[0] : (parts[1] ?? '');
-  const L = kind === 'cloud' ? 8 : 6;
+  if (!['plain','cloud','moon','lattice'].includes(kind)) throw new Error(`未知墙体 ${variant}`);
+  if ((kind==='lattice'&&sub&&!SUBS.includes(sub))||(kind!=='lattice'&&parts.length>1))
+    throw new Error(`未知墙体纹样 ${variant}`);
+  const L = options.length ?? (kind === 'cloud' ? 8 : 6);
+  if (!Number.isFinite(L)||L<.65||((kind==='moon'||kind==='lattice')&&L<4.3))throw new Error('墙段长度不能容纳该构件');
+  const baseEnd=options.flushEnds?0:.02, plinthEnd=options.flushEnds?0:.08;
   const hl = L / 2;
   const group = new THREE.Group();
 
@@ -666,8 +678,8 @@ function buildWall(variant: string): PartBuild {
 
   /* --- 墙体 --- */
   const bodyHoles: P2[][] = [];
-  const MOON_R = 1.1;
-  const MOON_CY = 1.15; // 圆底 0.05,门槛填到 0.25
+  const MOON_R = WALL_STYLE.gate.radius;
+  const MOON_CY = WALL_STYLE.gate.centerY;
   const WIN_Y0 = 1.3;
   const WIN_X = [-1.5, 1.5];
   if (kind === 'moon') bodyHoles.push(circlePts(0, MOON_CY, MOON_R + BEVEL, 96).reverse());
@@ -695,30 +707,30 @@ function buildWall(variant: string): PartBuild {
   const baseBevel = 0.018;
   const baseOutline =
     kind === 'moon'
-      ? notchedRect(-hl - 0.02 + baseBevel, baseBevel, hl + 0.02 - baseBevel, BASE_H - baseBevel, 0.02, MOON_CY, MOON_R + 0.006 + baseBevel)
-      : roundedRect(-hl - 0.02 + baseBevel, baseBevel, hl + 0.02 - baseBevel, BASE_H - baseBevel, 0.02, 4);
+      ? notchedRect(-hl - baseEnd + baseBevel, baseBevel, hl + baseEnd - baseBevel, BASE_H - baseBevel, 0.02, MOON_CY, MOON_R + 0.006 + baseBevel)
+      : roundedRect(-hl - baseEnd + baseBevel, baseBevel, hl + baseEnd - baseBevel, BASE_H - baseBevel, 0.02, 4);
   const baseGeo = extrudeSolid(baseOutline, [], BASE_T, baseBevel, 3);
   projectUV(baseGeo, 0, 1.4, 1.4);
   group.add(shadowed(new THREE.Mesh(baseGeo, stone)));
 
   const plinthBevel = 0.014;
-  const plinthOutline = roundedRect(-hl - 0.08 + plinthBevel, plinthBevel, hl + 0.08 - plinthBevel, PLINTH_H - plinthBevel, 0.01, 3);
+  const plinthOutline = roundedRect(-hl - plinthEnd + plinthBevel, plinthBevel, hl + plinthEnd - plinthBevel, PLINTH_H - plinthBevel, 0.01, 3);
   const plinthGeo = extrudeSolid(plinthOutline, [], PLINTH_T, plinthBevel, 2);
   projectUV(plinthGeo, 0, 1.4, 1.4);
   group.add(shadowed(new THREE.Mesh(plinthGeo, stone)));
 
   /* --- 压顶 --- */
-  for (const m of buildCoping(hl, wave)) group.add(shadowed(m));
+  for (const m of buildCoping(hl, wave, options.flushEnds)) group.add(shadowed(m));
 
   /* --- 月洞门:门槛 + 门套 --- */
   if (kind === 'moon') {
-    const sillGeo = roundedBox(1.74, 0.25, 0.4, 0.02, 3);
+    const sillGeo = roundedBox(WALL_STYLE.gate.sillWidth, WALL_STYLE.gate.sillY, WALL_STYLE.gate.sillDepth, 0.02, 3);
     const sill = shadowed(new THREE.Mesh(sillGeo, stone));
-    sill.position.set(0, 0.125, 0);
+    sill.position.set(0, WALL_STYLE.gate.sillY / 2, 0);
     group.add(sill);
 
     const ringBevel = 0.015;
-    const ringOutline = ringSector(MOON_CY, MOON_R - 0.012 + ringBevel, MOON_R + 0.12 - ringBevel, 0.24 + ringBevel, 72);
+    const ringOutline = ringSector(MOON_CY, WALL_STYLE.gate.clearRadius + ringBevel, MOON_R + 0.12 - ringBevel, WALL_STYLE.gate.sillY - .01 + ringBevel, 72);
     const ringGeo = extrudeSolid(ringOutline, [], 0.42, ringBevel, 3);
     projectUV(ringGeo, 0, 1.4, 1.4);
     group.add(shadowed(new THREE.Mesh(ringGeo, stone)));

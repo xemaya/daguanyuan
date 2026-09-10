@@ -21,6 +21,7 @@
 
 import { Simplex, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { BoundsIndex } from '@engine/scatter/cluster';
+import type { WallPathSpec } from '@builder/plan/wall-path';
 
 /* ------------------------------------------------------------------ */
 /* plan.json 的数据契约（只取本模块消费的字段）                          */
@@ -53,6 +54,7 @@ export interface PlanRegion {
    * mountain terraces use explicit pads instead of flattening the region. */
   grading?: 'region' | 'pads';
   pads?: PlanPad[];
+  linears?: WallPathSpec[];
 }
 
 export interface PlanPad {

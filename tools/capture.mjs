@@ -54,7 +54,7 @@ const SHOTS = [
   { id: 'bridge_mid',    pos: [-0.3, 0, 148.8], yaw: -0.4, pitch: -0.08, desc: '桥中望池面、驳岸、亭。' },
   { id: 'pond_north',    pos: [8, 0, 139.2], yaw: 2.6, pitch: 0.0,   desc: '池北岸(引桥尽头)回望亭桥与假山——反向建立镜头。' },
   { id: 'xiaoxiang',     pos: [-111.2, 0, 104.0], yaw: -0.62, pitch: 0.05, desc: '潇湘馆:进了月洞门,竹院与小三间。' },
-  { id: 'moon_gate',     pos: [-105.8, 0, 107.4], yaw: 0.0,  pitch: 0.02, desc: '引桥尽头望潇湘馆院墙与月洞门。' },
+  { id: 'moon_gate',     pos: [-105, 0, 122.4], yaw: 0.0,  pitch: 0.02, desc: 'plan月洞门南侧2.4m望内院；P2墙路径接入后跟随真实门位。' },
   { id: 'gate_plaque',   pos: [55, 0, 242.6],   yaw: 0.0,  pitch: 0.12, desc: '门前人视高抬头看「大观园」匾与开着的门。' },
   { id: 'ting_plaque',   pos: [-2.7, 0, 156.8], yaw: -0.30, pitch: 0.10, desc: '桥头人视高看沁芳亭正面匾。' },
   { id: 'bridge_head',   pos: [-4.5, 0, 159.0], yaw: -0.15, pitch: -0.25, desc: '南引桥头:桥阶与地面的接缝。' },
@@ -290,7 +290,8 @@ for (const shot of selected) {
 const constructions = await page.evaluate(() =>
   window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.constructions ?? []);
 const buildMs = await page.evaluate(() => window.__GAME__.world.buildDurationMs);
-writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ shots: manifest, consoleErrors, constructions, buildMs }, null, 2));
+const linears = await page.evaluate(() => window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.linears ?? []);
+writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ shots: manifest, consoleErrors, constructions, linears, buildMs }, null, 2));
 
 if (consoleErrors.length) {
   console.log(`\n${consoleErrors.length} console error(s):`);

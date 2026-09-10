@@ -49,6 +49,7 @@ for (const subject of subjects) {
     writeFileSync(resolve(outDir, file), await page.screenshot({ type: 'png' }));
     const st = await page.evaluate(() => ({ tris: window.__VIEWER__.triangles(), calls: window.__VIEWER__.drawCalls(), size: window.__VIEWER__.size(),
       construction: window.__VIEWER__.part.root.userData.construction,
+      linear: window.__VIEWER__.part.root.userData.linear,
       planObject: window.__VIEWER__.part.root.userData.planObject }));
     manifest.push({ subject, angle, file, ...st });
     console.log(`  ${file}`.padEnd(40), `${(st.tris / 1000).toFixed(1)}k tris  ${st.calls} calls  ${st.size.map((v) => v.toFixed(2)).join('×')}m`);

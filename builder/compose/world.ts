@@ -22,7 +22,9 @@ import { prewarmTextures } from './prewarm-textures';
  * FOOTPRINTS table duplicating the building footprints — two sources of
  * truth for the same fact. Known debt, tracked as missing rule 99-25: the
  * real fix is a single occupancy prepass derived from plan + scenes that
- * terrain, vegetation and buildings all read (lands with P4). Do not "fix"
+ * terrain, vegetation and buildings all read (lands with P4).
+ * New P2 wall paths already supply their own planting clearance from plan;
+ * building occupancy is still the P4 debt above. Do not fix
  * this by reordering the steps now — that would leave the hand-copied copy
  * as the only source of truth and dig the debt deeper.
  */

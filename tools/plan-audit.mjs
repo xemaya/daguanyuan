@@ -2,6 +2,7 @@ import { isClosedRing, isSimpleRing, signedArea, locatePoint, containsRing,
   interiorsOverlap, segmentLocations } from '../builder/plan/geometry.ts';
 
 import { validatePlanObjects } from '../builder/plan/objects.ts';
+import { compileWallPath, wallLocalPoint, wallMiterX } from '../builder/plan/wall-path.ts';
 
 /** Passing implemented assertions is not proof of all seven source constraints. */
 export function auditPlan(plan) {
@@ -39,6 +40,20 @@ export function auditPlan(plan) {
     };
     for (const e of r.entrances ?? []) anchor('entrance', e);
     for (const b of r.buildings ?? []) anchor(b.name, [b.x, b.z]);
+    for(const wall of r.linears??[]) {
+      try {
+        const compiled=compileWallPath(wall);
+        ok(wall.id.startsWith(r.id+'.'),`${wall.id} 墙路径不属于本区域`);
+        for(const panel of compiled.panels)for(const x of [-panel.length/2,0,panel.length/2])for(const z of [-.305,.305]) {
+          const p=wallLocalPoint(panel,wallMiterX(x,z,panel.length,panel.startMiter,panel.endMiter),z);
+          ok(locatePoint(r.polygon,[p[0]+compiled.origin[0],p[1]+compiled.origin[1]])!=='outside',`${wall.id} 墙体或斜接角超出分区`);
+        }
+        for(const insert of wall.inserts)if(insert.object) {
+          const object=r.buildings.find(b=>b.id===insert.object);
+          ok(object&&object.x===insert.at[0]&&object.z===insert.at[1],`${wall.id} 门窗与绑定对象坐标不一致`);
+        }
+      } catch(error) { fails.push(`${wall.id}：${error.message}`); }
+    }
     ok(r.grading === undefined || ['region','pads'].includes(r.grading), `${r.id} grading 非法`);
     for (const pad of r.pads ?? []) {
       ok(typeof pad.id === 'string' && pad.id.startsWith(r.id+'.') && !padIds.has(pad.id), `${r.id} 落脚面id缺失、跨区或重复`);
