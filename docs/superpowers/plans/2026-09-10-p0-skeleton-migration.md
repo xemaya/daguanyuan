@@ -4,7 +4,13 @@
 
 **Goal:** 把 `src/` 一层平铺的工程重排成 `engine/` `knowledge/` `builder/` `projects/` 四层，并立起分层门、规则一致性门、平面几何门，使后续 P1–P5 可以多 agent 并行而互不踩踏。
 
-**Architecture:** 先立像素回归基线，再做纯搬家（不改任何渲染行为，用 pixel-diff 证明），然后补三道门。规则表从研究稿誊成机读 JSON，门只校验 id 与状态一致，数值由誊写者负责。
+**Architecture:** 先立回归基线，再做纯搬家（不改任何渲染行为，用截图的**结构数字**证明），然后补三道门。规则表从研究稿誊成机读 JSON，门只校验 id 与状态一致，数值由誊写者负责。
+
+**关于回归基线的一处更正（2026-09-10 执行 Task 1/2 时实测得出）**：本计划最初写的是"逐像素归零"。实测不成立——场景里水面、竹叶、云一直在动，截图采到的动画相位每次都不同。同一份构建连拍两次，平均每像素差 7~17 个色阶，`treeline` 有 23% 的像素差超过 24 阶，噪声底比任何有意义的阈值都高。相机不是原因：截图工具每次 teleport 到写死的坐标与朝向。
+
+改为比 `manifest.json` 里的 **drawCalls / triangles / geometries / textures** 四项（fps 随机器负载浮动，不比）。这四项是场景图的函数，确定性的。工具是 `tools/manifest-diff.mjs`。`tools/pixel-diff.mjs` 保留作参考，不当门。
+
+这个判据是有效的：Task 2 执行时 `builder/parts/index.ts` 的 glob 没跟着子目录改，全部构件登记失败，正是被 draw calls 从 180 掉到 80 抓出来的；逐像素反而淹在噪声里。观感回归靠 `tools/side-by-side.mjs` 出左右对照图交人眼判。
 
 **Tech Stack:** TypeScript 5.9 · three r185 · Vite 7 · Node test runner（`--experimental-strip-types`）· Playwright（截图与 pixel-diff）
 
@@ -44,9 +50,9 @@ Task 5/6/7 三个 agent 可同时跑，各写各的 JSON，互不碰同一文件
 
 ---
 
-### Task 1: 立像素回归基线
+### Task 1: 立回归基线 ✅ 已完成
 
-搬家是纯重构，渲染结果必须逐像素不变。先造一把尺子。
+搬家是纯重构，场景结构必须一模一样。先造一把尺子。
 
 **Files:**
 - Create: `tools/pixel-diff.mjs`
@@ -174,7 +180,11 @@ git commit -m "test(daguanyuan): pixel-diff 工具——纯重构的逐像素回
 
 ---
 
-### Task 2: 目录搬家、路径别名、删死文件
+### Task 2: 目录搬家、路径别名、删死文件 ✅ 已完成
+
+**执行记录**：`builder/parts/index.ts` 的 eager glob 原为 `./parts/*.ts`，搬家后构件散到 `damu/` `qiangyuan/` 等门类子目录，glob 全部落空 → 运行时「未登记构件 X」，编译期无错。已改为 `./{damu,xiaomu,qiangyuan,shishan,shuigong,zhiwu,pudi}/*.ts`。**加新门类目录必须回来补这一行**，否则那一类构件静默消失。
+
+`tests/*.mjs` 的 import 也指向旧 `../src/`，迁移脚本只走了 engine/builder/projects，需一并改成别名。
 
 **Files:**
 - Create: `engine/{core,render,player,ui,audio,harness}/`、`builder/{derive,parts,compose}/`、`knowledge/docs/`、`projects/daguanyuan/`
@@ -428,13 +438,14 @@ sleep 3
 node tools/capture.mjs --url http://127.0.0.1:4801/ --out shots/after
 ```
 
-- [ ] **Step 7: 逐像素证明什么都没变**
+- [ ] **Step 7: 证明什么都没变**
 
 ```bash
-node tools/pixel-diff.mjs shots/after shots/baseline
+node tools/manifest-diff.mjs shots/after shots/baseline
+node tools/side-by-side.mjs shots/baseline/pond_reveal.png shots/after/pond_reveal.png shots/compare/pond_reveal.png
 ```
 
-Expected: 全部 `ok`，最大差异 `0.0000%`，exit 0。**有任何一张 DIFF 就是搬坏了**，回去查那张图对应的子系统。
+Expected: `14 镜，0 镜结构不一致`，exit 0。**有任何一张 DIFF 就是搬坏了**——先看是哪一项掉了（drawCalls 掉说明有东西没建起来，textures 掉说明材质缓存没命中），再回去查对应子系统。左右对照图交人眼过一遍。
 
 - [ ] **Step 8: 提交**
 
@@ -1275,17 +1286,18 @@ npm run check:layers
 
 Expected: 三条新测试全过，总数从 20 涨到 23；tsc 无输出；分层门通过（`engine/scatter/` 不许 import builder，若报错说明抽的时候带出了内容层的依赖，得继续剥）。
 
-- [ ] **Step 6: 逐像素证明植被没变**
+- [ ] **Step 6: 证明植被没变**
 
 ```bash
 npm run build
 pkill -f "port 4801"; (nohup npx vite preview --host 127.0.0.1 --port 4801 --strictPort > preview.log 2>&1 &)
 sleep 3
 node tools/capture.mjs --url http://127.0.0.1:4801/ --out shots/scatter
-node tools/pixel-diff.mjs shots/scatter shots/baseline
+node tools/manifest-diff.mjs shots/scatter shots/baseline
+node tools/side-by-side.mjs shots/baseline/treeline.png shots/scatter/treeline.png shots/compare/treeline.png
 ```
 
-Expected: 全部 `ok`。散布是种子驱动的，抽机制层不该动一棵树的位置。**若 DIFF，八成是 rng 的调用顺序变了**——检查是不是把 `rng()` 的调用次数改了，或者把 `makeRng` 挪进了循环。
+Expected: `0 镜结构不一致`。散布是种子驱动的，抽机制层不该动一棵树的位置。**若三角数或 drawCalls 变了，八成是 rng 的调用顺序变了**——检查是不是改了 `rng()` 的调用次数，或者把 `makeRng` 挪进了循环。左右对照图交人眼确认树没挪窝。
 
 - [ ] **Step 7: 记下没做的那半**
 
@@ -1315,7 +1327,7 @@ git commit -m "refactor(engine): 抽出散布机制层——泊松/实例化/风
 P0 完成时，下面这条命令必须全绿：
 
 ```bash
-npm run check:all && node tools/pixel-diff.mjs shots/after shots/baseline
+npm run check:all && node tools/manifest-diff.mjs shots/after shots/baseline
 ```
 
 且：
