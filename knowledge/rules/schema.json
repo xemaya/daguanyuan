@@ -166,5 +166,196 @@
         }
       }
     }
+  },
+  "definitions": {
+    "componentFile": {
+      "title": "构件级本体（components.rules.json）",
+      "description": "与规则表并列但语义不同：规则表回答「多大」，构件本体回答「由什么组成、怎么装」。绝不存几何——不许出现顶点、网格、贴图路径这类字段，存了就从可执行的语法退化成古建资产库（ROADMAP P1 增补）。尺寸只引规则表的 id，不在这里重复数值。",
+      "type": "object",
+      "required": [
+        "source",
+        "components"
+      ],
+      "properties": {
+        "source": {
+          "type": "object",
+          "required": [
+            "book",
+            "doc"
+          ],
+          "properties": {
+            "book": {
+              "type": "string"
+            },
+            "doc": {
+              "type": "string",
+              "description": "对应研究稿，相对仓库根；跨章汇编可列多篇"
+            }
+          }
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "category",
+              "status",
+              "paramSet"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^C-",
+                "description": "构件实体 id，C- 前缀，与规则表的数字 id 区分"
+              },
+              "name": {
+                "type": "string"
+              },
+              "category": {
+                "enum": [
+                  "斗拱",
+                  "梁架",
+                  "柱额",
+                  "屋面",
+                  "小木",
+                  "石作"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "ok",
+                  "contested",
+                  "refuted",
+                  "underdetermined",
+                  "missing"
+                ],
+                "description": "与规则表同一状态机。构件的尺寸数值另有规则表条目各自带状态，此处只反映「组成与装配」这一陈述本身的核验状态"
+              },
+              "paramSet": {
+                "enum": [
+                  "fashi",
+                  "qing",
+                  "fayuan",
+                  "both",
+                  "none"
+                ]
+              },
+              "statement": {
+                "type": "string",
+                "description": "现代中文表述：由什么组成、怎么装"
+              },
+              "parts": {
+                "type": "array",
+                "description": "下级分件的 id 与数量。只写组成，不写坐标；悬空的 ref 门会报。组装件有此字段，分件没有。",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "ref",
+                    "name",
+                    "count"
+                  ],
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^C-"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
+              },
+              "attachTo": {
+                "type": "object",
+                "description": "装在哪个父件的什么位置，用词描述不用数",
+                "required": [
+                  "parent",
+                  "position"
+                ],
+                "properties": {
+                  "parent": {
+                    "type": "string"
+                  },
+                  "position": {
+                    "type": "string"
+                  }
+                }
+              },
+              "geometry": {
+                "type": "object",
+                "description": "形状族与该族的形状参数名。只列参数名，不列数值；数值由 dimensions 所引的规则按模数折算。组装件无此字段。",
+                "required": [
+                  "family",
+                  "shapeParams"
+                ],
+                "properties": {
+                  "family": {
+                    "enum": [
+                      "斗",
+                      "栱",
+                      "昂",
+                      "枋",
+                      "替木",
+                      "椽",
+                      "栓"
+                    ]
+                  },
+                  "shapeParams": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "dimensions": {
+                "type": "array",
+                "description": "给尺寸的规则 id 列表，不在本体里重复数值。id 必须在该构件 paramSet 对应的规则表里存在，悬空的门会报。",
+                "items": {
+                  "type": "string",
+                  "pattern": "^\\d{2}-\\d{2}$"
+                }
+              },
+              "source": {
+                "type": "object",
+                "required": [
+                  "book",
+                  "location"
+                ],
+                "properties": {
+                  "book": {
+                    "type": "string"
+                  },
+                  "location": {
+                    "type": "string",
+                    "description": "卷/篇/页"
+                  },
+                  "quote": {
+                    "type": "string",
+                    "description": "原文逐字引文"
+                  }
+                }
+              },
+              "urls": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "note": {
+                "type": "string",
+                "description": "组配逻辑、存疑口径与参数化提醒"
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }

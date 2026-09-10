@@ -1,0 +1,678 @@
+{
+  "source": {
+    "book": "清工部《工程做法》卷二十八 / 宋《营造法式》卷四",
+    "doc": "knowledge/docs/qingshi/04-dougong.md + knowledge/docs/fashi/02-puzuo.md"
+  },
+  "description": "构件级本体：只存「由什么组成、怎么装」，绝不存几何（顶点、网格、贴图路径一律禁止）。尺寸只引规则表的 id（dimensions），不在这里重复数值。本批只做斗拱一类：清式五踩、七踩平身科与宋式五铺作、六铺作，加它们的分件。梁架、小木 P3 再铺开。",
+  "components": [
+    {
+      "id": "C-dg-05",
+      "name": "五踩单翘单昂平身科",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "清式五踩平身科：坐斗上里外各出两拽架，第一跳安翘、第二跳安昂，其上叠蚂蚱头、撑头木、桁碗。清式每拽架皆设横栱（规则 04-02）：里外拽第一跳各安单才瓜栱、单才万栱，第二跳跳头各安厢栱；正心位置安正心瓜栱、正心万栱。",
+      "parts": [
+        { "ref": "C-dg-lu", "name": "大斗(坐斗)", "count": 1 },
+        { "ref": "C-dg-qiao", "name": "单翘", "count": 1 },
+        { "ref": "C-dg-ang", "name": "昂(头昂)", "count": 1 },
+        { "ref": "C-dg-shua", "name": "耍头(蚂蚱头)", "count": 1 },
+        { "ref": "C-dg-cheng", "name": "撑头木", "count": 1 },
+        { "ref": "C-dg-hengwan", "name": "桁碗", "count": 1 },
+        { "ref": "C-dg-zxg", "name": "正心瓜栱", "count": 1 },
+        { "ref": "C-dg-zxw", "name": "正心万栱", "count": 1 },
+        { "ref": "C-dg-dcg", "name": "单才瓜栱", "count": 2 },
+        { "ref": "C-dg-dcw", "name": "单才万栱", "count": 2 },
+        { "ref": "C-dg-xiang", "name": "厢栱", "count": 2 },
+        { "ref": "C-dg-sbd", "name": "十八斗", "count": 4 },
+        { "ref": "C-dg-scs", "name": "三才升", "count": 12 },
+        { "ref": "C-dg-cs", "name": "槽升", "count": 4 },
+        { "ref": "C-dg-zxf", "name": "正心枋", "count": 1 },
+        { "ref": "C-dg-tyf", "name": "挑檐枋", "count": 1 },
+        { "ref": "C-dg-zf", "name": "拽枋", "count": 2 }
+      ],
+      "attachTo": { "parent": "平板枋", "position": "柱头之间按攒当均布（攒当 11 斗口，规则 01-04）" },
+      "dimensions": ["01-07", "04-03"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二·九檩歇山（五踩算例）；卷二十八·斗科各项尺寸",
+        "quote": "正心桁中至挑檐桁中贰拽架壹尺捌寸"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc2ch5yqw", "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"],
+      "note": "分件数按卷二十八单翘单昂斗科常规配置：翘、昂两端各安十八斗；横栱每拽架皆设（04-02），单才瓜栱/万栱/厢栱两头各安三才升，正心瓜栱/万栱两头各安槽升。尺寸一律由 dimensions 所列规则按斗口折算，本表不重复数值。"
+    },
+    {
+      "id": "C-dg-07",
+      "name": "七踩单翘重昂平身科",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "清式七踩平身科：坐斗上里外各出三拽架，第一跳安翘，第二、三跳各安昂（重昂），其上叠蚂蚱头、撑头木、桁碗。里外拽第一、二跳各安单才瓜栱、单才万栱，第三跳跳头各安厢栱；正心位置安正心瓜栱、正心万栱。",
+      "parts": [
+        { "ref": "C-dg-lu", "name": "大斗(坐斗)", "count": 1 },
+        { "ref": "C-dg-qiao", "name": "单翘", "count": 1 },
+        { "ref": "C-dg-ang", "name": "昂(头昂、二昂)", "count": 2 },
+        { "ref": "C-dg-shua", "name": "耍头(蚂蚱头)", "count": 1 },
+        { "ref": "C-dg-cheng", "name": "撑头木", "count": 1 },
+        { "ref": "C-dg-hengwan", "name": "桁碗", "count": 1 },
+        { "ref": "C-dg-zxg", "name": "正心瓜栱", "count": 1 },
+        { "ref": "C-dg-zxw", "name": "正心万栱", "count": 1 },
+        { "ref": "C-dg-dcg", "name": "单才瓜栱", "count": 4 },
+        { "ref": "C-dg-dcw", "name": "单才万栱", "count": 4 },
+        { "ref": "C-dg-xiang", "name": "厢栱", "count": 2 },
+        { "ref": "C-dg-sbd", "name": "十八斗", "count": 6 },
+        { "ref": "C-dg-scs", "name": "三才升", "count": 20 },
+        { "ref": "C-dg-cs", "name": "槽升", "count": 4 },
+        { "ref": "C-dg-zxf", "name": "正心枋", "count": 1 },
+        { "ref": "C-dg-tyf", "name": "挑檐枋", "count": 1 },
+        { "ref": "C-dg-zf", "name": "拽枋", "count": 4 }
+      ],
+      "attachTo": { "parent": "平板枋", "position": "柱头之间按攒当均布（攒当 11 斗口，规则 01-04）" },
+      "dimensions": ["01-07", "04-03"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷一·九檩庑殿（七踩算例）；卷二十八·斗科各项尺寸",
+        "quote": "正心桁中至挑檐桁中，叁拽架，得贰尺贰寸伍分"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7", "https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"],
+      "note": "卷一首例即单翘重昂七踩（斗口 2.5 寸）。分件配置同五踩逻辑外推一档：每多一拽架，里外各多一组单才瓜栱、万栱与一枚十八斗。桁碗长 18 斗口（规则 01-18 桁椀行）。"
+    },
+    {
+      "id": "C-dg-lu",
+      "name": "大斗(坐斗)",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "一攒斗科之基座，迎面开斗口安翘昂。",
+      "attachTo": { "parent": "平板枋", "position": "正心中线上，斗口迎面安翘昂" },
+      "geometry": { "family": "斗", "shapeParams": ["长", "宽", "高", "斗口高", "腰高", "底高", "斗底宽"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二十八",
+        "quote": "大斗壹个，每斗口宽壹寸，大斗应长叁寸，宽叁寸，高贰寸。斗口高捌分，斗底宽贰寸贰分，长贰寸贰分，底高捌分，腰高肆分。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-qiao",
+      "name": "单翘",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "第一拽架顺跳方向的足材栱，两端各安十八斗。",
+      "attachTo": { "parent": "大斗", "position": "斗口内，第一拽架" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二十八",
+        "quote": "单翘每斗口宽壹寸，应长柒寸壹分，高贰寸，宽壹寸。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-ang",
+      "name": "昂",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "第二（及第三）拽架顺跳方向构件，外端作昂嘴，里外端各安十八斗。",
+      "attachTo": { "parent": "翘头十八斗", "position": "第二拽架；七踩再叠二昂于第三拽架" },
+      "geometry": { "family": "昂", "shapeParams": ["长", "宽", "前高", "中高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二十八",
+        "quote": "头昂每斗口壹寸，应前高叁寸，中高贰寸，宽壹寸。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-shua",
+      "name": "耍头(蚂蚱头)",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "最上一拽架之上、顺跳方向的收头构件，清式作蚂蚱头状。",
+      "attachTo": { "parent": "昂上十八斗", "position": "最上一跳之上" },
+      "geometry": { "family": "昂", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二十八",
+        "quote": "蚂蚱头每斗口壹寸，应高贰寸，宽壹寸。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-cheng",
+      "name": "撑头木",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "蚂蚱头之上顺挑出的长木，外端由桁碗承挑檐桁。",
+      "attachTo": { "parent": "蚂蚱头", "position": "其上，顺跳方向" },
+      "geometry": { "family": "枋", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二十八",
+        "quote": "撑头木每斗口壹寸，应高贰寸，宽壹寸。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-hengwan",
+      "name": "桁碗",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "撑头木外端承挑檐桁的斗形构件，长随踩数。",
+      "attachTo": { "parent": "撑头木", "position": "外端，承挑檐桁" },
+      "geometry": { "family": "斗", "shapeParams": ["长", "宽"] },
+      "dimensions": ["01-18"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二十八",
+        "quote": "桁碗每斗口壹寸……如斗口单昂者，应长陆寸。单翘、单昂并斗口重昂者长壹尺贰寸，单翘重昂者长壹尺捌寸，重翘重昂者长贰尺肆寸。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-zxg",
+      "name": "正心瓜栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "正心位置第一重足材横栱，两头安槽升。",
+      "attachTo": { "parent": "大斗", "position": "其上正心位置，与翘十字相交" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二十八",
+        "quote": "正心瓜拱每斗口宽壹寸，应长陆寸贰分，宽壹寸贰分肆厘，高贰寸。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-zxw",
+      "name": "正心万栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "正心瓜栱之上第二重足材横栱，两头安槽升。",
+      "attachTo": { "parent": "正心瓜栱", "position": "其上正心位置" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": { "book": "清工部《工程做法》", "location": "卷二十八" },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-dcg",
+      "name": "单才瓜栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "里外拽各跳跳头上的单材横栱，两头安三才升。",
+      "attachTo": { "parent": "十八斗", "position": "里外拽跳跳头上" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二十八",
+        "quote": "单才瓜拱每斗口壹寸，应高壹寸肆分，宽壹寸，长陆寸贰分。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-dcw",
+      "name": "单才万栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "单才瓜栱之上的第二重单材横栱，两头安三才升，上承拽枋。",
+      "attachTo": { "parent": "单才瓜栱", "position": "其上" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": { "book": "清工部《工程做法》", "location": "卷二十八" },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-xiang",
+      "name": "厢栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "最外（里）跳跳头上的单材横栱，外跳承挑檐枋，两头安三才升。",
+      "attachTo": { "parent": "十八斗", "position": "最外跳跳头（昂嘴）上，里拽末跳同" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷二十八",
+        "quote": "厢拱每斗口壹寸，应长柒寸贰分，高壹寸肆分，宽壹寸。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-sbd",
+      "name": "十八斗",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "翘、昂跳头斗槽内的小斗，承跳头横栱。",
+      "attachTo": { "parent": "翘/昂", "position": "两端跳头斗槽内" },
+      "geometry": { "family": "斗", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": { "book": "清工部《工程做法》", "location": "卷二十八" },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-scs",
+      "name": "三才升",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "单才瓜栱、单才万栱、厢栱两头的小升。",
+      "attachTo": { "parent": "单才瓜栱/单才万栱/厢栱", "position": "栱两头" },
+      "geometry": { "family": "斗", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": { "book": "清工部《工程做法》", "location": "卷二十八" },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-cs",
+      "name": "槽升",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "正心瓜栱、正心万栱两头的小升，顺栱身开槽以容正心枋。",
+      "attachTo": { "parent": "正心瓜栱/正心万栱", "position": "栱两头" },
+      "geometry": { "family": "斗", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-18", "04-03"],
+      "source": { "book": "清工部《工程做法》", "location": "卷二十八" },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcd335gumn"]
+    },
+    {
+      "id": "C-dg-zxf",
+      "name": "正心枋",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "正心万栱之上沿面阔方向通长的枋，联结各攒斗科。",
+      "attachTo": { "parent": "正心万栱", "position": "其上，沿面阔通长连续" },
+      "geometry": { "family": "枋", "shapeParams": ["长", "高", "厚"] },
+      "dimensions": ["01-10", "04-08"],
+      "source": { "book": "清工部《工程做法》", "location": "卷一" },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7"]
+    },
+    {
+      "id": "C-dg-tyf",
+      "name": "挑檐枋",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "外跳厢栱之上沿面阔通长的枋，承挑檐桁。",
+      "attachTo": { "parent": "厢栱", "position": "外跳厢栱三才升上，挑檐桁之下" },
+      "geometry": { "family": "枋", "shapeParams": ["长", "高", "厚"] },
+      "dimensions": ["01-10", "04-08"],
+      "source": { "book": "清工部《工程做法》", "location": "卷一" },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7"]
+    },
+    {
+      "id": "C-dg-zf",
+      "name": "拽枋",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "里外拽架单才万栱之上沿面阔通长的枋。",
+      "attachTo": { "parent": "单才万栱", "position": "里外拽架其上，沿面阔通长" },
+      "geometry": { "family": "枋", "shapeParams": ["长", "高", "厚"] },
+      "dimensions": ["01-10"],
+      "source": { "book": "清工部《工程做法》", "location": "卷一" },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7"],
+      "note": "规则 01-10：里外拽枋、机枋高厚同挑檐枋。"
+    },
+    {
+      "id": "C-dg-pbf",
+      "name": "平板枋",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "qing",
+      "statement": "额枋之上、斗科之下沿面阔通长的平枋，大斗坐于其上。",
+      "attachTo": { "parent": "大额枋/小额枋", "position": "其上，大斗之下" },
+      "geometry": { "family": "枋", "shapeParams": ["长", "宽", "高"] },
+      "dimensions": ["01-09", "04-08"],
+      "source": {
+        "book": "清工部《工程做法》",
+        "location": "卷一",
+        "quote": "（平板枋）以斗口叁分定宽贰分，定高。"
+      },
+      "urls": ["https://www.shidianguji.com/book/JZ001/chapter/1l6pcc0ho8sv7"]
+    },
+    {
+      "id": "C-pz-05",
+      "name": "五铺作单抄单下昂(外跳重栱计心造)",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "宋式五铺作：出一卷头（华栱）、一昂共两跳（规则 02-02：P=T+3）。逐跳计心、重栱造：跳头交互斗上安瓜子栱，瓜子栱上施慢栱（02-24）；扶壁泥道重栱上施素方（02-31）；第一昂以华头子承之（02-17），昂上坐斗归平（02-18）。",
+      "parts": [
+        { "ref": "C-pz-ludou", "name": "栌斗", "count": 1 },
+        { "ref": "C-pz-nidao", "name": "泥道栱", "count": 1 },
+        { "ref": "C-pz-huagong", "name": "华栱", "count": 1 },
+        { "ref": "C-pz-huatouzi", "name": "华头子", "count": 1 },
+        { "ref": "C-pz-xiaang", "name": "下昂", "count": 1 },
+        { "ref": "C-pz-shuatou", "name": "耍头(爵头)", "count": 1 },
+        { "ref": "C-pz-guazi", "name": "瓜子栱", "count": 1 },
+        { "ref": "C-pz-man", "name": "慢栱", "count": 2 },
+        { "ref": "C-pz-ling", "name": "令栱", "count": 1 },
+        { "ref": "C-pz-jiaohu", "name": "交互斗", "count": 2 },
+        { "ref": "C-pz-sandou", "name": "散斗", "count": 10 },
+        { "ref": "C-pz-sufang", "name": "素方", "count": 1 },
+        { "ref": "C-pz-angshuan", "name": "昂栓", "count": 1 }
+      ],
+      "attachTo": { "parent": "阑额上", "position": "补间铺作，分布令远近皆匀；朵数随年代地域做参数（02-25 存疑）" },
+      "dimensions": ["02-02", "02-29"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·总铺作次序",
+        "quote": "出兩跳謂之五鋪作。(下出一卷頭，上施一昂。)"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"],
+      "note": "慢栱两件：扶壁泥道栱上一件（02-31 重栱全计心造）、跳头瓜子栱上一件（02-24）。跳距不取 30 分硬值，随 02-05 更正做参数（唐辽实例 21~27 分）。"
+    },
+    {
+      "id": "C-pz-06",
+      "name": "六铺作单抄双下昂(外跳重栱计心造)",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "宋式六铺作：出一卷头、两昂共三跳（02-02）。逐跳计心、重栱造：华栱跳头与头昂跳头各安瓜子栱、慢栱；扶壁泥道重栱上施素方；第一昂以华头子承之；六铺作以上，二昂上坐斗自归平再向下 2~5 分（02-18，三圣殿实测 3~4 分）。",
+      "parts": [
+        { "ref": "C-pz-ludou", "name": "栌斗", "count": 1 },
+        { "ref": "C-pz-nidao", "name": "泥道栱", "count": 1 },
+        { "ref": "C-pz-huagong", "name": "华栱", "count": 1 },
+        { "ref": "C-pz-huatouzi", "name": "华头子", "count": 1 },
+        { "ref": "C-pz-xiaang", "name": "下昂(头昂、二昂)", "count": 2 },
+        { "ref": "C-pz-shuatou", "name": "耍头(爵头)", "count": 1 },
+        { "ref": "C-pz-guazi", "name": "瓜子栱", "count": 2 },
+        { "ref": "C-pz-man", "name": "慢栱", "count": 3 },
+        { "ref": "C-pz-ling", "name": "令栱", "count": 1 },
+        { "ref": "C-pz-jiaohu", "name": "交互斗", "count": 3 },
+        { "ref": "C-pz-sandou", "name": "散斗", "count": 14 },
+        { "ref": "C-pz-sufang", "name": "素方", "count": 1 },
+        { "ref": "C-pz-angshuan", "name": "昂栓", "count": 1 }
+      ],
+      "attachTo": { "parent": "阑额上", "position": "补间铺作，分布令远近皆匀；朵数随年代地域做参数（02-25 存疑）" },
+      "dimensions": ["02-02", "02-29"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·总铺作次序",
+        "quote": "出三跳謂之六鋪作。(下出一卷頭，上施兩昂。)"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"],
+      "note": "交互斗三枚：华栱跳头、头昂上、二昂上各一。昂栓施于第二跳上（02-20：五至八铺作并于第二跳上用之）。"
+    },
+    {
+      "id": "C-pz-ludou",
+      "name": "栌斗",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "一朵铺作之基座。",
+      "attachTo": { "parent": "柱头或阑额", "position": "柱头铺作坐柱头，补间铺作坐阑额上（02-27）" },
+      "geometry": { "family": "斗", "shapeParams": ["长", "宽", "高", "耳", "平", "欹", "开口广", "开口深", "底杀"] },
+      "dimensions": ["02-12"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·枓",
+        "quote": "一曰櫨枓：施之於柱頭，其長與廣皆三十二分。……高二十分。上八分為耳，中四分為平，下八分為欹。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"]
+    },
+    {
+      "id": "C-pz-jiaohu",
+      "name": "交互斗",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "施于华栱出跳之上与昂上坐斗处，承跳头横栱。",
+      "attachTo": { "parent": "华栱/下昂", "position": "出跳跳头、昂上（归平或降斗，02-18）" },
+      "geometry": { "family": "斗", "shapeParams": ["长", "宽", "高", "耳", "平", "欹"] },
+      "dimensions": ["02-13", "02-16"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·枓",
+        "quote": "二曰交互枓：……施之於華栱出跳之上，……其長十八分，廣十六分。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"]
+    },
+    {
+      "id": "C-pz-qixin",
+      "name": "齐心斗",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "施于横栱当心。施于由昂及转角出跳之上者不用耳，谓平盘斗。",
+      "attachTo": { "parent": "横栱", "position": "栱当心" },
+      "geometry": { "family": "斗", "shapeParams": ["长", "宽", "高", "耳", "平", "欹"] },
+      "dimensions": ["02-14", "02-16"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·枓",
+        "quote": "三曰齊心枓：……其長與廣皆十六分。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"],
+      "note": "五、六铺作正身未用；转角铺作与由昂上用之（02-30），本批转角不做。"
+    },
+    {
+      "id": "C-pz-sandou",
+      "name": "散斗",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "施于横栱两头；偷心造时施于华栱出跳之上（02-23）。",
+      "attachTo": { "parent": "横栱", "position": "栱两头" },
+      "geometry": { "family": "斗", "shapeParams": ["长", "宽", "高", "耳", "平", "欹"] },
+      "dimensions": ["02-15", "02-16"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·枓",
+        "quote": "四曰散枓：……施之於栱兩頭……其長十六分，廣十四分。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"]
+    },
+    {
+      "id": "C-pz-huagong",
+      "name": "华栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "顺跳方向出跳的足材栱（补间单材），即卷头、抄栱。",
+      "attachTo": { "parent": "栌斗", "position": "顺跳口内，逐跳外出" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "广", "厚", "卷杀瓣数", "瓣长"] },
+      "dimensions": ["02-06", "02-11"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·栱",
+        "quote": "一曰華栱：(或謂之抄栱，又謂之卷頭，亦謂之跳頭。)足材栱也。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"],
+      "note": "02-06 存疑：长随跳距派生（=2×跳距+12 分），跳距做参数（02-05 更正：法式 30 分，唐辽实例 21~27 分），不硬编码 72 分。"
+    },
+    {
+      "id": "C-pz-nidao",
+      "name": "泥道栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "与华栱相交安于栌斗口内的第一重横栱，扶壁之始。",
+      "attachTo": { "parent": "栌斗", "position": "口内与华栱十字相交" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "广", "厚", "卷杀瓣数", "瓣长"] },
+      "dimensions": ["02-07", "02-11"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·栱",
+        "quote": "二曰泥道栱：其長六十二分。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"]
+    },
+    {
+      "id": "C-pz-guazi",
+      "name": "瓜子栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "施于跳头交互斗上、令栱之内的横栱；五铺作以上重栱造时用之。",
+      "attachTo": { "parent": "交互斗", "position": "跳头上，令栱内泥道栱外（02-08）" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "广", "厚", "卷杀瓣数", "瓣长"] },
+      "dimensions": ["02-08", "02-11"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·栱",
+        "quote": "三曰瓜子栱：施之於跳頭。……其長六十二分。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"]
+    },
+    {
+      "id": "C-pz-ling",
+      "name": "令栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "施于最里外跳头之上，与耍头相交，外承橑檐枋。",
+      "attachTo": { "parent": "交互斗", "position": "最外跳头上，与耍头相交，橑檐枋之下" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "广", "厚", "卷杀瓣数", "瓣长"] },
+      "dimensions": ["02-09", "02-11"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·栱",
+        "quote": "四曰令栱：……施之於裏外跳頭之上……與耍頭相交。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"],
+      "note": "02-09 存疑：唐构佛光寺实测 58 分（法式 72 分），长度做参数。"
+    },
+    {
+      "id": "C-pz-man",
+      "name": "慢栱",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "重栱造时施于泥道栱、瓜子栱之上的第二重横栱。",
+      "attachTo": { "parent": "泥道栱/瓜子栱", "position": "其上（02-24 重栱造）" },
+      "geometry": { "family": "栱", "shapeParams": ["长", "广", "厚", "卷杀瓣数", "瓣长"] },
+      "dimensions": ["02-10", "02-11"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·栱",
+        "quote": "五曰慢栱：……施之於泥道瓜子栱之上，其長九十二分。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"],
+      "note": "02-10 存疑：佛光寺泥道慢栱实测 104 分（法式 92 分），长度做参数。"
+    },
+    {
+      "id": "C-pz-xiaang",
+      "name": "下昂",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "斜向出跳构件，昂尖下垂；第一昂以华头子承之，昂广厚如材。",
+      "attachTo": { "parent": "交互斗", "position": "第二（及第三）跳跳头，里端上彻屋内" },
+      "geometry": { "family": "昂", "shapeParams": ["长", "广", "厚", "昂尖长", "留厚", "斜率"] },
+      "dimensions": ["02-17", "02-19"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·飛昂",
+        "quote": "一曰下昂：自上一材垂尖向下，從枓底心下取直，其長二十三分。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"],
+      "note": "02-19 存疑：法式无斜率明文，默认按三圣殿实测头昂 1/3、次昂约 0.30，逐昂可调。琴面昂/批竹昂分支见 02-17 甲之更正。"
+    },
+    {
+      "id": "C-pz-huatouzi",
+      "name": "华头子",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "自栌斗口外出、刻两卷瓣以承第一昂的小构件。",
+      "attachTo": { "parent": "栌斗", "position": "口外，第一昂之下（02-17）" },
+      "geometry": { "family": "昂", "shapeParams": ["长", "卷瓣数", "瓣长"] },
+      "dimensions": ["02-17"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·飛昂",
+        "quote": "(華頭子自枓口外長九分，將昂勢盡處勻分，刻作兩卷瓣，每瓣長四分。)"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"]
+    },
+    {
+      "id": "C-pz-shuatou",
+      "name": "耍头(爵头)",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "最上一跳顺跳方向的足材收头构件，与令栱相交。",
+      "attachTo": { "parent": "昂/华栱最上跳", "position": "与令栱相交，衬方头之下" },
+      "geometry": { "family": "昂", "shapeParams": ["长", "广", "鹊台"] },
+      "dimensions": ["02-22"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·爵頭",
+        "quote": "造耍頭之製：用足材，自枓心出，長二十五分。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"]
+    },
+    {
+      "id": "C-pz-sufang",
+      "name": "素方",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "单材枋：单栱造施于令栱上，重栱全计心造施于扶壁泥道重栱上。",
+      "attachTo": { "parent": "慢栱/令栱", "position": "扶壁或跳头横栱之上（02-24、02-31）" },
+      "geometry": { "family": "枋", "shapeParams": ["长", "广", "厚"] },
+      "dimensions": ["02-01", "02-24"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·總鋪作次序",
+        "quote": "如鋪作重栱全計心造，則於泥道重栱上施素方。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"],
+      "note": "单材，广厚如材（02-01：材广 15 分、厚 10 分）。"
+    },
+    {
+      "id": "C-pz-liaoyanfang",
+      "name": "橑檐枋",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "令栱之上、铺作最外沿的枋，铺作总高算式以其下皮为界（02-29）。",
+      "attachTo": { "parent": "令栱", "position": "其上，铺作之最外沿" },
+      "geometry": { "family": "枋", "shapeParams": ["长", "广", "厚"] },
+      "dimensions": [],
+      "source": { "book": "宋《营造法式》", "location": "卷四" },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"],
+      "note": "断面尺寸研究稿 02-puzuo 未收专条，P3 出几何前先补规则；本条只登记组成与装配关系。"
+    },
+    {
+      "id": "C-pz-angshuan",
+      "name": "昂栓",
+      "category": "斗拱",
+      "status": "ok",
+      "paramSet": "fashi",
+      "statement": "贯昂背入栱身的栓，五至八铺作于第二跳上用之。",
+      "attachTo": { "parent": "下昂", "position": "第二跳上，上彻昂背、下入栱身之半或三分之一（02-20）" },
+      "geometry": { "family": "栓", "shapeParams": ["广", "厚", "长"] },
+      "dimensions": ["02-20"],
+      "source": {
+        "book": "宋《营造法式》",
+        "location": "卷四·飛昂",
+        "quote": "凡昂栓，廣四分至五分，厚二分。……五鋪作至八鋪作並於第二跳上用之，並上徹昂背。"
+      },
+      "urls": ["https://zh.wikisource.org/wiki/營造法式/第四卷"]
+    }
+  ]
+}

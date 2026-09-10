@@ -29,10 +29,28 @@
 | `honglou.rules.json` | `docs/qingshi/07` 《红楼梦》建筑原文 | 74 |
 | `plants.rules.json` | 跨章汇编：花木名录与用法 | 24 |
 | `missing.rules.json` | 两份批评稿：已知缺口 | 22 |
+| `components.rules.json` | 构件级本体：斗拱一类（清五踩/七踩、宋五/六铺作及分件） | 37 |
 | `schema.json` | 字段契约（不在门里强制，供人对照） | — |
 
-`plants` 与 `missing` 是跨章汇编，研究稿里没有对应的 `###` 标题，所以门对它们只校验
+`plants`、`missing` 与 `components` 是跨章汇编，研究稿里没有对应的 `###` 标题，所以门对它们只校验
 JSON 合法与依赖不悬空，不做条目对齐。
+
+## 构件级本体（components.rules.json）
+
+与规则表并列但语义不同：**规则表回答「多大」，构件本体回答「由什么组成、怎么装」**。
+字段契约见 `schema.json` 的 `definitions.componentFile`：
+
+- `parts[]`：下级分件的 id 与数量。只写组成，不写坐标。
+- `attachTo`：装在哪个父件的什么位置，用词描述不用数。
+- `geometry.family`：形状族（斗/栱/昂/枋/替木/椽/栓），`shapeParams` 只列参数**名**，不列数值。
+- `dimensions`：给尺寸的规则 id 列表，**不在本体里重复数值**；按 `paramSet` 字段解析，不按文件名。
+
+**本体绝不存几何**——顶点、网格、贴图路径这类字段一律禁止。一旦存了，这套东西就从可执行的
+语法退化成一个巨大的古建资产库（`docs/ROADMAP.md` P1 增补；粒度参照 `docs/kg-paper-borrowing.md`
+§3.1 的 3505 个构件实体，但他们的尺寸未经核验，只当候选清单不取数值）。
+
+门对本表加三条专用校验：`parts` 的 `ref` 不悬空、`dimensions` 的 id 在规则表里存在、
+不含几何字段。P3 的 `builder/parts/damu/dougong.ts` 消费本表出真分件几何。
 
 ## 状态
 
