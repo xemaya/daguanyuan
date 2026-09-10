@@ -230,9 +230,19 @@
 ### 单子 F — Task 7 分簇剔除与地形分块（等 E）
 
 > **前置：单子 E 必须已合入。** 在 `~/Workspace/games/daguanyuan` 实现 P1 计划的 **Task 7**。
-> 完整步骤与三条测试的全部源码在计划的 Task 7 一节。
+> 完整步骤与三条测试的全部源码在计划的 Task 7 一节。**那一节 2026-09-10 追加了 Step 0 与 Step 0b，先做它们。**
 >
-> 你碰：`engine/scatter/cluster.ts`（新建）、`engine/render/TerrainChunks.ts`（新建）、`engine/scatter/instancing.ts`、`builder/parts/zhiwu/vegetation.ts`、`builder/compose/terrain.ts`。
+> 你碰：`engine/scatter/cluster.ts`（新建）、`engine/render/TerrainChunks.ts`（新建）、`engine/scatter/instancing.ts`、`builder/parts/zhiwu/vegetation.ts`、`builder/compose/terrain.ts`、`builder/compose/terrain-from-plan.ts`。
+>
+> **这个任务有两半，第一半是修 E 留下的卡顿，不是加功能。**
+> E 落地后世界构建从 20 秒涨到 **28 秒以上**，Chrome 弹「页面无响应」。**这不是内存问题**——
+> 内存爆掉是「Aw, Snap!」，这个弹窗是主线程被同步计算占死（PITFALLS P-12 复发）。
+> 也**不是窗口开大了**——E 的窗口是对的（280×226 m / 0.48 m 格 = 55 万三角，在预算内）。
+> 涨的是**每次求值的单价**：新的场每次调用要走 7 个水体多边形、6 座山、9 条路径、19 个区，
+> 单价涨了约一个数量级，而调用次数还被 ×5（法线中心差分）与 ×100 万（`bakeSplat` 1024²）放大。
+> 实测单价 `height` 11.8 µs、`masks` 9.4 µs；地形网格 138 万次 = 16.3 s，splat 烘焙 105 万次 = 9.9 s。
+> **先砍这两处，预算是世界构建 ≤ 15 秒**，量法与三处改法在计划的 Step 0 里。
+> 顺带一条：草丛数跟着散布盒涨了 14 倍（2.7 万 → 约 60 万），会顶穿 790 万三角上限，见 Step 0b。
 >
 > **开工前读 `docs/tellux-borrowing.md` 第 4、5 条。** 两个要点：实例按固定网格分簇每簇一个包围球做视锥剔除；shader 注入要做成**有序 stage**（`rtc` → `wind` → `lod`），现在只有风摆一个所以没暴露，后面加实例偏移和 LOD 形变时三方会争抢 `project_vertex`。
 >
@@ -244,7 +254,8 @@
 >
 > 交付：三条测试通过、三角数证据、对照图无差别、提交。回报两组三角数。
 
-**规模**：中偏大。**风险**：中——剔多了会被人眼抓到，剔少了会被数字抓到，两头都有网。
+**规模**：大（比原计划涨了一半——多了 Step 0 的构建性能）。
+**风险**：中——剔多了会被人眼抓到，剔少了会被数字抓到，两头都有网；构建时间和三角数各有一条硬线。
 
 ---
 
