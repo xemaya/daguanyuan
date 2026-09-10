@@ -49,7 +49,8 @@
 ```
 
 **A / B / C / D 已全部完成并合入**（`d68afe4c` / `7f807bdd` / `de6e26a3` / `168002ca`）。
-**现在可派**：单子 E。**单子 E 必须单跑**——它大改 `composer.ts` 与 `terrain.ts`,与任何并行任务都冲突。之后是单子 F。
+**现在可派**：单子 E（进行中）与**单子 G**（仓库卫生,与 E/F 零文件重叠,可并行）。
+**单子 E 必须单跑**——它大改 `composer.ts` 与 `terrain.ts`,与任何**碰几何的**并行任务都冲突。之后是单子 F。
 
 单子 E 还要碰 `builder/parts/zhiwu/vegetation.ts`(散布盒与建筑禁区是旧坐标)——计划最初的文件清单漏了它。
 
@@ -224,6 +225,80 @@
 
 **规模**：大。**风险**：高——P1 里最高的一张。**最可能的失败**：地形网格没真开窗口（构建卡死），
 或者 68.6 米的水过不去（试玩掉水里）。两者都在 Step 0 里点了名。
+
+---
+
+### 单子 G — 仓库卫生与对外可进入（与 E/F 零文件重叠，可立即并行派）
+
+**来源**：2026-09-10 外部 code review。八条里五条归这张单，两条另议（见下方「不进 G 的两条」），一条待用户拍板（CI）。
+
+> 在 `~/Workspace/games/daguanyuan` 做一批仓库卫生与对外可进入的修补。**这不是功能任务，不要碰任何几何或规则逻辑。**
+>
+> 你只碰：`LICENSE`、`README.md`、`THIRD_PARTY_NOTICES.md`（新建）、`.gitignore`、`ART_DIRECTION.md`、
+> `docs/ROADMAP.md`、`tools/check-docs.mjs`（新建）、`package.json`（只加一个 script）、
+> `builder/derive/index.ts`（只改一行，见 G4）、`CONTRIBUTING.md`、`AGENT_CONTRIBUTING.md`（新建）。
+>
+> **单子 E 和 F 正在改 `builder/compose/`、`builder/parts/zhiwu/`、`engine/`、`tools/playtest.mjs`、`tools/capture.mjs`——
+> 这些一个都不许碰。** 上一轮 A/B 就是这么互相覆盖的。
+>
+> **G1 — 许可证矛盾（确认属实）**
+> `LICENSE` 是 Apache 2.0，`README.md` 第 115 行写的是 MIT，首个 commit 也写了 Apache 2.0。
+> **保留 Apache 2.0**，改 README。同时新建 `THIRD_PARTY_NOTICES.md`，保留上游 MIT attribution：
+> 引擎壳取自 [pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)（MIT），
+> 附完整 MIT 许可全文与版权行。README 的 License 一节指向它。
+>
+> **G2 — 脏文件出仓（比 review 说的多）**
+> 进了 Git 的是 **4 个 `.DS_Store`**（根目录、`docs/`、`docs/superpowers/`，用 `git ls-files` 自己核）
+> 加 `dev.log`（532 行，198 处本机绝对路径）。
+> `git rm --cached` 移出索引，`.gitignore` 补 `.DS_Store`、`*.log`（`preview.log` 也在漏网）。
+> **不需要改写历史**——我已经扫过 `dev.log`，`token|secret|password|api_key` 零命中。
+> 只有将来真进过密钥才值得动历史，那是另一件事。
+>
+> **G3 — 文档路径漂移（62 处，不止 ART_DIRECTION）**
+> P0 搬家后 markdown 里还写着 `src/cn/`、`src/fashi/`、`src/world/`、`core/Noise.ts`。
+> 实际是 `builder/parts/`、`builder/derive/`、`builder/compose/`、`engine/core/Noise`。
+> 四个文件有命中：`ART_DIRECTION.md`、`docs/ROADMAP.md`、
+> `docs/superpowers/plans/2026-09-10-p0-skeleton-migration.md`、`docs/superpowers/specs/2026-09-10-layered-architecture-design.md`。
+>
+> **后两个是搬家文档，它们提到旧路径是对的，别改**——那是历史记录不是失效引用。只改前两个。
+>
+> 然后加一道门 `tools/check-docs.mjs`：扫所有 markdown 里形如 `路径/文件.ts` 的引用，
+> 文件不存在就报错。**白名单要能写**（搬家文档、外部 URL、示意性路径），白名单条目要写明为什么豁免。
+> 挂进 `package.json` 的 `check:docs`，并加进 `check:all`。
+> `ART_DIRECTION.md` 是"每个 agent 必读、违反就退回"的圣经，**最权威的文件给错路径对外部贡献者伤害最大**。
+>
+> **G4 — 漏网的艺术数字（一行，但很值钱）**
+> `builder/derive/index.ts:178` 有 `drop: yanchu * lastSlope * 0.85`，
+> 注释自己承认「0.85 是几何近似不是营造数字」——**问题不是它不该存在，是它没进 `provenance.art`**。
+> `RuleBook` 已经有现成的 `artChoice(id, note, value)`，照 `deriveZhu` 里 `03-24` 那个用法改。
+> 改完 `deriveBuilding()` 的 `provenance.art` 应该多一条，能回答「这里史料没有，我们为观感取了 0.85」。
+> **顺手全仓扫一遍还有没有别的**：`grep -rnE "\* 0\.[0-9]{2}|\+ 0\.[0-9]{2}" builder/derive`，
+> 找到的每一个要么进 `art`，要么说明它是纯几何（如 `Math.PI/2`）。回报扫出几个、处理了几个。
+>
+> **G5 — CONTRIBUTING 分两层**
+> 现在的 `CONTRIBUTING.md` 是内部 agent 协议（要求每次 commit 固定附 `Co-Authored-By: Claude Opus 5` 与 session 链接）。
+> 对我们的 agent 群合理，对一个古建专业的学生或者手写贡献者很怪。
+>
+> 原样搬成 `AGENT_CONTRIBUTING.md`（内部严格规矩不变，`Co-Authored-By` 那条保留）。
+> 新的 `CONTRIBUTING.md` 面向人，**三条入口**：
+> 1. **我只想报个错** — 开 issue 要带什么（截图、`npm run check:all` 输出、浏览器）。
+> 2. **我想做考据** — 指向 `knowledge/rules/` 与 `knowledge/docs/`，说明规则的五种状态与双人核验，
+>    告诉他「驳倒一条比新增一条更值钱」。
+> 3. **我想领建一个构件或景观** — 改哪个文件、跑哪个命令、怎么提交试案。
+>
+> **判据：一个没读过我们六份架构文档的人，五分钟内知道该改哪个文件、跑哪条命令。**
+> 写完自己扮一遍那个人，把读不懂的地方改掉。
+>
+> **交付**：`npm run check:all`（含新的 `check:docs`）全过、`git ls-files` 里没有 `.DS_Store` 与 `.log`、提交。
+> 回报：路径漂移改了多少处、白名单豁免了哪几条为什么、G4 扫出几个艺术数字。
+
+**规模**：中。**风险**：低。**唯一的失败模式是手伸进 E/F 正在改的文件。**
+
+**不进 G 的两条**（见下）：builder 认识大观园（架构泄漏）、构建顺序与注释不符（潜伏 bug）。这两条是同一件事，且要先定优先级。
+
+**待拍板**：CI。review 建议每个 PR 跑 `npm ci → check:all → build`，这个建议本身是对的，
+但**前提不成立——这个仓现在还在 `games` monorepo 里，没有自己的 GitHub 远端**（`git remote -v` 只有别的项目）。
+要 CI 就得先把 daguanyuan 拆成独立仓推上去（jiandie 走过这条路）。**拆不拆是产品决定，不是工程决定。**
 
 ---
 
