@@ -146,6 +146,14 @@
 > **`fashi.html` / `projects/daguanyuan/fashi.*` 是单子 I 的，不要碰。**
 > `vite.config.ts` 两张单子都要加入口——**你只加 `garden` 那一项，`fashi` 留给 I**。
 >
+> **⚠ 另有一个 agent 正在做 P2，它这几天一直在改 `tools/playtest.mjs`、`tools/capture.mjs`、
+> `README.md`。** 你也要动这三个文件，所以：
+> - **只做外科手术式的一行改动**（默认 URL `/` → `/garden.html`；README 里的访问地址）。
+>   **改之前重新 `cat` 一遍那个文件**，不要拿你开工时的副本整份写回——
+>   上一轮两个 agent 互相覆盖，真因就是这个，不是"同时改同一个文件"。
+> - **`docs/ROADMAP.md` 一个字都不要碰**，P2 正在重写它。路线图由派单人事后补。
+> - 提交前 `git log --oneline -3` 看一眼有没有新提交落下来；有就先 `git pull --rebase` 或重看文件。
+>
 > **开工前必读**：`ART_DIRECTION.md §9`（隐喻与理由，以及"压在场景上的 HUD 不上金"这条）、
 > `engine/ui/tokens.css` 的头注释、`docs/PITFALLS.md` 的 P-11 与 **P-12**。
 >
@@ -179,8 +187,14 @@
 > **`index.html` / `garden.html` / `engine/ui/*` 是单子 H 的，不要碰。**
 > H 会把园子搬到 `/garden.html`——你的门厅返回链接指向 `/` 就行，不用管它什么时候搬完。
 >
+> **⚠ 另有一个 agent 正在做 P2，它正在改 `projects/daguanyuan/viewer.ts`、
+> `builder/parts/registry.ts`、`tools/shoot-part.mjs`。这三个你**只读不写**：
+> 复用它们的做法（把渲染设置抄一份到你自己的 `fashi.ts`），不要改它们，也不要 import 后再包一层。
+> **`docs/ROADMAP.md` 与 `README.md` 一个字都不要碰**，P2 正在重写。
+> 提交前 `git log --oneline -3` 看一眼有没有新提交落下来。
+>
 > **开工前必读**：`ART_DIRECTION.md §9`（三支出处的配色对照表）、`engine/ui/tokens.css`、
-> `projects/daguanyuan/viewer.ts`（棚拍灯光已调好，直接复用）、
+> `projects/daguanyuan/viewer.ts`（棚拍灯光已调好，**抄一份，别改它**）、
 > `builder/derive/index.ts` 的 `deriveBuilding` 与 `Frame.provenance`、
 > `knowledge/rules/components.rules.json`、`docs/PITFALLS.md` 的 P-11。
 >
@@ -217,3 +231,14 @@
 H 与 I 可同时派。文件不重叠，唯一的交点是 `vite.config.ts` 的 `rollupOptions.input`：
 **H 只加 `garden`，I 只加 `fashi`**，各加一行。
 `engine/ui/tokens.css` 两边只读。这两条是上一轮 A/B 撞车的直接教训。
+
+**与在跑的 P2 的避让**（2026-09-11 核过 P2 近 6 个提交碰的文件）：
+
+| 文件 | P2 在改 | H/I 怎么办 |
+|---|---|---|
+| `tools/playtest.mjs`、`tools/capture.mjs`、`README.md` | 是 | H 只做外科手术式一行改动，**改前重新读文件** |
+| `projects/daguanyuan/viewer.ts`、`builder/parts/registry.ts`、`tools/shoot-part.mjs` | 是 | I **只读不写**，要复用就抄一份 |
+| `docs/ROADMAP.md` | 是（重写中） | **两边都不许碰**，路线图由派单人事后补 |
+
+撞车的真因不是"同时改一个文件",是**agent 拿着开工时的旧副本整份写回**。
+所以避让的写法是"只读"与"改前重读",不是"绕开"。
