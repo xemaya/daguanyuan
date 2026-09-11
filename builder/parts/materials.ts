@@ -38,6 +38,9 @@ export const CN = {
   /** 青石:台基、驳岸、铺地。 */
   stone: 0x8c8f8a,
   stoneDark: 0x5f625e,
+  /** 白石:正门台磯、门枕、抱鼓石。第十七回「下面白石台磯」(07-01),不是青石。 */
+  whiteStone: 0xd9d5c8,
+  whiteStoneDark: 0xa9a496,
   /** 太湖石:灰白带青,孔洞里深。 */
   taihu: 0xb9b7ad,
   taihuPit: 0x6f6d66,
@@ -278,6 +281,44 @@ export function stoneMaterial(repeat = 1, vertexColors = false): THREE.MeshStand
       roughness: 1,
       metalness: 0,
       vertexColors,
+    });
+    setRepeat(mat, repeat);
+    return mat;
+  });
+}
+
+/** 白石:与青石同一套凿痕高度场,色换成暖白(07-01「白石台磯」),不带青石的苔斑。 */
+export function whiteStoneMaps(size = 1024): MaterialMaps {
+  const h = (u: number, v: number) => {
+    const chisel = tileableFbm(NOISE.stone, u * 5, v * 0.4, 50, 3);
+    const pit = tileableFbm(NOISE.stone, u + 3, v, 18, 4);
+    return clamp(0.5 + chisel * 0.13 + pit * 0.14, 0, 1);
+  };
+  return {
+    map: cached('cn.whiteStone.albedo', () =>
+      bakeColorMap({
+        size,
+        color: (u, v) => {
+          const t = h(u, v);
+          const c = mixHex(CN.whiteStoneDark, CN.whiteStone, t);
+          return [c[0], c[1], c[2]];
+        },
+      }),
+    ),
+    normalMap: cached('cn.whiteStone.normal', () => bakeNormalMap({ size, height: h }, 1.6)),
+    roughnessMap: cached('cn.whiteStone.rough', () => bakeScalarMap(512, (u, v) => 0.74 + h(u, v) * 0.16)),
+  };
+}
+
+export function whiteStoneMaterial(repeat = 1): THREE.MeshStandardMaterial {
+  return memo(`whiteStone:${repeat}`, () => {
+    const m = whiteStoneMaps();
+    const mat = new THREE.MeshStandardMaterial({
+      map: m.map,
+      normalMap: m.normalMap,
+      roughnessMap: m.roughnessMap,
+      roughness: 1,
+      metalness: 0,
     });
     setRepeat(mat, repeat);
     return mat;

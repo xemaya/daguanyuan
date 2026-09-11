@@ -195,14 +195,18 @@ const SCENE: Placement[] = [
   // 边"焊死在新游线正中间,变成走不过去的墙(键盘试玩当场卡死)。TERRAIN 的
   // 窗口阻挡体已经接管"别让人走出网格"这件事,这六段东西墙没有对应物可留,
   // 直接不放。
+  // PQ-7(单子 M):「左右一望,皆雪白粉牆…隨勢砌去」(07-02)——粉墙要真的
+  // 接上正门,门才读成墙上的开口。所以这段墙不再是旧坐标的纯平移:墙线北移
+  // 到正门中脊线(z 236,与门洞同线),内端推进到咬住山墙面(局部 x ±7.0),
+  // 三段首尾相接不变。
   ...(
     [
-      ['plain', 10.8, 25.2, 0],
-      ['lattice', 16.8, 25.2, 0],
-      ['cloud', 23.8, 25.2, 0],
-      ['plain', -10.8, 25.2, 0],
-      ['lattice', -16.8, 25.2, 0],
-      ['cloud', -23.8, 25.2, 0],
+      ['plain', 10.0, 24.4, 0],
+      ['lattice', 16.0, 24.4, 0],
+      ['cloud', 23.0, 24.4, 0],
+      ['plain', -10.0, 24.4, 0],
+      ['lattice', -16.0, 24.4, 0],
+      ['cloud', -23.0, 24.4, 0],
     ] as [string, number, number, number][]
   ).map(([variant, x, z, yaw]) => {
     const [wx, wz] = shift([x, z], D_ZHENGMEN);
@@ -379,8 +383,21 @@ function lanternSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: numb
   return null;
 }
 
-export function buildGarden(ctx: GameContext): void {
-  const ground = ctx.collision.terrainHeight;
+/**
+ * 抱鼓石(门当)的摆放(局部坐标):正门前踏跺两侧一对,立在台基前缘外的
+ * 地面上。07-01 原文无此物,设它是"门"最强的视觉符号——纯艺术选择,
+ * 尺寸与形制的留痕在构件的 `root.userData.provenance.art` 里。
+ */
+function baogushiSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: number }[] | null {
+  if (p.part !== 'building' || p.variant !== 'men' || built.kind !== 'building') return null;
+  const b = built as BuildingResult;
+  return [
+    { lx: -2.0, lz: b.platform.hz + 0.42 },
+    { lx: 2.0, lz: b.platform.hz + 0.42 },
+  ];
+}
+
+export function buildGarden(ctx: GameContext): void {  const ground = ctx.collision.terrainHeight;
   const pond = pondEllipse();
 
   // 沁芳亭桥一带的驳石(taihu peak/peak3),按旧簇平移后落进了新南池的开阔
@@ -423,6 +440,7 @@ export function buildGarden(ctx: GameContext): void {
 
   let calls = 0;
   const lanternSpots: { x: number; y: number; z: number }[] = [];
+  const baogushiSpots: { x: number; z: number }[] = [];
   for (const p of all) {
     const key = `${p.part}:${p.variant ?? 'default'}`;
     let part = cache.get(key);
@@ -471,6 +489,12 @@ export function buildGarden(ctx: GameContext): void {
       lanternSpots.push({ x: lx, y: y + s.hangY, z: lz });
     }
 
+    // 抱鼓石守在正门口(艺术选择,07-01 无此物):跟着正门走。
+    for (const s of baogushiSpotsFor(p, part) ?? []) {
+      const [bx, bz] = toWorld(wx, wz, yaw, s.lx, s.lz);
+      baogushiSpots.push({ x: bx, z: bz });
+    }
+
     if (p.pier) {
       // 从地面(池底)砌一块青石墩到构件底面。
       const b = part as BuildingResult;
@@ -494,6 +518,27 @@ export function buildGarden(ctx: GameContext): void {
         l.position.set(s.x, s.y, s.z);
         l.name = '灯笼';
         staticGroup.add(l);
+      }
+    }
+  }
+  if (baogushiSpots.length) {
+    const baogushi = buildPart('baogushi', 'default', { ground });
+    if (baogushi) {
+      for (const s of baogushiSpots) {
+        const gy = ground(s.x, s.z);
+        const st = baogushi.root.clone();
+        st.position.set(s.x, gy, s.z);
+        st.name = '抱鼓石';
+        staticGroup.add(st);
+        // 挡人不挡路:两颗石在踏跺两侧,门轴中线(x=55)畅通。
+        ctx.collision.addCircle(s.x, s.z, 0.34, gy, gy + 0.95, '抱鼓石');
+        constructionRecords.push({
+          id: 'zhengmen.baogushi',
+          name: '抱鼓石(门当)',
+          position: [s.x, gy, s.z],
+          yaw: 0,
+          provenance: baogushi.root.userData.provenance,
+        });
       }
     }
   }

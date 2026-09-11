@@ -9,6 +9,7 @@ import {
   tileMaterial,
   plasterMaterial,
   stoneMaterial,
+  whiteStoneMaterial,
   paperMaterial,
 } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
@@ -55,6 +56,11 @@ export interface BuildingOptions {
   wallMaterial?: 'plaster' | 'stone';
   /** 当心间中间两扇门开着(默认开)。 */
   doorOpen?: boolean;
+  /** 门屋(中柱造):门装在中柱缝而不在檐柱缝,前后檐到中柱是两段门道;
+   *  前檐当心间敞开,中柱缝当心间装板门、其余间砌墙,后檐只留当心间通行。 */
+  gatehouse?: boolean;
+  /** 台基石作:青石(缺省)/白石(07-01「白石台磯」)。 */
+  plinthMaterial?: 'stone' | 'whiteStone';
   /** 格扇/槛窗的格心纹样:给了就换用墙垣的格心生成器(PQ-2);缺省保留步步锦。 */
   lattice?: 'ice' | 'wan' | 'haitang';
   seed?: number;
@@ -289,6 +295,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const column = woodMaterial(CN.column, 1);
   const tile = tileMaterial(1, 1);
   const stone = stoneMaterial(1);
+  // 台基石作:缺省青石;正门按第十七回「下面白石台磯」用白石(07-01)。
+  const plinth = opts.plinthMaterial === 'whiteStone' ? whiteStoneMaterial(1) : stone;
   const plaster = opts.wallMaterial === 'stone' ? stoneMaterial(2) : plasterMaterial(1);
   const paper = paperMaterial();
   const ridgeMat = new THREE.MeshStandardMaterial({ color: CN.tile, roughness: 0.85 });
@@ -307,23 +315,33 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const margin = opts.platformMarginM ?? (isTing ? 0.55 : 0.9);
   const platHX = m.width / 2 + margin;
   const platHZ = m.depthHalf + margin;
-  const plat = new THREE.Mesh(roundedBox(platHX * 2, platH, platHZ * 2, 0.03, 3), stone);
+  // 07-01「鑿成西番草花樣」是台基边缘的浅浮雕,不是贴图;程序化浮雕本期做不出,
+  // 先留素面台基,不用噪声贴图冒充雕花(待 P3 石作专件)。
+  const plat = new THREE.Mesh(roundedBox(platHX * 2, platH, platHZ * 2, 0.03, 3), plinth);
   plat.position.y = platH / 2;
   plat.receiveShadow = true;
   plat.castShadow = true;
   root.add(plat);
   // 阶条石一圈略凸。
-  const rim = new THREE.Mesh(roundedBox(platHX * 2 + 0.08, 0.1, platHZ * 2 + 0.08, 0.02, 2), stone);
+  const rim = new THREE.Mesh(roundedBox(platHX * 2 + 0.08, 0.1, platHZ * 2 + 0.08, 0.02, 2), plinth);
   rim.position.y = platH - 0.05;
   rim.receiveShadow = true;
   root.add(rim);
+  if (opts.plinthMaterial === 'whiteStone') {
+    fr.provenance.art.push({
+      id: 'project:gate-plinth-white-stone',
+      name: '正门白石台基与台基高',
+      method: 'artistic_choice',
+      note: `第十七回「下面白石台磯,鑿成西番草花樣」(07-01):材质按原文取白石非青石;规则表无门屋台基高,${platH}m 为观感取值;西番草是浅浮雕不是贴图,本期留素面待 P3 石作专件。`,
+    });
+  }
   // 正面踏步。
   const stepW = isTing ? m.width * 0.5 : Math.max(1.2, m.width * 0.3);
   const nSteps = Math.max(2, Math.round(platH / 0.15));
   for (let i = 0; i < (opts.steps?.front?0:nSteps); i++) {
     const h = platH / nSteps;
     const d = 0.3;
-    const st = new THREE.Mesh(roundedBox(stepW, h, d, 0.015, 2), stone);
+    const st = new THREE.Mesh(roundedBox(stepW, h, d, 0.015, 2), plinth);
     st.position.set(0, h * (nSteps - i) - h / 2, platHZ + d / 2 + d * i);
     st.receiveShadow = true;
     st.castShadow = true;
@@ -333,11 +351,28 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     const spec=opts.steps?.[side];if(!spec)continue;
     const surfaces=compileExteriorSteps(platH,platHX,platHZ,side,spec,side==='back'?(opts.backDoor?.centerXM??0):0);
     for(const p of surfaces) {
-      const st=new THREE.Mesh(roundedBox(p.hx*2,p.y,p.hz*2,.015,2),stone);
+      const st=new THREE.Mesh(roundedBox(p.hx*2,p.y,p.hz*2,.015,2),plinth);
       st.position.set(p.cx,p.y/2,p.cz);st.receiveShadow=true;st.castShadow=true;root.add(st);
     }
     walkSurfaces.push(...surfaces);
+    if(opts.gatehouse) {
+      // 踏跺垂带:踏跺两侧各一条顺坡而下的条石。规则表无门屋踏跺垂带条目,
+      // 带宽 0.24m 为观感取值。
+      const sign=side==='front'?1:-1;
+      const run=surfaces.length*spec.treadM;
+      const slope=Math.hypot(platH,run);
+      const ang=Math.atan2(platH,run);
+      for(const sx of [-1,1]) {
+        const cd=new THREE.Mesh(roundedBox(0.24,0.14,slope+0.12,0.02,2),plinth);
+        cd.position.set(sx*(spec.widthM/2+0.10),platH/2+0.04,sign*(platHZ+run/2));
+        cd.rotation.x=sign*ang;
+        cd.castShadow=true;cd.receiveShadow=true;root.add(cd);
+      }
+    }
   }
+  if(opts.gatehouse&&(opts.steps?.front||opts.steps?.back))fr.provenance.art.push({
+    id:'project:gate-steps-chuidai',name:'正门踏跺与垂带',method:'artistic_choice',
+    note:'规则表无门屋踏跺/垂带条目;踏跺宽与垂带宽 0.24m 均为观感取值。'});
 
   /* ---- 柱网 ------------------------------------------------------- */
   const colXs = m.columnX;
@@ -419,6 +454,32 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     for (const x of [colXs[0], colXs[colXs.length - 1]]) addBeam(x, rowsZ[0] + 0.15, x, rowsZ[1] - 0.15, pupai, m.lan.t * 1.3, lanTop + pupai, wood);
   }
   root.add(ring);
+
+  /* ---- 中柱(门屋分心造) ------------------------------------------ */
+  // 门屋通例:门装在中柱缝上,不在檐柱缝上——前后檐柱到中柱各隔一段门道,
+  // 穿门是"走过一段进深",不是"掀开一张纸"。两椽门屋里中柱一缝正在中脊下,
+  // 直抵脊枋底(分心造)。规则表无门屋条目,中柱高按"顶住脊枋"从推导脊高扣。
+  const gatehouse = opts.gatehouse ?? false;
+  const centerBay = Math.floor((colXs.length - 1) / 2);
+  const midColTop = platH + m.ridgeY - 0.45; // 柱顶让出脊枋与望板的位
+  if (gatehouse) {
+    // 山面两柱由硬山山墙取代,中柱只立内四缝。
+    for (let i = 1; i < colXs.length - 1; i++) addColumn(colXs[i], 0, midColTop - platH - colH);
+    // 脊枋:一缝横梁把中柱顶串起来。
+    addBeam(colXs[0], 0, colXs[colXs.length - 1], 0, m.lan.w, m.lan.t, midColTop + m.lan.w, wood);
+    fr.provenance.art.push({
+      id: 'project:gatehouse-zhongzhu',
+      name: '中柱造与板门门口',
+      method: 'artistic_choice',
+      note: '门屋通例:门装中柱缝。规则表(fashi/qing/fayuan/missing 已查)无门屋条目;门洞宽取当心间柱间净空减边梃、门高 2.55m、板门厚 0.055m,均为观感取值。',
+    });
+    fr.provenance.art.push({
+      id: 'project:gate-shallow-depth',
+      name: '门屋压浅进深',
+      method: 'artistic_choice',
+      note: '门屋进深远小于面阔:取两椽(220 分)对五间面阔(1260 分)。椽架数是 spec 输入,不走规则表;压浅是"门屋不读成厅堂"的艺术判断。',
+    });
+  }
 
   /* ---- 雀替 --------------------------------------------------------- */
   // 柱梁交接处的托脚:轮廓在交接处断一下,"木构"的信息就给足了。
@@ -904,6 +965,14 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     blockers.push({cx:doorOpen?d.hingeX:s.centerXM,cz:doorOpen?d.z-d.leafWidth/2:d.z,hx:d.leafWidth/2,hz:s.leafThicknessM/2,
       minY:d.bottom,h:d.top,rot:doorOpen?Math.PI/2:0});
   } else if (back === 'door') {
+    if (gatehouse) {
+      // 门屋后檐:次梢间砌墙封死(正门是「一色水磨群墙」,随 wallMaterial),
+      // 只留当心间与中柱缝门洞对位通行。
+      for (let i = 1; i < colXs.length; i++) {
+        if (i - 1 === centerBay) continue;
+        addWall(colXs[i - 1], rowsZ[1], colXs[i], rowsZ[1], wallH, platH);
+      }
+    } else {
     const span = colXs[colXs.length - 1] - colXs[0] - 2 * colR;
     const gw = span / 4;
     const bx0 = colXs[0] + colR;
@@ -918,6 +987,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     }
     blockers.push({ cx: colXs[0] + colR + gw * 0.5, cz: rowsZ[1], hx: gw * 0.5, hz: 0.06, h: platH + wallH });
     blockers.push({ cx: colXs[colXs.length - 1] - colR - gw * 0.5, cz: rowsZ[1], hx: gw * 0.5, hz: 0.06, h: platH + wallH });
+    }
   }
   if (sides === 'wall') {
     if (!isYingshan) {
@@ -931,15 +1001,16 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     addWindowWall(colXs[0],rowsZ[0],colXs[colXs.length-1],rowsZ[0]);
   } else if (front === 'door') {
     // 每间四扇格扇;当心间为门(可开),次间为槛窗(下半粉墙)。
-    const center = Math.floor((colXs.length - 1) / 2);
+    // 门屋(gatehouse):前檐当心间敞开,门退到中柱缝——这里只装次梢间的槛窗。
     for (let i = 1; i < colXs.length; i++) {
       const x0 = colXs[i - 1] + colR;
       const x1 = colXs[i] - colR;
       const span = x1 - x0;
-      const isCenter = i - 1 === center;
+      const isCenter = i - 1 === centerBay;
       const n = 4;
       const gw = span / n;
       const z = rowsZ[0];
+      if (isCenter && gatehouse) continue;
       if (isCenter) {
         const py = platH + (wallH - 0.1) / 2 + 0.05;
         for (let k = 0; k < n; k++) {
@@ -978,6 +1049,81 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
         }
         blockers.push({ cx: (x0 + x1) / 2, cz: z, hx: span / 2, hz: 0.1, h: platH + wallH });
       }
+    }
+  }
+
+  /* ---- 门屋:中柱缝的墙与板门 -------------------------------------- */
+  if (gatehouse) {
+    // 中柱缝(z=0)次梢间砌墙封死,只留当心间门洞——从门外看进去,
+    // 读到的是一堵横墙上的门口,不是一间屋的内景。
+    for (let i = 1; i < colXs.length; i++) {
+      if (i - 1 === centerBay) continue;
+      addWall(colXs[i - 1], 0, colXs[i], 0, wallH, platH);
+    }
+    // 板门门口:边梃、上槛、走马板、门槛,两扇板门向外全开、贴立门道两侧。
+    // 尺寸无出处(见 project:gatehouse-zhongzhu 的 provenance 注)。
+    const jambW = 0.09;
+    const doorH = 2.55;
+    const sillH2 = 0.08;
+    const cx0 = colXs[centerBay] + colR; // 门洞西界(柱内侧)
+    const cx1 = colXs[centerBay + 1] - colR; // 门洞东界
+    const openW = cx1 - cx0 - jambW * 2;
+    const headTop = platH + sillH2 + doorH + 0.12; // 上槛顶
+    for (const x of [cx0 + jambW / 2, cx1 - jambW / 2]) {
+      const jamb = new THREE.Mesh(roundedBox(jambW, headTop - platH, wallT + 0.04, 0.008, 2), wood);
+      jamb.position.set(x, (platH + headTop) / 2, 0);
+      jamb.castShadow = true;
+      jamb.receiveShadow = true;
+      root.add(jamb);
+      blockers.push({ cx: x, cz: 0, hx: jambW / 2, hz: (wallT + 0.04) / 2, minY: platH, h: headTop });
+    }
+    const lintel = new THREE.Mesh(roundedBox(openW + jambW * 2, 0.12, wallT + 0.04, 0.008, 2), wood);
+    lintel.position.set(0, headTop - 0.06, 0);
+    lintel.castShadow = true;
+    lintel.receiveShadow = true;
+    root.add(lintel);
+    // 走马板:上槛以上填到脊枋底。
+    const fillH = midColTop - headTop;
+    if (fillH > 0.05) {
+      const fill = new THREE.Mesh(roundedBox(openW + jambW * 2, fillH, 0.05, 0.008, 2), wood);
+      fill.position.set(0, headTop + fillH / 2, 0);
+      fill.castShadow = true;
+      fill.receiveShadow = true;
+      root.add(fill);
+    }
+    blockers.push({ cx: 0, cz: 0, hx: (openW + jambW * 2) / 2, hz: (wallT + 0.04) / 2, minY: platH + sillH2 + doorH, h: midColTop });
+    // 门槛:低矮,只作视觉(不进碰撞,不绊脚)。
+    const sill2 = new THREE.Mesh(roundedBox(openW, sillH2, 0.16, 0.01, 2), wood);
+    sill2.position.set(0, platH + sillH2 / 2, 0);
+    sill2.receiveShadow = true;
+    root.add(sill2);
+    // 两扇板门:素板加三条穿带,不上朱漆不装门钉(「並無朱粉塗飾」)。
+    const gw2 = openW / 2 - 0.01;
+    const mkLeaf = () => {
+      const leaf = new THREE.Group();
+      const panel = new THREE.Mesh(roundedBox(gw2, doorH, 0.055, 0.008, 2), wood);
+      leaf.add(panel);
+      for (const ty of [-0.3, 0, 0.3]) {
+        const batten = new THREE.Mesh(roundedBox(gw2 - 0.06, 0.1, 0.03, 0.006, 1), wood);
+        batten.position.set(0, ty * doorH, -0.04);
+        leaf.add(batten);
+      }
+      leaf.traverse((o) => {
+        o.castShadow = true;
+        o.receiveShadow = true;
+      });
+      return leaf;
+    };
+    const openAng = doorOpen ? Math.PI / 2 - 0.06 : 0.04;
+    hingedPanel(mkLeaf(), gw2, cx0 + jambW, 1, platH + sillH2 + doorH / 2, 0, openAng);
+    hingedPanel(mkLeaf(), gw2, cx1 - jambW, -1, platH + sillH2 + doorH / 2, 0, openAng);
+    if (doorOpen) {
+      // 全开的门扇贴立在门道两侧,各是一条顺 Z 的薄阻挡,不占中路。
+      for (const sx of [-1, 1]) {
+        blockers.push({ cx: sx * (Math.abs(cx0) - jambW), cz: gw2 / 2, hx: 0.04, hz: gw2 / 2, minY: platH + sillH2, h: platH + sillH2 + doorH });
+      }
+    } else {
+      blockers.push({ cx: 0, cz: 0, hx: openW / 2, hz: 0.04, minY: platH + sillH2, h: platH + sillH2 + doorH });
     }
   }
 
@@ -1137,7 +1283,9 @@ export function langSpec(): BuildingOptions {
 
 /**
  * 正门:第十七回"正门五间,上面桶瓦泥鳅脊;那门栏窗槅皆是细雕新鲜花样,并无朱粉涂饰;
- * 一色水磨群墙"。五间硬山,当心间开门,两侧槛窗,山墙与后檐水磨砖,不上朱粉。
+ * 一色水磨群墙"。五间硬山门屋(中柱造):前后檐当心间敞开,板门装在中柱缝;
+ * 进深压到两椽(门屋进深远小于面阔),白石高台基前后各出垂带踏跺。
+ * 不上朱粉;金只许在匾额字上(ART_DIRECTION §9)。
  */
 export function menSpec(): BuildingOptions {
   return {
@@ -1145,7 +1293,9 @@ export function menSpec(): BuildingOptions {
       cai: { grade: 7 },
       hall: '厅堂',
       bayWidthsFen: [230, 250, 300, 250, 230],
-      rafters: 4,
+      // 压浅进深:两椽 220 分 ≈ 2.4m,对五间面阔 1260 分 ≈ 13.8m。
+      // 椽架数是 spec 输入不走规则表;此值是"门屋"的艺术判断,记 provenance.art。
+      rafters: 2,
       jiaFen: 110,
       puzuo: { puzuo: 4, jumpFen: 26 },
       roofType: '硬山',
@@ -1154,15 +1304,22 @@ export function menSpec(): BuildingOptions {
       columnDiameterFen: 28,
       rafterDiaFen: 7,
     },
-    // 匾额文字只从 plan.json 读(missing 99-26)。注意:plan 里 zhengmen.main-gate
-    // 的 plaque 目前是 null——正门是否挂「大观园」是 PQ-7 的数据决定,不在这里写回来。
+    // 匾额文字只从 plan.json 读(missing 99-26):正门挂「大观园」(07-37 园之总名;
+    // 挂正门是艺术摆放,见 ROADMAP §PQ-7)。
     plaque: plaqueFromPlan('zhengmen.main-gate'),
     front: 'door',
     back: 'door',
     sides: 'wall',
+    gatehouse: true,
     lattice: 'wan', // 第十七回「门栏窗槅皆是细雕新鲜花样」:万字不到头
     wallMaterial: 'stone',
-    platformH: 0.5,
+    plinthMaterial: 'whiteStone', // 「下面白石台磯」——白石,不是青石
+    platformH: 0.75, // 规则表无门屋台基高,观感取值(记 provenance.art)
+    platformMarginM: 0.9,
+    steps: {
+      front: { widthM: 3.0, treadM: 0.3, maxRiserM: 0.15 },
+      back: { widthM: 3.0, treadM: 0.3, maxRiserM: 0.15 },
+    },
     chuji: 0.45,
   };
 }
