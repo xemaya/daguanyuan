@@ -21,7 +21,7 @@ export function buildPlannedBuilding(id: string): BuildingResult {
   const construction = object.construction;
   if (!construction) throw new Error(`${id} 施工spec为空`);
   if ('status' in construction && construction.status === 'frame-ready')
-    throw new Error(`${id} 已有可执行清式施工骨架；P3分件/楼层几何尚未完成，不得静默替换成法式房屋`);
+    throw new Error(`${id} 已有可执行施工骨架；P3分件/楼层几何尚未完成，不得静默替换成法式房屋`);
   const result = buildBuilding({ ...construction.options, spec: construction.spec } as BuildingOptions);
   result.root.name = id;
   result.root.userData.planObject = { id, region: region.id, name: object.name,

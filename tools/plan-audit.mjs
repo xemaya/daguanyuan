@@ -5,6 +5,7 @@ import { validatePlanObjects } from '../builder/plan/objects.ts';
 import { compileWallPath, wallLocalPoint, wallMiterX } from '../builder/plan/wall-path.ts';
 import {compileCorridor} from '../builder/plan/corridor-path.ts';
 import {compileBridgePath} from '../builder/plan/bridge-path.ts';
+import {auditConstructions} from './construction-audit.mjs';
 
 /** Passing implemented assertions is not proof of all seven source constraints. */
 export function auditPlan(plan) {
@@ -17,6 +18,10 @@ export function auditPlan(plan) {
     return valid;
   };
   fails.push(...validatePlanObjects(plan.regions));
+  const constructionAudit=auditConstructions(plan);
+  fails.push(...constructionAudit.fails);
+  diagnostics.construction={total:constructionAudit.total,valid:constructionAudit.objects.length,
+    meshFactories:constructionAudit.meshFactories,frameOnly:constructionAudit.frameOnly};
   const wallValid = checkRing(plan.wall, '外墙');
   const validRegions = new Set();
   const padIds = new Set();

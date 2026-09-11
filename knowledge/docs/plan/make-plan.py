@@ -1,11 +1,18 @@
 # -*- coding: utf-8 -*-
 """projects/daguanyuan/plan.json -> plan.svg (hand-written SVG, no external resources)"""
-import json, math, os
+import json, math, os, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, '..', '..', '..', 'projects', 'daguanyuan', 'plan.json')
 OUT = os.path.join(HERE, 'plan.svg')
 d = json.load(open(SRC, encoding='utf-8'))
+ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
+# The exact same compiler validates P2 and drives the SVG. No Python copy of
+# bay/roof formulae, and no implicit claim that a planned frame is already built.
+construction = json.loads(subprocess.run(
+    ['node', os.path.join(ROOT, 'tools', 'export-plan-construction.mjs')],
+    cwd=ROOT, check=True, capture_output=True, text=True).stdout)
+building_names = {b['id']:b['name'] for r in d['regions'] for b in r['buildings']}
 
 # ---------- viewBox: world units == svg units, y down = south (svg y = z) ----------
 VB_X, VB_Y, VB_W, VB_H = -300, -390, 940, 790
@@ -153,6 +160,20 @@ for r in d['regions']:
         for insert in wall.get('inserts', []):
             x,z=insert['at']
             e('<circle cx="%.2f" cy="%.2f" r="1.8" fill="%s" stroke="#5a5245" stroke-width="0.7"><title>%s</title></circle>' % (x,z,C['paper'],esc(insert.get('object',insert['variant']))))
+        e('</g>')
+
+# ================= gates =================
+e('<!-- 32项施工骨架：柱网实线、屋面保守包络虚线；不表示已建实景 -->')
+for building in construction['objects']:
+    for footprint in building['footprints']:
+        e('<g><title>%s · %s · %s</title>' % (
+            esc(building_names[building['id']]), esc(footprint['id']),
+            '有单体模型，非实景装配证明' if building['meshFactoryAvailable'] else '仅施工骨架，细部几何待P3'))
+        e('<polygon points="%s" fill="none" stroke="#625046" stroke-width="0.45" stroke-dasharray="1.3 1"/>' % pts(footprint['roof']))
+        if footprint['body']:
+            e('<polygon points="%s" fill="%s" fill-opacity="0.22" stroke="#625046" stroke-width="0.7"/>' % (pts(footprint['body']), 'none' if building['boat'] else '#8b6c51'))
+        for x,z in footprint['columns']:
+            e('<circle cx="%.3f" cy="%.3f" r="%.3f" fill="#554336"/>' % (x,z,footprint['columnRadius']))
         e('</g>')
 
 # ================= gates =================
@@ -327,7 +348,7 @@ RATIO = _c[_j] / RLEN
 
 # ================= legend =================
 LG_Y = y + 18
-LG_H = 270
+LG_H = 290
 panel(RX0, LG_Y, RX1 - RX0, LG_H, '图例')
 gy = LG_Y + 40
 def row(draw, text, gap=16.5):
@@ -351,6 +372,7 @@ row(lambda t: (e('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stro
                e('<circle cx="%.1f" cy="%.1f" r="6" fill="%s" stroke="%s" stroke-width="1.4"/>'
                  % (RX0 + 26, t, C['route'], C['paper']))), '14个区域站次;29叙事节点及通行待验')
 row(lambda t: e('<rect x="%.1f" y="%.1f" width="34" height="10" fill="#927441" fill-opacity="0.3" stroke="#927441" stroke-dasharray="2 1"/>' % (RX0+12,t-5)), '显式落脚面:土色陆地 / 蓝色跨水 / 青色水洞')
+row(lambda t: e('<rect x="%.1f" y="%.1f" width="28" height="9" fill="#8b6c51" fill-opacity="0.22" stroke="#625046"/>' % (RX0+15,t-4)), '32项施工轮廓;虚线为屋面包络,不代表已建实景')
 for tier in ('A', 'B', 'C'):
     row(lambda t, tier=tier: e('<rect x="%.1f" y="%.1f" width="34" height="11" fill="%s" fill-opacity="0.2" '
                                'stroke="%s" stroke-width="2"/>' % (RX0 + 12, t - 5.5, TIER_COLOR[tier], TIER_COLOR[tier])),
