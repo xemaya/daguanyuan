@@ -10,6 +10,7 @@ import {buildBridgePath} from '@builder/parts/shuigong/bridge-path';
 import {makeTerrainField,type GardenPlan} from '@builder/compose/terrain-from-plan';
 import {SEED} from '@builder/compose/config';
 import {allPlanLinears,type LinearPlan} from '@builder/plan/linears';
+import './distant';
 
 /** The project supplies data; generic builders never import a particular garden. */
 export function buildPlannedBuilding(id: string): BuildingResult {

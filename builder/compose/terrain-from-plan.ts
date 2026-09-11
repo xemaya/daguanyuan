@@ -24,6 +24,7 @@ import { Simplex, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { BoundsIndex } from '@engine/scatter/cluster';
 import {allPlanLinears,type LinearSpec} from '@builder/plan/linears';
 import {compileBridgePath} from '@builder/plan/bridge-path';
+import {terrainWindow} from '@builder/plan/window';
 
 /* ------------------------------------------------------------------ */
 /* plan.json 的数据契约（只取本模块消费的字段）                          */
@@ -44,6 +45,8 @@ export interface PlanHill {
 export interface PlanPath {
   name: string;
   points: [number, number][];
+  role?:string;
+  compatibilityScope?:{regions:string[];margin_m:number;feather_m:number};
 }
 
 export interface PlanRegion {
@@ -455,6 +458,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
   /* ---- 园路 -------------------------------------------------------- */
 
   interface PathProfile {
+    scope?:{minX:number;maxX:number;minZ:number;maxZ:number;feather:number};
     xs: Float64Array;
     zs: Float64Array;
     s: Float64Array;
@@ -469,7 +473,18 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
   }
 
   const PATH_QUERY_MARGIN = PATH_HALF_WIDTH + PATH_FEATHER + 1.5;
+  const scopeWeight=(p:PathProfile,x:number,z:number)=>{
+    if(!p.scope)return 1;
+    const s=p.scope,d=Math.max(0,s.minX-x,x-s.maxX,s.minZ-z,z-s.maxZ);
+    return 1-smoothstep(0,s.feather,d);
+  };
   const pathProfiles: PathProfile[] = plan.paths.map((p) => {
+    let scope:PathProfile['scope'];
+    if(p.compatibilityScope) {
+      const s=p.compatibilityScope;
+      if(p.role!=='legacy-runtime'||!Number.isFinite(s.feather_m)||s.feather_m<=0)throw new Error('兼容域只用于旧路基，且须有正羽化距离');
+      scope={...terrainWindow(plan,s.regions,s.margin_m),feather:s.feather_m};
+    }
     const dense = resamplePath(p.points, 8);
     const t = new Float64Array(dense.xs.length);
     for (let i = 0; i < t.length; i++) t[i] = naturalHeight(dense.xs[i], dense.zs[i]);
@@ -499,7 +514,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
         minZ: Math.min(dense.zs[i], dense.zs[i+1]), maxZ: Math.max(dense.zs[i], dense.zs[i+1]),
       }, i, PATH_QUERY_MARGIN);
     }
-    return { ...dense, t, minX, maxX, minZ, maxZ, segments, segmentIds, pins };
+    return { ...dense, t, minX, maxX, minZ, maxZ, segments, segmentIds, pins, scope };
   });
   // Most splat texels are nowhere near a road. Reject them before evaluating
   // ten octaves of domain warp; padding includes the maximum 0.47m warp.
@@ -541,6 +556,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     const grid = new Map<string, Node[]>();
     pathProfiles.forEach((p, pi) => {
       for (let i = 0; i < p.xs.length; i++) {
+        if(scopeWeight(p,p.xs[i],p.zs[i])<=0)continue;
         const gx = Math.floor(p.xs[i] / CELL), gz = Math.floor(p.zs[i] / CELL);
         for (let dx = -1; dx <= 1; dx++) {
           for (let dz = -1; dz <= 1; dz++) {
@@ -625,16 +641,18 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       PATH_HALF_WIDTH +
       fbm2(nWear, x * 0.02 + 5.5, z * 0.02 - 2.2, 2) * 0.22 +
       fbm2(nWear, x * 0.09 + 9.4, z * 0.09, 2) * 0.1;
-    let bestD = Infinity, bestT = 0;
+    let bestD = Infinity, bestT = 0, bestScope = 1;
     for (const p of pathProfiles) {
+      const scope=scopeWeight(p,x,z);if(scope<=0)continue;
       const r = pathQuery(wx, wz, p);
       if (r && r.d < bestD) {
         bestD = r.d;
         bestT = r.t;
+        bestScope = scope;
       }
     }
     if (bestD === Infinity) return { w: 0, t: 0 };
-    return { w: smoothstep(hw + PATH_FEATHER, hw, bestD), t: bestT };
+    return { w: smoothstep(hw + PATH_FEATHER, hw, bestD)*bestScope, t: bestT };
   }
 
   /** THE ground function。 */

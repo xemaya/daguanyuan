@@ -50,6 +50,9 @@ export const CN = {
   /** 窗纸。 */
   paper: 0xf4ead4,
 } as const;
+/** Existing tile atlas: 12 columns at .2m, 19 rows at .26m. Texture scale is
+ * a rendering convention, not a historical measurement. */
+export const TILE_UV={u:1/(.2*12),v:1/(.26*19)} as const;
 
 /**
  * 材质实例缓存:同一种材质全园只有一个实例,装配器才能按材质把几十个构件

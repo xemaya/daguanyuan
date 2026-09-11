@@ -6,7 +6,7 @@ import {compileBridgePath} from '@builder/plan/bridge-path';
 import {locatePoint,type Point2} from '@builder/plan/geometry';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
-import { poissonScatter, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter';
+import { poissonScatter, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter/index';
 import { metaSurface, noiseDisplace, boxProjectedUV, type Ball } from '@builder/parts/sculpt';
 import {
   createFoliageMaterial,
@@ -2402,4 +2402,10 @@ export function buildVegetation(ctx: GameContext): void {
   group.userData.naturalTreeCount = treeSpots.length;
   group.userData.grassCoverage = { denseChunks: denseChunks.filter(Boolean).length,
     chunks: denseChunks.length, nearCell: VEG.grassCell, farCell: VEG.grassCell * 3 };
+}
+
+/** Static distant backgrounds reuse the existing broadleaf generator at a
+ * smaller mesh resolution. This is not a species claim or the P3 plant pack. */
+export function buildDistantTreeGeometry(seed:number):TreeGeo {
+  return buildTree({...SPECIES[0],res:12,limbs:3},seed);
 }

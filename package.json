@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "大观园 — first-person procedural 3D garden, built on the pallet-town-3d engine shell",
+  "description": "\u5927\u89c2\u56ed \u2014 first-person procedural 3D garden, built on the pallet-town-3d engine shell",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "vite build",
@@ -13,8 +13,9 @@
     "check:rules": "node tools/check-rules.mjs",
     "check:plan": "node tools/check-plan.mjs",
     "check:docs": "node tools/check-docs.mjs",
-    "check:all": "npm run check && npm run check:layers && npm run check:rules && npm run check:plan && npm run check:docs && npm test",
-    "test": "node --experimental-strip-types --import ./tests/ts-resolver.mjs --test tests/*.test.mjs"
+    "check:all": "npm run check && npm run check:layers && npm run check:rules && npm run check:plan && npm run check:p2 && npm run check:docs && npm test",
+    "test": "node --experimental-strip-types --import ./tests/ts-resolver.mjs --test tests/*.test.mjs",
+    "check:p2": "node tools/check-p2.mjs"
   },
   "dependencies": {
     "three": "^0.185.1"

@@ -80,7 +80,13 @@ test('控制点同面坡度不超12%，线性结构边界允许明示单阶', ()
   });
   const at=(x,z)=>{let h=field.height(x,z),surface=null;for(const s of surfaces)if(locatePoint(s.poly,[x,z])!=='outside'&&s.y>h){h=s.y;surface=s;}return {h,surface};};
   for (const p of plan.paths) {
+    // This archived path is intentionally active only in its declared MVP
+    // window. Its distant points are not the current 29-event route.
+    const scope=p.compatibilityScope;
+    const scopedPoints=scope?plan.regions.filter(r=>scope.regions.includes(r.id)).flatMap(r=>r.polygon):null;
+    const active=([x,z])=>!scopedPoints||(x>=Math.min(...scopedPoints.map(p=>p[0]))-scope.margin_m&&x<=Math.max(...scopedPoints.map(p=>p[0]))+scope.margin_m&&z>=Math.min(...scopedPoints.map(p=>p[1]))-scope.margin_m&&z<=Math.max(...scopedPoints.map(p=>p[1]))+scope.margin_m);
     for (let i = 1; i < p.points.length; i++) {
+      if(!active(p.points[i-1])||!active(p.points[i]))continue;
       const [ax, az] = p.points[i - 1];
       const [bx, bz] = p.points[i];
       const d = Math.hypot(bx - ax, bz - az);

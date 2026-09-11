@@ -21,6 +21,15 @@ connection_report = json.loads(subprocess.run(
     ['node', os.path.join(ROOT, 'tools', 'export-plan-connections.mjs')],
     cwd=ROOT, check=True, capture_output=True, text=True).stdout)
 
+distant_report = json.loads(subprocess.run(
+    ['node', os.path.join(ROOT, 'tools', 'export-distant-scenes.mjs')],
+    cwd=ROOT, check=True, capture_output=True, text=True).stdout)
+distant_by_id = {s['spec']['id']:s['compiled'] for s in distant_report['scenes']}
+
+linear_report = json.loads(subprocess.run(
+    ['node', os.path.join(ROOT, 'tools', 'export-linear-layouts.mjs')],
+    cwd=ROOT, check=True, capture_output=True, text=True).stdout)
+
 
 # ---------- viewBox: world units == svg units, y down = south (svg y = z) ----------
 VB_X, VB_Y, VB_W, VB_H = -300, -390, 940, 790
@@ -170,6 +179,15 @@ for r in d['regions']:
             e('<circle cx="%.2f" cy="%.2f" r="1.8" fill="%s" stroke="#5a5245" stroke-width="0.7"><title>%s</title></circle>' % (x,z,C['paper'],esc(insert.get('object',insert['variant']))))
         e('</g>')
 
+# P2 construction envelopes use the TypeScript compiler, including width and portals.
+for obj in linear_report['objects']:
+    for run in obj.get('runs', []):
+        colour = '#557868' if run['sectionRole']=='clearance' else '#7b6250'
+        e('<g><title>%s · 几何施工图，非已装配模型 · %s</title><polygon points="%s" fill="%s" fill-opacity="0.24" stroke="%s" stroke-width="0.4" stroke-dasharray="1.2 0.6"/></g>' % (esc(obj['id']),esc(run['material']),pts(run['footprint']),colour,colour))
+    for opening in obj.get('openings', []):
+        x,z=opening['at']
+        e('<circle cx="%s" cy="%s" r="1.5" fill="%s" stroke="#7b6250" stroke-width="0.4"><title>净口 %.2f × %.2f m</title></circle>' % (x,z,C['paper'],opening['widthM'],opening['heightM']))
+
 # ================= gates =================
 for connection in connection_report['connections']:
     spec=connection['spec']
@@ -261,8 +279,11 @@ e('<g id="distant-scenes">')
 for i,scene in enumerate(d.get('distantScenes',[])):
     observation=next(o for o in route_data['observations'] if o['scene']==scene['id'])
     ox,oz=observation['at'];tx,tz=scene['at']
-    e('<g><title>D%d %s：仅规划范围，远景模型与视线待验</title>' % (i+1,esc(scene['name'])))
+    e('<g><title>D%d %s：远景模型；整园视线及近景另验</title>' % (i+1,esc(scene['name'])))
     e('<polygon points="%s" fill="#668b76" fill-opacity="0.13" stroke="#476e59" stroke-width="0.8" stroke-dasharray="2 1"/>' % pts(scene['polygon']))
+    for item in distant_by_id[scene['id']]['items']:
+        colour = '#4a7851' if item['kind']=='tree' else '#57605a'
+        e('<polygon points="%s" fill="%s" fill-opacity="0.3" stroke="%s" stroke-width="0.4"><title>%s · %s</title></polygon>' % (pts(item['footprint']),colour,colour,esc(item['id']),esc(item['kind'])))
     e('<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="#476e59" stroke-width="0.5" stroke-dasharray="1 2"/>' % (ox,oz,tx,tz))
     e('<text x="%s" y="%s" font-size="5" fill="#305a43">D%d</text></g>' % (tx,tz,i+1))
 e('</g>')

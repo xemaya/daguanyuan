@@ -1375,9 +1375,19 @@
           244
         ]
       ],
-      "basis": "P2：稻香村南侧入口从篱外坡东麓绕入，避免路基切穿土坡中心；完整29叙事节点路径仍待补齐。 曲廊完整巡行是可选支线及技术验收路线，不强加到第十七回主线或其里程比例；主线入院先到正房。 P2：本折线不再作为29节点叙事或55%里程的依据。",
+      "basis": "P2：稻香村南侧入口从篱外坡东麓绕入，避免路基切穿土坡中心；完整29叙事节点路径仍待补齐。 曲廊完整巡行是可选支线及技术验收路线，不强加到第十七回主线或其里程比例；主线入院先到正房。 P2：本折线不再作为29节点叙事或55%里程的依据。 旧整环线只在原MVP四区及15m边距内保留路基效果，外侧8m淡出；不得继续在新分区抬土或参与交叉口拉平。",
       "id": "legacy-ch17-roadwork",
-      "role": "legacy-runtime"
+      "role": "legacy-runtime",
+      "compatibilityScope": {
+        "regions": [
+          "zhengmen",
+          "cuizhang",
+          "qinfang_ting_qiao",
+          "xiaoxiangguan"
+        ],
+        "margin_m": 15,
+        "feather_m": 8
+      }
     },
     {
       "name": "近门大路(平坦宽阔·翠嶂东麓绕出直达正门;近东南角以一石桥跨沁芳溪出水段)",
@@ -1751,7 +1761,10 @@
           -20
         ]
       ],
-      "basis": "第50回已核验原文：西门进入东西夹道，再进朝南正门；本线位于正门南侧。"
+      "basis": "第50回已核验原文：西门进入东西夹道，再进朝南正门；本线位于正门南侧。 P2明确3m净道及两端过街门；净道不是墙中心线。",
+      "id": "nuanxiangwu.street-lane",
+      "width_m": 3,
+      "elevation_m": 0.9
     },
     {
       "name": "暖香坞门前支路(夹道中部→正门→里边游廊)",
@@ -1905,8 +1918,8 @@
           172.47058823529412
         ],
         [
-          148,
-          173
+          154,
+          174
         ]
       ],
       "basis": "从29节点路线截取局部接路，让桥头标高与路基共同限坡；桥下水体保持原河床。"
@@ -2076,7 +2089,59 @@
           "z": 240,
           "plaque": null,
           "id": "zhengmen.flanking-wall",
-          "kind": "wall"
+          "kind": "wall",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：粉墙虎皮石分列正门两翼，中央门屋留空；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    18,
+                    240
+                  ],
+                  [
+                    20,
+                    240
+                  ],
+                  [
+                    40,
+                    240
+                  ]
+                ],
+                "widthM": 0.62,
+                "heightM": 2.8,
+                "elevationsM": [
+                  0.8,
+                  0.8,
+                  0.8
+                ],
+                "material": "white-plaster/tiger-stone",
+                "sectionRole": "envelope"
+              },
+              {
+                "points": [
+                  [
+                    70,
+                    240
+                  ],
+                  [
+                    92,
+                    240
+                  ]
+                ],
+                "widthM": 0.62,
+                "heightM": 2.8,
+                "elevationsM": [
+                  0.8,
+                  0.8
+                ],
+                "material": "white-plaster/tiger-stone",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         }
       ],
       "plants": [
@@ -2437,7 +2502,51 @@
           "z": 152,
           "plaque": null,
           "id": "qinfang_ting_qiao.three-opening-bridge",
-          "kind": "bridge"
+          "kind": "bridge",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：三港桥南北跨轴的占地与桥面；三港净口需P3专用桥体，当前MVP曲桥不能冒充三港；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。 三港沿桥长分为三段2.2m净口、两墩各0.5m、两台各1.2m，共10m；桥底-1.3m、盖底0.1m，仅断言过水，不从对联推断通舟。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    0,
+                    157
+                  ],
+                  [
+                    0,
+                    152
+                  ],
+                  [
+                    0,
+                    147
+                  ]
+                ],
+                "widthM": 3.4,
+                "heightM": 0.3,
+                "elevationsM": [
+                  0.4,
+                  0.4,
+                  0.4
+                ],
+                "material": "stone",
+                "sectionRole": "walk-surface"
+              }
+            ],
+            "threePortBridge": {
+              "clearWidthsM": [
+                2.2,
+                2.2,
+                2.2
+              ],
+              "pierWidthM": 0.5,
+              "abutmentWidthM": 1.2,
+              "bedY": -1.3,
+              "soffitY": 0.1,
+              "deckY": 0.4
+            }
+          }
         },
         {
           "name": "滴翠亭(池中·四面游廊曲桥)",
@@ -2497,7 +2606,69 @@
           "z": 134,
           "plaque": null,
           "id": "qinfang_ting_qiao.pool-railing",
-          "kind": "railing"
+          "kind": "railing",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：分段随池岸环抱，南北桥头留口；栏顶与栏脚分开表达；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。 西北桥链出岸处留空，避免栏线横截E05。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -26,
+                    128
+                  ],
+                  [
+                    2,
+                    124
+                  ],
+                  [
+                    10,
+                    134
+                  ]
+                ],
+                "widthM": 0.24,
+                "heightM": 0.85,
+                "elevationsM": [
+                  0.4,
+                  0.4,
+                  0.4
+                ],
+                "material": "white-stone",
+                "sectionRole": "envelope"
+              },
+              {
+                "points": [
+                  [
+                    30,
+                    142
+                  ],
+                  [
+                    29,
+                    155
+                  ],
+                  [
+                    20,
+                    167
+                  ],
+                  [
+                    1,
+                    173
+                  ]
+                ],
+                "widthM": 0.24,
+                "heightM": 0.85,
+                "elevationsM": [
+                  0.4,
+                  0.4,
+                  0.4,
+                  0.4
+                ],
+                "material": "white-stone",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         }
       ],
       "plants": [
@@ -2805,7 +2976,13 @@
           "z": 104,
           "plaque": null,
           "id": "xiaoxiangguan.corridor",
-          "kind": "corridor"
+          "kind": "corridor",
+          "layout": {
+            "stage": "model-reference",
+            "linearIds": [
+              "xiaoxiangguan.west-corridor-path"
+            ]
+          }
         },
         {
           "name": "粉垣月洞门",
@@ -3244,7 +3421,50 @@
           "z": -30,
           "plaque": null,
           "id": "daoxiangcun.mud-wall",
-          "kind": "wall"
+          "kind": "wall",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：低墙随茅舍南侧，溪桥入口在[-198,-30]留3m净口；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -227,
+                    -30
+                  ],
+                  [
+                    -210,
+                    -30
+                  ],
+                  [
+                    -178,
+                    -30
+                  ]
+                ],
+                "widthM": 0.55,
+                "heightM": 1.4,
+                "elevationsM": [
+                  1.2,
+                  1.2,
+                  1.2
+                ],
+                "material": "earth/rice-straw",
+                "sectionRole": "envelope"
+              }
+            ],
+            "openings": [
+              {
+                "run": 0,
+                "at": [
+                  -196,
+                  -30
+                ],
+                "widthM": 3,
+                "heightM": 1.4
+              }
+            ]
+          }
         },
         {
           "name": "两溜青篱",
@@ -3256,7 +3476,64 @@
           "z": -26,
           "plaque": null,
           "id": "daoxiangcun.fence",
-          "kind": "fence"
+          "kind": "fence",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：两溜青篱分列村口，不用单条线假装两侧；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -207,
+                    -18
+                  ],
+                  [
+                    -207,
+                    -26
+                  ],
+                  [
+                    -207,
+                    -33
+                  ]
+                ],
+                "widthM": 0.35,
+                "heightM": 1.2,
+                "elevationsM": [
+                  1.2,
+                  1.2,
+                  1.2
+                ],
+                "material": "green-bamboo",
+                "sectionRole": "envelope"
+              },
+              {
+                "points": [
+                  [
+                    -186,
+                    -18
+                  ],
+                  [
+                    -186,
+                    -26
+                  ],
+                  [
+                    -186,
+                    -33
+                  ]
+                ],
+                "widthM": 0.35,
+                "heightM": 1.2,
+                "elevationsM": [
+                  1.2,
+                  1.2,
+                  1.2
+                ],
+                "material": "green-bamboo",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         },
         {
           "name": "土井·桔槔辘轳",
@@ -3651,7 +3928,49 @@
           "z": -142,
           "plaque": null,
           "id": "hengwuyuan.corridor",
-          "kind": "corridor"
+          "kind": "corridor",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：超手游廊两翼转折，中部轴线从廊下通过；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -138,
+                    -155
+                  ],
+                  [
+                    -138,
+                    -142
+                  ],
+                  [
+                    -116,
+                    -142
+                  ],
+                  [
+                    -95,
+                    -142
+                  ],
+                  [
+                    -95,
+                    -155
+                  ]
+                ],
+                "widthM": 2.8,
+                "heightM": 3.2,
+                "elevationsM": [
+                  2.85,
+                  2.85,
+                  2.85,
+                  2.85,
+                  2.85
+                ],
+                "material": "chestnut/tile",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         },
         {
           "name": "一色水磨砖墙·清瓦花堵",
@@ -3663,7 +3982,75 @@
           "z": -132,
           "plaque": null,
           "id": "hengwuyuan.courtyard-wall",
-          "kind": "wall"
+          "kind": "wall",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：南院墙入口与叙事线相交处留门；北侧大主山穿墙另由叠山接合；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -151,
+                    -151
+                  ],
+                  [
+                    -142,
+                    -138
+                  ],
+                  [
+                    -134,
+                    -138
+                  ],
+                  [
+                    -134,
+                    -132
+                  ],
+                  [
+                    -104,
+                    -132
+                  ],
+                  [
+                    -104,
+                    -145
+                  ],
+                  [
+                    -82,
+                    -145
+                  ],
+                  [
+                    -78.8,
+                    -155.4
+                  ]
+                ],
+                "widthM": 0.6,
+                "heightM": 2.8,
+                "elevationsM": [
+                  2.6,
+                  2.6,
+                  2.6,
+                  2.6,
+                  2.6,
+                  2.6,
+                  2.6,
+                  2.6
+                ],
+                "material": "water-polished-brick/tile",
+                "sectionRole": "envelope"
+              }
+            ],
+            "openings": [
+              {
+                "run": 0,
+                "at": [
+                  -124.5,
+                  -132
+                ],
+                "widthM": 3.5,
+                "heightM": 2.6
+              }
+            ]
+          }
         },
         {
           "name": "云步石梯(自主池岸下上苑)",
@@ -3675,7 +4062,39 @@
           "z": -127,
           "plaque": null,
           "id": "hengwuyuan.cloud-steps",
-          "kind": "steps"
+          "kind": "steps",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：云步石梯单独给出两端与中途标高，台阶踏步在P3细分；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -104,
+                    -125.5
+                  ],
+                  [
+                    -104,
+                    -128
+                  ],
+                  [
+                    -104,
+                    -131
+                  ]
+                ],
+                "widthM": 2.2,
+                "heightM": 0.2,
+                "elevationsM": [
+                  1.2,
+                  1.9,
+                  2.6
+                ],
+                "material": "stone",
+                "sectionRole": "walk-surface"
+              }
+            ]
+          }
         }
       ],
       "plants": [
@@ -4233,7 +4652,49 @@
           "z": -194,
           "plaque": null,
           "id": "shengqin_biesu.raised-corridor",
-          "kind": "corridor"
+          "kind": "corridor",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：复道采用抬升连廊方案、地面通道从下通过；其高度与两阁连接属艺术方案，P3须补层间连接；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -12,
+                    -202
+                  ],
+                  [
+                    -12,
+                    -194
+                  ],
+                  [
+                    25,
+                    -194
+                  ],
+                  [
+                    62,
+                    -194
+                  ],
+                  [
+                    62,
+                    -202
+                  ]
+                ],
+                "widthM": 3.2,
+                "heightM": 3.8,
+                "elevationsM": [
+                  5.6,
+                  5.6,
+                  5.6,
+                  5.6,
+                  5.6
+                ],
+                "material": "chestnut/tile",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         }
       ],
       "plants": [
@@ -4461,7 +4922,69 @@
           "z": 182,
           "plaque": null,
           "id": "yihongyuan.corridor",
-          "kind": "corridor"
+          "kind": "corridor",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：门内两侧游廊，主屋/抱厦正前与后门中线留空；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    88,
+                    170
+                  ],
+                  [
+                    88,
+                    182
+                  ],
+                  [
+                    100,
+                    182
+                  ],
+                  [
+                    106,
+                    182
+                  ]
+                ],
+                "widthM": 2.8,
+                "heightM": 3.2,
+                "elevationsM": [
+                  1.25,
+                  1.25,
+                  1.25,
+                  1.25
+                ],
+                "material": "chestnut/tile",
+                "sectionRole": "envelope"
+              },
+              {
+                "points": [
+                  [
+                    130,
+                    182
+                  ],
+                  [
+                    150,
+                    182
+                  ],
+                  [
+                    150,
+                    164
+                  ]
+                ],
+                "widthM": 2.8,
+                "heightM": 3.2,
+                "elevationsM": [
+                  1.25,
+                  1.25,
+                  1.25
+                ],
+                "material": "chestnut/tile",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         },
         {
           "name": "竹篱花障月洞门",
@@ -4470,10 +4993,11 @@
           "roof": "无",
           "facing": "south",
           "x": 112,
-          "z": 188,
+          "z": 190,
           "plaque": null,
           "id": "yihongyuan.moon-gate",
-          "kind": "opening"
+          "kind": "opening",
+          "layout_basis": "竹篱花障月门与南院墙z=190对齐，原z=188为点占位。"
         },
         {
           "name": "粉墙环护",
@@ -4485,7 +5009,96 @@
           "z": 190,
           "plaque": null,
           "id": "yihongyuan.courtyard-wall",
-          "kind": "wall"
+          "kind": "wall",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：院墙顺分区折线退让0.3m以上，南月门与东面叙事入口及北后门明确开口；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    82,
+                    170
+                  ],
+                  [
+                    82,
+                    184
+                  ],
+                  [
+                    99,
+                    184
+                  ],
+                  [
+                    99,
+                    190
+                  ],
+                  [
+                    118,
+                    190
+                  ],
+                  [
+                    137,
+                    190
+                  ],
+                  [
+                    137,
+                    184
+                  ],
+                  [
+                    152,
+                    184
+                  ],
+                  [
+                    152,
+                    162
+                  ],
+                  [
+                    103,
+                    162
+                  ]
+                ],
+                "widthM": 0.6,
+                "heightM": 2.8,
+                "elevationsM": [
+                  1,
+                  1,
+                  1,
+                  1,
+                  1,
+                  1,
+                  1,
+                  1,
+                  1,
+                  1
+                ],
+                "material": "white-plaster/tile",
+                "sectionRole": "envelope"
+              }
+            ],
+            "openings": [
+              {
+                "run": 0,
+                "at": [
+                  112,
+                  190
+                ],
+                "widthM": 3,
+                "heightM": 2.5,
+                "object": "yihongyuan.moon-gate"
+              },
+              {
+                "run": 0,
+                "at": [
+                  126,
+                  162
+                ],
+                "widthM": 3,
+                "heightM": 2.5,
+                "object": "yihongyuan.rear-gate"
+              }
+            ]
+          }
         },
         {
           "name": "后房门(转过花障即青溪)",
@@ -4494,10 +5107,11 @@
           "roof": "无",
           "facing": "north",
           "x": 126,
-          "z": 160,
+          "z": 162,
           "plaque": null,
           "id": "yihongyuan.rear-gate",
-          "kind": "opening"
+          "kind": "opening",
+          "layout_basis": "院墙后门落在真实北墙z=162；主屋后口与院墙门是不同对象。"
         }
       ],
       "plants": [
@@ -4694,7 +5308,64 @@
           "z": -62,
           "plaque": null,
           "id": "ouxiangxie.water-corridor",
-          "kind": "corridor"
+          "kind": "corridor",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：左右跨水廊分别连接榭台两侧，水下柱基础另验；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    42,
+                    -52
+                  ],
+                  [
+                    46,
+                    -62
+                  ],
+                  [
+                    60,
+                    -62
+                  ]
+                ],
+                "widthM": 2.4,
+                "heightM": 3.1,
+                "elevationsM": [
+                  0.65,
+                  0.65,
+                  0.65
+                ],
+                "material": "chestnut/tile",
+                "sectionRole": "envelope"
+              },
+              {
+                "points": [
+                  [
+                    72,
+                    -62
+                  ],
+                  [
+                    88,
+                    -62
+                  ],
+                  [
+                    92,
+                    -56
+                  ]
+                ],
+                "widthM": 2.4,
+                "heightM": 3.1,
+                "elevationsM": [
+                  0.65,
+                  0.65,
+                  0.65
+                ],
+                "material": "chestnut/tile",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         },
         {
           "name": "曲折竹桥(后面暗接)",
@@ -4706,7 +5377,44 @@
           "z": -88,
           "plaque": null,
           "id": "ouxiangxie.bamboo-bridge",
-          "kind": "bridge"
+          "kind": "bridge",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：后桥独立折线接榭北面，桥下水面不整地；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    70,
+                    -72
+                  ],
+                  [
+                    74,
+                    -80
+                  ],
+                  [
+                    74,
+                    -88
+                  ],
+                  [
+                    70,
+                    -92
+                  ]
+                ],
+                "widthM": 1.8,
+                "heightM": 1,
+                "elevationsM": [
+                  0.6,
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "material": "bamboo",
+                "sectionRole": "walk-surface"
+              }
+            ]
+          }
         }
       ],
       "plants": [
@@ -4944,7 +5652,39 @@
           "z": -80,
           "plaque": "荇叶渚",
           "id": "zilingzhou.landing",
-          "kind": "dock"
+          "kind": "dock",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：荇叶渚舟埠沿岸面，最后船边踏步需按水面细化；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -126,
+                    -80
+                  ],
+                  [
+                    -118,
+                    -80
+                  ],
+                  [
+                    -113,
+                    -80
+                  ]
+                ],
+                "widthM": 3,
+                "heightM": 0.35,
+                "elevationsM": [
+                  0.45,
+                  0.45,
+                  0.45
+                ],
+                "material": "stone",
+                "sectionRole": "walk-surface"
+              }
+            ]
+          }
         },
         {
           "name": "舡坞(棠木舫·采莲船停泊)",
@@ -5234,7 +5974,39 @@
           "z": -2,
           "plaque": null,
           "id": "qiushuangzhai.rear-corridor",
-          "kind": "corridor"
+          "kind": "corridor",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：后廊按正房背面展开，端部再与区域施工衔接；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -78,
+                    -2
+                  ],
+                  [
+                    -62,
+                    -2
+                  ],
+                  [
+                    -46,
+                    -2
+                  ]
+                ],
+                "widthM": 2.8,
+                "heightM": 3.2,
+                "elevationsM": [
+                  1.25,
+                  1.25,
+                  1.25
+                ],
+                "material": "chestnut/tile",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         },
         {
           "name": "院墙月洞门",
@@ -5506,11 +6278,18 @@
           "bays": 0,
           "roof": "小青瓦",
           "facing": "south",
-          "x": 206,
-          "z": 176,
+          "x": 219,
+          "z": 168,
           "plaque": null,
           "id": "longcuian.courtyard-wall",
-          "kind": "wall"
+          "kind": "wall",
+          "layout_basis": "院墙点位改为真实折线上的参照点，完整几何由同id的linears项提供。",
+          "layout": {
+            "stage": "model-reference",
+            "linearIds": [
+              "longcuian.courtyard-wall"
+            ]
+          }
         }
       ],
       "plants": [
@@ -5553,7 +6332,51 @@
         "曾保泉"
       ],
       "confidence": "medium",
-      "layout_basis": "P2艺术布局：边界表达院落围合、门前退让及山水岸线的建设分区，不是古籍实测尺寸；地形山体/水域仍用独立多边形，区域边界不等于遮挡体。"
+      "layout_basis": "P2艺术布局：边界表达院落围合、门前退让及山水岸线的建设分区，不是古籍实测尺寸；地形山体/水域仍用独立多边形，区域边界不等于遮挡体。",
+      "linears": [
+        {
+          "id": "longcuian.courtyard-wall",
+          "kind": "wall",
+          "points": [
+            [
+              204.4,
+              170
+            ],
+            [
+              196,
+              170
+            ],
+            [
+              196,
+              143
+            ],
+            [
+              229,
+              143
+            ],
+            [
+              229,
+              164
+            ],
+            [
+              219,
+              164
+            ],
+            [
+              219,
+              170
+            ],
+            [
+              207.6,
+              170
+            ]
+          ],
+          "elevation_m": 2.2,
+          "foundationDepth_m": 0.8,
+          "inserts": [],
+          "basis": "P2按山门与三座殿屋围合，院墙接入山门两侧而不在门前另挡一墙；北墙留在山脚与殿后之间。位置/长度为艺术规划，原文只定庵院与殿堂关系。"
+        }
+      ]
     },
     {
       "id": "tubi_aojing",
@@ -5747,7 +6570,70 @@
           "z": 15,
           "plaque": null,
           "id": "tubi_aojing.waterside-railing",
-          "kind": "railing"
+          "kind": "railing",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：沿凹晶至藕香榭池边道路的临水侧，跨分区因此归园级范围；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "garden",
+            "runs": [
+              {
+                "points": [
+                  [
+                    200,
+                    38
+                  ],
+                  [
+                    198,
+                    15
+                  ],
+                  [
+                    191,
+                    1
+                  ],
+                  [
+                    174,
+                    -3
+                  ],
+                  [
+                    149,
+                    -5
+                  ],
+                  [
+                    130,
+                    -10
+                  ],
+                  [
+                    111,
+                    -20
+                  ],
+                  [
+                    88,
+                    -36
+                  ],
+                  [
+                    76,
+                    -42
+                  ]
+                ],
+                "widthM": 0.22,
+                "heightM": 0.9,
+                "elevationsM": [
+                  1.2,
+                  1.2,
+                  1.2,
+                  1.2,
+                  1.2,
+                  1.2,
+                  1.2,
+                  1.2,
+                  1.2
+                ],
+                "material": "bamboo",
+                "sectionRole": "envelope"
+              }
+            ]
+          },
+          "layout_basis": "P2将旧点锚移到同对象的真实折线上；以layout各段表达全长。"
         },
         {
           "name": "厅前平台",
@@ -6173,7 +7059,49 @@
           "z": -40,
           "plaque": null,
           "id": "nuanxiangwu.corridor",
-          "kind": "corridor"
+          "kind": "corridor",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：内廊在向南正门后，东西折入房侧；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    156,
+                    -48
+                  ],
+                  [
+                    156,
+                    -40
+                  ],
+                  [
+                    178,
+                    -40
+                  ],
+                  [
+                    195,
+                    -40
+                  ],
+                  [
+                    195,
+                    -52
+                  ]
+                ],
+                "widthM": 2.6,
+                "heightM": 3.1,
+                "elevationsM": [
+                  1.15,
+                  1.15,
+                  1.15,
+                  1.15,
+                  1.15
+                ],
+                "material": "chestnut/tile",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         }
       ],
       "plants": [
@@ -6291,7 +7219,13 @@
           "z": -212,
           "plaque": "沁芳闸",
           "id": "qinfangzha.sluice-bridge",
-          "kind": "bridge"
+          "kind": "bridge",
+          "layout": {
+            "stage": "model-reference",
+            "linearIds": [
+              "connection.qinfang-sluice"
+            ]
+          }
         },
         {
           "name": "墙下水关(外河入园口)",
@@ -6300,10 +7234,38 @@
           "roof": "无",
           "facing": "north",
           "x": 201,
-          "z": -232,
+          "z": -226,
           "plaque": null,
           "id": "qinfangzha.inlet-watergate",
-          "kind": "watergate"
+          "kind": "watergate",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：入园水关沿北溪口横向布置，水下净口不可填实体；原点为预留点而非实际溪口；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    198,
+                    -226
+                  ],
+                  [
+                    207,
+                    -226
+                  ]
+                ],
+                "widthM": 0.6,
+                "heightM": 3,
+                "elevationsM": [
+                  -1.5,
+                  -1.5
+                ],
+                "material": "stone-watergate",
+                "sectionRole": "clearance"
+              }
+            ]
+          },
+          "layout_basis": "P2将旧点锚移到同对象的真实折线上；以layout各段表达全长。"
         }
       ],
       "plants": [
@@ -6498,7 +7460,40 @@
           "z": -116,
           "plaque": "蓼汀花溆",
           "id": "liaoting_huaxu.water-cave",
-          "kind": "cave"
+          "kind": "cave",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：港洞按北溪局部流向定4.4m净宽、0.7m吃水、2.4m水上净高；本截面表示净空而非实心石条；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "garden",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -39,
+                    -113.6
+                  ],
+                  [
+                    -34,
+                    -116
+                  ],
+                  [
+                    -28,
+                    -113.2
+                  ]
+                ],
+                "widthM": 4.4,
+                "heightM": 3.1,
+                "elevationsM": [
+                  -0.7,
+                  -0.7,
+                  -0.7
+                ],
+                "material": "rock-vault-clearance",
+                "sectionRole": "clearance"
+              }
+            ]
+          },
+          "layout_basis": "P2将旧点锚移到同对象的真实折线上；以layout各段表达全长。"
         },
         {
           "name": "折带朱栏板桥(度过桥去诸路可通)",
@@ -6510,7 +7505,13 @@
           "z": -106,
           "plaque": null,
           "id": "liaoting_huaxu.red-railing-bridge",
-          "kind": "bridge"
+          "kind": "bridge",
+          "layout": {
+            "stage": "model-reference",
+            "linearIds": [
+              "connection.red-railing"
+            ]
+          }
         },
         {
           "name": "山上盘道(无船亦可进去)",
@@ -6518,11 +7519,87 @@
           "bays": 0,
           "roof": "无",
           "facing": "west",
-          "x": -52,
-          "z": -130,
+          "x": -61,
+          "z": -124,
           "plaque": null,
           "id": "liaoting_huaxu.mountain-path",
-          "kind": "path"
+          "kind": "path",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：E17+E18连续纵断；洞顶通道保持水面以上，西侧上行、东南下行，最大坡度20%是项目通行设计值；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。 池岸下降段单独采用石阶，最大踏高0.16m、最小踏深0.28m；20%限坡仅用于其余坡道。",
+            "scope": "garden",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -52,
+                    -116
+                  ],
+                  [
+                    -61,
+                    -124
+                  ],
+                  [
+                    -66,
+                    -136
+                  ],
+                  [
+                    -60,
+                    -145
+                  ],
+                  [
+                    -52,
+                    -139
+                  ],
+                  [
+                    -40,
+                    -136
+                  ],
+                  [
+                    -34,
+                    -125
+                  ],
+                  [
+                    -30,
+                    -118
+                  ],
+                  [
+                    -28,
+                    -107
+                  ],
+                  [
+                    -34,
+                    -100
+                  ]
+                ],
+                "widthM": 1.4,
+                "heightM": 0.35,
+                "elevationsM": [
+                  0.5,
+                  1.2,
+                  2.8,
+                  4.0,
+                  4.4,
+                  4.4,
+                  4.0,
+                  3.8,
+                  3.25,
+                  0.5
+                ],
+                "material": "stone",
+                "sectionRole": "walk-surface",
+                "stairs": [
+                  {
+                    "segment": 8,
+                    "maxRiserM": 0.16,
+                    "minTreadM": 0.28
+                  }
+                ]
+              }
+            ],
+            "maxSlope": 0.2
+          },
+          "layout_basis": "P2将旧点锚移到同对象的真实折线上；以layout各段表达全长。"
         }
       ],
       "plants": [
@@ -6776,7 +7853,39 @@
           "z": 28,
           "plaque": null,
           "id": "luxueguang.fishing-railing",
-          "kind": "railing"
+          "kind": "railing",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：临水槛顺芦雪广西岸，不能用整栋房屋的矩形边代替；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    106,
+                    22
+                  ],
+                  [
+                    106,
+                    28
+                  ],
+                  [
+                    106,
+                    34
+                  ]
+                ],
+                "widthM": 0.22,
+                "heightM": 0.75,
+                "elevationsM": [
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "material": "wood",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         },
         {
           "name": "穿芦度苇去径(逶迤通藕香榭竹桥)",
@@ -6788,7 +7897,64 @@
           "z": 14,
           "plaque": null,
           "id": "luxueguang.reed-path",
-          "kind": "path"
+          "kind": "path",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：穿芦路径从芦雪广西侧绕东池南口，沿主池东岸接藕香榭，水中段需P3踏桥/P4地形支持；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "garden",
+            "runs": [
+              {
+                "points": [
+                  [
+                    102,
+                    18
+                  ],
+                  [
+                    102,
+                    14
+                  ],
+                  [
+                    106,
+                    4
+                  ],
+                  [
+                    114,
+                    -8
+                  ],
+                  [
+                    102,
+                    -24
+                  ],
+                  [
+                    90,
+                    -36
+                  ],
+                  [
+                    78,
+                    -43
+                  ],
+                  [
+                    70,
+                    -52
+                  ]
+                ],
+                "widthM": 1.6,
+                "heightM": 0.12,
+                "elevationsM": [
+                  0.6,
+                  0.6,
+                  0.6,
+                  0.6,
+                  0.6,
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "material": "stone/reed-edge",
+                "sectionRole": "walk-surface"
+              }
+            ]
+          }
         }
       ],
       "plants": [
@@ -6966,11 +8132,95 @@
           "bays": 0,
           "roof": "无",
           "facing": "east",
-          "x": 140,
-          "z": 126,
+          "x": 138,
+          "z": 128,
           "plaque": null,
           "id": "jiayintang.mountain-path",
-          "kind": "path"
+          "kind": "path",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：沿既有盘道平面线形作均匀缓升纵断，1.4m接嘉荫堂、10.2m接凸碧台地；真实挖填方在P4对地形核验；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "garden",
+            "runs": [
+              {
+                "points": [
+                  [
+                    120,
+                    132
+                  ],
+                  [
+                    138,
+                    128
+                  ],
+                  [
+                    154,
+                    120
+                  ],
+                  [
+                    162,
+                    108
+                  ],
+                  [
+                    154,
+                    94
+                  ],
+                  [
+                    146,
+                    82
+                  ],
+                  [
+                    154,
+                    70
+                  ],
+                  [
+                    170,
+                    62
+                  ],
+                  [
+                    186,
+                    62
+                  ],
+                  [
+                    198,
+                    70
+                  ],
+                  [
+                    204,
+                    82
+                  ],
+                  [
+                    198,
+                    90
+                  ],
+                  [
+                    190,
+                    88
+                  ]
+                ],
+                "widthM": 3,
+                "heightM": 0.15,
+                "elevationsM": [
+                  1.4,
+                  2.32357,
+                  3.219565,
+                  3.941938,
+                  4.749577,
+                  5.471951,
+                  6.194325,
+                  7.090319,
+                  7.891721,
+                  8.614095,
+                  9.286091,
+                  9.786967,
+                  10.2
+                ],
+                "material": "stone/earth",
+                "sectionRole": "walk-surface"
+              }
+            ],
+            "maxSlope": 0.12
+          },
+          "layout_basis": "P2将旧点锚移到同对象的真实折线上；以layout各段表达全长。"
         }
       ],
       "plants": [
@@ -7095,7 +8345,39 @@
           "z": -116,
           "plaque": null,
           "id": "huajia_huapu.tumi-trellis",
-          "kind": "pergola"
+          "kind": "pergola",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：荼蘼架沿花径展开，覆盖范围作为P3藤蔓及木架输入；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -215,
+                    -116
+                  ],
+                  [
+                    -210,
+                    -116
+                  ],
+                  [
+                    -204,
+                    -116
+                  ]
+                ],
+                "widthM": 2.4,
+                "heightM": 2.5,
+                "elevationsM": [
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "material": "wood/vine",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         },
         {
           "name": "木香棚",
@@ -7107,7 +8389,39 @@
           "z": -128,
           "plaque": null,
           "id": "huajia_huapu.muxiang-canopy",
-          "kind": "pergola"
+          "kind": "pergola",
+          "layout": {
+            "stage": "layout-ready",
+            "basis": "P2艺术施工图：木香棚顺南北花径，保留通过净空；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
+            "scope": "region",
+            "runs": [
+              {
+                "points": [
+                  [
+                    -224,
+                    -134
+                  ],
+                  [
+                    -224,
+                    -128
+                  ],
+                  [
+                    -224,
+                    -122
+                  ]
+                ],
+                "widthM": 2.8,
+                "heightM": 2.6,
+                "elevationsM": [
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "material": "wood/vine",
+                "sectionRole": "envelope"
+              }
+            ]
+          }
         },
         {
           "name": "牡丹亭",
@@ -7465,8 +8779,11 @@
       "region": "liaoting_huaxu",
       "caveRef": "liaoting_huaxu.water-cave",
       "leg": "ch17.e18",
-      "readiness": "layout-only",
-      "basis": "第17回无船改走山上盘道；洞顶路径是P2选定的几何连接，洞顶承载、下方通舟净空及石阶尚待几何验收。"
+      "readiness": "layout-ready",
+      "basis": "第17回无船改走山上盘道；P2纵断由layoutRef统一提供，按船行净空上方至少0.4m岩体核对，不把河床改成路面。净宽、净高与厚度是艺术工程输入；P3叠石、P4碰撞与通舟装配仍待验。",
+      "layoutRef": "liaoting_huaxu.mountain-path",
+      "minBoatAirM": 2.4,
+      "minRoofThicknessM": 0.4
     }
   ],
   "distantScenes": [
@@ -7480,23 +8797,23 @@
       "polygon": [
         [
           226,
-          -160
+          -166
         ],
         [
           238,
-          -160
+          -166
         ],
         [
           238,
-          -150
+          -146
         ],
         [
           226,
-          -150
+          -146
         ],
         [
           226,
-          -160
+          -166
         ]
       ],
       "forms": [
@@ -7509,9 +8826,101 @@
         "section": "§9 沁芳闸与归路未入之景"
       },
       "entry": "not-entered",
-      "readiness": "layout-only",
-      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。构件细化与场景装配尚未完成。",
-      "maxViewingDistanceM": 80
+      "readiness": "distant-ready",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。已有远景构件；近景细化与整园装配另验。 两屋沿观察视野南北错开，避免清堂完全挡住茅舍。",
+      "maxViewingDistanceM": 80,
+      "baseElevationM": 0.8,
+      "foundationEmbedM": 0.12,
+      "contents": [
+        {
+          "id": "hall",
+          "kind": "house",
+          "at": [
+            229.5,
+            -162
+          ],
+          "yaw": -1.5707963267948966,
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 4,
+              "jieDepthChi": 3.5,
+              "columnHeightM": 3.0,
+              "hallKind": "厅",
+              "suanSeq": [
+                5,
+                6.5
+              ],
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                2.4,
+                2.4
+              ],
+              "qiangjiao": false,
+              "design": {
+                "columnBaseWidthM": 0.38,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.35,
+                "note": "第17回未入之景的P2远景侧样；米制尺寸、朝向及组合均为艺术规划，不冒充原文实测。"
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.25,
+              "platformMarginM": 0.3
+            }
+          }
+        },
+        {
+          "id": "cottage",
+          "kind": "rustic",
+          "at": [
+            235,
+            -150
+          ],
+          "yaw": -1.5707963267948966,
+          "platformH": 0.18,
+          "spec": {
+            "paramSet": "rustic",
+            "tier": "C-r",
+            "bayWidthsM": [
+              2.8
+            ],
+            "depthM": 3.2,
+            "columnHeightM": 2.4,
+            "columnDiameterM": 0.16,
+            "columnBaseWidthM": 0.3,
+            "beamHeightM": 0.2,
+            "beamThicknessM": 0.12,
+            "eaveM": 0.6,
+            "roofSlope": 0.4,
+            "thatchThicknessM": 0.2,
+            "cover": "rice-straw",
+            "window": "paper",
+            "wall": "earth",
+            "design": {
+              "source": "knowledge/docs/plan/02-evidence.md §9；knowledge/docs/qingshi/tiers.md §1.4",
+              "note": "第17回未入之景的P2远景侧样；米制尺寸、朝向及组合均为艺术规划，不冒充原文实测。 这里只出茅舍远景轮廓，门窗与穿斗细部仍不作为近景成品。 门窗仅为艺术性的远景立面标识，不将稻香村的纸窗描写当成本处原文明示。"
+            }
+          },
+          "facade": {
+            "doorWidthM": 0.72,
+            "doorHeightM": 1.75,
+            "windowWidthM": 0.55,
+            "windowHeightM": 0.6,
+            "windowY": 1.4,
+            "windowX": 0.9,
+            "frameM": 0.035
+          }
+        }
+      ]
     },
     {
       "id": "return.temple",
@@ -7585,9 +8994,33 @@
         "section": "§9 沁芳闸与归路未入之景"
       },
       "entry": "not-entered",
-      "readiness": "layout-only",
-      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。山下佛寺指认为栊翠庵沿用既有推定。",
-      "maxViewingDistanceM": 80
+      "readiness": "distant-ready",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。山下佛寺指认为栊翠庵沿用既有推定。 沿原归路移到南侧观察山门，避免只看到三座屋的侧墙；院墙与区域共用同一折线。",
+      "maxViewingDistanceM": 80,
+      "baseElevationM": 2.2,
+      "foundationEmbedM": 0.12,
+      "contents": [
+        {
+          "id": "gate",
+          "kind": "house-ref",
+          "object": "longcuian.mountain-gate"
+        },
+        {
+          "id": "hall",
+          "kind": "house-ref",
+          "object": "longcuian.main-hall"
+        },
+        {
+          "id": "east-hall",
+          "kind": "house-ref",
+          "object": "longcuian.east-hall"
+        },
+        {
+          "id": "courtyard-wall",
+          "kind": "wall-ref",
+          "linear": "longcuian.courtyard-wall"
+        }
+      ]
     },
     {
       "id": "return.daofang",
@@ -7598,24 +9031,24 @@
       ],
       "polygon": [
         [
-          225,
-          -86
+          221,
+          -103
         ],
         [
-          235,
-          -86
+          237,
+          -103
         ],
         [
-          235,
-          -78
+          237,
+          -65
         ],
         [
-          225,
-          -78
+          221,
+          -65
         ],
         [
-          225,
-          -86
+          221,
+          -103
         ]
       ],
       "forms": [
@@ -7627,9 +9060,104 @@
         "section": "§9 沁芳闸与归路未入之景"
       },
       "entry": "not-entered",
-      "readiness": "layout-only",
-      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。构件细化与场景装配尚未完成。",
-      "maxViewingDistanceM": 80
+      "readiness": "distant-ready",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。已有远景构件；近景细化与整园装配另验。 树林预留范围随真实树冠空间扩大，不挤入其他分区；复用通用阔叶树形，不宣称具体古代树种。",
+      "maxViewingDistanceM": 80,
+      "baseElevationM": 0.8,
+      "foundationEmbedM": 0.12,
+      "contents": [
+        {
+          "id": "hall",
+          "kind": "house",
+          "at": [
+            230,
+            -82
+          ],
+          "yaw": -1.5707963267948966,
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 4,
+              "jieDepthChi": 3.5,
+              "columnHeightM": 3.0,
+              "hallKind": "厅",
+              "suanSeq": [
+                5,
+                6.5
+              ],
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                2.2,
+                2.6,
+                2.2
+              ],
+              "qiangjiao": false,
+              "design": {
+                "columnBaseWidthM": 0.38,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.35,
+                "note": "第17回未入之景的P2远景侧样；米制尺寸、朝向及组合均为艺术规划，不冒充原文实测。"
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.25,
+              "platformMarginM": 0.3
+            }
+          }
+        },
+        {
+          "id": "tree-1",
+          "kind": "tree",
+          "at": [
+            225,
+            -93
+          ],
+          "heightM": 5.8,
+          "radiusM": 3.6,
+          "seed": 1740
+        },
+        {
+          "id": "tree-2",
+          "kind": "tree",
+          "at": [
+            232.2,
+            -98
+          ],
+          "heightM": 6.2,
+          "radiusM": 4.4,
+          "seed": 1837
+        },
+        {
+          "id": "tree-3",
+          "kind": "tree",
+          "at": [
+            225,
+            -70
+          ],
+          "heightM": 5.8,
+          "radiusM": 3.5,
+          "seed": 1934
+        },
+        {
+          "id": "tree-4",
+          "kind": "tree",
+          "at": [
+            233,
+            -73.5
+          ],
+          "heightM": 6.0,
+          "radiusM": 3.9,
+          "seed": 2031
+        }
+      ]
     },
     {
       "id": "return.corridor-cave",
@@ -7662,7 +9190,7 @@
       ],
       "forms": [
         "corridor",
-        "rock-passage"
+        "garden-opening"
       ],
       "source": {
         "chapter": 17,
@@ -7670,9 +9198,112 @@
         "section": "§9 沁芳闸与归路未入之景"
       },
       "entry": "not-entered",
-      "readiness": "layout-only",
-      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。构件细化与场景装配尚未完成。",
-      "maxViewingDistanceM": 80
+      "readiness": "distant-ready",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。已有远景构件；近景细化与整园装配另验。 曲洞按曲廊相接的曲折墙洞解释，原文未限定天然石洞；这是艺术方案。",
+      "maxViewingDistanceM": 80,
+      "baseElevationM": 0.8,
+      "foundationEmbedM": 0.12,
+      "contents": [
+        {
+          "id": "corridor",
+          "kind": "corridor",
+          "spec": {
+            "kind": "corridor",
+            "object": "return.corridor-cave.corridor",
+            "points": [
+              [
+                219.3,
+                -32
+              ],
+              [
+                225.5,
+                -32
+              ],
+              [
+                225.5,
+                -9
+              ],
+              [
+                220.5,
+                -9
+              ]
+            ],
+            "maxBayWidth_m": 3.2,
+            "platformH_m": 0.25,
+            "platformMargin_m": 0.25,
+            "foundationDepth_m": 0.8,
+            "roofThickness_m": 0.12,
+            "footingHeight_m": 0.1,
+            "columnTaperRatio": 0.92,
+            "section": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 2,
+              "jieDepthChi": 3.5,
+              "columnHeightM": 2.75,
+              "hallKind": "厅",
+              "suanSeq": [
+                5
+              ],
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "design": {
+                "note": "P2曲折游廊艺术侧样：2.75m柱高与两界进深为人行净空选择，单界五算显式输入并非六界史料算例。开间由路径分段均分；转角共用柱取相邻推导柱径较大者。柱础、连机、椽距与卷棚双脊间距均为显式艺术输入。",
+                "columnBaseWidthM": 0.4,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.35
+              }
+            },
+            "basis": "第17回未入之景的P2远景侧样；米制尺寸、朝向及组合均为艺术规划，不冒充原文实测。 曲廊与月洞门之间留短铺地连接。"
+          }
+        },
+        {
+          "id": "moon-wall",
+          "kind": "wall",
+          "spec": {
+            "kind": "wall",
+            "points": [
+              [
+                218.5,
+                -14
+              ],
+              [
+                218.5,
+                -3
+              ],
+              [
+                226,
+                -3
+              ]
+            ],
+            "foundationDepth_m": 0.8,
+            "inserts": [
+              {
+                "at": [
+                  218.5,
+                  -9
+                ],
+                "variant": "moon"
+              }
+            ],
+            "basis": "第17回未入之景的P2远景侧样；米制尺寸、朝向及组合均为艺术规划，不冒充原文实测。 月洞门向归路开口，墙线折向廊后。"
+          }
+        },
+        {
+          "id": "link",
+          "kind": "paving",
+          "at": [
+            219.5,
+            -9
+          ],
+          "widthM": 2,
+          "depthM": 1.8,
+          "riseM": 0.25
+        }
+      ]
     },
     {
       "id": "return.square-round",
@@ -7713,9 +9344,83 @@
         "section": "§9 沁芳闸与归路未入之景"
       },
       "entry": "not-entered",
-      "readiness": "layout-only",
-      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。构件细化与场景装配尚未完成。",
-      "maxViewingDistanceM": 80
+      "readiness": "distant-ready",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。已有远景构件；近景细化与整园装配另验。",
+      "maxViewingDistanceM": 80,
+      "baseElevationM": 0.8,
+      "foundationEmbedM": 0.12,
+      "contents": [
+        {
+          "id": "square-hall",
+          "kind": "house",
+          "at": [
+            225,
+            18
+          ],
+          "yaw": -1.5707963267948966,
+          "construction": {
+            "spec": {
+              "paramSet": "fayuan",
+              "tier": "C",
+              "form": "hall",
+              "chiCm": 32,
+              "jieCount": 4,
+              "jieDepthChi": 3.0,
+              "columnHeightM": 2.9,
+              "hallKind": "厅",
+              "suanSeq": [
+                5,
+                6.5
+              ],
+              "roofType": "硬山",
+              "ridgeStyle": "rolled",
+              "bayWidthsM": [
+                3.84
+              ],
+              "qiangjiao": false,
+              "design": {
+                "columnBaseWidthM": 0.38,
+                "eaveSupportHeightM": 0.24,
+                "rafterPitchM": 0.24,
+                "rolledHalfSpanM": 0.35,
+                "note": "第17回未入之景的P2远景侧样；米制尺寸、朝向及组合均为艺术规划，不冒充原文实测。"
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.25,
+              "platformMarginM": 0.3
+            }
+          }
+        },
+        {
+          "id": "round-pavilion",
+          "kind": "round",
+          "at": [
+            226,
+            29.5
+          ],
+          "spec": {
+            "tier": "C",
+            "form": "pavilion",
+            "shape": "round",
+            "sideM": 1.5,
+            "jieCount": 4,
+            "chiCm": 32,
+            "columnHeightM": 2.8,
+            "design": {
+              "baseWidthM": 0.42,
+              "eaveSupportM": 0.24,
+              "platformH": 0.25,
+              "platformMarginM": 0.45,
+              "roofThicknessM": 0.12,
+              "note": "第17回未入之景的P2远景侧样；米制尺寸、朝向及组合均为艺术规划，不冒充原文实测。 圆亭按八柱圈及旋转提栈侧样作远景圆檐，角梁/椽檩细部未声明完成。"
+            }
+          }
+        }
+      ]
     }
   ],
   "narrativeRoutes": [
@@ -9519,16 +11224,24 @@
               172
             ],
             [
-              148,
-              173
+              157,
+              172.47058823529412
+            ],
+            [
+              154,
+              174
+            ],
+            [
+              154,
+              187
             ],
             [
               145,
-              185
+              196
             ],
             [
-              132,
-              192
+              112,
+              196
             ],
             [
               112,
@@ -9549,7 +11262,7 @@
           ],
           "widthM": 1.8,
           "readiness": "planned",
-          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。 院墙落线后从东桥外绕到南月门，不穿东墙进入再穿南墙出去。",
           "travel": "walk"
         },
         {
@@ -9583,6 +11296,14 @@
             ],
             [
               126,
+              164
+            ],
+            [
+              126,
+              162
+            ],
+            [
+              126,
               160
             ],
             [
@@ -9592,7 +11313,7 @@
           ],
           "widthM": 1.8,
           "readiness": "planned",
-          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。 穿堂后转向院墙后门126,162，屋门与院门不合并。",
           "travel": "courtyard"
         },
         {
@@ -9605,16 +11326,24 @@
               150.5
             ],
             [
-              148,
-              156
+              145,
+              155
             ],
             [
-              156,
-              172
+              154,
+              160
+            ],
+            [
+              154,
+              166
+            ],
+            [
+              155,
+              178
             ],
             [
               148,
-              192
+              194
             ],
             [
               148,
@@ -9623,7 +11352,7 @@
           ],
           "widthM": 1.8,
           "readiness": "planned",
-          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。 沿院墙外与青溪之间的岸道回转，不再穿东院墙。",
           "travel": "walk"
         },
         {
@@ -9657,7 +11386,11 @@
             ],
             [
               75,
-              240
+              237
+            ],
+            [
+              55,
+              238
             ],
             [
               55,
@@ -9666,7 +11399,7 @@
           ],
           "widthM": 1.8,
           "readiness": "planned",
-          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。 从门内中轴回到正门出口，不穿正门东侧粉墙。",
           "travel": "walk"
         }
       ],
@@ -9695,8 +11428,8 @@
           "scene": "return.temple",
           "leg": "ch17.e25",
           "at": [
-            237,
-            164
+            222,
+            185
           ]
         },
         {
@@ -9920,6 +11653,174 @@
         "ch17.e25"
       ],
       "basis": "归路到怡红院前跨既有溪：原文未单独点名桥，作为这条路线的艺术施工补充。 标高按现有岸地与接入需求选定；只整平干岸桥台，不抬高水下河床。"
+    }
+  ],
+  "linearLayouts": [
+    {
+      "id": "nuanxiangwu.street-walls",
+      "kind": "wall",
+      "layout": {
+        "stage": "layout-ready",
+        "scope": "region",
+        "basis": "P2艺术施工图：夹道南北两墙相距3.6m，墙厚0.4m，正门支路留口；东西尽端对齐过街门，原文未给米制尺寸。",
+        "runs": [
+          {
+            "points": [
+              [
+                150,
+                -18.2
+              ],
+              [
+                206,
+                -18.2
+              ]
+            ],
+            "widthM": 0.4,
+            "heightM": 2.4,
+            "elevationsM": [
+              0.9,
+              0.9
+            ],
+            "material": "white-plaster",
+            "sectionRole": "envelope"
+          },
+          {
+            "points": [
+              [
+                150,
+                -21.8
+              ],
+              [
+                206,
+                -21.8
+              ]
+            ],
+            "widthM": 0.4,
+            "heightM": 2.4,
+            "elevationsM": [
+              0.9,
+              0.9
+            ],
+            "material": "white-plaster",
+            "sectionRole": "envelope"
+          }
+        ],
+        "openings": [
+          {
+            "run": 1,
+            "at": [
+              178,
+              -21.8
+            ],
+            "widthM": 3,
+            "heightM": 2.4
+          }
+        ]
+      }
+    },
+    {
+      "id": "qiushuangzhai.enclosure",
+      "kind": "wall",
+      "layout": {
+        "stage": "layout-ready",
+        "scope": "region",
+        "basis": "P2艺术施工图：月洞门须有墙体依附；局部南墙及东侧留口，避免只摆孤立门环，未据此声称完整历史院墙形状。",
+        "runs": [
+          {
+            "points": [
+              [
+                -77,
+                29
+              ],
+              [
+                -77,
+                36
+              ],
+              [
+                -44,
+                36
+              ],
+              [
+                -44,
+                29
+              ]
+            ],
+            "widthM": 0.6,
+            "heightM": 2.8,
+            "elevationsM": [
+              1,
+              1,
+              1,
+              1
+            ],
+            "material": "white-plaster/tile",
+            "sectionRole": "envelope"
+          }
+        ],
+        "openings": [
+          {
+            "run": 0,
+            "at": [
+              -62,
+              36
+            ],
+            "widthM": 2.4,
+            "heightM": 2.5,
+            "object": "qiushuangzhai.moon-gate"
+          }
+        ]
+      }
+    },
+    {
+      "id": "qinfang_ting_qiao.stone-bank",
+      "kind": "bank",
+      "layout": {
+        "stage": "layout-ready",
+        "scope": "garden",
+        "basis": "P2艺术施工图：以真实南池岸线截取北/东石驳岸，南西仍为自然岸；不沿全部水域机械围一圈石墙。",
+        "runs": [
+          {
+            "points": [
+              [
+                -40,
+                140
+              ],
+              [
+                -30,
+                124
+              ],
+              [
+                2,
+                120
+              ],
+              [
+                26,
+                128
+              ],
+              [
+                32,
+                150
+              ],
+              [
+                22,
+                170
+              ]
+            ],
+            "widthM": 0.6,
+            "heightM": 0.7,
+            "elevationsM": [
+              -0.3,
+              -0.3,
+              -0.3,
+              -0.3,
+              -0.3,
+              -0.3
+            ],
+            "material": "stone",
+            "sectionRole": "envelope"
+          }
+        ]
+      }
     }
   ]
 }

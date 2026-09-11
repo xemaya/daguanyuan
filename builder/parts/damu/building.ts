@@ -4,6 +4,7 @@ import { deriveBuilding, type BuildingSpec, type Frame } from '@builder/derive/i
 import { deriveFayuanBuilding, type FayuanBuildingSpec, type FayuanBuildingFrame } from '@builder/derive/fayuan/building';
 import {
   CN,
+  TILE_UV,
   woodMaterial,
   tileMaterial,
   plasterMaterial,
@@ -533,8 +534,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     return Math.sign(x) * shengchu * Math.pow(t, 1.6) * up;
   };
   // 贴图一个周期 12 垄 × ~19 排:垄宽 0.2m、排距 0.26m。
-  const uScale = 1 / (0.2 * 12);
-  const vScale = 1 / (0.26 * 19);
+  const uScale = TILE_UV.u;
+  const vScale = TILE_UV.v;
   const thick = 0.16;
 
   const roofGroup = new THREE.Group();

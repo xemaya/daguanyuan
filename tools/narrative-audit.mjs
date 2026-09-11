@@ -2,6 +2,7 @@ import {compileNarrativeRoute} from '../builder/plan/narrative-route.ts';
 import {isSimpleRing,containsRing,interiorsOverlap,locatePoint,segmentLocations} from '../builder/plan/geometry.ts';
 import {readFileSync} from 'node:fs';
 import {compileConstruction} from '../builder/derive/construction.ts';
+import {compileDistantScene} from '../builder/plan/distant-scene.ts';
 const evidenceText=readFileSync(new URL('../knowledge/docs/plan/02-evidence.md',import.meta.url),'utf8')
  .split('## 一、第十七回游线')[1].split('## 二、证据表')[0];
 const evidenceEvents=[...evidenceText.matchAll(/^\d+\. (.+)$/gm)].map(m=>m[1].trim());
@@ -25,7 +26,8 @@ export function auditNarrative(plan) {
  if(new Set((plan.narrativeRoutes??[]).map(r=>r.id)).size!==(plan.narrativeRoutes??[]).length)fails.push('叙事路线id重号');
  for(const s of plan.distantScenes??[]) {
   if(!s.id||!isSimpleRing(s.polygon)||!containsRing(plan.wall,s.polygon))fails.push(`${s.id}远景范围非法或越园墙`);
-  if(s.entry!=='not-entered'||!s.source?.document||!s.basis||s.readiness!=='layout-only')fails.push(`${s.id}缺未入属性或规划出处`);
+  if(s.entry!=='not-entered'||!s.source?.document||!s.basis||!['layout-only','distant-ready'].includes(s.readiness))fails.push(`${s.id}缺未入属性或规划出处`);
+  if(s.readiness==='distant-ready')try{compileDistantScene(s,plan);}catch(e){fails.push(`${s.id}远景内容：${e.message}`);}
   for(const region of plan.regions)if(region.id!==s.regionRef&&interiorsOverlap(region.polygon,s.polygon))fails.push(`${s.id}远景侵入既有${region.id}分区`);
  }
  for(const source of plan.narrativeRoutes??[]) {
@@ -77,7 +79,7 @@ export function auditNarrative(plan) {
     if(leg.segments.some(seg=>interiorsOverlap(roadRectangle(seg,leg.widthM),s.polygon)))throw new Error(`${s.id}未入远景却被主线路面穿入`);
     const distance=Math.hypot(o.at[0]-s.at[0],o.at[1]-s.at[1]);
     if(!Number.isFinite(s.maxViewingDistanceM)||s.maxViewingDistanceM<=0||distance>s.maxViewingDistanceM)throw new Error(`${s.id}观察距离超过声明的规划上限`);
-    distant.push({id:s.id,observer:o.at,distance,geometryReady:false,visibilityVerified:false});
+    distant.push({id:s.id,observer:o.at,distance,geometryLevel:s.readiness==='distant-ready'?'distant':'layout',nearDetailReady:false,visibilityVerified:false});
    }
    const beforeHengwu=route.legs[15],hengwu=plan.regions.find(r=>r.id==='hengwuyuan');
    if(beforeHengwu.segments.some(s=>segmentLocations(s.a,s.b,hengwu.polygon).some(p=>p.location==='inside')))

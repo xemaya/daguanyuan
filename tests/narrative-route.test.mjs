@@ -45,7 +45,7 @@ test('milestone uses the named 23rd event rather than a nearest entrance or a re
 
 test('unentered scenery is viewed along the return leg, without entering the five footprints',()=>{
  const a=auditNarrative(plan);assert.equal(a.distant.length,5);
- assert.ok(a.distant.every(s=>!s.geometryReady&&!s.visibilityVerified));
+ assert.ok(a.distant.every(s=>s.geometryLevel==='distant'&&!s.nearDetailReady&&!s.visibilityVerified));
  const p=copy();p.observations[0].at=[0,0];assert.throws(()=>compileNarrativeRoute(p),/不在声明的实际路段/);
  const changed=structuredClone(plan),s=changed.distantScenes[0],o=changed.narrativeRoutes[0].observations[0];
  const [x,z]=o.at;s.polygon=[[x-2,z-2],[x+2,z-2],[x+2,z+2],[x-2,z+2],[x-2,z-2]];

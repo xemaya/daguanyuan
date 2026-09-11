@@ -8,6 +8,7 @@ import {compileBridgePath} from '../builder/plan/bridge-path.ts';
 import {auditConstructions} from './construction-audit.mjs';
 import {auditNarrative} from './narrative-audit.mjs';
 import {auditConnections} from './connection-audit.mjs';
+import {auditLinearLayouts} from './linear-layout-audit.mjs';
 
 /** Passing implemented assertions is not proof of all seven source constraints. */
 export function auditPlan(plan) {
@@ -21,6 +22,9 @@ export function auditPlan(plan) {
   };
   fails.push(...validatePlanObjects(plan.regions));
   const constructionAudit=auditConstructions(plan);
+  const linearAudit=auditLinearLayouts(plan);
+  fails.push(...linearAudit.fails);
+  diagnostics.linearLayouts={total:linearAudit.total,valid:linearAudit.objects.length,caveTop:linearAudit.caveTop};
   fails.push(...constructionAudit.fails);
   diagnostics.construction={total:constructionAudit.total,valid:constructionAudit.objects.length,
     meshFactories:constructionAudit.meshFactories,frameOnly:constructionAudit.frameOnly};
