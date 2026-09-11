@@ -6,6 +6,7 @@ import { compileWallPath, wallLocalPoint, wallMiterX } from '../builder/plan/wal
 import {compileCorridor} from '../builder/plan/corridor-path.ts';
 import {compileBridgePath} from '../builder/plan/bridge-path.ts';
 import {auditConstructions} from './construction-audit.mjs';
+import {auditNarrative} from './narrative-audit.mjs';
 
 /** Passing implemented assertions is not proof of all seven source constraints. */
 export function auditPlan(plan) {
@@ -93,7 +94,7 @@ export function auditPlan(plan) {
   }
   const ids = new Set(plan.regions.map(r => r.id));
   ok(ids.size === plan.regions.length, '区域 id 重复');
-  for (const id of plan.route_ch17) ok(ids.has(id), `游线里的 ${id} 不是任何区域`);
+  for (const id of plan.legacy?.route_ch17_regions??[]) ok(ids.has(id), `历史区域列表里的 ${id} 不是任何区域`);
   const spot = (name, region) => plan.regions.filter(r => !region || r.id === region)
     .flatMap(r => r.buildings ?? []).find(b => b.name.includes(name));
   const xy = b => [b.x, b.z];
@@ -128,8 +129,16 @@ export function auditPlan(plan) {
       ['需以真实地形及建筑顶部/边缘验证门内视点遮挡；平面相交不等于三维遮挡']);
     for (const t of clear) pending.push(`约束5：平面无遮挡 ${t.region}/${t.name}`);
   } else record(5, [], ['山体数据无效，无法测试视线']);
-  diagnostics.route = { regionLabels: plan.route_ch17.length, requiredNarrativeNodes: 29 };
-  record(6, [], ['缺少29节点的实际连续路径及可走通证据；禁止用区域中心连线计算55%路程比例']);
+  const narrative=auditNarrative(plan);
+  fails.push(...narrative.fails);
+  const route=narrative.routes.find(r=>r.source.id==='ch17');
+  diagnostics.route = { legacyRegionLabels: plan.legacy?.route_ch17_regions?.length??0, requiredNarrativeNodes: 29,
+    narrativeNodes:route?.source.nodes.length??0,length:route?.compiled.length,milestone:route?.compiled.milestone,
+    metric:'horizontal-polyline-metres',runtimeVerified:false,waterCrossingIntervals:route?.waterCrossings.length??0,
+    access:narrative.access,distant:narrative.distant };
+  record(6, route?[`29节点/28路段连续规划环线；牌坊占比${(route.compiled.milestone.ratio*100).toFixed(2)}%`,
+    '五组未入远景的观察点在归路上，路线未穿入其范围']:[],
+    ['规划跨水路段的桥/洞/高程与门洞接通尚未全面实景验收；禁止把平面里程当成全线键盘通过']);
   const southGate = spot('向南的正门', 'nuanxiangwu');
   const westGate = spot('西过街门', 'nuanxiangwu'), eastGate = spot('东过街门', 'nuanxiangwu');
   const southFacing = southGate?.facing === 'south';

@@ -12,7 +12,8 @@ test('plan audit exposes unfinished constraints, never claiming seven passed', (
   assert.equal(result.constraints.length, 7);
   assert.equal(result.complete, false);
   assert.equal(result.constraints.find(c => c.id === 6).status, 'incomplete');
-  assert.equal(result.diagnostics.route.regionLabels, 14);
+  assert.equal(result.diagnostics.route.legacyRegionLabels, 14);
+  assert.equal(result.diagnostics.route.narrativeNodes, 29);
   assert.equal(spawnSync(process.execPath, ['tools/check-plan.mjs', '--strict', '--json']).status, 1);
 });
 test('a new outside entrance fails instead of being waived as P2 work', () => {

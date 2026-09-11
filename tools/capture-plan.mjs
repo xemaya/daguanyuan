@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 const out=resolve(process.argv[2] ?? 'shots/p2-layout/plan.png');
 const svg=readFileSync(new URL('../knowledge/docs/plan/plan.svg',import.meta.url),'utf8');
 mkdirSync(dirname(out),{recursive:true});
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist']});
 try {
   const page=await browser.newPage({viewport:{width:1410,height:1185},deviceScaleFactor:1});
   await page.setContent(`<style>body{margin:0}</style>${svg}`);

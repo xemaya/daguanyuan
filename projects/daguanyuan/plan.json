@@ -197,7 +197,8 @@
           -128,
           -58
         ]
-      ]
+      ],
+      "id": "pool.main"
     },
     {
       "name": "南池(沁芳亭桥池·白石为栏环抱池沿)",
@@ -239,7 +240,8 @@
           -40,
           140
         ]
-      ]
+      ],
+      "id": "pool.south"
     },
     {
       "name": "东池(凹晶溪馆—芦雪广水域·凸碧山下池沿)",
@@ -281,7 +283,8 @@
           130,
           10
         ]
-      ]
+      ],
+      "id": "pool.east"
     },
     {
       "name": "沁芳溪·北段(沁芳闸→蓼汀花溆港洞→主池;干溪 12 m)",
@@ -379,7 +382,8 @@
           197.1,
           -227.1
         ]
-      ]
+      ],
+      "id": "creek.north"
     },
     {
       "name": "沁芳溪·西段(主池西端→东北山坳→稻香村→西南岔口;干溪 10 m)",
@@ -477,7 +481,8 @@
           -124.5,
           -52.8
         ]
-      ]
+      ],
+      "id": "creek.west"
     },
     {
       "name": "沁芳溪·南段(西南岔口→南池·沁芳亭桥→怡红院后合流→南墙东段涵洞出园;干溪 8 m)",
@@ -623,7 +628,8 @@
           -169.3,
           133.1
         ]
-      ]
+      ],
+      "id": "creek.south"
     },
     {
       "name": "潇湘馆穿院引泉沟(开沟仅尺许·后院墙下入,盘旋竹下而出)",
@@ -721,7 +727,8 @@
         ]
       ],
       "width_m": 0.8,
-      "layout_basis": "后院入、竹下绕行、前院出；移到正房与退步台基西侧。0.8m宽是沿用窄沟量级的艺术选择，非原文实测。"
+      "layout_basis": "后院入、竹下绕行、前院出；移到正房与退步台基西侧。0.8m宽是沿用窄沟量级的艺术选择，非原文实测。",
+      "id": "ditch.xiaoxiang"
     },
     {
       "id": "zilingzhou.boat-inlet",
@@ -836,7 +843,8 @@
           -60,
           206
         ]
-      ]
+      ],
+      "id": "hill.cuizhang"
     },
     {
       "name": "大主山(园北主山,支脉穿墙入蘅芜苑)",
@@ -890,7 +898,8 @@
           -225,
           -200
         ]
-      ]
+      ],
+      "id": "hill.dazhushan"
     },
     {
       "name": "青山(潇湘馆与稻香村之间·山怀中露稻香村)",
@@ -936,7 +945,8 @@
           -185,
           32
         ]
-      ]
+      ],
+      "id": "hill.qingshan"
     },
     {
       "name": "凸碧山(东部主山·山脊凸碧堂,山坳凹晶馆,山脚栊翠庵)",
@@ -986,7 +996,8 @@
           145,
           74
         ]
-      ]
+      ],
+      "id": "hill.tubi"
     },
     {
       "name": "花溆盘道山(蓼汀花溆石洞之上,盘道可通蘅芜苑)",
@@ -1024,7 +1035,8 @@
           -78,
           -152
         ]
-      ]
+      ],
+      "id": "hill.huaxu"
     },
     {
       "name": "稻香村篱外山坡(土井桔槔·下临分畦列亩)",
@@ -1058,12 +1070,13 @@
           -228,
           -8
         ]
-      ]
+      ],
+      "id": "hill.daoxiang-slope"
     }
   ],
   "paths": [
     {
-      "name": "十七回游线(小径入·另一边出的环线)",
+      "name": "旧14站路基参考(兼容MVP，叙事真源为narrativeRoutes/ch17)",
       "points": [
         [
           55,
@@ -1362,7 +1375,9 @@
           244
         ]
       ],
-      "basis": "P2：稻香村南侧入口从篱外坡东麓绕入，避免路基切穿土坡中心；完整29叙事节点路径仍待补齐。 曲廊完整巡行是可选支线及技术验收路线，不强加到第十七回主线或其里程比例；主线入院先到正房。"
+      "basis": "P2：稻香村南侧入口从篱外坡东麓绕入，避免路基切穿土坡中心；完整29叙事节点路径仍待补齐。 曲廊完整巡行是可选支线及技术验收路线，不强加到第十七回主线或其里程比例；主线入院先到正房。 P2：本折线不再作为29节点叙事或55%里程的依据。",
+      "id": "legacy-ch17-roadwork",
+      "role": "legacy-runtime"
     },
     {
       "name": "近门大路(平坦宽阔·翠嶂东麓绕出直达正门;近东南角以一石桥跨沁芳溪出水段)",
@@ -2058,16 +2073,17 @@
         },
         {
           "name": "西山口·羊肠小径(入园口)",
-          "x": -52,
-          "z": 206,
+          "x": -37,
+          "z": 202,
           "note": "十七回由此入",
-          "id": "cuizhang.rock-03"
+          "id": "cuizhang.rock-03",
+          "layout_basis": "P2按现有西口跨溪面与石洞行进节点落位；原(-52,206)为未与通路对齐的艺术锚点。"
         },
         {
           "name": "东山脚(出园口,接平坦宽阔大路)",
           "x": 74,
           "z": 206,
-          "note": "C-06 判为同一山之两端",
+          "note": "C-06 判为同一山之两端；此点为屏石核心区东脚参照，29节点归路绕整座山的东端，见ch17.n28，不以此旧点代替全山东出口。",
           "id": "cuizhang.rock-04"
         }
       ],
@@ -7096,10 +7112,11 @@
       "rocks": [
         {
           "name": "抚石依泉(沿溪散石)",
-          "x": -196,
-          "z": -146,
+          "x": -205,
+          "z": -108,
           "note": "穿花度柳、抚石依泉",
-          "id": "huajia_huapu.rock-01"
+          "id": "huajia_huapu.rock-01",
+          "layout_basis": "P2按抚石依泉在荼蘼架之前的叙事顺序，移到花架群南入口；原(-196,-146)落在花架中段。"
         }
       ],
       "sources": [
@@ -7119,22 +7136,6 @@
       "confidence": "low",
       "layout_basis": "P2艺术布局：边界表达院落围合、门前退让及山水岸线的建设分区，不是古籍实测尺寸；地形山体/水域仍用独立多边形，区域边界不等于遮挡体。"
     }
-  ],
-  "route_ch17": [
-    "zhengmen",
-    "cuizhang",
-    "qinfang_ting_qiao",
-    "xiaoxiangguan",
-    "daoxiangcun",
-    "huajia_huapu",
-    "liaoting_huaxu",
-    "hengwuyuan",
-    "shengqin_biesu",
-    "qinfangzha",
-    "longcuian",
-    "yihongyuan",
-    "cuizhang",
-    "zhengmen"
   ],
   "conflicts": [
     {
@@ -7287,5 +7288,2329 @@
   "layout_revision": {
     "version": 2,
     "basis": "P2：19区按轴线/围合/岸线重画；环园东路绕凸碧山及栊翠庵；凹晶馆移到东池东岸陆地；潇湘引泉沟绕台基。均为遵守既有裁决的艺术落位，不新增历史尺寸。"
+  },
+  "routeFeatures": [
+    {
+      "id": "ch17.peony-beds",
+      "name": "芍药圃",
+      "kind": "planting",
+      "at": [
+        -224,
+        -148
+      ],
+      "region": "huajia_huapu",
+      "basis": "第17回度芍药圃；与第62回红香圃芍药栏同址为未证实指认，仅作本项目L4落位。"
+    },
+    {
+      "id": "ch17.cave-passage",
+      "name": "石洞羊肠小径",
+      "kind": "cave-passage",
+      "at": [
+        -37,
+        202
+      ],
+      "region": "cuizhang",
+      "supportRef": "cuizhang.creek-crossing",
+      "clearWidthM": 1.4,
+      "clearHeightM": 2.4,
+      "readiness": "layout-only",
+      "basis": "第17回进入石洞后渐向北；净空与跨溪落位为艺术输入，真实石洞顶板/洞壁在P3叠石阶段。"
+    },
+    {
+      "id": "ch17.huaxu-cave-top",
+      "name": "花溆洞顶盘道",
+      "kind": "cave-top-path",
+      "at": [
+        -30,
+        -118
+      ],
+      "region": "liaoting_huaxu",
+      "caveRef": "liaoting_huaxu.water-cave",
+      "leg": "ch17.e18",
+      "readiness": "layout-only",
+      "basis": "第17回无船改走山上盘道；洞顶路径是P2选定的几何连接，洞顶承载、下方通舟净空及石阶尚待几何验收。"
+    }
+  ],
+  "distantScenes": [
+    {
+      "id": "return.qingtang-maoshe",
+      "name": "清堂茅舍",
+      "at": [
+        232,
+        -155
+      ],
+      "polygon": [
+        [
+          226,
+          -160
+        ],
+        [
+          238,
+          -160
+        ],
+        [
+          238,
+          -150
+        ],
+        [
+          226,
+          -150
+        ],
+        [
+          226,
+          -160
+        ]
+      ],
+      "forms": [
+        "hall",
+        "straw-cottage"
+      ],
+      "source": {
+        "chapter": 17,
+        "document": "knowledge/docs/plan/02-evidence.md",
+        "section": "§9 沁芳闸与归路未入之景"
+      },
+      "entry": "not-entered",
+      "readiness": "layout-only",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。构件细化与场景装配尚未完成。",
+      "maxViewingDistanceM": 80
+    },
+    {
+      "id": "return.temple",
+      "name": "山下佛寺",
+      "at": [
+        206,
+        166
+      ],
+      "polygon": [
+        [
+          185,
+          130
+        ],
+        [
+          192,
+          130
+        ],
+        [
+          192,
+          122
+        ],
+        [
+          224,
+          122
+        ],
+        [
+          224,
+          130
+        ],
+        [
+          232,
+          130
+        ],
+        [
+          232,
+          166
+        ],
+        [
+          220,
+          166
+        ],
+        [
+          220,
+          178
+        ],
+        [
+          195,
+          178
+        ],
+        [
+          195,
+          169
+        ],
+        [
+          185,
+          169
+        ],
+        [
+          185,
+          130
+        ]
+      ],
+      "regionRef": "longcuian",
+      "forms": [
+        "mountain-gate",
+        "temple-hall"
+      ],
+      "source": {
+        "chapter": 17,
+        "document": "knowledge/docs/plan/02-evidence.md",
+        "section": "§9 沁芳闸与归路未入之景"
+      },
+      "entry": "not-entered",
+      "readiness": "layout-only",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。山下佛寺指认为栊翠庵沿用既有推定。",
+      "maxViewingDistanceM": 80
+    },
+    {
+      "id": "return.daofang",
+      "name": "林中道房",
+      "at": [
+        230,
+        -82
+      ],
+      "polygon": [
+        [
+          225,
+          -86
+        ],
+        [
+          235,
+          -86
+        ],
+        [
+          235,
+          -78
+        ],
+        [
+          225,
+          -78
+        ],
+        [
+          225,
+          -86
+        ]
+      ],
+      "forms": [
+        "forest-hall"
+      ],
+      "source": {
+        "chapter": 17,
+        "document": "knowledge/docs/plan/02-evidence.md",
+        "section": "§9 沁芳闸与归路未入之景"
+      },
+      "entry": "not-entered",
+      "readiness": "layout-only",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。构件细化与场景装配尚未完成。",
+      "maxViewingDistanceM": 80
+    },
+    {
+      "id": "return.corridor-cave",
+      "name": "长廊曲洞",
+      "at": [
+        222.5,
+        -18.5
+      ],
+      "polygon": [
+        [
+          217,
+          -36
+        ],
+        [
+          228,
+          -36
+        ],
+        [
+          228,
+          -1
+        ],
+        [
+          217,
+          -1
+        ],
+        [
+          217,
+          -36
+        ]
+      ],
+      "forms": [
+        "corridor",
+        "rock-passage"
+      ],
+      "source": {
+        "chapter": 17,
+        "document": "knowledge/docs/plan/02-evidence.md",
+        "section": "§9 沁芳闸与归路未入之景"
+      },
+      "entry": "not-entered",
+      "readiness": "layout-only",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。构件细化与场景装配尚未完成。",
+      "maxViewingDistanceM": 80
+    },
+    {
+      "id": "return.square-round",
+      "name": "方厦圆亭",
+      "at": [
+        225.5,
+        24
+      ],
+      "polygon": [
+        [
+          220,
+          13
+        ],
+        [
+          231,
+          13
+        ],
+        [
+          231,
+          35
+        ],
+        [
+          220,
+          35
+        ],
+        [
+          220,
+          13
+        ]
+      ],
+      "forms": [
+        "square-hall",
+        "round-pavilion"
+      ],
+      "source": {
+        "chapter": 17,
+        "document": "knowledge/docs/plan/02-evidence.md",
+        "section": "§9 沁芳闸与归路未入之景"
+      },
+      "entry": "not-entered",
+      "readiness": "layout-only",
+      "basis": "沿归路从外部观望，确切落位与朝向为L4艺术输入；原文“或”字列举不当作五组景的先后途径顺序。构件细化与场景装配尚未完成。",
+      "maxViewingDistanceM": 80
+    }
+  ],
+  "narrativeRoutes": [
+    {
+      "id": "ch17",
+      "name": "第十七回29节点步行环线",
+      "readiness": "planned",
+      "metric": "horizontal-polyline-metres",
+      "nodes": [
+        {
+          "id": "ch17.n01",
+          "order": 1,
+          "name": "正门",
+          "kind": "station",
+          "at": [
+            55,
+            244
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "zhengmen.main-gate"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§1",
+            "sequenceIndex": 1,
+            "event": "正门(五间,粉墙虎皮石)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "zhengmen"
+        },
+        {
+          "id": "ch17.n02",
+          "order": 2,
+          "name": "迎面翠嶂",
+          "kind": "waypoint",
+          "at": [
+            40,
+            226
+          ],
+          "refs": [
+            {
+              "kind": "hill",
+              "id": "hill.cuizhang"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§1",
+            "sequenceIndex": 2,
+            "event": "翠嶂(迎面挡门)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "cuizhang"
+        },
+        {
+          "id": "ch17.n03",
+          "order": 3,
+          "name": "镜面白石·曲径通幽处",
+          "kind": "waypoint",
+          "at": [
+            -34,
+            206
+          ],
+          "refs": [
+            {
+              "kind": "rock",
+              "id": "cuizhang.rock-02"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§1",
+            "sequenceIndex": 3,
+            "event": "山口镜面白石·曲径通幽处"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "cuizhang"
+        },
+        {
+          "id": "ch17.n04",
+          "order": 4,
+          "name": "石洞·羊肠小径",
+          "kind": "waypoint",
+          "at": [
+            -37,
+            202
+          ],
+          "refs": [
+            {
+              "kind": "feature",
+              "id": "ch17.cave-passage"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§2",
+            "sequenceIndex": 4,
+            "event": "石洞·羊肠小径(渐向北)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "cuizhang"
+        },
+        {
+          "id": "ch17.n05",
+          "order": 5,
+          "name": "沁芳亭桥",
+          "kind": "station",
+          "at": [
+            0,
+            148
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "qinfang_ting_qiao.pavilion"
+            },
+            {
+              "kind": "object",
+              "id": "qinfang_ting_qiao.three-opening-bridge"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§2",
+            "sequenceIndex": 5,
+            "event": "沁芳亭桥(石桥三港,桥上有亭)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "qinfang_ting_qiao"
+        },
+        {
+          "id": "ch17.n06",
+          "order": 6,
+          "name": "出亭过池",
+          "kind": "waypoint",
+          "at": [
+            -40,
+            124
+          ],
+          "refs": [
+            {
+              "kind": "water",
+              "id": "pool.south"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§3",
+            "sequenceIndex": 6,
+            "event": "出亭过池"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "qinfang_ting_qiao"
+        },
+        {
+          "id": "ch17.n07",
+          "order": 7,
+          "name": "潇湘馆",
+          "kind": "station",
+          "at": [
+            -105,
+            105.2
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "xiaoxiangguan.main-house"
+            },
+            {
+              "kind": "object",
+              "id": "xiaoxiangguan.rear-house"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§3",
+            "sequenceIndex": 7,
+            "event": "潇湘馆(有凤来仪,粉垣翠竹,后院墙下引泉)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "xiaoxiangguan"
+        },
+        {
+          "id": "ch17.n08",
+          "order": 8,
+          "name": "青山斜阻·转山怀",
+          "kind": "waypoint",
+          "at": [
+            -148,
+            66
+          ],
+          "refs": [
+            {
+              "kind": "hill",
+              "id": "hill.qingshan"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§4",
+            "sequenceIndex": 8,
+            "event": "青山斜阻·转过山怀"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。"
+        },
+        {
+          "id": "ch17.n09",
+          "order": 9,
+          "name": "稻香村",
+          "kind": "station",
+          "at": [
+            -202,
+            -46
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "daoxiangcun.main-cottage"
+            },
+            {
+              "kind": "object",
+              "id": "daoxiangcun.well"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§4",
+            "sequenceIndex": 9,
+            "event": "稻香村(杏帘在望,黄泥矮墙杏花茅屋,篱外山坡土井田亩)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "daoxiangcun"
+        },
+        {
+          "id": "ch17.n10",
+          "order": 10,
+          "name": "转坡·抚石依泉",
+          "kind": "waypoint",
+          "at": [
+            -205,
+            -108
+          ],
+          "refs": [
+            {
+              "kind": "rock",
+              "id": "huajia_huapu.rock-01"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§5",
+            "sequenceIndex": 10,
+            "event": "转过山坡·抚石依泉"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "huajia_huapu"
+        },
+        {
+          "id": "ch17.n11",
+          "order": 11,
+          "name": "荼蘼架",
+          "kind": "scene",
+          "at": [
+            -210,
+            -116
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "huajia_huapu.tumi-trellis"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§5",
+            "sequenceIndex": 11,
+            "event": "荼蘼架"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "huajia_huapu"
+        },
+        {
+          "id": "ch17.n12",
+          "order": 12,
+          "name": "木香棚",
+          "kind": "scene",
+          "at": [
+            -224,
+            -128
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "huajia_huapu.muxiang-canopy"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§5",
+            "sequenceIndex": 12,
+            "event": "木香棚"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "huajia_huapu"
+        },
+        {
+          "id": "ch17.n13",
+          "order": 13,
+          "name": "牡丹亭",
+          "kind": "scene",
+          "at": [
+            -203,
+            -138
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "huajia_huapu.mudan-pavilion"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§5",
+            "sequenceIndex": 13,
+            "event": "牡丹亭"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "huajia_huapu"
+        },
+        {
+          "id": "ch17.n14",
+          "order": 14,
+          "name": "芍药圃",
+          "kind": "scene",
+          "at": [
+            -224,
+            -148
+          ],
+          "refs": [
+            {
+              "kind": "feature",
+              "id": "ch17.peony-beds"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§5",
+            "sequenceIndex": 14,
+            "event": "芍药圃"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "huajia_huapu"
+        },
+        {
+          "id": "ch17.n15",
+          "order": 15,
+          "name": "蔷薇院",
+          "kind": "scene",
+          "at": [
+            -206,
+            -162
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "huajia_huapu.rose-garden"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§5",
+            "sequenceIndex": 15,
+            "event": "蔷薇院"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "huajia_huapu"
+        },
+        {
+          "id": "ch17.n16",
+          "order": 16,
+          "name": "芭蕉坞",
+          "kind": "scene",
+          "at": [
+            -222,
+            -172
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "huajia_huapu.banana-grove"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§5",
+            "sequenceIndex": 16,
+            "event": "芭蕉坞"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "huajia_huapu"
+        },
+        {
+          "id": "ch17.n17",
+          "order": 17,
+          "name": "蓼汀花溆·港洞前",
+          "kind": "waypoint",
+          "at": [
+            -52,
+            -116
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "liaoting_huaxu.water-cave"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§6",
+            "sequenceIndex": 17,
+            "event": "蓼汀花溆(水泻石洞/港洞,未有船)"
+          },
+          "placementBasis": "P2艺术站位：留在港洞西岸约18m外观望。旧(-38,-105)观察位须先跨溪；新位便于无船时直接从岸西上盘道。原文顺序不变。",
+          "region": "liaoting_huaxu"
+        },
+        {
+          "id": "ch17.n18",
+          "order": 18,
+          "name": "山上盘道",
+          "kind": "waypoint",
+          "at": [
+            -52,
+            -139
+          ],
+          "refs": [
+            {
+              "kind": "hill",
+              "id": "hill.huaxu"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§6",
+            "sequenceIndex": 18,
+            "event": "山上盘道"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "liaoting_huaxu"
+        },
+        {
+          "id": "ch17.n19",
+          "order": 19,
+          "name": "池边垂柳桃杏",
+          "kind": "waypoint",
+          "at": [
+            -34,
+            -100
+          ],
+          "refs": [
+            {
+              "kind": "water",
+              "id": "pool.main"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§6",
+            "sequenceIndex": 19,
+            "event": "池边垂柳桃杏"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "liaoting_huaxu"
+        },
+        {
+          "id": "ch17.n20",
+          "order": 20,
+          "name": "折带朱栏板桥",
+          "kind": "waypoint",
+          "at": [
+            -58,
+            -108
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "liaoting_huaxu.red-railing-bridge"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§6",
+            "sequenceIndex": 20,
+            "event": "折带朱栏板桥"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "liaoting_huaxu"
+        },
+        {
+          "id": "ch17.n21",
+          "order": 21,
+          "name": "蘅芜苑",
+          "kind": "station",
+          "at": [
+            -116,
+            -150
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "hengwuyuan.main-house"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§7",
+            "sequenceIndex": 21,
+            "event": "蘅芜苑(蘅芷清芬,大主山支脉穿墙,五间清厦)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "hengwuyuan"
+        },
+        {
+          "id": "ch17.n22",
+          "order": 22,
+          "name": "正殿·大观楼",
+          "kind": "station",
+          "at": [
+            25,
+            -200
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "shengqin_biesu.daguan-tower"
+            },
+            {
+              "kind": "object",
+              "id": "shengqin_biesu.main-hall"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§8",
+            "sequenceIndex": 22,
+            "event": "正殿·大观楼(崇阁巍峨,复道萦纡)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "shengqin_biesu"
+        },
+        {
+          "id": "ch17.n23",
+          "order": 23,
+          "name": "玉石牌坊·省亲别墅",
+          "kind": "station",
+          "at": [
+            25,
+            -148
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "shengqin_biesu.stone-archway"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§8",
+            "sequenceIndex": 23,
+            "event": "玉石牌坊(省亲别墅,游程十之五六)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "shengqin_biesu"
+        },
+        {
+          "id": "ch17.n24",
+          "order": 24,
+          "name": "沁芳闸大桥",
+          "kind": "station",
+          "at": [
+            197,
+            -212
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "qinfangzha.sluice-bridge"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§9",
+            "sequenceIndex": 24,
+            "event": "沁芳闸大桥(通外河之闸,引泉而入)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "qinfangzha"
+        },
+        {
+          "id": "ch17.n25",
+          "order": 25,
+          "name": "沿途未入五类景",
+          "kind": "scene",
+          "at": [
+            224,
+            -181
+          ],
+          "refs": [
+            {
+              "kind": "distant",
+              "id": "return.qingtang-maoshe"
+            },
+            {
+              "kind": "distant",
+              "id": "return.temple"
+            },
+            {
+              "kind": "distant",
+              "id": "return.daofang"
+            },
+            {
+              "kind": "distant",
+              "id": "return.corridor-cave"
+            },
+            {
+              "kind": "distant",
+              "id": "return.square-round"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§9",
+            "sequenceIndex": 25,
+            "event": "沿途未入:清堂茅舍/山下佛寺/林中道房/长廊曲洞/方厦圆亭"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。"
+        },
+        {
+          "id": "ch17.n26",
+          "order": 26,
+          "name": "怡红院",
+          "kind": "station",
+          "at": [
+            118,
+            185
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "yihongyuan.main-house"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§10",
+            "sequenceIndex": 26,
+            "event": "怡红院(红香绿玉,竹篱花障月洞门,蕉棠对植)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "yihongyuan"
+        },
+        {
+          "id": "ch17.n27",
+          "order": 27,
+          "name": "后院·青溪前阻",
+          "kind": "waypoint",
+          "at": [
+            126,
+            150.5
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "yihongyuan.rear-gate"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§10",
+            "sequenceIndex": 27,
+            "event": "怡红院后院(蔷薇宝相)·青溪前阻(贾珍述水路合流出墙)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "yihongyuan"
+        },
+        {
+          "id": "ch17.n28",
+          "order": 28,
+          "name": "大山阻路·山脚一转",
+          "kind": "waypoint",
+          "at": [
+            148,
+            202
+          ],
+          "refs": [
+            {
+              "kind": "hill",
+              "id": "hill.cuizhang"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§10",
+            "sequenceIndex": 28,
+            "event": "大山阻路·山脚一转"
+          },
+          "placementBasis": "第17回此处只称大山；按C-06的L4推定指认为翠嶂。站位在全山东侧山脚，归路绕实际hill东界而非屏石核心区旧出口点。"
+        },
+        {
+          "id": "ch17.n29",
+          "order": 29,
+          "name": "平坦大路·正门出园",
+          "kind": "waypoint",
+          "at": [
+            55,
+            244
+          ],
+          "refs": [
+            {
+              "kind": "object",
+              "id": "zhengmen.main-gate"
+            }
+          ],
+          "source": {
+            "chapter": 17,
+            "document": "knowledge/docs/plan/02-evidence.md",
+            "section": "§10",
+            "sequenceIndex": 29,
+            "event": "平坦大路·正门(出园)"
+          },
+          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "region": "zhengmen"
+        }
+      ],
+      "legs": [
+        {
+          "id": "ch17.e01",
+          "from": "ch17.n01",
+          "to": "ch17.n02",
+          "points": [
+            [
+              55,
+              244
+            ],
+            [
+              55,
+              236
+            ],
+            [
+              55,
+              229
+            ],
+            [
+              40,
+              226
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e02",
+          "from": "ch17.n02",
+          "to": "ch17.n03",
+          "points": [
+            [
+              40,
+              226
+            ],
+            [
+              30,
+              232
+            ],
+            [
+              14,
+              228
+            ],
+            [
+              -2,
+              224
+            ],
+            [
+              -15,
+              218
+            ],
+            [
+              -28,
+              212
+            ],
+            [
+              -34,
+              206
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e03",
+          "from": "ch17.n03",
+          "to": "ch17.n04",
+          "points": [
+            [
+              -34,
+              206
+            ],
+            [
+              -37,
+              202
+            ]
+          ],
+          "widthM": 1.4,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk-bridge"
+        },
+        {
+          "id": "ch17.e04",
+          "from": "ch17.n04",
+          "to": "ch17.n05",
+          "points": [
+            [
+              -37,
+              202
+            ],
+            [
+              -40,
+              198
+            ],
+            [
+              -40,
+              196
+            ],
+            [
+              -24,
+              186
+            ],
+            [
+              -6,
+              180
+            ],
+            [
+              -1.76,
+              170.32
+            ],
+            [
+              -2.76,
+              167.47
+            ],
+            [
+              -0.82,
+              165.15
+            ],
+            [
+              -0.41,
+              162.92
+            ],
+            [
+              -1.41,
+              160.07
+            ],
+            [
+              0.53,
+              157.75
+            ],
+            [
+              0.75,
+              154.63
+            ],
+            [
+              -0.75,
+              152
+            ],
+            [
+              0.75,
+              149.38
+            ],
+            [
+              0,
+              148
+            ]
+          ],
+          "widthM": 1.4,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk-bridge"
+        },
+        {
+          "id": "ch17.e05",
+          "from": "ch17.n05",
+          "to": "ch17.n06",
+          "points": [
+            [
+              0,
+              148
+            ],
+            [
+              0.78,
+              145.58
+            ],
+            [
+              -0.75,
+              145.2
+            ],
+            [
+              -3,
+              145.15
+            ],
+            [
+              -3.87,
+              144.65
+            ],
+            [
+              -5.41,
+              142.05
+            ],
+            [
+              -7.85,
+              140.65
+            ],
+            [
+              -10.87,
+              140.65
+            ],
+            [
+              -12.41,
+              138.05
+            ],
+            [
+              -14.53,
+              136.99
+            ],
+            [
+              -17.52,
+              137.45
+            ],
+            [
+              -19.43,
+              135.11
+            ],
+            [
+              -21.03,
+              134.49
+            ],
+            [
+              -24.02,
+              134.95
+            ],
+            [
+              -25.93,
+              132.61
+            ],
+            [
+              -27.53,
+              131.99
+            ],
+            [
+              -30.52,
+              132.45
+            ],
+            [
+              -32.43,
+              130.11
+            ],
+            [
+              -34.03,
+              129.49
+            ],
+            [
+              -37.02,
+              129.95
+            ],
+            [
+              -38.93,
+              127.61
+            ],
+            [
+              -40,
+              124
+            ]
+          ],
+          "widthM": 1.4,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk-bridge"
+        },
+        {
+          "id": "ch17.e06",
+          "from": "ch17.n06",
+          "to": "ch17.n07",
+          "points": [
+            [
+              -40,
+              124
+            ],
+            [
+              -55,
+              124
+            ],
+            [
+              -70,
+              124
+            ],
+            [
+              -94,
+              124
+            ],
+            [
+              -100,
+              122
+            ],
+            [
+              -105,
+              122
+            ],
+            [
+              -105,
+              120
+            ],
+            [
+              -105,
+              112
+            ],
+            [
+              -105,
+              105.2
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e07",
+          "from": "ch17.n07",
+          "to": "ch17.n08",
+          "points": [
+            [
+              -105,
+              105.2
+            ],
+            [
+              -105,
+              98
+            ],
+            [
+              -105,
+              92
+            ],
+            [
+              -105,
+              85
+            ],
+            [
+              -113,
+              85
+            ],
+            [
+              -113,
+              105
+            ],
+            [
+              -105,
+              114
+            ],
+            [
+              -105,
+              120
+            ],
+            [
+              -105,
+              124
+            ],
+            [
+              -124,
+              124
+            ],
+            [
+              -136,
+              116
+            ],
+            [
+              -140,
+              90
+            ],
+            [
+              -148,
+              66
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "courtyard"
+        },
+        {
+          "id": "ch17.e08",
+          "from": "ch17.n08",
+          "to": "ch17.n09",
+          "points": [
+            [
+              -148,
+              66
+            ],
+            [
+              -172,
+              40
+            ],
+            [
+              -186,
+              18
+            ],
+            [
+              -192,
+              -12
+            ],
+            [
+              -196,
+              -18
+            ],
+            [
+              -196,
+              -35
+            ],
+            [
+              -202,
+              -46
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e09",
+          "from": "ch17.n09",
+          "to": "ch17.n10",
+          "points": [
+            [
+              -202,
+              -46
+            ],
+            [
+              -202,
+              -52
+            ],
+            [
+              -202,
+              -62
+            ],
+            [
+              -200,
+              -84
+            ],
+            [
+              -196,
+              -98
+            ],
+            [
+              -205,
+              -108
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "courtyard"
+        },
+        {
+          "id": "ch17.e10",
+          "from": "ch17.n10",
+          "to": "ch17.n11",
+          "points": [
+            [
+              -205,
+              -108
+            ],
+            [
+              -205,
+              -112
+            ],
+            [
+              -210,
+              -116
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e11",
+          "from": "ch17.n11",
+          "to": "ch17.n12",
+          "points": [
+            [
+              -210,
+              -116
+            ],
+            [
+              -218,
+              -119
+            ],
+            [
+              -224,
+              -128
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e12",
+          "from": "ch17.n12",
+          "to": "ch17.n13",
+          "points": [
+            [
+              -224,
+              -128
+            ],
+            [
+              -218,
+              -133
+            ],
+            [
+              -203,
+              -138
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e13",
+          "from": "ch17.n13",
+          "to": "ch17.n14",
+          "points": [
+            [
+              -203,
+              -138
+            ],
+            [
+              -211,
+              -144
+            ],
+            [
+              -224,
+              -148
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e14",
+          "from": "ch17.n14",
+          "to": "ch17.n15",
+          "points": [
+            [
+              -224,
+              -148
+            ],
+            [
+              -216,
+              -156
+            ],
+            [
+              -206,
+              -162
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e15",
+          "from": "ch17.n15",
+          "to": "ch17.n16",
+          "points": [
+            [
+              -206,
+              -162
+            ],
+            [
+              -214,
+              -168
+            ],
+            [
+              -222,
+              -172
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e16",
+          "from": "ch17.n16",
+          "to": "ch17.n17",
+          "points": [
+            [
+              -222,
+              -172
+            ],
+            [
+              -204,
+              -172
+            ],
+            [
+              -184,
+              -162
+            ],
+            [
+              -173,
+              -141
+            ],
+            [
+              -153,
+              -125
+            ],
+            [
+              -145,
+              -122.5
+            ],
+            [
+              -116,
+              -122.5
+            ],
+            [
+              -94,
+              -122.5
+            ],
+            [
+              -68,
+              -119
+            ],
+            [
+              -52,
+              -116
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e17",
+          "from": "ch17.n17",
+          "to": "ch17.n18",
+          "points": [
+            [
+              -52,
+              -116
+            ],
+            [
+              -61,
+              -124
+            ],
+            [
+              -66,
+              -136
+            ],
+            [
+              -60,
+              -145
+            ],
+            [
+              -52,
+              -139
+            ]
+          ],
+          "widthM": 1.4,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。 从岸西升坡，不在港洞前先跨入溪中。",
+          "travel": "hill-path"
+        },
+        {
+          "id": "ch17.e18",
+          "from": "ch17.n18",
+          "to": "ch17.n19",
+          "points": [
+            [
+              -52,
+              -139
+            ],
+            [
+              -40,
+              -136
+            ],
+            [
+              -34,
+              -125
+            ],
+            [
+              -30,
+              -118
+            ],
+            [
+              -28,
+              -107
+            ],
+            [
+              -34,
+              -100
+            ]
+          ],
+          "widthM": 1.4,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。 沿石港洞上部到池岸；洞顶承载面及下行石阶须由相应空间构件保证，不能只靠水下高度场。",
+          "travel": "hill-path"
+        },
+        {
+          "id": "ch17.e19",
+          "from": "ch17.n19",
+          "to": "ch17.n20",
+          "points": [
+            [
+              -34,
+              -100
+            ],
+            [
+              -38,
+              -104
+            ],
+            [
+              -46,
+              -105
+            ],
+            [
+              -58,
+              -108
+            ]
+          ],
+          "widthM": 1.4,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk-bridge"
+        },
+        {
+          "id": "ch17.e20",
+          "from": "ch17.n20",
+          "to": "ch17.n21",
+          "points": [
+            [
+              -58,
+              -108
+            ],
+            [
+              -78,
+              -117
+            ],
+            [
+              -100,
+              -121
+            ],
+            [
+              -112,
+              -127
+            ],
+            [
+              -124,
+              -131
+            ],
+            [
+              -128,
+              -139
+            ],
+            [
+              -124,
+              -148
+            ],
+            [
+              -116,
+              -150
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "courtyard"
+        },
+        {
+          "id": "ch17.e21",
+          "from": "ch17.n21",
+          "to": "ch17.n22",
+          "points": [
+            [
+              -116,
+              -150
+            ],
+            [
+              -105,
+              -145
+            ],
+            [
+              -90,
+              -150
+            ],
+            [
+              -78,
+              -158
+            ],
+            [
+              -66,
+              -159
+            ],
+            [
+              -50,
+              -166
+            ],
+            [
+              -25,
+              -165
+            ],
+            [
+              0,
+              -170
+            ],
+            [
+              25,
+              -170
+            ],
+            [
+              42,
+              -172
+            ],
+            [
+              42,
+              -192
+            ],
+            [
+              25,
+              -200
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "courtyard"
+        },
+        {
+          "id": "ch17.e22",
+          "from": "ch17.n22",
+          "to": "ch17.n23",
+          "points": [
+            [
+              25,
+              -200
+            ],
+            [
+              6,
+              -194
+            ],
+            [
+              6,
+              -173
+            ],
+            [
+              25,
+              -162
+            ],
+            [
+              25,
+              -148
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "courtyard"
+        },
+        {
+          "id": "ch17.e23",
+          "from": "ch17.n23",
+          "to": "ch17.n24",
+          "points": [
+            [
+              25,
+              -148
+            ],
+            [
+              42,
+              -147
+            ],
+            [
+              76,
+              -151
+            ],
+            [
+              110,
+              -158
+            ],
+            [
+              140,
+              -150
+            ],
+            [
+              168,
+              -158
+            ],
+            [
+              186,
+              -184
+            ],
+            [
+              192,
+              -205
+            ],
+            [
+              197,
+              -212
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk-bridge"
+        },
+        {
+          "id": "ch17.e24",
+          "from": "ch17.n24",
+          "to": "ch17.n25",
+          "points": [
+            [
+              197,
+              -212
+            ],
+            [
+              212,
+              -214
+            ],
+            [
+              219,
+              -198
+            ],
+            [
+              224,
+              -181
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk-bridge"
+        },
+        {
+          "id": "ch17.e25",
+          "from": "ch17.n25",
+          "to": "ch17.n26",
+          "points": [
+            [
+              224,
+              -181
+            ],
+            [
+              220,
+              -158
+            ],
+            [
+              220,
+              -135
+            ],
+            [
+              217,
+              -111
+            ],
+            [
+              212,
+              -93
+            ],
+            [
+              218,
+              -84
+            ],
+            [
+              217,
+              -64
+            ],
+            [
+              214,
+              -35
+            ],
+            [
+              211,
+              -7
+            ],
+            [
+              214,
+              14
+            ],
+            [
+              217,
+              32
+            ],
+            [
+              227,
+              50
+            ],
+            [
+              235,
+              74
+            ],
+            [
+              240,
+              100
+            ],
+            [
+              238,
+              126
+            ],
+            [
+              238,
+              150
+            ],
+            [
+              237,
+              164
+            ],
+            [
+              222,
+              185
+            ],
+            [
+              200,
+              189
+            ],
+            [
+              183,
+              183
+            ],
+            [
+              165,
+              172
+            ],
+            [
+              148,
+              173
+            ],
+            [
+              145,
+              185
+            ],
+            [
+              132,
+              192
+            ],
+            [
+              112,
+              190
+            ],
+            [
+              112,
+              188
+            ],
+            [
+              112,
+              186
+            ],
+            [
+              118,
+              185
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e26",
+          "from": "ch17.n26",
+          "to": "ch17.n27",
+          "points": [
+            [
+              118,
+              185
+            ],
+            [
+              118,
+              181.6
+            ],
+            [
+              118,
+              180.48
+            ],
+            [
+              118,
+              176
+            ],
+            [
+              118,
+              171
+            ],
+            [
+              118,
+              164
+            ],
+            [
+              126,
+              160
+            ],
+            [
+              126,
+              150.5
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "courtyard"
+        },
+        {
+          "id": "ch17.e27",
+          "from": "ch17.n27",
+          "to": "ch17.n28",
+          "points": [
+            [
+              126,
+              150.5
+            ],
+            [
+              148,
+              156
+            ],
+            [
+              156,
+              172
+            ],
+            [
+              148,
+              192
+            ],
+            [
+              148,
+              202
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        },
+        {
+          "id": "ch17.e28",
+          "from": "ch17.n28",
+          "to": "ch17.n29",
+          "points": [
+            [
+              148,
+              202
+            ],
+            [
+              156,
+              207
+            ],
+            [
+              160,
+              216
+            ],
+            [
+              151,
+              228
+            ],
+            [
+              130,
+              233
+            ],
+            [
+              100,
+              237
+            ],
+            [
+              75,
+              240
+            ],
+            [
+              55,
+              244
+            ]
+          ],
+          "widthM": 1.8,
+          "readiness": "planned",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "travel": "walk"
+        }
+      ],
+      "closure": {
+        "start": "ch17.n01",
+        "end": "ch17.n29"
+      },
+      "milestone": {
+        "node": "ch17.n23",
+        "range": [
+          0.5,
+          0.62
+        ],
+        "basis": "C-02：正殿牌坊之后十之五六按选定步行路线累计里程核对，不用直线距离或区域质心。"
+      },
+      "observations": [
+        {
+          "scene": "return.qingtang-maoshe",
+          "leg": "ch17.e25",
+          "at": [
+            220,
+            -158
+          ]
+        },
+        {
+          "scene": "return.temple",
+          "leg": "ch17.e25",
+          "at": [
+            237,
+            164
+          ]
+        },
+        {
+          "scene": "return.daofang",
+          "leg": "ch17.e25",
+          "at": [
+            218,
+            -84
+          ]
+        },
+        {
+          "scene": "return.corridor-cave",
+          "leg": "ch17.e25",
+          "at": [
+            211,
+            -7
+          ]
+        },
+        {
+          "scene": "return.square-round",
+          "leg": "ch17.e25",
+          "at": [
+            214,
+            14
+          ]
+        }
+      ],
+      "notes": [
+        "站=进入并停驻的建构筑物/院落；节点=路口/桥/转折；景=沿途观赏，不把每景变成一座必须进入的院落。",
+        "第17回无船，17→18走山上盘道，不穿水下港洞。",
+        "潇湘馆站内巡视按主房小门→后院→侧院路退出，54m曲廊全程巡行是QA支线，不计本线。",
+        "节点25含五类未入之景，栊翠庵按远望处理，不再作为单独进入的一站。",
+        "本线是P2规划真源，旧paths[0]保持既有MVP地形兼容；真实三维路面和键盘通行不由本图宣称通过。"
+      ],
+      "transport": "foot",
+      "accessRequirements": [
+        {
+          "id": "ch17.xiaoxiang-rear-door",
+          "object": "xiaoxiangguan.main-house",
+          "side": "back",
+          "surface": "door",
+          "leg": "ch17.e07",
+          "basis": "第17回从里间小门进入后院；现有正房模型仍为后墙，须在P2接通并实走验收。"
+        },
+        {
+          "id": "ch17.yihong-through-house",
+          "object": "yihongyuan.main-house",
+          "leg": "ch17.e26",
+          "form": "through-house",
+          "basis": "第17回从前院入抱厦、转出后门；复合建筑共享墙洞与后门要在分件/分区装配时实现，当前只校验规划穿行位置。"
+        }
+      ]
+    }
+  ],
+  "legacy": {
+    "route_ch17_regions": [
+      "zhengmen",
+      "cuizhang",
+      "qinfang_ting_qiao",
+      "xiaoxiangguan",
+      "daoxiangcun",
+      "huajia_huapu",
+      "liaoting_huaxu",
+      "hengwuyuan",
+      "shengqin_biesu",
+      "qinfangzha",
+      "longcuian",
+      "yihongyuan",
+      "cuizhang",
+      "zhengmen"
+    ],
+    "routeRoadworkId": "legacy-ch17-roadwork",
+    "basis": "旧14区域标签兼容字段；29节点顺序、站位及选定路段以narrativeRoutes/ch17为准。"
   }
 }
