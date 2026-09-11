@@ -6,6 +6,8 @@ import { setPlan, type GardenPlan } from '@builder/compose/terrain';
 import { PlayerController } from '@engine/player/PlayerController';
 import { HUD } from '@engine/ui/HUD';
 import { AudioDirector } from '@engine/audio/Audio';
+import { MapOverlay } from '@engine/ui/MapOverlay';
+import { buildMapPlaces } from './map-places';
 import planFile from '@project/plan.json' with { type: 'json' };
 import './construction';
 
@@ -44,6 +46,43 @@ async function boot(): Promise<void> {
   engine.add({ name: 'world-sys', update: (dt, t) => world.update(dt, t) });
   engine.add({ name: 'hud-sys', update: (dt) => hud.update(dt) });
   engine.add({ name: 'audio-sys', update: (dt) => audio.update(dt) });
+
+  // ---- 游园图 --------------------------------------------------------
+  // 按 M 开，点一处走过去。只列建成的地方；落点与朝向的取法见 map-places.ts。
+  // 传送与「移步换景」有张力，定位是迭代与回访的便利——见 MapOverlay 的头注释。
+  const gardenMap = new MapOverlay(buildMapPlaces((planFile as unknown as GardenPlan).regions as never), (place) => {
+    const y = world.ctx.collision.terrainHeight(place.target.x, place.target.z);
+    player.teleport(new THREE.Vector3(place.target.x, y, place.target.z), place.yaw);
+    // 收图之后把控制权还回去:指针锁要玩家自己点一下才能再拿(浏览器的手势要求)。
+    engine.input.suspended = false;
+  });
+  hud.root.appendChild(gardenMap.el);
+
+  engine.add({
+    name: 'map-sys',
+    update: () => {
+      // 图开着时 input.suspended 为真,wasPressed 会一律返回 false,所以开与关
+      // 不能都走它——关图用 DOM 上的键盘监听(见下)。
+      if (!gardenMap.visible && engine.input.wasPressed('KeyM')) {
+        gardenMap.show();
+        engine.input.suspended = true;
+        if (document.pointerLockElement) document.exitPointerLock();
+      }
+      if (gardenMap.visible) {
+        const p = player.state.position;
+        gardenMap.setHere(p.x, p.z);
+      }
+    },
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (!gardenMap.visible) return;
+    if (e.code === 'KeyM' || e.code === 'Escape') {
+      e.preventDefault();
+      gardenMap.close();
+      engine.input.suspended = false;
+    }
+  });
 
   // Interact key.
   engine.add({

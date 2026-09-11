@@ -612,3 +612,101 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---- 游园图 ------------------------------------------------------- */
+
+.dgy-map {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--dgy-ground) 86%, transparent);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+}
+
+.dgy-map__card {
+  width: min(78vmin, 760px);
+  padding: var(--dgy-pad);
+  background: var(--dgy-panel);
+  border: var(--dgy-hair) solid var(--dgy-line);
+  border-radius: var(--dgy-radius);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 45%);
+}
+
+.dgy-map__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--dgy-gap);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: var(--dgy-hair) solid var(--dgy-gold);
+}
+
+.dgy-map__head h2 {
+  margin: 0;
+  font: 600 17px/1.2 var(--dgy-font-ui);
+  letter-spacing: 0.22em;
+  color: var(--dgy-silk);
+}
+
+.dgy-map__hint {
+  font: 400 11px/1 var(--dgy-font-ui);
+  color: var(--dgy-silk-faint);
+}
+
+.dgy-map__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+/* 界尺画的线是硬的:区块用细线勾边,不用填充压过去。 */
+.dgy-map__place polygon {
+  fill: color-mix(in srgb, var(--dgy-jade) 12%, transparent);
+  stroke: var(--dgy-jade);
+  stroke-width: 2;
+  cursor: pointer;
+  transition: fill var(--dgy-fast) var(--dgy-ease);
+}
+
+.dgy-map__place:hover polygon {
+  fill: color-mix(in srgb, var(--dgy-jade) 30%, transparent);
+}
+
+.dgy-map__place.is-locked polygon {
+  fill: none;
+  stroke: var(--dgy-silk-faint);
+  stroke-width: 1;
+  stroke-dasharray: 5 6;
+  cursor: default;
+}
+
+.dgy-map__label {
+  font: 500 22px/1 var(--dgy-font-ui);
+  fill: var(--dgy-silk);
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--dgy-ground);
+  stroke-width: 5;
+}
+
+.dgy-map__place.is-locked .dgy-map__label {
+  fill: var(--dgy-silk-faint);
+  font-size: 18px;
+}
+
+.dgy-map__here {
+  fill: var(--dgy-gold);
+  stroke: var(--dgy-ground);
+  stroke-width: 3;
+  pointer-events: none;
+}
+
+.dgy-map__caption {
+  min-height: 2.6em;
+  margin-top: 10px;
+  font: 400 12px/1.5 var(--dgy-font-ui);
+  color: var(--dgy-silk-dim);
+}
