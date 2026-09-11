@@ -176,6 +176,10 @@ function checkToken(raw, mdFile) {
   if (!token.includes('/')) return;
   // 省略协议头的域名路径:首段含点(如 book.newdu.com/a/…)。
   if (token.split('/')[0].includes('.')) return;
+  // URL 的端口段:`http://127.0.0.1:4801/garden.html` 会被切出 `4801/garden.html`
+  // ——首段纯数字的从来不是仓库路径。(这是 1bc588ca 剥行号时留的洞,当时被
+  // 整文件白名单盖住,2026-09-11 写 PQ 计划时门自己报出来。)
+  if (/^\d{2,5}$/.test(token.split('/')[0])) return;
   const rel = relative(ROOT, mdFile);
   const fileWhy = fileAllow.get(rel);
   if (fileWhy) return exempt(rel, token, fileWhy);
