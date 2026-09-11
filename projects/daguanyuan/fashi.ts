@@ -22,6 +22,8 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildPart, partNames, type PartBuild } from '@builder/parts/registry';
 import '@builder/parts/index';
+import { setPlan, type GardenPlan } from '@builder/compose/terrain';
+import planFile from './plan.json' with { type: 'json' };
 import type { BuildingResult } from '@builder/parts/damu/building';
 import type { Provenance, ProvenanceEntry } from '@builder/derive/provenance';
 import fashiFile from '@knowledge/rules/fashi.rules.json' with { type: 'json' };
@@ -31,6 +33,9 @@ import missingFile from '@knowledge/rules/missing.rules.json' with { type: 'json
 import componentsFile from '@knowledge/rules/components.rules.json' with { type: 'json' };
 import '@engine/ui/tokens.css';
 import './fashi.css';
+
+// 构件的匾额文字从 plan.json 读(99-26),图解页渲染构件前同样注入真源。
+setPlan(planFile as unknown as GardenPlan);
 
 /* ------------------------------------------------------------------ */
 /* 规则表与构件本体的只读索引                                            */

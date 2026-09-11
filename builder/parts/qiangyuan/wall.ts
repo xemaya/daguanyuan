@@ -5,6 +5,8 @@ import { CN, plasterMaterial, stoneMaterial, tileMaterial, woodMaterial } from '
 import { roundedBox } from '@builder/parts/sculpt';
 import { Simplex, fbm2, makeRng, smoothstep, clamp, lerp } from '@engine/core/Noise';
 import { WALL_STYLE } from './wall-style';
+import { makePlaque } from '@builder/parts/xiaomu/plaque';
+import { plaqueFromPlan } from '@builder/plan/objects';
 
 /**
  * 江南园林粉墙系列。
@@ -397,17 +399,17 @@ const WIN = 1.0;
 const HALF = WIN / 2;
 const EMBED = 0.015; // 棂条插进窗套
 
-/** 线段裁到正方形 [-HALF,HALF]²;返回 null 表示全在外面。 */
-function clipToWindow(a: P2, b: P2): Seg | null {
+/** 线段裁到矩形 [-hw,hw]×[-hh,hh];返回 null 表示全在外面。 */
+function clipToRect(a: P2, b: P2, hw: number, hh: number): Seg | null {
   let t0 = 0;
   let t1 = 1;
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   const edges: [number, number][] = [
-    [-dx, a[0] + HALF], // x >= -HALF
-    [dx, HALF - a[0]], // x <= HALF
-    [-dy, a[1] + HALF],
-    [dy, HALF - a[1]],
+    [-dx, a[0] + hw], // x >= -hw
+    [dx, hw - a[0]], // x <= hw
+    [-dy, a[1] + hh],
+    [dy, hh - a[1]],
   ];
   for (const [p, q] of edges) {
     if (Math.abs(p) < 1e-9) {
@@ -425,30 +427,34 @@ function clipToWindow(a: P2, b: P2): Seg | null {
   ];
 }
 
-function onBoundary(s: Seg): boolean {
+function onBoundary(s: Seg, hw: number, hh: number): boolean {
   const eps = 1e-4;
+  const half = [hw, hh];
   const [a, b] = s;
   for (const ax of [0, 1]) {
-    if (Math.abs(Math.abs(a[ax]) - HALF) < eps && Math.abs(Math.abs(b[ax]) - HALF) < eps && Math.sign(a[ax]) === Math.sign(b[ax])) return true;
+    if (Math.abs(Math.abs(a[ax]) - half[ax]) < eps && Math.abs(Math.abs(b[ax]) - half[ax]) < eps && Math.sign(a[ax]) === Math.sign(b[ax])) return true;
   }
   return false;
 }
 
-/** 冰裂纹:抖动网格种子点的 Voronoi 边。 */
-function iceCrackSegs(seed: number): Seg[] {
+/** 冰裂纹:抖动网格种子点的 Voronoi 边。格子以短边的三分为目标,正方形时与旧方窗逐位一致。 */
+function iceCrackSegs(w: number, h: number, seed: number): Seg[] {
   const rng = makeRng(seed);
+  const cell = Math.min(w, h) / 3;
+  const nx = Math.max(2, Math.round(w / cell));
+  const ny = Math.max(2, Math.round(h / cell));
   const pts: P2[] = [];
-  const n = 3;
-  for (let j = 0; j < n; j++) {
-    for (let i = 0; i < n; i++) {
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
       pts.push([
-        -HALF + ((i + 0.5) / n) * WIN + (rng() - 0.5) * (WIN / n) * 0.75,
-        -HALF + ((j + 0.5) / n) * WIN + (rng() - 0.5) * (WIN / n) * 0.75,
+        -w / 2 + ((i + 0.5) / nx) * w + (rng() - 0.5) * (w / nx) * 0.75,
+        -h / 2 + ((j + 0.5) / ny) * h + (rng() - 0.5) * (h / ny) * 0.75,
       ]);
     }
   }
-  pts.push([(rng() - 0.5) * 0.7, (rng() - 0.5) * 0.7]);
-  pts.push([(rng() - 0.5) * 0.9, (rng() - 0.5) * 0.9]);
+  const u = Math.min(w, h);
+  pts.push([(rng() - 0.5) * 0.7 * u, (rng() - 0.5) * 0.7 * u]);
+  pts.push([(rng() - 0.5) * 0.9 * u, (rng() - 0.5) * 0.9 * u]);
 
   const segs: Seg[] = [];
   const BIG = 4;
@@ -488,7 +494,7 @@ function iceCrackSegs(seed: number): Seg[] {
         if (t0 >= t1) break;
       }
       if (t1 - t0 < 1e-4) continue;
-      const clipped = clipToWindow([mx + dx * t0, my + dy * t0], [mx + dx * t1, my + dy * t1]);
+      const clipped = clipToRect([mx + dx * t0, my + dy * t0], [mx + dx * t1, my + dy * t1], w / 2, h / 2);
       if (!clipped) continue;
       const L = Math.hypot(clipped[1][0] - clipped[0][0], clipped[1][1] - clipped[0][1]);
       if (L < 0.035) continue;
@@ -498,9 +504,12 @@ function iceCrackSegs(seed: number): Seg[] {
   return segs;
 }
 
-/** 万字不到头:卍 按旋转方格点阵 (4u,2u)/(−2u,4u) 咬合,共线笔画合并。 */
-function wanSegs(): Seg[] {
-  const u = WIN / 12;
+/** 万字不到头:卍 按旋转方格点阵 (4u,2u)/(−2u,4u) 咬合,共线笔画合并。
+ *  u 取短边 1/12,纹样保持方形、超出长边的部分裁掉("不到头"本是无限连续纹)。 */
+function wanSegs(w: number, h: number): Seg[] {
+  const u = Math.min(w, h) / 12;
+  const hw = w / 2;
+  const hh = h / 2;
   const horiz = new Map<number, [number, number][]>(); // y -> intervals in x
   const vert = new Map<number, [number, number][]>();
   const key = (v: number) => Math.round(v / u);
@@ -514,12 +523,12 @@ function wanSegs(): Seg[] {
     if (!vert.has(k)) vert.set(k, []);
     vert.get(k)!.push([Math.min(ya, yb), Math.max(ya, yb)]);
   };
-  const R = 4;
+  const R = 4 + Math.ceil(Math.max(w, h) / (8 * u)); // 高窄的隔扇格心要更多圈点才盖得住
   for (let a = -R; a <= R; a++) {
     for (let b = -R; b <= R; b++) {
       const cx = (a * 4 - b * 2) * u;
       const cy = (a * 2 + b * 4) * u;
-      if (Math.abs(cx) > HALF + 2 * u || Math.abs(cy) > HALF + 2 * u) continue;
+      if (Math.abs(cx) > hw + 2 * u || Math.abs(cy) > hh + 2 * u) continue;
       // 四臂
       addH(cy, cx - 2 * u, cx + 2 * u);
       addV(cx, cy - 2 * u, cy + 2 * u);
@@ -542,8 +551,8 @@ function wanSegs(): Seg[] {
       }
       const c = k * u;
       for (const [p, q] of out) {
-        const s = isH ? clipToWindow([p, c], [q, c]) : clipToWindow([c, p], [c, q]);
-        if (!s || onBoundary(s)) continue;
+        const s = isH ? clipToRect([p, c], [q, c], hw, hh) : clipToRect([c, p], [c, q], hw, hh);
+        if (!s || onBoundary(s, hw, hh)) continue;
         if (Math.hypot(s[1][0] - s[0][0], s[1][1] - s[0][1]) < 0.02) continue;
         segs.push(s);
       }
@@ -554,13 +563,13 @@ function wanSegs(): Seg[] {
   return segs;
 }
 
-/** 直棂条:圆角方棒,两端各多伸 EMBED 插进相邻构件。 */
-function barGeometry(s: Seg): THREE.BufferGeometry {
+/** 直棂条:两端各多伸 EMBED 插进相邻构件;plain 用直箱(细棂条倒角看不见,省 15 倍三角)。 */
+function barGeometry(s: Seg, bar: number, plain = false): THREE.BufferGeometry {
   const [a, b] = s;
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   const L = Math.hypot(dx, dy) + EMBED * 2;
-  const g = roundedBox(L, BAR, BAR, 0.009, 1);
+  const g = plain ? new THREE.BoxGeometry(L, bar, bar) : roundedBox(L, bar, bar, Math.min(0.009, bar * 0.3), 1);
   const m = new THREE.Matrix4()
     .makeTranslation((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0)
     .multiply(new THREE.Matrix4().makeRotationZ(Math.atan2(dy, dx)));
@@ -583,38 +592,44 @@ class RoseCurve extends THREE.Curve<THREE.Vector3> {
   }
 }
 
-function haitangGeometry(): THREE.BufferGeometry[] {
+function haitangGeometry(w: number, h: number, bar: number): THREE.BufferGeometry[] {
   const geos: THREE.BufferGeometry[] = [];
-  const n = 3;
-  const p = WIN / n;
+  const p = w / 3; // 花格单元边长:横向三朵
+  const ny = Math.max(1, Math.round(h / p));
   const R = p / 2 + EMBED * 0.6;
-  for (let j = 0; j < n; j++) {
-    for (let i = 0; i < n; i++) {
-      const cx = -HALF + (i + 0.5) * p;
-      const cy = -HALF + (j + 0.5) * p;
-      const tube = new THREE.TubeGeometry(new RoseCurve(cx, cy, R), 28, BAR * 0.5, 4, true);
+  const y0 = -(ny * p) / 2;
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < 3; i++) {
+      const cx = -w / 2 + (i + 0.5) * p;
+      const cy = y0 + (j + 0.5) * p;
+      const tube = new THREE.TubeGeometry(new RoseCurve(cx, cy, R), 28, bar * 0.5, 4, true);
       geos.push(tube);
     }
   }
   // 瓣尖之间的菱形空档里放一根短斜撑,把花连成整体。
-  for (let j = 0; j <= n; j++) {
-    for (let i = 0; i <= n; i++) {
-      const x = -HALF + i * p;
-      const y = -HALF + j * p;
-      if (Math.abs(x) >= HALF - 1e-6 || Math.abs(y) >= HALF - 1e-6) continue;
+  for (let j = 0; j <= ny; j++) {
+    for (let i = 0; i <= 3; i++) {
+      const x = -w / 2 + i * p;
+      const y = y0 + j * p;
+      if (Math.abs(x) >= w / 2 - 1e-6 || j === 0 || j === ny) continue;
       const d = p * 0.27;
-      geos.push(barGeometry([[x - d, y - d], [x + d, y + d]]));
-      geos.push(barGeometry([[x - d, y + d], [x + d, y - d]]));
+      geos.push(barGeometry([[x - d, y - d], [x + d, y + d]], bar));
+      geos.push(barGeometry([[x - d, y + d], [x + d, y - d]], bar));
     }
   }
   return geos;
 }
 
-function latticeGeometry(sub: string, seed: number): THREE.BufferGeometry {
+/**
+ * 格心几何:在 w×h 矩形(XY 平面,居中,z=0)里生成指定纹样的棂条并合成一份几何。
+ * 墙漏窗(1×1)与建筑隔扇门窗的格心(高大於宽)共用——PQ-2 把这组生成器
+ * 从墙垣搬到门户,纹样不变,只是裁切框变成了矩形。
+ */
+export function gexinGeometry(sub: string, w: number, h: number, bar: number, seed: number, plain = false): THREE.BufferGeometry {
   let geos: THREE.BufferGeometry[];
-  if (sub === 'wan') geos = wanSegs().map(barGeometry);
-  else if (sub === 'haitang') geos = haitangGeometry();
-  else geos = iceCrackSegs(seed).map(barGeometry);
+  if (sub === 'wan') geos = wanSegs(w, h).map((s) => barGeometry(s, bar, plain));
+  else if (sub === 'haitang') geos = haitangGeometry(w, h, bar);
+  else geos = iceCrackSegs(w, h, seed).map((s) => barGeometry(s, bar, plain));
   // 统一成非索引再合并(tube / roundedBox 属性集相同:position/normal/uv)。
   const merged = mergeGeometries(
     geos.map((g) => (g.index ? g.toNonIndexed() : g)),
@@ -653,12 +668,14 @@ function shadowed<T extends THREE.Mesh>(m: T): T {
 
 export function buildWall(variant: string, options: { length?:number; flushEnds?:boolean } = {}): PartBuild {
   // 保留纹样一级别名；路径与棚拍也可完整传入 lattice:wan 这类变体。
+  // moon 可带对象 id(moon:xiaoxiangguan.moon-gate):门额文字按 id 从 plan.json 读。
   const parts = variant.split(':');
   const SUBS = ['ice', 'wan', 'haitang'];
   const kind = SUBS.includes(parts[0]) ? 'lattice' : parts[0] || 'plain';
   const sub = SUBS.includes(parts[0]) ? parts[0] : (parts[1] ?? '');
   if (!['plain','cloud','moon','lattice'].includes(kind)) throw new Error(`未知墙体 ${variant}`);
-  if ((kind==='lattice'&&sub&&!SUBS.includes(sub))||(kind!=='lattice'&&parts.length>1))
+  if ((kind==='lattice'&&sub&&!SUBS.includes(sub))||(kind==='lattice'&&parts.length>2)||
+    (kind!=='lattice'&&kind!=='moon'&&parts.length>1)||(kind==='moon'&&parts.length>2))
     throw new Error(`未知墙体纹样 ${variant}`);
   const L = options.length ?? (kind === 'cloud' ? 8 : 6);
   if (!Number.isFinite(L)||L<.65||((kind==='moon'||kind==='lattice')&&L<4.3))throw new Error('墙段长度不能容纳该构件');
@@ -733,6 +750,22 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
     const ringGeo = extrudeSolid(ringOutline, [], 0.42, ringBevel, 3);
     projectUV(ringGeo, 0, 1.4, 1.4);
     group.add(shadowed(new THREE.Mesh(ringGeo, stone)));
+
+    // 门额:字从 plan.json 读(99-26),给不出字就是不挂——不回落字面量。
+    // 第二十六回「舉目望門上一看,只見匾上寫著『瀟湘館』三字」(07-61):匾在院门上。
+    const plaqueText = parts[1] ? plaqueFromPlan(parts[1]) : undefined;
+    if (plaqueText) {
+      const plaque = makePlaque(plaqueText, 0.95);
+      // 拱顶之上没有整段空墙(券脸顶 2.37,墙身上沿 2.44),门额骑跨券脸
+      // 上段、突出墙面,如苏园月洞门题的装法;微俯让人在洞前仰头可读。
+      plaque.position.set(0, 2.26, 0.24);
+      plaque.rotation.x = 0.08;
+      plaque.traverse((o) => {
+        o.castShadow = true;
+        o.receiveShadow = true;
+      });
+      group.add(plaque);
+    }
   }
 
   /* --- 漏窗:窗套 + 花格 --- */
@@ -748,7 +781,7 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
       projectUV(frameGeo, 0, 1.4, 1.4);
       group.add(shadowed(new THREE.Mesh(frameGeo, stone)));
 
-      const latticeGeo = latticeGeometry(sub, 1201 + idx * 977);
+      const latticeGeo = gexinGeometry(sub, WIN, WIN, BAR, 1201 + idx * 977);
       const lattice = shadowed(new THREE.Mesh(latticeGeo, wood));
       lattice.position.set(wx, cy, 0);
       group.add(lattice);

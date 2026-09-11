@@ -6,7 +6,12 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildPart, partNames } from '@builder/parts/registry';
 import '@builder/parts/index';
+import { setPlan, type GardenPlan } from '@builder/compose/terrain';
+import planFile from './plan.json' with { type: 'json' };
 import './construction';
+
+// 构件的匾额文字从 plan.json 读(99-26),棚拍台也要注入真源,否则门额/檐下匾不挂。
+setPlan(planFile as unknown as GardenPlan);
 
 /**
  * 构件棚拍台。

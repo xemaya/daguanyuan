@@ -10,12 +10,13 @@ import {
   plasterMaterial,
   stoneMaterial,
   paperMaterial,
-  lacquerMaterial,
-  goldMaterial,
 } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { makeRng, smoothstep, lerp, clamp } from '@engine/core/Noise';
 import { mergeByMaterial } from '@builder/parts/merge';
+import { makePlaque } from '@builder/parts/xiaomu/plaque';
+import { gexinGeometry } from '@builder/parts/qiangyuan/wall';
+import { plaqueFromPlan } from '@builder/plan/objects';
 import {compileRearDoor,compileExteriorSteps,type RearDoorSpec,type StairSpec,type WalkSurface} from '@builder/plan/building-access';
 
 /**
@@ -54,6 +55,8 @@ export interface BuildingOptions {
   wallMaterial?: 'plaster' | 'stone';
   /** 当心间中间两扇门开着(默认开)。 */
   doorOpen?: boolean;
+  /** 格扇/槛窗的格心纹样:给了就换用墙垣的格心生成器(PQ-2);缺省保留步步锦。 */
+  lattice?: 'ice' | 'wan' | 'haitang';
   seed?: number;
 }
 
@@ -191,65 +194,11 @@ function ridgeTube(points: THREE.Vector3[], r: number, mat: THREE.Material): THR
 }
 
 /* ------------------------------------------------------------------ */
-/* 匾额                                                                */
-/* ------------------------------------------------------------------ */
-
-function plaqueTexture(text: string, w = 512, h = 192): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const g = c.getContext('2d')!;
-  g.fillStyle = '#1c1a18';
-  g.fillRect(0, 0, w, h);
-  // 金字:楷体优先,系统缺字体时退到衬线。
-  g.fillStyle = '#c9a84c';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  const n = Math.max(1, text.length);
-  const size = Math.min(h * 0.7, (w * 0.86) / n);
-  g.font = `bold ${size}px "STKaiti","KaiTi","Kaiti SC","Noto Serif SC","Songti SC",serif`;
-  const gap = size * 1.06;
-  const x0 = w / 2 - ((n - 1) * gap) / 2;
-  for (let i = 0; i < n; i++) g.fillText(text[i], x0 + i * gap, h / 2 + size * 0.04);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  return tex;
-}
-
-function makePlaque(text: string, width: number): THREE.Group {
-  const g = new THREE.Group();
-  const h = width * 0.36;
-  const board = new THREE.Mesh(roundedBox(width, h, 0.06, 0.012, 3), lacquerMaterial());
-  const face = new THREE.Mesh(
-    new THREE.PlaneGeometry(width * 0.94, h * 0.84),
-    new THREE.MeshStandardMaterial({ map: plaqueTexture(text), roughness: 0.4, metalness: 0.2 }),
-  );
-  face.position.z = 0.032;
-  board.castShadow = true;
-  g.add(board, face);
-  // 金边:四条细条。
-  const edge = goldMaterial();
-  const t = 0.02;
-  for (const [x, y, sx, sy] of [
-    [0, h / 2 - t / 2, width, t],
-    [0, -h / 2 + t / 2, width, t],
-    [-width / 2 + t / 2, 0, t, h],
-    [width / 2 - t / 2, 0, t, h],
-  ]) {
-    const e = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, 0.012), edge);
-    e.position.set(x, y, 0.036);
-    g.add(e);
-  }
-  return g;
-}
-
-/* ------------------------------------------------------------------ */
 /* 格扇                                                                */
 /* ------------------------------------------------------------------ */
 
-/** 一扇格扇:上部花格(万字/方格)、下部裙板。 */
-function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Material, seed: number): THREE.Group {
+/** 一扇格扇:上部花格(万字/冰裂/步步锦)、下部裙板。 */
+function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Material, seed: number, pattern?: 'ice' | 'wan' | 'haitang'): THREE.Group {
   const g = new THREE.Group();
   const bar = 0.035;
   const frameD = 0.05;
@@ -276,7 +225,8 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
   skirt.position.set(0, (-h / 2 + split) / 2, 0);
   skirt.receiveShadow = true;
   g.add(skirt);
-  // 花格:窗纸打底,上面方格棂条(带一点错位的"步步锦")。
+  // 花格:窗纸打底。给了纹样就用墙垣的格心生成器(PQ-2,直箱棂条),
+  // 没给保留带错位的"步步锦"方格。
   const gy0 = split + bar * 2.2;
   const gy1 = h / 2 - bar;
   const gh = gy1 - gy0;
@@ -284,6 +234,14 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
   const p = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh), paper);
   p.position.set(0, (gy0 + gy1) / 2, 0);
   g.add(p);
+  if (pattern) {
+    const lattice = new THREE.Mesh(gexinGeometry(pattern, gw, gh, 0.02, seed, true), mat);
+    lattice.position.set(0, (gy0 + gy1) / 2, 0);
+    lattice.castShadow = true;
+    lattice.receiveShadow = true;
+    g.add(lattice);
+    return g;
+  }
   const rng = makeRng(seed);
   const nx = Math.max(2, Math.round(gw / 0.14));
   const ny = Math.max(3, Math.round(gh / 0.14));
@@ -387,6 +345,29 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const colH = m.columnH;
   const colR = m.columnD / 2;
   const columns: { x: number; z: number; h: number }[] = [];
+  // 柱础线脚:方礅之上车一圈覆盆轮廓。覆盆高 = 0.1×础方、盆唇厚 = 0.01×础方,
+  // 是法式卷三 [03-23] 的比例(derive 层只消费了 03-21 的础方,这里在构件层落地);
+  // 鼓镜的弧线书里无形制,为观感取值,收工时记进 provenance.art。
+  const fupenH = Math.max(0.05, m.base * 0.1);
+  const lipT = Math.max(0.006, m.base * 0.01);
+  const baseLathe = new THREE.LatheGeometry(
+    [
+      new THREE.Vector2(m.base * 0.47, 0),
+      new THREE.Vector2(m.base * 0.47, lipT * 1.6),
+      new THREE.Vector2(colR * 1.34, fupenH * 0.58),
+      new THREE.Vector2(colR * 1.2, fupenH - lipT),
+      new THREE.Vector2(colR * 1.26, fupenH - lipT),
+      new THREE.Vector2(colR * 1.26, fupenH),
+      new THREE.Vector2(colR * 0.98, fupenH + 0.004),
+    ],
+    18,
+  );
+  fr.provenance.art.push({
+    id: 'project:column-base-molding',
+    name: '柱础覆盆线脚轮廓',
+    method: 'artistic_choice',
+    note: '覆盆高 0.1×础方、盆唇厚 0.01×础方按法式卷三 [03-23](该条由构件层消费,derive 层只取了 03-21 的础方);鼓镜弧线无形制依据,为观感取值。',
+  });
   const addColumn = (x: number, z: number, rise: number) => {
     const h = colH + rise;
     // 梭柱:上三分之一微收 [03-06]。
@@ -396,13 +377,15 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     c.castShadow = true;
     c.receiveShadow = true;
     root.add(c);
-    // 柱础:方 2D,覆盆。
+    // 柱础:方 2D,上承车削覆盆。
     const base = new THREE.Mesh(roundedBox(m.base, 0.1, m.base, 0.02, 2), stone);
     base.position.set(x, platH + 0.05, z);
     base.receiveShadow = true;
     root.add(base);
-    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(colR * 1.25, m.base * 0.48, 0.07, 18), stone);
-    bowl.position.set(x, platH + 0.135, z);
+    const bowl = new THREE.Mesh(baseLathe, stone);
+    bowl.position.set(x, platH + 0.1, z);
+    bowl.castShadow = true;
+    bowl.receiveShadow = true;
     root.add(bowl);
     columns.push({ x, z, h });
     blockers.push({ cx: x, cz: z, hx: colR + 0.02, hz: colR + 0.02, h: platH + h });
@@ -436,6 +419,65 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     for (const x of [colXs[0], colXs[colXs.length - 1]]) addBeam(x, rowsZ[0] + 0.15, x, rowsZ[1] - 0.15, pupai, m.lan.t * 1.3, lanTop + pupai, wood);
   }
   root.add(ring);
+
+  /* ---- 雀替 --------------------------------------------------------- */
+  // 柱梁交接处的托脚:轮廓在交接处断一下,"木构"的信息就给足了。
+  // 规则表没有雀替条目(fashi/qing/fayuan/missing 已查):长取净跨 1/4、
+  // 高同阑额,是清式江南小式的常见比例,不是条文——收工时记 provenance.art。
+  {
+    const qH = Math.max(0.12, m.lan.w);
+    const qT = Math.min(0.08, colR * 0.5);
+    const beamBottom = lanTop - m.lan.w - 0.003; // 顶面比阑额底低 3mm,不共面
+    const qCache = new Map<number, THREE.BufferGeometry>();
+    const quetieGeo = (L: number) => {
+      const key = Math.round(L * 200) / 200;
+      let g = qCache.get(key);
+      if (!g) {
+        const s = new THREE.Shape();
+        s.moveTo(0, 0);
+        s.lineTo(L, 0);
+        s.quadraticCurveTo(L * 0.92, -qH * 0.42, L * 0.45, -qH * 0.82);
+        s.quadraticCurveTo(L * 0.16, -qH, 0, -qH);
+        s.closePath();
+        g = new THREE.ExtrudeGeometry(s, { depth: qT, bevelEnabled: false, curveSegments: 6 });
+        g.translate(0, 0, -qT / 2);
+        qCache.set(key, g);
+      }
+      return g;
+    };
+    const addQuetie = (x: number, z: number, L: number, rotY: number) => {
+      const q = new THREE.Mesh(quetieGeo(L), wood);
+      q.position.set(x, beamBottom, z);
+      q.rotation.y = rotY;
+      q.castShadow = true;
+      q.receiveShadow = true;
+      root.add(q);
+    };
+    for (const z of rowsZ) {
+      for (let i = 0; i < colXs.length; i++) {
+        for (const dir of [-1, 1]) {
+          const j = i + dir;
+          if (j < 0 || j >= colXs.length) continue;
+          const span = Math.abs(colXs[j] - colXs[i]) - colR * 2;
+          const L = clamp(span * 0.25, 0.2, 0.9);
+          addQuetie(colXs[i] + dir * colR * 0.8, z, L, dir > 0 ? 0 : Math.PI);
+        }
+      }
+    }
+    // 山面(两山顺梁)的角柱也各带一只。
+    for (const x of [colXs[0], colXs[colXs.length - 1]]) {
+      const span = rowsZ[0] - rowsZ[1] - colR * 2;
+      const L = clamp(span * 0.25, 0.2, 0.9);
+      addQuetie(x, rowsZ[0] - colR * 0.8, L, Math.PI / 2);
+      addQuetie(x, rowsZ[1] + colR * 0.8, L, -Math.PI / 2);
+    }
+    fr.provenance.art.push({
+      id: 'project:quetie-proportions',
+      name: '雀替比例',
+      method: 'artistic_choice',
+      note: '规则表无雀替条目;长取净跨 1/4、高同阑额,为清式江南小式常见比例的观感取值。',
+    });
+  }
 
   /* ---- 铺作(简化) -------------------------------------------------- */
   const puzuoTop = lanTop + pupai + m.puzuoH;
@@ -540,6 +582,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
 
   const roofGroup = new THREE.Group();
   roofGroup.name = 'Roof';
+  // 屋面各面的剖面参数,椽与连檐共用。
+  const faces: { halfWidth: (s: number) => number; zTip: number; sMax: number; rotY: number }[] = [];
   const addSurface = (geoTop: THREE.BufferGeometry, geoBot: THREE.BufferGeometry, rotY: number) => {
     const top = new THREE.Mesh(geoTop, tile);
     const bot = new THREE.Mesh(geoBot, underside);
@@ -552,6 +596,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   };
 
   const mkPair = (halfWidth: (s: number) => number, zTip: number, sMax: number, rotY: number) => {
+    faces.push({ halfWidth, zTip, sMax, rotY });
     const common = { pts, sMax, zTip, halfWidth, lift, push, cols: 40, uScale, vScale };
     addSurface(
       buildSlope({ ...common, offset: 0 }),
@@ -624,6 +669,46 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     eaveEdge(() => tipX, tipZ, Math.PI);
     eaveEdge(() => tipZ, tipX, Math.PI / 2);
     eaveEdge(() => tipZ, tipX, -Math.PI / 2);
+  }
+
+  /* ---- 椽(望板下那排) ---------------------------------------------- */
+  // 椽径、椽心距出自推导链([04-12]/[05-02] → m.rafterDia,[05-03] → m.rafterPitch),
+  // 布椽令一间当间心 [05-03]:椽位对中线对称布。角部不做辐射扇形角椽,
+  // 直椽按各面 halfWidth 的收进裁短——从廊下仰视读的是"一排椽",不是角部做法。
+  {
+    const rd = m.rafterDia;
+    const rh = rd * 1.15;
+    const s0 = 0.07; // 让开连檐封边
+    for (const face of faces) {
+      const hwEave = face.halfWidth(0);
+      const n = Math.max(2, Math.round((hwEave * 2 - 0.1) / m.rafterPitch));
+      for (let i = 0; i <= n; i++) {
+        const x0 = lerp(-hwEave + 0.05, hwEave - 0.05, i / n);
+        // 这根椽能走到的最里 s:歇山角部 45° 收进与攒尖收尖会把角椽裁短。
+        let sEnd = Math.min(prof.sEave + 0.15, face.sMax);
+        while (sEnd > s0 + 0.15 && face.halfWidth(sEnd) < Math.abs(x0) + rd) sEnd -= 0.04;
+        if (sEnd <= s0 + 0.15) continue;
+        const y0 = profileY(pts, s0) + lift(x0, s0, face.halfWidth(s0)) - thick;
+        const y1 = profileY(pts, sEnd) + lift(x0, sEnd, face.halfWidth(sEnd)) - thick;
+        const sMid = (s0 + sEnd) / 2;
+        const len = Math.hypot(sEnd - s0, y1 - y0);
+        const theta = Math.atan2(y1 - y0, sEnd - s0);
+        const geo = roundedBox(rd, rh, len, Math.min(0.012, rd * 0.18), 1);
+        geo.rotateX(Math.PI + theta);
+        const r = new THREE.Mesh(geo, wood);
+        // 位置也要绕屋中心转 rotY——各坡面的局部坐标系不一致,直接塞局部坐标
+        // 会把背坡的椽翻到前坡上方。
+        const lx = x0 + push(x0, sMid, face.halfWidth(sMid));
+        const lz = face.zTip - sMid;
+        const ca = Math.cos(face.rotY);
+        const sa = Math.sin(face.rotY);
+        r.position.set(lx * ca + lz * sa, (y0 + y1) / 2 - rh / 2 + 0.03, -lx * sa + lz * ca);
+        r.rotation.y = face.rotY;
+        r.castShadow = true;
+        r.receiveShadow = true;
+        roofGroup.add(r);
+      }
+    }
   }
 
   /* ---- 脊 --------------------------------------------------------- */
@@ -773,7 +858,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     addWall(x0,z0,x1,z1,sillH,platH);
     const panels = Math.max(2, Math.ceil(len / 0.85));
     for (let k=0;k<panels;k++) {
-      const g = makeGeshan(len/panels-.015,wallH-sillH-.08,wood,paper,seed+80+k);
+      const g = makeGeshan(len/panels-.015,wallH-sillH-.08,wood,paper,seed+80+k,opts.lattice);
       const t = (k+.5)/panels;
       g.position.set(lerp(x0,x1,t),platH+sillH+(wallH-sillH)/2,lerp(z0,z1,t));
       g.rotation.y=rotation;
@@ -824,7 +909,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     const bx0 = colXs[0] + colR;
     const by = platH + (wallH - 0.1) / 2 + 0.05;
     for (let k = 0; k < 4; k++) {
-      const g = makeGeshan(gw - 0.01, wallH - 0.1, wood, paper, seed + 40 + k);
+      const g = makeGeshan(gw - 0.01, wallH - 0.1, wood, paper, seed + 40 + k, opts.lattice);
       if (k === 0 || k === 3) {
         g.position.set(bx0 + gw * (k + 0.5), by, rowsZ[1]);
         root.add(g);
@@ -858,7 +943,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       if (isCenter) {
         const py = platH + (wallH - 0.1) / 2 + 0.05;
         for (let k = 0; k < n; k++) {
-          const g = makeGeshan(gw - 0.01, wallH - 0.1, wood, paper, seed + k + i * 10);
+          const g = makeGeshan(gw - 0.01, wallH - 0.1, wood, paper, seed + k + i * 10, opts.lattice);
           if (k === 0 || k === 3) {
             g.position.set(x0 + gw * (k + 0.5), py, z);
             root.add(g);
@@ -887,7 +972,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
         cap.position.set((x0 + x1) / 2, platH + sillH + 0.04, z);
         root.add(cap);
         for (let k = 0; k < n; k++) {
-          const g = makeGeshan(gw - 0.01, wallH - sillH - 0.16, wood, paper, seed + k + i * 10);
+          const g = makeGeshan(gw - 0.01, wallH - sillH - 0.16, wood, paper, seed + k + i * 10, opts.lattice);
           g.position.set(x0 + gw * (k + 0.5), platH + sillH + 0.08 + (wallH - sillH - 0.16) / 2, z);
           root.add(g);
         }
@@ -990,7 +1075,8 @@ export function tingSpec(): BuildingOptions {
       columnDiameterFen: 22,
       rafterDiaFen: 6.5,
     },
-    plaque: '沁芳',
+    // 匾额文字只从 plan.json 读(missing 99-26):预设不写字面量。
+    plaque: plaqueFromPlan('qinfang_ting_qiao.pavilion'),
     railing: true,
     railingSides: ['e', 'w'],
     platformH: 0.4,
@@ -1020,6 +1106,7 @@ export function tangSpec(): BuildingOptions {
     // 上,见 knowledge/docs/qingshi/07-honglou.md 07-71 与 docs/ROADMAP.md §PQ-7。
     front: 'door',
     sides: 'wall',
+    lattice: 'ice', // 格心冰裂纹(墙垣生成器,PQ-2);纹样选择无原文依据,是清幽向的艺术选择
     platformH: 0.45,
   };
 }
@@ -1067,10 +1154,13 @@ export function menSpec(): BuildingOptions {
       columnDiameterFen: 28,
       rafterDiaFen: 7,
     },
-    plaque: '大观园',
+    // 匾额文字只从 plan.json 读(missing 99-26)。注意:plan 里 zhengmen.main-gate
+    // 的 plaque 目前是 null——正门是否挂「大观园」是 PQ-7 的数据决定,不在这里写回来。
+    plaque: plaqueFromPlan('zhengmen.main-gate'),
     front: 'door',
     back: 'door',
     sides: 'wall',
+    lattice: 'wan', // 第十七回「门栏窗槅皆是细雕新鲜花样」:万字不到头
     wallMaterial: 'stone',
     platformH: 0.5,
     chuji: 0.45,

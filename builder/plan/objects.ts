@@ -1,3 +1,5 @@
+import { getPlan } from '../compose/terrain';
+
 /** Stable identities for plan objects. Human titles may change as research is
  * refined; they must never silently select a different building or rock.
  */
@@ -34,6 +36,27 @@ export function requirePlanAnchor(region: AnchorRegion, id: string): NamedPlanAn
   const anchor = matches[0];
   if (!Number.isFinite(anchor.x) || !Number.isFinite(anchor.z)) throw new Error(`[plan] ${id} 坐标非法`);
   return anchor;
+}
+
+/**
+ * 匾额文字的单一真源是 plan.json 的 regions[].buildings[].plaque(missing 99-26):
+ * 构件与预设不写字面量,按稳定 id 来这里取;取到 null 就是不挂——
+ * 屏幕上少一块匾是数据的话,不是构件的话。
+ * plan 未注入时(棚拍台之外的环境、纯推导单测)返回 undefined,同样不回落字面量。
+ */
+export function plaqueFromPlan(objectId: string): string | undefined {
+  let plan: unknown;
+  try {
+    plan = getPlan();
+  } catch {
+    return undefined;
+  }
+  const regions = (plan as { regions?: { buildings?: { id: string; plaque?: string | null }[] }[] }).regions ?? [];
+  for (const region of regions) {
+    const hit = (region.buildings ?? []).find((b) => b.id === objectId);
+    if (hit) return hit.plaque ?? undefined;
+  }
+  return undefined;
 }
 
 export function validatePlanObjects(regions: AnchorRegion[]): string[] {

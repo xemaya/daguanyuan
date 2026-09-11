@@ -20,10 +20,12 @@ export function buildWallPath(spec:WallPathSpec):WallPathResult {
   const path=compileWallPath(spec),root=new THREE.Group(),cache=new Map<string,THREE.Object3D>();
   root.name=spec.id;
   for(const panel of path.panels) {
-    const key=JSON.stringify([panel.variant,panel.length,panel.startMiter,panel.endMiter,spec.foundationDepth_m]);
+    // 月洞门的嵌件带 plan 对象 id 时一并传入,门额文字由 wall.ts 按 id 从 plan.json 读(99-26)。
+    const variant=panel.variant==='moon'&&panel.insert?.object?`moon:${panel.insert.object}`:panel.variant;
+    const key=JSON.stringify([variant,panel.length,panel.startMiter,panel.endMiter,spec.foundationDepth_m]);
     let prototype=cache.get(key);
     if(!prototype) {
-      prototype=buildWall(panel.variant,{length:panel.length,flushEnds:true}).root;
+      prototype=buildWall(variant,{length:panel.length,flushEnds:true}).root;
       if(spec.foundationDepth_m>0) {
         const footing=new THREE.Mesh(roundedBox(panel.length,spec.foundationDepth_m,WALL_STYLE.footHalf*2,.015,2),stoneMaterial(1));
         footing.position.y=-spec.foundationDepth_m/2;

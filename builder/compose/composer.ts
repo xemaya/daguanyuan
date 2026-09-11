@@ -12,6 +12,7 @@ import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
 import { getPlan } from './terrain';
 import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
+import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
 
 /**
  * 装配器:把构件按 scene 表放进园子,并把每类构件的落脚(平台)与阻挡登记
@@ -346,6 +347,38 @@ function shoreStones(
   return out;
 }
 
+/**
+ * 灯笼吊点(局部坐标)。第五十三回「大觀園正門上也挑著大明角燈,兩溜高照,
+ * 各處皆有路燈」(honglou 07-70):正门次间檐下两盏,沁芳亭与潇湘馆正房各取一处。
+ * 只给一两种灯、每处一两盏——那条"存疑"驳的是十种灯型并列,不是驳挂灯。
+ * **不配 PointLight**:纸面 emissive 已经够亮(见 xiaomu/lantern.ts)。
+ */
+function lanternSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: number; hangY: number }[] | null {
+  if (built.kind !== 'building') return null;
+  const b = built as BuildingResult;
+  const m = b.frame.m;
+  const front = m.depthHalf + 0.3; // 阑额外皮一线,吊在檐下
+  // 悬挂点贴在阑额下皮;灯底低于台面 2.05m 就不挂(通行净空)。
+  const hangY = b.platform.y + m.columnH + m.puzuoH - 0.03;
+  if (hangY - LANTERN_DROP < b.platform.y + 2.05) return null;
+  if (p.part === 'building' && p.variant === 'men') {
+    const x = m.columnX;
+    return [
+      { lx: (x[1] + x[2]) / 2, lz: front, hangY },
+      { lx: (x[x.length - 3] + x[x.length - 2]) / 2, lz: front, hangY },
+    ];
+  }
+  if (p.variant === 'qinfang_ting_qiao.pavilion') return [{ lx: 0, lz: front, hangY }];
+  if (p.variant === 'xiaoxiangguan.main-house') {
+    const mid = (m.columnX[0] + m.columnX[m.columnX.length - 1]) / 2;
+    return [
+      { lx: mid - m.width / 4, lz: front, hangY },
+      { lx: mid + m.width / 4, lz: front, hangY },
+    ];
+  }
+  return null;
+}
+
 export function buildGarden(ctx: GameContext): void {
   const ground = ctx.collision.terrainHeight;
   const pond = pondEllipse();
@@ -389,6 +422,7 @@ export function buildGarden(ctx: GameContext): void {
   const staticGroup = new THREE.Group();
 
   let calls = 0;
+  const lanternSpots: { x: number; y: number; z: number }[] = [];
   for (const p of all) {
     const key = `${p.part}:${p.variant ?? 'default'}`;
     let part = cache.get(key);
@@ -431,6 +465,12 @@ export function buildGarden(ctx: GameContext): void {
 
     registerColliders(ctx, p.part, p.variant ?? 'default', part, wx, y, wz, yaw);
 
+    // 灯笼挂在檐下(07-70):跟着建筑走,不是独立摆件。
+    for (const s of lanternSpotsFor(p, part) ?? []) {
+      const [lx, lz] = toWorld(wx, wz, yaw, s.lx, s.lz);
+      lanternSpots.push({ x: lx, y: y + s.hangY, z: lz });
+    }
+
     if (p.pier) {
       // 从地面(池底)砌一块青石墩到构件底面。
       const b = part as BuildingResult;
@@ -444,6 +484,17 @@ export function buildGarden(ctx: GameContext): void {
       pier.receiveShadow = true;
       pier.castShadow = true;
       group.add(pier);
+    }
+  }
+  if (lanternSpots.length) {
+    const lantern = buildPart('lantern', 'gong', { ground });
+    if (lantern) {
+      for (const s of lanternSpots) {
+        const l = lantern.root.clone();
+        l.position.set(s.x, s.y, s.z);
+        l.name = '灯笼';
+        staticGroup.add(l);
+      }
     }
   }
   const merged = assembleStatic(staticGroup);
