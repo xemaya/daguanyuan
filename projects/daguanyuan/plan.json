@@ -2007,7 +2007,7 @@
           "facing": "south",
           "x": 55,
           "z": 236,
-          "plaque": null,
+          "plaque": "大观园",
           "id": "zhengmen.main-gate",
           "kind": "building",
           "construction": {
