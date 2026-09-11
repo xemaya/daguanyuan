@@ -185,6 +185,12 @@ WG 不在关键路径上,但**它是 PX 的前置**:PX 要写一整套体积云 
 
 **判据**：同一条游线上，200 米处的物体仍能分辨轮廓与固有色；远山与天不是同一个白。
 
+**②′ 景深的距离（2026-09-11 追加，修完雾才露出来）。**
+`PostFX.ts` 的 `dofFar: 58` 同样是按 64×72 m 园子调的——那时园墙就在 58 m 外，
+意思是"最远一线发虚"。切到 280×226 m 后 `smoothstep(26, 58, d)` 让**整个远景满档虚化**，
+12 个采样点的螺旋核散成一片，亮处因 luma 加权糊出色边。**已改 220 m**（`89fd8139`）。
+**这是第三处同病，判别标准见 `docs/PITFALLS.md` P-17。**
+
 **② AO 半径 0.42 米——那是细节 AO，没有空间 AO。**
 
 `engine/core/PostFX.ts:445` 的 GTAO `radius: 0.42`。这个尺度能压暗石缝、叶根，
@@ -411,7 +417,7 @@ PQ-2（门户格心）、PQ-3（驳岸）、P3（铺地 → `pudi/` 开张、真
 
 | 件 | 碰的文件 | 前置 |
 |---|---|---|
-| PQ-0 ①② 雾与 AO | `engine/render/Atmosphere.ts`、`engine/core/PostFX.ts` | 无，但与 WG 的后期重建冲突,要在 WG 之前做完 |
+| PQ-0 雾 / AO / 景深 | `engine/render/Atmosphere.ts`、`engine/core/PostFX.ts` | 无，但与 WG 的后期重建冲突,要在 WG 之前做完 |
 | PQ-1 廊下四件、PQ-2 格心 | `builder/parts/xiaomu/`（新）、`builder/parts/damu/building.ts`、`builder/parts/qiangyuan/` | 无 |
 | PQ-3 排水渠 | 新构件 + `builder/compose/composer.ts` | P1 Task 6 |
 | PQ-4 花池 | `builder/parts/zhiwu/vegetation.ts` | P1 Task 6 与 Task 7（两边都在改它） |
