@@ -442,9 +442,17 @@ export class PostFX {
     this.gtao.output = GTAOPass.OUTPUT.Default;
     this.gtao.blendIntensity = 0.9;
     this.gtao.updateGtaoMaterial({
-      radius: 0.42,
+      // 0.42 m was tuned for crevice-scale detail (stone joints, leaf bases) in
+      // the small garden. It cannot occlude a 3 m corridor volume, so the
+      // corridor ceiling read as one flat grey board with no depth gradient.
+      // 2.4 m reaches across a bay: the eave underside darkens progressively
+      // toward the corridor's deep end, while near-field samples inside the
+      // same radius still ground column bases and stone joints.
+      radius: 2.4,
       distanceExponent: 1.2,
-      thickness: 0.65,
+      // Thickness scales with the radius so distant geometry behind a wall
+      // does not bleed shadow through it at the larger reach.
+      thickness: 1.4,
       scale: 1.15,
       samples: 16,
       distanceFallOff: 1.0,
@@ -527,7 +535,13 @@ export class PostFX {
     const bw = Math.floor(w * pr);
     const bh = Math.floor(h * pr);
     this.gbuffer.setSize(bw, bh);
-    this.gtao.setSize(bw, bh);
+    // AO at half resolution. It is a low-frequency signal and the composite
+    // upsamples it bilinearly, so full-res only buys aliasing the denoiser
+    // already hides — while the metre-scale radius (2.4 m) makes the
+    // screen-space kernel large enough that full-res GTAO costs 10–18% of
+    // frame rate on the long sightlines. The shared G-buffer stays full-res;
+    // GTAO only samples it, so no information is lost to the downsample.
+    this.gtao.setSize(Math.floor(bw / 2), Math.floor(bh / 2));
     // GTAOPass.setSize() resizes the internal G-buffer target it no longer
     // renders to. Shrink it back so it does not sit on a full-res colour +
     // depth attachment for nothing. (Not in the published typings.)

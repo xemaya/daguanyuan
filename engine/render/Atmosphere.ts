@@ -162,11 +162,20 @@ export function buildAtmosphere(ctx: GameContext): void {
   /* ---------------------------------------------------------------- */
 
   // Exponential-squared so the near and mid ground stay completely clear and
-  // only the far treeline and the sea pick up the blue. Tuned against the
-  // dome's own horizon radiance so distant geometry dissolves into the sky
-  // instead of silhouetting against it.
-  const fogColor = horizonColor.clone().lerp(hazeColor, 0.18).multiplyScalar(SKY_INTENSITY * 0.84);
-  const fog = new THREE.FogExp2(0xffffff, 0.0031);
+  // only the far walls and hills pick up the haze. The density was tuned for
+  // the old 80 m garden; at the current 200–300 m sightlines 0.0031 put 32–58%
+  // of fog on the enclosing wall and hills, dissolving them into a white wall.
+  // At 0.0017 the obscuration 1−exp(−(d·ρ)²) is 3% at 100 m, 11% at 200 m,
+  // 23% at 300 m — a depth cue, not an eraser.
+  //
+  // Colour carries the other half of the fix. The old mix (lerp 0.18, ×0.84)
+  // landed brighter than the sky's own horizon after ACES, so fogged geometry
+  // and sky converged to the same near-white and the horizon read as one flat
+  // sheet. Pulling the mix toward the horizon swatch and down to ×0.68 makes
+  // distance fade into a slightly deeper blue-grey than the sky — a coloured
+  // gradient (aerial perspective), not a white wall and not no fog.
+  const fogColor = horizonColor.clone().lerp(hazeColor, 0.08).multiplyScalar(SKY_INTENSITY * 0.68);
+  const fog = new THREE.FogExp2(0xffffff, 0.0017);
   fog.color.copy(fogColor);
   stage.fog = fog;
 
