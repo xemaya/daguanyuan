@@ -22,7 +22,8 @@ test('29 evidence events compile to 28 contiguous legs and an actual planning mi
   assert.ok(sampled[i].distance>sampled[i-1].distance);
   assert.ok(sampled[i].distance-sampled[i-1].distance<=1+1e-9);
  }
- assert.equal(audit.access.find(a=>a.object==='xiaoxiangguan.main-house').contractSatisfied,false,'rear wall remains a reported P2 access requirement');
+ assert.ok(audit.access.every(a=>a.contractSatisfied&&a.routeAligned));
+ assert.equal(audit.access.find(a=>a.object==='yihongyuan.main-house').geometryAvailable,false,'a compound passage contract is not a built house');
  assert.ok(source.nodes[4].at[1]<source.nodes[3].at[1],'leaving the cave proceeds north to Qinfang');
  assert.equal(audit.routes[0].waterCrossings.filter(s=>['ch17.e16','ch17.e17'].includes(s.leg)).length,0,'west-bank observation and ascent avoid extra creek crossings');
 });

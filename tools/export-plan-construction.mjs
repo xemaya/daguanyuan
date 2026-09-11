@@ -11,4 +11,5 @@ console.log(JSON.stringify({total:a.total,meshFactories:a.meshFactories,frameOnl
  objects:a.objects.map(o=>({id:o.id,footprints:o.footprints,
    meshFactoryAvailable:o.compiled.meshFactoryAvailable,totalHeight:o.compiled.totalHeight,
    modules:o.compiled.modules.map(m=>({id:m.id,at:m.at,roofMode:m.roofMode,dimensions:m.frame.m,provenance:m.frame.provenance})),
-   gallery:o.compiled.gallery,boat:o.compiled.boat,site:o.compiled.site,pendingGeometry:o.compiled.pendingGeometry}))}));
+   gallery:o.compiled.gallery,boat:o.compiled.boat,site:o.compiled.site,passage:o.compiled.passage,rearDoor:o.compiled.rearDoor,
+   walkSurfaces:o.compiled.walkSurfaces,pendingGeometry:o.compiled.pendingGeometry}))}));

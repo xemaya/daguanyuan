@@ -6,6 +6,7 @@ export interface FayuanAssemblySpec {
   secondary?:{spec:FayuanBuildingSpec;floorHeightM?:number;roofMode:'full';};
   gallery?:{section:FayuanBuildingSpec;clearWidthM:number};
   boat?:{entry:'south';clearWidthM:number;clearHeightM:number;berthLengthM:number;berthWidthM:number;draftM:number;sideWalkWidthM:number;waterRef:string};
+  passage?:{axisXM:number;widthM:number;heightM:number;entry:'annex.south';exit:'main.north';note:string};
   design:{note:string;source:string};
 }
 
@@ -57,7 +58,23 @@ export function deriveFayuanAssembly(spec:FayuanAssemblySpec) {
       throw new Error('舡坞泊位与通舟口净空不足，内部不得有挡船柱');
     pendingGeometry.push('side-walks-no-central-slab','water-footings');
   } else if(boat)throw new Error('通舟口只属于舡坞');
+  let passage:null|{width:number;height:number;ports:{id:string;at:[number,number];side:'south'|'north'|'shared'}[]}=null;
+  if(spec.passage) {
+    const p=spec.passage;
+    if(spec.form!=='baoxia'||!other||p.entry!=='annex.south'||p.exit!=='main.north'||!p.note?.trim())throw new Error('当前穿堂契约仅接抱厦前入、主屋后出');
+    if(!Number.isFinite(p.axisXM)||!Number.isFinite(p.widthM)||!Number.isFinite(p.heightM)||p.widthM<=0||p.heightM<=0)throw new Error('穿堂净口须为有限正数');
+    for(const frame of [main,other]) {
+      const m=frame.m,left=p.axisXM-p.widthM/2,right=p.axisXM+p.widthM/2;
+      if(p.heightM>m.columnH-m.lan.w||!m.columnX.slice(1).some((x,i)=>left>=m.columnX[i]+m.columnD/2&&right<=x-m.columnD/2))
+        throw new Error('穿堂净口碰柱或穿梁');
+    }
+    passage={width:p.widthM,height:p.heightM,ports:[
+      {id:'entry',at:[p.axisXM,main.m.depthHalf+other.m.depth],side:'south'},
+      {id:'shared-wall',at:[p.axisXM,main.m.depthHalf],side:'shared'},
+      {id:'exit',at:[p.axisXM,-main.m.depthHalf],side:'north'}]};
+    pendingGeometry.push('through-house-openings');
+  }
   main.provenance.art.push({id:'project:compound-layout',name:'复合平面及接缝选择',method:'artistic_choice',
     note:`${spec.design.note}；出处=${spec.design.source}；输入=${JSON.stringify(spec)}`});
-  return {paramSet:'fayuan-assembly' as const,modules,gallery,boat,pendingGeometry,geometryReady:false as const};
+  return {paramSet:'fayuan-assembly' as const,modules,gallery,boat,passage,pendingGeometry,geometryReady:false as const};
 }

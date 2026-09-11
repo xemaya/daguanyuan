@@ -15,6 +15,7 @@ import {
 import { roundedBox } from '@builder/parts/sculpt';
 import { makeRng, smoothstep, lerp, clamp } from '@engine/core/Noise';
 import { mergeByMaterial } from '@builder/parts/merge';
+import {compileRearDoor,compileExteriorSteps,type RearDoorSpec,type StairSpec,type WalkSurface} from '@builder/plan/building-access';
 
 /**
  * 大木作建筑:结构尺寸来自推导表，原型支持法式及法原，不以材分字段伪装江南构造。
@@ -34,12 +35,16 @@ export interface BuildingOptions {
   sides?: 'wall' | 'open' | 'window';
   /** 后檐:粉墙/敞开/格扇门;缺省同 sides。 */
   back?: 'wall' | 'open' | 'door' | 'window';
+  /** A small rear door within one bay; absent keeps the legacy full facade. */
+  backDoor?:RearDoorSpec;
+  steps?:{front?:StairSpec;back?:StairSpec};
   /** 亭/廊的美人靠。 */
   railing?: boolean;
   /** 美人靠装在哪几面(亭):e 东 w 西 n 北(后) s 南(前);缺省东西北。 */
   railingSides?: ('e' | 'w' | 'n' | 's')[];
   /** 台基高(米)。 */
   platformH?: number;
+  platformMarginM?:number;
   /** 出际(米),硬山/悬山两山悬出。 */
   chuji?: number;
   /** 江南提栈覆盖举高比。 */
@@ -55,8 +60,9 @@ export interface BuildingResult extends PartBuild {
   frame: Frame | FayuanBuildingFrame;
   /** 台基平台(局部坐标),装配器登记用。 */
   platform: { hx: number; hz: number; y: number };
+  walkSurfaces:WalkSurface[];
   /** 需要阻挡的柱与墙(局部坐标)。 */
-  blockers: { cx: number; cz: number; hx: number; hz: number; h: number; rot?: number }[];
+  blockers: { cx: number; cz: number; hx: number; hz: number; h: number; minY?:number; rot?: number }[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -307,6 +313,8 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
 /* ------------------------------------------------------------------ */
 
 export function buildBuilding(opts: BuildingOptions): BuildingResult {
+  if((opts.backDoor||opts.steps?.back)&&opts.back!=='door')throw new Error('后门与后踏步须对应back:door');
+  if(opts.steps&&(!Number.isFinite(opts.platformMarginM)||opts.platformMarginM!<=0))throw new Error('显式踏步须声明台基出边');
   const fr = 'paramSet' in opts.spec ? deriveFayuanBuilding(opts.spec) : deriveBuilding(opts.spec);
   const legacy = 'cai' in fr ? fr : null;
   const rolled = 'ridgeStyle' in fr && fr.ridgeStyle === 'rolled';
@@ -315,6 +323,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const root = new THREE.Group();
   root.name = 'Building';
   const blockers: BuildingResult['blockers'] = [];
+  const walkSurfaces:WalkSurface[]=[];
+  let rearDoor:ReturnType<typeof compileRearDoor>|null=null;
 
   const wood = woodMaterial(CN.wood, 1);
   const column = woodMaterial(CN.column, 1);
@@ -335,7 +345,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
 
   /* ---- 台基 ------------------------------------------------------- */
   const platH = opts.platformH ?? 0.45;
-  const margin = isTing ? 0.55 : 0.9;
+  const margin = opts.platformMarginM ?? (isTing ? 0.55 : 0.9);
   const platHX = m.width / 2 + margin;
   const platHZ = m.depthHalf + margin;
   const plat = new THREE.Mesh(roundedBox(platHX * 2, platH, platHZ * 2, 0.03, 3), stone);
@@ -351,7 +361,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   // 正面踏步。
   const stepW = isTing ? m.width * 0.5 : Math.max(1.2, m.width * 0.3);
   const nSteps = Math.max(2, Math.round(platH / 0.15));
-  for (let i = 0; i < nSteps; i++) {
+  for (let i = 0; i < (opts.steps?.front?0:nSteps); i++) {
     const h = platH / nSteps;
     const d = 0.3;
     const st = new THREE.Mesh(roundedBox(stepW, h, d, 0.015, 2), stone);
@@ -359,6 +369,15 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     st.receiveShadow = true;
     st.castShadow = true;
     root.add(st);
+  }
+  for(const side of ['front','back'] as const) {
+    const spec=opts.steps?.[side];if(!spec)continue;
+    const surfaces=compileExteriorSteps(platH,platHX,platHZ,side,spec,side==='back'?(opts.backDoor?.centerXM??0):0);
+    for(const p of surfaces) {
+      const st=new THREE.Mesh(roundedBox(p.hx*2,p.y,p.hz*2,.015,2),stone);
+      st.position.set(p.cx,p.y/2,p.cz);st.receiveShadow=true;st.castShadow=true;root.add(st);
+    }
+    walkSurfaces.push(...surfaces);
   }
 
   /* ---- 柱网 ------------------------------------------------------- */
@@ -767,7 +786,38 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     addWindowWall(colXs[0],rowsZ[0],colXs[0],rowsZ[1]);
     addWindowWall(colXs[colXs.length-1],rowsZ[0],colXs[colXs.length-1],rowsZ[1]);
   }
-  if (back === 'door') {
+  if (back === 'door' && opts.backDoor) {
+    const s=opts.backDoor,d=compileRearDoor(m,platH,wallH,s);rearDoor=d;
+    // One notched plaster panel avoids bevel/UV seams from three adjacent
+    // boxes. The three collision spans retain the actual opening below lintel.
+    const left=colXs[0],right=colXs.at(-1)!,dl=d.left-s.jambM,dr=d.right+s.jambM;
+    const outline=new THREE.Shape();
+    outline.moveTo(left,platH);outline.lineTo(dl,platH);outline.lineTo(dl,d.headerTop);
+    outline.lineTo(dr,d.headerTop);outline.lineTo(dr,platH);outline.lineTo(right,platH);
+    outline.lineTo(right,platH+wallH);outline.lineTo(left,platH+wallH);outline.closePath();
+    const rearWall=new THREE.Mesh(new THREE.ExtrudeGeometry(outline,{depth:wallT,bevelEnabled:true,bevelSize:.008,bevelThickness:.008,bevelSegments:2,steps:1}),plaster);
+    rearWall.position.z=d.z-wallT/2;rearWall.castShadow=true;rearWall.receiveShadow=true;root.add(rearWall);
+    blockers.push({cx:(left+dl)/2,cz:d.z,hx:(dl-left)/2,hz:wallT/2,h:platH+wallH});
+    blockers.push({cx:(dr+right)/2,cz:d.z,hx:(right-dr)/2,hz:wallT/2,h:platH+wallH});
+    blockers.push({cx:(dl+dr)/2,cz:d.z,hx:(dr-dl)/2,hz:wallT/2,minY:d.headerTop,h:platH+wallH});
+    for(const x of [d.left-s.jambM/2,d.right+s.jambM/2]) {
+      const jamb=new THREE.Mesh(roundedBox(s.jambM,d.headerTop-platH,wallT+.04,.008,2),wood);
+      jamb.position.set(x,(platH+d.headerTop)/2,d.z);jamb.castShadow=true;jamb.receiveShadow=true;root.add(jamb);
+      blockers.push({cx:x,cz:d.z,hx:s.jambM/2,hz:(wallT+.04)/2,minY:platH,h:d.headerTop});
+    }
+    const lintel=new THREE.Mesh(roundedBox(s.widthM,s.lintelM,wallT+.04,.008,2),wood);
+    lintel.position.set(s.centerXM,d.top+s.lintelM/2,d.z);lintel.castShadow=true;lintel.receiveShadow=true;root.add(lintel);
+    blockers.push({cx:s.centerXM,cz:d.z,hx:s.widthM/2,hz:(wallT+.04)/2,minY:d.top,h:d.headerTop});
+    if(s.sillM>0) {
+      const sill=new THREE.Mesh(roundedBox(s.widthM,s.sillM,d.surface.hz*2,.008,2),wood);
+      sill.position.set(s.centerXM,platH+s.sillM/2,d.z);sill.receiveShadow=true;root.add(sill);walkSurfaces.push(d.surface);
+    }
+    const pivot=new THREE.Group(),leaf=new THREE.Mesh(roundedBox(d.leafWidth,s.heightM,s.leafThicknessM,.01,2),wood);
+    leaf.position.set(d.leafWidth/2,s.heightM/2,0);leaf.castShadow=true;leaf.receiveShadow=true;pivot.add(leaf);
+    pivot.position.set(d.hingeX,d.bottom,d.z);pivot.rotation.y=doorOpen?Math.PI/2:0;root.add(pivot);
+    blockers.push({cx:doorOpen?d.hingeX:s.centerXM,cz:doorOpen?d.z-d.leafWidth/2:d.z,hx:d.leafWidth/2,hz:s.leafThicknessM/2,
+      minY:d.bottom,h:d.top,rot:doorOpen?Math.PI/2:0});
+  } else if (back === 'door') {
     const span = colXs[colXs.length - 1] - colXs[0] - 2 * colR;
     const gw = span / 4;
     const bx0 = colXs[0] + colR;
@@ -902,14 +952,17 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
 
   const merged = mergeByMaterial(root);
   merged.name = 'Building';
+  if(opts.backDoor||opts.steps)fr.provenance.art.push({id:'project:building-access',name:'小门与踏步施工输入',method:'artistic_choice',
+    note:JSON.stringify({backDoor:opts.backDoor,steps:opts.steps,platformMarginM:opts.platformMarginM})});
   merged.userData.construction = { paramSet: 'paramSet' in fr ? fr.paramSet : 'fashi',
-    spec: opts.spec, dimensions: fr.m, provenance: fr.provenance, surfaces: {front,sides,back} };
+    spec: opts.spec, dimensions: fr.m, provenance: fr.provenance, surfaces: {front,sides,back},access:{rearDoor,walkSurfaces,options:{backDoor:opts.backDoor,steps:opts.steps}} };
 
   return {
     kind: 'building',
     root: merged,
     frame: fr,
     platform: { hx: platHX, hz: platHZ, y: platH },
+    walkSurfaces,
     blockers,
     groundRadius: Math.max(platHX, platHZ) * 2.4,
   };

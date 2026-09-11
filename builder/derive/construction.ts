@@ -3,11 +3,12 @@ import {deriveFayuanAssembly,type FayuanAssemblySpec} from './fayuan/assembly';
 import {deriveQingConstruction,type QingConstruction,type QingBuildingSpec} from './qing/building';
 import {deriveRusticBuilding,type RusticSpec} from './rustic/building';
 import type {Point2} from '../plan/geometry';
+import {compileRearDoor,compileExteriorSteps,type RearDoorSpec,type StairSpec,type WalkSurface} from '../plan/building-access';
 
 export interface Construction {
   status?:'frame-ready';
   spec:FayuanBuildingSpec|QingBuildingSpec|FayuanAssemblySpec|RusticSpec;
-  options:{platformH?:number};
+  options:{platformH?:number;platformMarginM?:number;back?:string;backDoor?:RearDoorSpec;doorOpen?:boolean;steps?:{front?:StairSpec;back?:StairSpec}};
   site?:{placement:'absolute';baseElevationM:number;waterLevelM:number;support:'water-piers'};
   upperStorey?:QingConstruction['upperStorey'];
 }
@@ -22,23 +23,34 @@ export function compileConstruction(c:Construction) {
   const s=c.spec,platformH=c.options.platformH!;
   let modules:Module[],pendingGeometry:string[]=[],gallery:ReturnType<typeof deriveFayuanAssembly>['gallery']=null;
   let boat:ReturnType<typeof deriveFayuanAssembly>['boat']=null;
+  let passage:ReturnType<typeof deriveFayuanAssembly>['passage']=null;
   if(s.paramSet==='qing') {
     const a=deriveQingConstruction({status:c.status as 'frame-ready',spec:s,options:{platformH},upperStorey:c.upperStorey});
     modules=[{id:'main',at:[0,0,0],frame:a.lower,roofMode:c.upperStorey?.lowerRoof??'full'}];
     if(a.upper)modules.push({id:'upper',at:[0,c.upperStorey!.floorHeightM,0],frame:a.upper,roofMode:'full'});
     pendingGeometry=a.pendingGeometry;
   } else if(s.paramSet==='fayuan-assembly') {
-    const a=deriveFayuanAssembly(s);modules=a.modules;pendingGeometry=a.pendingGeometry;gallery=a.gallery;boat=a.boat;
+    const a=deriveFayuanAssembly(s);modules=a.modules;pendingGeometry=a.pendingGeometry;gallery=a.gallery;boat=a.boat;passage=a.passage;
   } else if(s.paramSet==='rustic') {
     modules=[{id:'main',at:[0,0,0],frame:deriveRusticBuilding(s),roofMode:'full'}];
     pendingGeometry=['rustic-timber-joints','thatch','earth-walls'];
   } else if(s.paramSet==='fayuan')modules=[{id:'main',at:[0,0,0],frame:deriveFayuanBuilding(s),roofMode:'full'}];
   else throw new Error('未知施工参数集，禁止替换成默认房屋');
   if(pendingGeometry.length&&c.status!=='frame-ready')throw new Error('未生成几何的规格须标frame-ready');
+  const m=modules[0].frame.m,walkSurfaces:WalkSurface[]=[];
+  const rearDoor=c.options.backDoor?compileRearDoor(m,platformH,m.columnH-.02,c.options.backDoor):null;
+  if((rearDoor||c.options.steps?.back)&&c.options.back!=='door')throw new Error('后门与后踏步须对应back:door');
+  if(c.options.steps) {
+    const margin=c.options.platformMarginM;
+    if(margin===undefined||!Number.isFinite(margin)||margin<=0)throw new Error('显式踏步须声明台基出边');
+    for(const side of ['front','back'] as const)if(c.options.steps[side])
+      walkSurfaces.push(...compileExteriorSteps(platformH,m.width/2+margin,m.depthHalf+margin,side,c.options.steps[side]!,side==='back'?(c.options.backDoor?.centerXM??0):0));
+  }
+  if(rearDoor&&c.options.backDoor!.sillM>0)walkSurfaces.push(rearDoor.surface);
   if(boat&&(!c.site||c.site.placement!=='absolute'||c.site.support!=='water-piers'||
     !Number.isFinite(c.site.baseElevationM)||!Number.isFinite(c.site.waterLevelM)||c.site.baseElevationM+platformH<=c.site.waterLevelM))
     throw new Error('舡坞须声明水上桩承及绝对落位，不能把河床当柱脚起点');
-  return {modules,gallery,boat,platformH,pendingGeometry,meshFactoryAvailable:pendingGeometry.length===0,
+  return {modules,gallery,boat,passage,rearDoor,walkSurfaces,platformH,pendingGeometry,meshFactoryAvailable:pendingGeometry.length===0,
     site:c.site??null,
     totalHeight:platformH+Math.max(...modules.filter(m=>m.roofMode!=='none').map(m=>m.at[1]+m.frame.m.ridgeY))};
 }

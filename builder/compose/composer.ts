@@ -500,9 +500,13 @@ function registerColliders(
   if (built.kind === 'building') {
     const b = built as BuildingResult;
     col.addPlatform(x, z, b.platform.hx, b.platform.hz, y + b.platform.y, yaw, '台基');
+    for(const s of b.walkSurfaces) {
+      const [cx,cz]=toWorld(x,z,yaw,s.cx,s.cz);
+      col.addPlatform(cx,cz,s.hx,s.hz,y+s.y,yaw,s.tag);
+    }
     for (const bl of b.blockers) {
       const [cx, cz] = toWorld(x, z, yaw, bl.cx, bl.cz);
-      col.addBox(cx, cz, bl.hx, bl.hz, y, y + bl.h, yaw + (bl.rot ?? 0));
+      col.addBox(cx, cz, bl.hx, bl.hz, y+(bl.minY??0), y + bl.h, yaw + (bl.rot ?? 0));
     }
     return;
   }

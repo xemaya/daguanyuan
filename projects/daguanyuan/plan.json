@@ -2582,9 +2582,33 @@
             "options": {
               "front": "door",
               "sides": "wall",
-              "back": "wall",
+              "back": "door",
               "platformH": 0.45,
-              "plaque": "有凤来仪"
+              "plaque": "有凤来仪",
+              "doorOpen": true,
+              "backDoor": {
+                "centerXM": -3.3,
+                "widthM": 1.2,
+                "heightM": 2.1,
+                "jambM": 0.08,
+                "lintelM": 0.1,
+                "sillM": 0.06,
+                "leafThicknessM": 0.04,
+                "note": "第17回里间另有小门通后院。选择西侧里间与1.2×2.1m净口为P2艺术落位，不把整面后墙改成大门。"
+              },
+              "steps": {
+                "front": {
+                  "widthM": 2.8,
+                  "treadM": 0.3,
+                  "maxRiserM": 0.15
+                },
+                "back": {
+                  "widthM": 1.6,
+                  "treadM": 0.32,
+                  "maxRiserM": 0.15
+                }
+              },
+              "platformMarginM": 0.9
             }
           }
         },
@@ -4270,6 +4294,14 @@
               "design": {
                 "note": "P2艺术施工输入：原文定形制、开间有明文者按明文；米制面阔/界深/柱高及接合位置由规划净空选择，不冒充实测。连厦/抱厦接缝须在P3共同裁切，不叠两栋完整房屋。",
                 "source": "knowledge/docs/plan/02-evidence.md；knowledge/docs/qingshi/tiers.md §R-04 / 各景点条目"
+              },
+              "passage": {
+                "axisXM": 0,
+                "widthM": 1.2,
+                "heightM": 2.1,
+                "entry": "annex.south",
+                "exit": "main.north",
+                "note": "第17回从前院穿抱厦入内，再由后房门出后院；轴线及1.2×2.1m净口为P2艺术输入，三处门洞与共用墙洞须在P3复合几何中实际生成。"
               }
             },
             "options": {
@@ -8659,8 +8691,16 @@
               98
             ],
             [
-              -105,
-              92
+              -108.3,
+              98
+            ],
+            [
+              -108.3,
+              94.64
+            ],
+            [
+              -108.3,
+              92.5
             ],
             [
               -105,
@@ -8705,7 +8745,7 @@
           ],
           "widthM": 1.8,
           "readiness": "planned",
-          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。",
+          "basis": "P2显式选定步行折线；连接已绑定的叙事站位，不用区域质心。地形整地、桥/洞/门的实景贯通另验。 西侧里间的小门出后院；门位与后台阶由正房施工规格给出，局部门口按accessRequirements净口约束。",
           "travel": "courtyard"
         },
         {
@@ -9581,14 +9621,18 @@
           "side": "back",
           "surface": "door",
           "leg": "ch17.e07",
-          "basis": "第17回从里间小门进入后院；现有正房模型仍为后墙，须在P2接通并实走验收。"
+          "basis": "第17回从里间小门到后院；西侧里间、净宽和净高为P2艺术施工输入，实际通行另验。",
+          "minWidthM": 1.0,
+          "minHeightM": 2.0
         },
         {
           "id": "ch17.yihong-through-house",
           "object": "yihongyuan.main-house",
           "leg": "ch17.e26",
           "form": "through-house",
-          "basis": "第17回从前院入抱厦、转出后门；复合建筑共享墙洞与后门要在分件/分区装配时实现，当前只校验规划穿行位置。"
+          "basis": "第17回从前院入抱厦、转出后门；复合建筑共享墙洞与后门要在分件/分区装配时实现，当前只校验规划穿行位置。",
+          "minWidthM": 1.0,
+          "minHeightM": 2.0
         }
       ]
     }

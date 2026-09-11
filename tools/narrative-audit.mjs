@@ -1,6 +1,7 @@
 import {compileNarrativeRoute} from '../builder/plan/narrative-route.ts';
 import {isSimpleRing,containsRing,interiorsOverlap,locatePoint,segmentLocations} from '../builder/plan/geometry.ts';
 import {readFileSync} from 'node:fs';
+import {compileConstruction} from '../builder/derive/construction.ts';
 const evidenceText=readFileSync(new URL('../knowledge/docs/plan/02-evidence.md',import.meta.url),'utf8')
  .split('## 一、第十七回游线')[1].split('## 二、证据表')[0];
 const evidenceEvents=[...evidenceText.matchAll(/^\d+\. (.+)$/gm)].map(m=>m[1].trim());
@@ -38,9 +39,30 @@ export function auditNarrative(plan) {
    }
    for(const requirement of source.accessRequirements??[]) {
     const object=resolve({kind:'object',id:requirement.object});
-    if(!route.legs.some(e=>e.id===requirement.leg))throw new Error(`${requirement.id}引用未知路段`);
-    const available=!!requirement.side&&object.construction?.options?.[requirement.side]===requirement.surface;
-    access.push({id:requirement.id,object:requirement.object,leg:requirement.leg,contractSatisfied:available,runtimeVerified:false});
+    const leg=route.legs.find(e=>e.id===requirement.leg);
+    if(!leg)throw new Error(`${requirement.id}引用未知路段`);
+    if(!(requirement.minWidthM>0&&requirement.minHeightM>0))throw new Error(`${requirement.id}缺通行净宽净高要求`);
+    const c=compileConstruction(object.construction),options=object.construction.options;
+    let ports=[],width=0,height=0;
+    if(requirement.side==='back'&&options.back===requirement.surface&&c.rearDoor&&options.doorOpen!==false) {
+     width=c.rearDoor.width;height=c.rearDoor.height;ports=[[options.backDoor.centerXM,c.rearDoor.z]];
+    } else if(requirement.form==='through-house'&&c.passage) {
+     width=c.passage.width;height=c.passage.height;ports=c.passage.ports.map(p=>p.at);
+    }
+    const available=ports.length>0&&width>=requirement.minWidthM&&height>=requirement.minHeightM;
+    const yaw={south:0,west:-Math.PI/2,north:Math.PI,east:Math.PI/2}[object.facing],cs=Math.cos(yaw),sn=Math.sin(yaw);
+    const aligned=available&&ports.every(([x,z])=>{
+     const wx=object.x+x*cs+z*sn,wz=object.z-x*sn+z*cs;
+     return leg.segments.some(({a,b})=>{
+      const da=(a[0]-wx)*sn+(a[1]-wz)*cs,db=(b[0]-wx)*sn+(b[1]-wz)*cs;
+      if(da*db>1e-8||Math.abs(da-db)<1e-8)return false;
+      const t=da/(da-db),ix=a[0]+(b[0]-a[0])*t-wx,iz=a[1]+(b[1]-a[1])*t-wz;
+      return Math.abs(ix*cs-iz*sn)<=(width-requirement.minWidthM)/2+1e-7;
+     });
+    });
+    if(available&&!aligned)throw new Error(`${requirement.id}路线未经过声明的净口`);
+    access.push({id:requirement.id,object:requirement.object,leg:requirement.leg,contractSatisfied:available,
+     routeAligned:aligned,geometryAvailable:c.meshFactoryAvailable,runtimeVerified:false});
    }
    const waterCrossings=[];
    for(const leg of route.legs)for(const s of leg.segments) {
