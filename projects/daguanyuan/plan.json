@@ -1802,7 +1802,63 @@
           "z": 236,
           "plaque": null,
           "id": "zhengmen.main-gate",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "status": "frame-ready",
+            "spec": {
+              "paramSet": "qing",
+              "tier": "A",
+              "bays": 5,
+              "rafters": 6,
+              "roofType": "硬山",
+              "bayWidthsM": [
+                3.6,
+                3.2,
+                2.8
+              ],
+              "stepsM": [
+                1.45,
+                1.3,
+                1.15
+              ],
+              "doukouMm": 72,
+              "columnHeightM": 4.2,
+              "columnDiameterM": 0.42,
+              "puzuo": {
+                "cai": 5,
+                "heightM": 0.72,
+                "pingbanM": 0.16
+              },
+              "design": {
+                "columnBaseWidthM": 0.62,
+                "note": "P2艺术施工侧样：面阔、步架、柱高柱径、斗口及斗科总高分别显式给出，以现有规划院落尺度和净空为依据，不由斗口正推整栋规模，不声称原著实测。斗口选择不使用tiers.md尚未校核的默认等第；构件断面仍按清式规则推导。"
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "door",
+              "platformH": 0.6,
+              "plaque": null
+            },
+            "source": {
+              "document": "knowledge/docs/qingshi/tiers.md",
+              "sections": [
+                "R-01",
+                "R-02"
+              ],
+              "note": "事实与艺术输入分开：正门五间/桶瓦/无朱粉为原文；硬山是沿用plan的未定形制选择，非原文给定，和tiers预设单檐歇山不同。"
+            },
+            "finish": {
+              "tile": "grey-ceramic-tube",
+              "timber": "oiled-wood",
+              "paintedBeams": false,
+              "ridge": "nqiu_ridge",
+              "note": "泥鳅脊按R-02低平圆脊、无翘头；对应专用几何待P3。"
+            },
+            "geometryPhase": "P3",
+            "assemblyPhase": "P4"
+          }
         },
         {
           "name": "白石台矶(凿西番草花样)",
@@ -3401,7 +3457,66 @@
           "z": -180,
           "plaque": "顾恩思义",
           "id": "shengqin_biesu.main-hall",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "status": "frame-ready",
+            "spec": {
+              "paramSet": "qing",
+              "tier": "A",
+              "bays": 5,
+              "rafters": 8,
+              "roofType": "歇山",
+              "bayWidthsM": [
+                4.5,
+                3.8,
+                3.4
+              ],
+              "stepsM": [
+                1.8,
+                1.6,
+                1.4,
+                1.2
+              ],
+              "doukouMm": 96,
+              "columnHeightM": 5.2,
+              "columnDiameterM": 0.56,
+              "puzuo": {
+                "cai": 7,
+                "heightM": 1.08,
+                "pingbanM": 0.2
+              },
+              "design": {
+                "columnBaseWidthM": 0.76,
+                "note": "P2艺术施工侧样：面阔、步架、柱高柱径、斗口及斗科总高分别显式给出，以现有规划院落尺度和净空为依据，不由斗口正推整栋规模，不声称原著实测。斗口选择不使用tiers.md尚未校核的默认等第；构件断面仍按清式规则推导。",
+                "hipSetbackM": 3.3
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.9,
+              "plaque": "顾恩思义"
+            },
+            "source": {
+              "document": "knowledge/docs/qingshi/tiers.md",
+              "sections": [
+                "R-05",
+                "R-06",
+                "R-12"
+              ],
+              "note": "东西飞楼位置来自十八回；开间、尺寸及层高为艺术方案，楼阁层间构造待P3。"
+            },
+            "finish": {
+              "tile": "grey-ceramic-tube",
+              "timber": "oiled-wood",
+              "paintedBeams": false,
+              "ridge": "raised",
+              "note": "无琉璃、无朱红柱；兽面/螭头金彩仅限主轴许可部位。"
+            },
+            "geometryPhase": "P3",
+            "assemblyPhase": "P4"
+          }
         },
         {
           "name": "大观楼(正楼)",
@@ -3413,7 +3528,103 @@
           "z": -208,
           "plaque": "大观楼",
           "id": "shengqin_biesu.daguan-tower",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "status": "frame-ready",
+            "spec": {
+              "paramSet": "qing",
+              "tier": "A",
+              "bays": 5,
+              "rafters": 8,
+              "roofType": "歇山",
+              "bayWidthsM": [
+                4.2,
+                3.6,
+                3.2
+              ],
+              "stepsM": [
+                1.8,
+                1.6,
+                1.4,
+                1.2
+              ],
+              "doukouMm": 88,
+              "columnHeightM": 4.6,
+              "columnDiameterM": 0.52,
+              "puzuo": {
+                "cai": 7,
+                "heightM": 0.96,
+                "pingbanM": 0.18
+              },
+              "design": {
+                "columnBaseWidthM": 0.72,
+                "note": "P2艺术施工侧样：面阔、步架、柱高柱径、斗口及斗科总高分别显式给出，以现有规划院落尺度和净空为依据，不由斗口正推整栋规模，不声称原著实测。斗口选择不使用tiers.md尚未校核的默认等第；构件断面仍按清式规则推导。",
+                "hipSetbackM": 3.2
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.9,
+              "plaque": "大观楼"
+            },
+            "source": {
+              "document": "knowledge/docs/qingshi/tiers.md",
+              "sections": [
+                "R-05",
+                "R-06",
+                "R-12"
+              ],
+              "note": "东西飞楼位置来自十八回；开间、尺寸及层高为艺术方案，楼阁层间构造待P3。"
+            },
+            "finish": {
+              "tile": "grey-ceramic-tube",
+              "timber": "oiled-wood",
+              "paintedBeams": false,
+              "ridge": "raised",
+              "note": "无琉璃、无朱红柱；兽面/螭头金彩仅限主轴许可部位。"
+            },
+            "geometryPhase": "P3",
+            "assemblyPhase": "P4",
+            "upperStorey": {
+              "floorHeightM": 5.25,
+              "spec": {
+                "paramSet": "qing",
+                "tier": "A",
+                "bays": 5,
+                "rafters": 8,
+                "roofType": "歇山",
+                "bayWidthsM": [
+                  3.612,
+                  3.096,
+                  2.752
+                ],
+                "stepsM": [
+                  1.53,
+                  1.36,
+                  1.19,
+                  1.02
+                ],
+                "doukouMm": 88,
+                "columnHeightM": 3.588,
+                "columnDiameterM": 0.442,
+                "puzuo": {
+                  "cai": 7,
+                  "heightM": 0.96,
+                  "pingbanM": 0.18
+                },
+                "design": {
+                  "columnBaseWidthM": 0.602,
+                  "note": "P2艺术施工侧样：面阔、步架、柱高柱径、斗口及斗科总高分别显式给出，以现有规划院落尺度和净空为依据，不由斗口正推整栋规模，不声称原著实测。斗口选择不使用tiers.md尚未校核的默认等第；构件断面仍按清式规则推导。",
+                  "hipSetbackM": 2.88
+                }
+              },
+              "lowerRoof": "apron",
+              "connection": "P3-explicit-storey-structure",
+              "note": "二层及其缩进为P2艺术体量方案；下层不得生成穿入楼面的完整屋顶。大观楼下檐须挖除上层穿出处，飞楼下层无独立整屋顶。不能用两座完整单层房屋直接叠放。"
+            }
+          }
         },
         {
           "name": "缀锦阁(东面飞楼·兼作库房)",
@@ -3425,7 +3636,99 @@
           "z": -202,
           "plaque": "缀锦阁",
           "id": "shengqin_biesu.zhuijin-pavilion",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "status": "frame-ready",
+            "spec": {
+              "paramSet": "qing",
+              "tier": "A",
+              "bays": 3,
+              "rafters": 6,
+              "roofType": "歇山",
+              "bayWidthsM": [
+                3.8,
+                3.2
+              ],
+              "stepsM": [
+                1.6,
+                1.4,
+                1.2
+              ],
+              "doukouMm": 64,
+              "columnHeightM": 3.6,
+              "columnDiameterM": 0.36,
+              "puzuo": {
+                "cai": 5,
+                "heightM": 0.64,
+                "pingbanM": 0.14
+              },
+              "design": {
+                "columnBaseWidthM": 0.56,
+                "note": "P2艺术施工侧样：面阔、步架、柱高柱径、斗口及斗科总高分别显式给出，以现有规划院落尺度和净空为依据，不由斗口正推整栋规模，不声称原著实测。斗口选择不使用tiers.md尚未校核的默认等第；构件断面仍按清式规则推导。",
+                "hipSetbackM": 2.6
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.9,
+              "plaque": "缀锦阁"
+            },
+            "source": {
+              "document": "knowledge/docs/qingshi/tiers.md",
+              "sections": [
+                "R-05",
+                "R-06",
+                "R-12"
+              ],
+              "note": "东西飞楼位置来自十八回；开间、尺寸及层高为艺术方案，楼阁层间构造待P3。"
+            },
+            "finish": {
+              "tile": "grey-ceramic-tube",
+              "timber": "oiled-wood",
+              "paintedBeams": false,
+              "ridge": "raised",
+              "note": "无琉璃、无朱红柱；兽面/螭头金彩仅限主轴许可部位。"
+            },
+            "geometryPhase": "P3",
+            "assemblyPhase": "P4",
+            "upperStorey": {
+              "floorHeightM": 4.25,
+              "spec": {
+                "paramSet": "qing",
+                "tier": "A",
+                "bays": 3,
+                "rafters": 6,
+                "roofType": "歇山",
+                "bayWidthsM": [
+                  3.268,
+                  2.752
+                ],
+                "stepsM": [
+                  1.36,
+                  1.19,
+                  1.02
+                ],
+                "doukouMm": 64,
+                "columnHeightM": 2.808,
+                "columnDiameterM": 0.306,
+                "puzuo": {
+                  "cai": 5,
+                  "heightM": 0.64,
+                  "pingbanM": 0.14
+                },
+                "design": {
+                  "columnBaseWidthM": 0.466,
+                  "note": "P2艺术施工侧样：面阔、步架、柱高柱径、斗口及斗科总高分别显式给出，以现有规划院落尺度和净空为依据，不由斗口正推整栋规模，不声称原著实测。斗口选择不使用tiers.md尚未校核的默认等第；构件断面仍按清式规则推导。",
+                  "hipSetbackM": 2.34
+                }
+              },
+              "lowerRoof": "none",
+              "connection": "P3-explicit-storey-structure",
+              "note": "二层及其缩进为P2艺术体量方案；下层不得生成穿入楼面的完整屋顶。大观楼下檐须挖除上层穿出处，飞楼下层无独立整屋顶。不能用两座完整单层房屋直接叠放。"
+            }
+          }
         },
         {
           "name": "含芳阁(西面斜楼)",
@@ -3437,7 +3740,99 @@
           "z": -202,
           "plaque": "含芳阁",
           "id": "shengqin_biesu.hanfang-pavilion",
-          "kind": "building"
+          "kind": "building",
+          "construction": {
+            "status": "frame-ready",
+            "spec": {
+              "paramSet": "qing",
+              "tier": "A",
+              "bays": 3,
+              "rafters": 6,
+              "roofType": "歇山",
+              "bayWidthsM": [
+                3.8,
+                3.2
+              ],
+              "stepsM": [
+                1.6,
+                1.4,
+                1.2
+              ],
+              "doukouMm": 64,
+              "columnHeightM": 3.6,
+              "columnDiameterM": 0.36,
+              "puzuo": {
+                "cai": 5,
+                "heightM": 0.64,
+                "pingbanM": 0.14
+              },
+              "design": {
+                "columnBaseWidthM": 0.56,
+                "note": "P2艺术施工侧样：面阔、步架、柱高柱径、斗口及斗科总高分别显式给出，以现有规划院落尺度和净空为依据，不由斗口正推整栋规模，不声称原著实测。斗口选择不使用tiers.md尚未校核的默认等第；构件断面仍按清式规则推导。",
+                "hipSetbackM": 2.6
+              }
+            },
+            "options": {
+              "front": "door",
+              "sides": "wall",
+              "back": "wall",
+              "platformH": 0.9,
+              "plaque": "含芳阁"
+            },
+            "source": {
+              "document": "knowledge/docs/qingshi/tiers.md",
+              "sections": [
+                "R-05",
+                "R-06",
+                "R-12"
+              ],
+              "note": "东西飞楼位置来自十八回；开间、尺寸及层高为艺术方案，楼阁层间构造待P3。"
+            },
+            "finish": {
+              "tile": "grey-ceramic-tube",
+              "timber": "oiled-wood",
+              "paintedBeams": false,
+              "ridge": "raised",
+              "note": "无琉璃、无朱红柱；兽面/螭头金彩仅限主轴许可部位。"
+            },
+            "geometryPhase": "P3",
+            "assemblyPhase": "P4",
+            "upperStorey": {
+              "floorHeightM": 4.25,
+              "spec": {
+                "paramSet": "qing",
+                "tier": "A",
+                "bays": 3,
+                "rafters": 6,
+                "roofType": "歇山",
+                "bayWidthsM": [
+                  3.268,
+                  2.752
+                ],
+                "stepsM": [
+                  1.36,
+                  1.19,
+                  1.02
+                ],
+                "doukouMm": 64,
+                "columnHeightM": 2.808,
+                "columnDiameterM": 0.306,
+                "puzuo": {
+                  "cai": 5,
+                  "heightM": 0.64,
+                  "pingbanM": 0.14
+                },
+                "design": {
+                  "columnBaseWidthM": 0.466,
+                  "note": "P2艺术施工侧样：面阔、步架、柱高柱径、斗口及斗科总高分别显式给出，以现有规划院落尺度和净空为依据，不由斗口正推整栋规模，不声称原著实测。斗口选择不使用tiers.md尚未校核的默认等第；构件断面仍按清式规则推导。",
+                  "hipSetbackM": 2.34
+                }
+              },
+              "lowerRoof": "none",
+              "connection": "P3-explicit-storey-structure",
+              "note": "二层及其缩进为P2艺术体量方案；下层不得生成穿入楼面的完整屋顶。大观楼下檐须挖除上层穿出处，飞楼下层无独立整屋顶。不能用两座完整单层房屋直接叠放。"
+            }
+          }
         },
         {
           "name": "迢迢复道萦纡(面面琳宫合抱)",

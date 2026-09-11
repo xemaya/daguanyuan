@@ -5,8 +5,13 @@ const option = (name, fallback) => process.argv.includes(name) ? process.argv[pr
 const url = option('--url','http://127.0.0.1:4822/viewer.html');
 const out = option('--out','shots/p2-building-catalog');
 const plan = JSON.parse(readFileSync(new URL('../projects/daguanyuan/plan.json',import.meta.url),'utf8'));
-const objects = plan.regions.flatMap(r=>r.buildings).filter(b=>b.construction);
-const report = { expected:objects.length, objects:[], errors:[] };
+const buildings = plan.regions.flatMap(r=>r.buildings).filter(b=>b.kind==='building');
+const objects = buildings.filter(b=>b.construction && b.construction.status!=='frame-ready');
+const pending = buildings.filter(b=>!objects.includes(b)).map(b=>({id:b.id,
+  status:b.construction?.status??'missing-spec'}));
+const report = { scope:'available detailed geometry only', expected:objects.length,
+  totalBuildings:buildings.length, pending, geometryComplete:pending.length===0, objects:[], errors:[] };
+console.log(`Geometry catalog: ${objects.length}/${buildings.length}; pending ${pending.map(b=>b.id+':'+b.status).join(', ')}`);
 mkdirSync(out,{recursive:true});
 const browser = await chromium.launch({headless:true,args:['--use-gl=angle','--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist']});
 try {

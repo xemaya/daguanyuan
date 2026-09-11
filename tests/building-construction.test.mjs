@@ -7,7 +7,7 @@ import { RuleBook } from '@builder/derive/rules.ts';
 import { buildPart } from '@builder/parts/registry.ts';
 import { buildPlannedBuilding } from '@project/construction.ts';
 const plan = JSON.parse(readFileSync('projects/daguanyuan/plan.json', 'utf8'));
-const objects = plan.regions.flatMap(r => r.buildings).filter(b => b.construction);
+const objects = plan.regions.flatMap(r => r.buildings).filter(b => b.construction?.spec.paramSet === 'fayuan');
 const house = () => structuredClone(objects.find(b => b.id === 'xiaoxiangguan.main-house').construction.spec);
 
 test('20 authored garden construction specs produce finite column grids and supported roofs', () => {
@@ -70,6 +70,6 @@ test('missing detailing and unsupported forms fail instead of borrowing a legacy
   assert.throws(() => deriveFayuanBuilding({...pavilion,ridgeStyle:'rolled'}), /不可叠作/);
   assert.throws(() => deriveFayuanBuilding({...s,bayWidthsM:[3,-1,3]}), /有限正数/);
   assert.throws(() => buildPart('building','tang:typo'), /不可静默替换/);
-  assert.throws(() => buildPlannedBuilding('zhengmen.main-gate'), /施工spec尚未完成/);
+  assert.throws(() => buildPlannedBuilding('zhengmen.main-gate'), /P3分件\/楼层几何尚未完成/);
   assert.throws(() => buildPlannedBuilding('qinfang_ting_qiao.three-opening-bridge'), /不能作为木构房屋/);
 });

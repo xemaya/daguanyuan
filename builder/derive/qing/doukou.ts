@@ -32,6 +32,8 @@ export interface DoukouSpec {
   doukouGrade?: number;
   /** 檐柱净高(米)。只给柱高不给斗口,就是要反算斗口 [99-02]。 */
   columnHeightM?: number;
+  /** 项目或实测明确给柱径时不再用斗口正推整栋规模。 */
+  columnDiameterM?: number;
 }
 
 /** 营造寸 → 米;尺长按 01-19 的选中口径取 [01-19 存疑:官式 32.0 / 吴 27.5,差 16.4%]。 */
@@ -82,11 +84,15 @@ export function deriveDoukou(
   dkM: number,
   dougongHDk: number,
 ): Doukou {
+  if (spec.columnDiameterM !== undefined && (!Number.isFinite(spec.columnDiameterM) || spec.columnDiameterM <= 0))
+    throw new Error('显式柱径须为有限正数');
   const cuanDangM = book.num('01-04', 'cuanDangDk') * dkM;
   const columnHM =
     spec.columnHeightM ??
     (book.num('04-04', 'columnTotalDk') - book.num('04-04', 'pingbanFangDk') - dougongHDk) * dkM;
-  const columnDM = book.num('04-07', 'eaveColumnDiaDk') * dkM;
+  const columnDM = spec.columnDiameterM !== undefined
+    ? book.artChoice('project:column-diameter', '调用方显式柱径，不使用斗口正推柱径；实测依据须由施工spec另行记录', spec.columnDiameterM)
+    : book.num('04-07', 'eaveColumnDiaDk') * dkM;
   const shoufenM = columnHM * book.num('01-17', 'shoufenDashiRate');
   return { dkM, cuanDangM, columnHM, columnDM, shoufenM };
 }
