@@ -7,6 +7,7 @@ import {compileCorridor} from '../builder/plan/corridor-path.ts';
 import {compileBridgePath} from '../builder/plan/bridge-path.ts';
 import {auditConstructions} from './construction-audit.mjs';
 import {auditNarrative} from './narrative-audit.mjs';
+import {auditConnections} from './connection-audit.mjs';
 
 /** Passing implemented assertions is not proof of all seven source constraints. */
 export function auditPlan(plan) {
@@ -131,6 +132,11 @@ export function auditPlan(plan) {
   } else record(5, [], ['山体数据无效，无法测试视线']);
   const narrative=auditNarrative(plan);
   fails.push(...narrative.fails);
+  try {
+    const connections=auditConnections(plan);fails.push(...connections.fails);
+    diagnostics.connections=connections.connections.map(c=>({id:c.spec.id,length:c.compiled.length,clearWidth:c.compiled.clearWidth,
+      routeLegs:c.spec.routeLegs,runtimeVerified:false}));
+  }catch(error){fails.push(`公共连接：${error.message}`);}
   const route=narrative.routes.find(r=>r.source.id==='ch17');
   diagnostics.route = { legacyRegionLabels: plan.legacy?.route_ch17_regions?.length??0, requiredNarrativeNodes: 29,
     narrativeNodes:route?.source.nodes.length??0,length:route?.compiled.length,milestone:route?.compiled.milestone,

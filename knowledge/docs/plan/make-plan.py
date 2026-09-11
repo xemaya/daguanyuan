@@ -17,6 +17,9 @@ narrative_report = json.loads(subprocess.run(
     ['node', os.path.join(ROOT, 'tools', 'export-narrative-route.mjs')],
     cwd=ROOT, check=True, capture_output=True, text=True).stdout)
 narrative = next(r for r in narrative_report['routes'] if r['source']['id'] == 'ch17')
+connection_report = json.loads(subprocess.run(
+    ['node', os.path.join(ROOT, 'tools', 'export-plan-connections.mjs')],
+    cwd=ROOT, check=True, capture_output=True, text=True).stdout)
 
 
 # ---------- viewBox: world units == svg units, y down = south (svg y = z) ----------
@@ -166,6 +169,12 @@ for r in d['regions']:
             x,z=insert['at']
             e('<circle cx="%.2f" cy="%.2f" r="1.8" fill="%s" stroke="#5a5245" stroke-width="0.7"><title>%s</title></circle>' % (x,z,C['paper'],esc(insert.get('object',insert['variant']))))
         e('</g>')
+
+# ================= gates =================
+for connection in connection_report['connections']:
+    spec=connection['spec']
+    colour='#944b40' if spec.get('railingMaterial')=='vermilion' else '#8a5a3e' if spec.get('deckMaterial')=='wood' else '#687b7d'
+    e('<g><title>%s · 可生成桥构件，整园装配待验</title><polygon points="%s" fill="%s" fill-opacity="0.5" stroke="%s" stroke-width="0.55"/></g>' % (esc(spec['id']),pts(connection['polygon']),colour,colour))
 
 # ================= gates =================
 e('<!-- 32项施工骨架：柱网实线、屋面保守包络虚线；不表示已建实景 -->')
@@ -359,7 +368,7 @@ row(lambda t: (e('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stro
                e('<circle cx="%.1f" cy="%.1f" r="6" fill="%s" stroke="%s" stroke-width="1.4"/>'
                  % (RX0 + 26, t, C['route'], C['paper']))), '29叙事节点与五组未入远景;通行与视线待验')
 row(lambda t: e('<rect x="%.1f" y="%.1f" width="34" height="10" fill="#927441" fill-opacity="0.3" stroke="#927441" stroke-dasharray="2 1"/>' % (RX0+12,t-5)), '显式落脚面:土色陆地 / 蓝色跨水 / 青色水洞')
-row(lambda t: e('<rect x="%.1f" y="%.1f" width="28" height="9" fill="#8b6c51" fill-opacity="0.22" stroke="#625046"/>' % (RX0+15,t-4)), '32项施工轮廓;虚线为屋面包络,不代表已建实景')
+row(lambda t: e('<rect x="%.1f" y="%.1f" width="28" height="9" fill="#8b6c51" fill-opacity="0.22" stroke="#625046"/>' % (RX0+15,t-4)), '建筑/桥面施工轮廓;虚线为屋面包络,装配另验')
 for tier in ('A', 'B', 'C'):
     row(lambda t, tier=tier: e('<rect x="%.1f" y="%.1f" width="34" height="11" fill="%s" fill-opacity="0.2" '
                                'stroke="%s" stroke-width="2"/>' % (RX0 + 12, t - 5.5, TIER_COLOR[tier], TIER_COLOR[tier])),

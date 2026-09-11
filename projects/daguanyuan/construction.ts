@@ -9,6 +9,7 @@ import type {BridgePathSpec} from '@builder/plan/bridge-path';
 import {buildBridgePath} from '@builder/parts/shuigong/bridge-path';
 import {makeTerrainField,type GardenPlan} from '@builder/compose/terrain-from-plan';
 import {SEED} from '@builder/compose/config';
+import {allPlanLinears,type LinearPlan} from '@builder/plan/linears';
 
 /** The project supplies data; generic builders never import a particular garden. */
 export function buildPlannedBuilding(id: string): BuildingResult {
@@ -32,16 +33,14 @@ export function buildPlannedBuilding(id: string): BuildingResult {
 registerPart('garden-building', buildPlannedBuilding);
 
 export function buildPlannedWall(id:string) {
-  const regions=plan.regions as unknown as {id:string;linears?:WallPathSpec[]}[];
-  const matches=regions.flatMap(r=>r.linears??[]).filter(w=>w.id===id);
+  const matches=allPlanLinears(plan as unknown as LinearPlan).filter(w=>w.id===id&&w.kind==='wall') as WallPathSpec[];
   if(matches.length!==1)throw new Error(`墙路径 ${id} 须唯一，实际 ${matches.length}`);
   return buildWallPath(matches[0]);
 }
 registerPart('garden-wall',buildPlannedWall);
 
 export function buildPlannedCorridor(id:string) {
-  const regions=plan.regions as unknown as {id:string;linears?:CorridorPathSpec[]}[];
-  const matches=regions.flatMap(r=>r.linears??[]).filter(c=>c.id===id&&c.kind==='corridor');
+  const matches=allPlanLinears(plan as unknown as LinearPlan).filter(c=>c.id===id&&c.kind==='corridor') as CorridorPathSpec[];
   if(matches.length!==1)throw new Error(`游廊路径 ${id} 须唯一，实际 ${matches.length}`);
   return buildCorridor(matches[0]);
 }
@@ -49,8 +48,7 @@ registerPart('garden-corridor',buildPlannedCorridor);
 
 let previewGround:((x:number,z:number)=>number)|undefined;
 export function buildPlannedBridge(id:string,context?:PartContext) {
-  const regions=plan.regions as unknown as {linears?:BridgePathSpec[]}[];
-  const matches=regions.flatMap(r=>r.linears??[]).filter(b=>b.id===id&&b.kind==='bridge');
+  const matches=allPlanLinears(plan as unknown as LinearPlan).filter(b=>b.id===id&&b.kind==='bridge') as BridgePathSpec[];
   if(matches.length!==1)throw new Error(`桥路径 ${id} 须唯一，实际 ${matches.length}`);
   const ground=context?.ground ?? (previewGround??=makeTerrainField(plan as unknown as GardenPlan,{seed:SEED}).height);
   return buildBridgePath(matches[0],ground);

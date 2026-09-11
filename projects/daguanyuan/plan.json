@@ -1770,6 +1770,146 @@
         ]
       ],
       "basis": "将夹道与正门及内廊明确连接，位置为P2艺术落位。"
+    },
+    {
+      "id": "connection.daoxiang-approach",
+      "name": "P2桥头接路：connection.daoxiang-approach",
+      "points": [
+        [
+          -196,
+          -18
+        ],
+        [
+          -196,
+          -28
+        ],
+        [
+          -196,
+          -35
+        ],
+        [
+          -202,
+          -46
+        ],
+        [
+          -202,
+          -48
+        ],
+        [
+          -202,
+          -52
+        ]
+      ],
+      "basis": "从29节点路线截取局部接路，让桥头标高与路基共同限坡；桥下水体保持原河床。"
+    },
+    {
+      "id": "connection.red-approach",
+      "name": "P2桥头接路：connection.red-approach",
+      "points": [
+        [
+          -34,
+          -100
+        ],
+        [
+          -35,
+          -101
+        ],
+        [
+          -38,
+          -104
+        ],
+        [
+          -46,
+          -105
+        ],
+        [
+          -50,
+          -106
+        ],
+        [
+          -58,
+          -108
+        ],
+        [
+          -62,
+          -109.8
+        ],
+        [
+          -78,
+          -117
+        ]
+      ],
+      "basis": "从29节点路线截取局部接路，让桥头标高与路基共同限坡；桥下水体保持原河床。"
+    },
+    {
+      "id": "connection.sluice-approach",
+      "name": "P2桥头接路：connection.sluice-approach",
+      "points": [
+        [
+          186,
+          -184
+        ],
+        [
+          190,
+          -198
+        ],
+        [
+          192,
+          -205
+        ],
+        [
+          192,
+          -211.33333333333334
+        ],
+        [
+          197,
+          -212
+        ],
+        [
+          210,
+          -213.73333333333332
+        ],
+        [
+          212,
+          -214
+        ],
+        [
+          216,
+          -204.85714285714286
+        ],
+        [
+          219,
+          -198
+        ]
+      ],
+      "basis": "从29节点路线截取局部接路，让桥头标高与路基共同限坡；桥下水体保持原河床。"
+    },
+    {
+      "id": "connection.yihong-approach",
+      "name": "P2桥头接路：connection.yihong-approach",
+      "points": [
+        [
+          183,
+          183
+        ],
+        [
+          170,
+          175.05555555555554
+        ],
+        [
+          165,
+          172
+        ],
+        [
+          157,
+          172.47058823529412
+        ],
+        [
+          148,
+          173
+        ]
+      ],
+      "basis": "从29节点路线截取局部接路，让桥头标高与路基共同限坡；桥下水体保持原河床。"
     }
   ],
   "regions": [
@@ -6272,40 +6412,6 @@
           "elevation_m": 0.5,
           "feather_m": 3.5,
           "basis": "P2显式落脚面：grade是平整陆地，deck是跨水结构面，water-opening保留水下通道。边界与标高为依据地形/建筑净空选择的艺术施工输入，不是古籍实测值。"
-        },
-        {
-          "id": "qinfangzha.bridge-deck",
-          "kind": "deck",
-          "anchor": [
-            197,
-            -212
-          ],
-          "polygon": [
-            [
-              187,
-              -214
-            ],
-            [
-              209,
-              -214
-            ],
-            [
-              209,
-              -210
-            ],
-            [
-              187,
-              -210
-            ],
-            [
-              187,
-              -214
-            ]
-          ],
-          "elevation_m": 0.8,
-          "feather_m": 3.5,
-          "basis": "P2显式落脚面：grade是平整陆地，deck是跨水结构面，water-opening保留水下通道。边界与标高为依据地形/建筑净空选择的艺术施工输入，不是古籍实测值。",
-          "object": "qinfangzha.sluice-bridge"
         }
       ]
     },
@@ -6400,8 +6506,8 @@
           "bays": 0,
           "roof": "无",
           "facing": "west",
-          "x": -58,
-          "z": -108,
+          "x": -50,
+          "z": -106,
           "plaque": null,
           "id": "liaoting_huaxu.red-railing-bridge",
           "kind": "bridge"
@@ -8111,8 +8217,8 @@
           "name": "折带朱栏板桥",
           "kind": "waypoint",
           "at": [
-            -58,
-            -108
+            -50,
+            -106
           ],
           "refs": [
             {
@@ -8127,7 +8233,7 @@
             "sequenceIndex": 20,
             "event": "折带朱栏板桥"
           },
-          "placementBasis": "顺序为原文核验结果，米制站位为P2艺术规划；站点坐标不是建筑中心或区域质心的替代值。",
+          "placementBasis": "第17回过朱栏板桥后的西岸站位，P2按实际岸线由旧(-58,-108)收至(-50,-106)，其后仍接原园路，不扩大桥体去迎合旧点。",
           "region": "liaoting_huaxu"
         },
         {
@@ -9095,8 +9201,8 @@
               -105
             ],
             [
-              -58,
-              -108
+              -50,
+              -106
             ]
           ],
           "widthM": 1.4,
@@ -9109,6 +9215,10 @@
           "from": "ch17.n20",
           "to": "ch17.n21",
           "points": [
+            [
+              -50,
+              -106
+            ],
             [
               -58,
               -108
@@ -9275,6 +9385,10 @@
               -205
             ],
             [
+              192,
+              -211.33333333333334
+            ],
+            [
               197,
               -212
             ]
@@ -9292,6 +9406,10 @@
             [
               197,
               -212
+            ],
+            [
+              210,
+              -213.73333333333332
             ],
             [
               212,
@@ -9656,5 +9774,152 @@
     ],
     "routeRoadworkId": "legacy-ch17-roadwork",
     "basis": "旧14区域标签兼容字段；29节点顺序、站位及选定路段以narrativeRoutes/ch17为准。"
-  }
+  },
+  "connections": [
+    {
+      "id": "connection.daoxiang-creek",
+      "kind": "bridge",
+      "points": [
+        [
+          -196,
+          -30
+        ],
+        [
+          -196,
+          -35
+        ],
+        [
+          -202,
+          -46
+        ],
+        [
+          -202,
+          -47
+        ]
+      ],
+      "elevation_m": 1.22,
+      "width_m": 2.2,
+      "deckThickness_m": 0.22,
+      "pierPitch_m": 4,
+      "pierWidth_m": 0.35,
+      "pierFootWidth_m": 0.6,
+      "pierEmbed_m": 0.2,
+      "railingHeight_m": 0.65,
+      "cutFeather_m": 4,
+      "abutmentMode": "grade-dry",
+      "deckMaterial": "wood",
+      "railingMaterial": "wood",
+      "routeLegs": [
+        "ch17.e08"
+      ],
+      "basis": "稻香村入口跨溪；原文未点名此桥，为既定路线补真实结构面，不连接邻村或市井。 标高按现有岸地与接入需求选定；只整平干岸桥台，不抬高水下河床。 村内土方接路为1.2m，桥面独立高2cm，避免与已有院地共面；不能把桥面标高硬用作全部土方固定点。",
+      "approachElevation_m": 1.2
+    },
+    {
+      "id": "connection.red-railing",
+      "kind": "bridge",
+      "points": [
+        [
+          -35,
+          -101
+        ],
+        [
+          -38,
+          -104
+        ],
+        [
+          -46,
+          -105
+        ],
+        [
+          -50,
+          -106
+        ]
+      ],
+      "elevation_m": 0.5,
+      "width_m": 2.0,
+      "deckThickness_m": 0.22,
+      "pierPitch_m": 4,
+      "pierWidth_m": 0.35,
+      "pierFootWidth_m": 0.6,
+      "pierEmbed_m": 0.2,
+      "railingHeight_m": 0.65,
+      "cutFeather_m": 4,
+      "abutmentMode": "grade-dry",
+      "deckMaterial": "wood",
+      "railingMaterial": "vermilion",
+      "routeLegs": [
+        "ch17.e19"
+      ],
+      "basis": "第17回折带朱栏板桥：木板桥面、朱栏。按真实岸线把旧西端锚点(-58,-108)改到(-50,-106)，避免在陆地上延伸十余米桥体；桥外仍为园路。尺寸、曲折及标高为艺术施工输入，干岸桥台整地不抬河床。",
+      "object": "liaoting_huaxu.red-railing-bridge"
+    },
+    {
+      "id": "connection.qinfang-sluice",
+      "kind": "bridge",
+      "points": [
+        [
+          192,
+          -211.33333333333334
+        ],
+        [
+          210,
+          -213.73333333333332
+        ]
+      ],
+      "elevation_m": 0.8,
+      "width_m": 3.0,
+      "deckThickness_m": 0.3,
+      "pierPitch_m": 4,
+      "pierWidth_m": 0.35,
+      "pierFootWidth_m": 0.6,
+      "pierEmbed_m": 0.2,
+      "railingHeight_m": 0.65,
+      "cutFeather_m": 4,
+      "abutmentMode": "grade-dry",
+      "deckMaterial": "stone",
+      "railingMaterial": "stone",
+      "routeLegs": [
+        "ch17.e23",
+        "ch17.e24"
+      ],
+      "basis": "第17回沁芳闸大桥：桥身跨溪，岸上折转留给园路，不用U形长桥包住岸地。这里生成桥面、栏杆与墩脚，水关/闸槽细部仍待相应构件；原文未给孔数，不消费旧bays作孔数。尺寸及标高为艺术输入。 沿用原桥面0.8m及两岸台地0.5m标高，桥板厚0.3m；桥面由本spec单独提供，移除旧的重复矩形deck pad。",
+      "object": "qinfangzha.sluice-bridge",
+      "approachElevation_m": 0.5
+    },
+    {
+      "id": "connection.yihong-return",
+      "kind": "bridge",
+      "points": [
+        [
+          170,
+          175.05555555555554
+        ],
+        [
+          165,
+          172
+        ],
+        [
+          157,
+          172.47058823529412
+        ]
+      ],
+      "elevation_m": 1.02,
+      "width_m": 2.2,
+      "deckThickness_m": 0.22,
+      "pierPitch_m": 4,
+      "pierWidth_m": 0.35,
+      "pierFootWidth_m": 0.6,
+      "pierEmbed_m": 0.2,
+      "railingHeight_m": 0.65,
+      "cutFeather_m": 4,
+      "abutmentMode": "grade-dry",
+      "deckMaterial": "wood",
+      "railingMaterial": "wood",
+      "routeLegs": [
+        "ch17.e25"
+      ],
+      "basis": "归路到怡红院前跨既有溪：原文未单独点名桥，作为这条路线的艺术施工补充。 标高按现有岸地与接入需求选定；只整平干岸桥台，不抬高水下河床。"
+    }
+  ]
 }

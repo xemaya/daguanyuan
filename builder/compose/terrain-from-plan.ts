@@ -22,7 +22,7 @@
 
 import { Simplex, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { BoundsIndex } from '@engine/scatter/cluster';
-import type { LinearSpec } from '@builder/plan/linears';
+import {allPlanLinears,type LinearSpec} from '@builder/plan/linears';
 import {compileBridgePath} from '@builder/plan/bridge-path';
 
 /* ------------------------------------------------------------------ */
@@ -71,6 +71,7 @@ export interface PlanPad {
 }
 
 export interface GardenPlan {
+  connections?:LinearSpec[];
   canvas: { width_m: number; depth_m: number };
   wall: [number, number][];
   water: PlanWater[];
@@ -251,7 +252,7 @@ function gradeLimit(t: Float64Array, s: Float64Array, g: number, pins: Map<numbe
     // mountain approach below the terrace it is meant to reach.
     for(let i=1;i<t.length;i++)lower[i]=Math.max(lower[i],lower[i-1]-g*(s[i]-s[i-1]));
     for(let i=t.length-2;i>=0;i--)lower[i]=Math.max(lower[i],lower[i+1]-g*(s[i+1]-s[i]));
-    for(const [i,y] of pins)if(lower[i]>y+1e-7)throw new Error('园路相邻固定台地标高无法满足限坡，须修改路线或台地');
+    for(const [i,y] of pins)if(lower[i]>y+1e-7)throw new Error(`园路相邻固定台地标高无法满足限坡，须修改路线或台地（里程${s[i].toFixed(3)}m，固定${y}m，受其他固定点约束至少${lower[i].toFixed(3)}m）`);
     for(let i=0;i<t.length;i++)t[i]=Math.max(t[i],lower[i]);
   }
   for (let i = 1; i < t.length; i++) {
@@ -346,10 +347,10 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     ]);
 
   const indexed = opts.spatialIndex !== false;
-  const bridges=plan.regions.flatMap(r=>(r.linears??[]).filter(l=>l.kind==='bridge').map(spec=>{
+  const bridges=allPlanLinears(plan).filter(l=>l.kind==='bridge').map(spec=>{
     const c=compileBridgePath(spec);
-    return {...makePoly(c.polygon.map(p=>[p[0]+c.origin[0],p[1]+c.origin[1]] as [number,number])),elev:spec.elevation_m,thickness:spec.deckThickness_m,feather:spec.cutFeather_m};
-  }));
+    return {...makePoly(c.polygon.map(p=>[p[0]+c.origin[0],p[1]+c.origin[1]] as [number,number])),elev:spec.elevation_m,approach:spec.approachElevation_m??spec.elevation_m,thickness:spec.deckThickness_m,feather:spec.cutFeather_m,gradeDry:spec.abutmentMode==='grade-dry'};
+  });
   const bridgeIndex=new BoundsIndex<typeof bridges[number]>(16);
   for(const b of bridges)bridgeIndex.add(b,b,b.feather);
   const hillIndex = new BoundsIndex<Hill>(32);
@@ -477,8 +478,8 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       if(signedDist(dense.xs[i],dense.zs[i],pad)<=0) pins.set(i,pad.elev);
     }
     for(let i=0;i<t.length;i++)for(const b of bridgeIndex.query(dense.xs[i],dense.zs[i]))
-      if(signedDist(dense.xs[i],dense.zs[i],b)<=1e-8)pins.set(i,b.elev);
-    gradeLimit(t, dense.s, PATH_GRADE, pins);
+      if(signedDist(dense.xs[i],dense.zs[i],b)<=1e-8)pins.set(i,b.approach);
+    try {gradeLimit(t, dense.s, PATH_GRADE, pins);} catch(error) {throw new Error(`${p.name}：${(error as Error).message}`);}
     smoothProfile(t);
     gradeLimit(t, dense.s, PATH_GRADE, pins);
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -651,12 +652,14 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       // approach elevations may raise the path profile but cannot fill water.
       if(h>natural&&isWater())h=natural;
     }
-    // Cut back the banks smoothly around a bridge, instead of carving an
-    // abrupt vertical trench exactly as wide as the deck. Never raise the bed.
+    // A selected dry abutment may be graded up to the slab underside. Water
+    // masks always take the cut-only branch, so an approach cannot dam a creek.
     for(const b of bridgeIndex.query(x,z)) {
       const d=signedDist(x,z,b);if(d>b.feather)continue;
       const cut=lerp(natural,b.elev-b.thickness,smoothstep(b.feather,0,Math.max(0,d)));
-      h=Math.min(h,natural,cut);
+      if(b.gradeDry&&!isWater()&&natural<b.elev-b.thickness)
+        h=lerp(h,b.elev-b.thickness,smoothstep(b.feather,0,Math.max(0,d)));
+      else h=Math.min(h,natural,cut);
     }
     // Road rutting and hill preservation must not tilt an explicitly authored
     // foundation. Water still wins outside the dry pad core: feathering is not

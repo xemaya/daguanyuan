@@ -31,6 +31,8 @@ export const CN = {
   /** 木作:栗壳色,苏式不用朱红。 */
   wood: 0x8a5a3e,
   woodLight: 0xa8744f,
+  /** 第17回折带朱栏板桥专用，不外推为全园木色。 */
+  bridgeVermilion: 0x944b40,
   /** 柱:比梁枋再深一档。 */
   column: 0x6e4230,
   /** 青石:台基、驳岸、铺地。 */

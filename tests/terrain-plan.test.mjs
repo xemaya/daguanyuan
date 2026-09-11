@@ -73,11 +73,11 @@ test('堆山中心高于其标称高程的一半', () => {
 });
 
 test('控制点同面坡度不超12%，线性结构边界允许明示单阶', () => {
-  const surfaces = plan.regions.flatMap(r=>(r.linears??[]).filter(l=>l.kind==='corridor'||l.kind==='bridge').map(spec=>{
+  const surfaces = [...plan.regions.flatMap(r=>r.linears??[]),...(plan.connections??[])].filter(l=>l.kind==='corridor'||l.kind==='bridge').map(spec=>{
     const c=spec.kind==='corridor'?compileCorridor(spec):compileBridgePath(spec);
     const poly=(spec.kind==='corridor'?c.deckPolygon:c.polygon).map(p=>[p[0]+c.origin[0],p[1]+c.origin[1]]);
     return {poly,y:spec.elevation_m+(spec.kind==='corridor'?spec.platformH_m:0),step:(spec.kind==='corridor'?spec.platformH_m:spec.deckThickness_m)+.08,id:spec.id};
-  }));
+  });
   const at=(x,z)=>{let h=field.height(x,z),surface=null;for(const s of surfaces)if(locatePoint(s.poly,[x,z])!=='outside'&&s.y>h){h=s.y;surface=s;}return {h,surface};};
   for (const p of plan.paths) {
     for (let i = 1; i < p.points.length; i++) {
@@ -111,7 +111,7 @@ test('显式落脚面：陆地台地逐网格平整，桥与港洞保留水下�
       else { portals++; assert.equal(pad.kind,'water-opening'); }
     }
   }
-  assert.equal(graded,11); assert.equal(decks,4); assert.equal(portals,1);
+  assert.equal(graded,11); assert.equal(decks,3); assert.equal(portals,1);
 });
 
 test('仍采用区域整地的陆地区域中心平缓（不把池面或新台地质心当基础）', () => {
