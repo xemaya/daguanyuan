@@ -5,7 +5,7 @@
  * 不用 teleport 作弊:每个航点先把视线转过去,再按住 W 走,3 秒没进展算卡住。
  * 验的是碰撞层:门能不能穿、桥面能不能上、水会不会掉、假山缝能不能过。
  *
- *   node tools/playtest.mjs --url http://127.0.0.1:4801/
+ *   node tools/playtest.mjs --url http://127.0.0.1:4801/garden.html
  *
  * P1 Task 6:世界换到 plan.json 坐标系,航点也跟着换。「十七回游线」前 14
  * 个原始点(正门→潇湘馆,全长 310.6m)里程 156.5→225.1m 是水下(约
@@ -22,7 +22,7 @@
  */
 import { chromium } from 'playwright';
 
-const args = { url: 'http://127.0.0.1:4801/' };
+const args = { url: 'http://127.0.0.1:4801/garden.html' };
 for (let i = 2; i < process.argv.length; i++) if (process.argv[i] === '--url') args.url = process.argv[++i];
 
 /** 通行验收航点（主通路+曲廊支线），不用于计算29节点叙事里程。 */

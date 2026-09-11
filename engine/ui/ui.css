@@ -1,70 +1,39 @@
 /*
- * ui.css — the Pallet Town interface layer.
+ * ui.css — 大观园界面层:加载帘、开始/暂停卡、对话面板、准星与按键提示。
  *
- * One palette, one radius scale, one easing curve. Everything is a soft cream
- * panel with a deep navy voice, floated over the 3D scene on a warm shadow.
- * Colours are drawn straight from ART_DIRECTION.md §3; nothing here invents a
- * new hue, and nothing is pure black or pure white.
+ * 视觉语言是「界画青绿」(ART_DIRECTION.md §9),颜色、字体、尺度全部取自
+ * engine/ui/tokens.css,这里不发明新色。令牌由 HUD.ts 一并引入
+ * (import './tokens.css'),本文件只管布局与组件。
+ *
+ * 两条用色纪律:
+ *   - 压在场景上的 HUD(准星、按键提示、对话)用绢色与一丝石绿,不上金。
+ *   - 泥金只在加载页出现(进园之前),极少量:一道勾线、一方印。
+ * 界尺画的线是硬的:面板不做圆角,只有可点的东西给 2px(var(--dgy-radius))。
  */
-
-:root {
-  /* Surfaces */
-  --pt-cream: #faf3e4;
-  --pt-cream-2: #f0e3c8;
-  --pt-cream-3: #e6d5b4;
-  /* Voice */
-  --pt-ink: #1f3050;
-  --pt-ink-soft: #4a5c78;
-  --pt-ink-faint: #8493a8;
-  /* Accents */
-  --pt-blue: #4a86c4;
-  --pt-blue-deep: #2f5f96;
-  --pt-teal: #5fc8d2;
-  --pt-red: #d0553f;
-  --pt-gold: #ffd447;
-  --pt-wood: #8a5c3b;
-  /* 江南色板,与 ART_DIRECTION.md §3 一致 */
-  --pt-stone: #b8b3a8;
-  --pt-bamboo: #3f6b45;
-
-  --pt-r-sm: 12px;
-  --pt-r-md: 18px;
-  --pt-r-lg: 26px;
-  --pt-r-xl: 34px;
-
-  --pt-shadow-lift: 0 2px 0 rgba(31, 48, 80, 0.16), 0 10px 28px rgba(20, 32, 54, 0.26),
-    0 32px 64px rgba(15, 24, 42, 0.22);
-  --pt-shadow-soft: 0 6px 20px rgba(20, 32, 54, 0.18);
-
-  --pt-spring: cubic-bezier(0.22, 1.16, 0.34, 1);
-  --pt-ease: cubic-bezier(0.4, 0, 0.2, 1);
-
-  --pt-font: ui-rounded, "SF Pro Rounded", "Nunito", "Quicksand", system-ui, -apple-system,
-    "Segoe UI", sans-serif;
-}
 
 /* ------------------------------------------------------------------ root */
 
-.pt-ui {
+.dgy-ui {
   position: fixed;
   inset: 0;
   z-index: 40;
   pointer-events: none;
-  font-family: var(--pt-font);
-  color: var(--pt-ink);
+  font-family: var(--dgy-font-ui);
+  color: var(--dgy-silk);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   user-select: none;
   -webkit-user-select: none;
 }
 
-.pt-ui * {
+.dgy-ui * {
   box-sizing: border-box;
 }
 
 /* ------------------------------------------------------------- crosshair */
 
-.pt-crosshair {
+/* 压在场景上:绢色一点,对到可交互物时染一丝石绿。不上金。 */
+.dgy-crosshair {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -74,163 +43,156 @@
   display: grid;
   place-items: center;
   opacity: 0;
-  transition: opacity 380ms var(--pt-ease);
+  transition: opacity 380ms var(--dgy-ease);
 }
 
-.pt-crosshair.is-on {
+.dgy-crosshair.is-on {
   opacity: 1;
 }
 
-.pt-crosshair i {
+.dgy-crosshair i {
   display: block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(250, 243, 228, 0.92);
-  box-shadow: 0 0 0 1.5px rgba(31, 48, 80, 0.34), 0 1px 4px rgba(15, 24, 42, 0.45);
-  transition: transform 320ms var(--pt-spring), background 320ms var(--pt-ease),
-    box-shadow 320ms var(--pt-ease);
+  background: var(--dgy-silk);
+  box-shadow: 0 0 0 1.5px rgba(22, 38, 43, 0.5), 0 1px 4px rgba(10, 16, 18, 0.5);
+  transition: transform 320ms var(--dgy-ease), background 320ms var(--dgy-ease),
+    box-shadow 320ms var(--dgy-ease);
 }
 
-.pt-crosshair.is-focus i {
+.dgy-crosshair.is-focus i {
   transform: scale(1.85);
-  background: var(--pt-gold);
-  box-shadow: 0 0 0 2px rgba(31, 48, 80, 0.4), 0 0 14px 3px rgba(255, 212, 71, 0.5);
+  background: var(--dgy-jade);
+  box-shadow: 0 0 0 2px rgba(22, 38, 43, 0.55), 0 0 14px 3px rgba(134, 169, 142, 0.45);
 }
 
 /* --------------------------------------------------------------- prompt */
 
-.pt-prompt {
+/* 交互提示:深青面板、绢字、石绿的键帽沿。 */
+.dgy-prompt {
   position: absolute;
   left: 50%;
   bottom: clamp(84px, 13vh, 150px);
-  transform: translate(-50%, 16px) scale(0.94);
+  transform: translate(-50%, 16px);
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px 10px 12px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(250, 243, 228, 0.97), rgba(240, 227, 200, 0.97));
-  box-shadow: var(--pt-shadow-lift);
+  padding: 9px 18px 9px 10px;
+  background: rgba(29, 50, 56, 0.92);
+  border: var(--dgy-hair) solid var(--dgy-line);
+  box-shadow: 0 10px 28px rgba(10, 16, 18, 0.4);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 220ms var(--pt-ease), transform 380ms var(--pt-spring),
+  transition: opacity 220ms var(--dgy-ease), transform 380ms var(--dgy-ease),
     visibility 0s linear 240ms;
   white-space: nowrap;
 }
 
-.pt-prompt.is-on {
+.dgy-prompt.is-on {
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, 0) scale(1);
-  transition: opacity 200ms var(--pt-ease), transform 460ms var(--pt-spring),
+  transform: translate(-50%, 0);
+  transition: opacity 200ms var(--dgy-ease), transform 460ms var(--dgy-ease),
     visibility 0s linear 0s;
 }
 
-.pt-prompt__label {
-  font-size: clamp(15px, 1.15vw, 19px);
+.dgy-prompt__label {
+  font-size: clamp(14px, 1.1vw, 17px);
   font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--pt-ink);
+  letter-spacing: 0.04em;
+  color: var(--dgy-silk);
 }
 
 /* ----------------------------------------------------------------- hint */
 
-/* Transient notice, used when the browser refuses pointer lock and the game
-   falls back to drag-to-look. Sits above the prompt so the two never collide. */
-.pt-hint {
+/* 临时提示(浏览器拒绝指针锁定时退化为拖拽环顾)。位置在交互提示上方,互不打架。 */
+.dgy-hint {
   position: absolute;
   left: 50%;
   bottom: clamp(140px, 20vh, 220px);
   transform: translate(-50%, 10px);
   max-width: min(520px, 84vw);
-  padding: 10px 20px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(250, 243, 228, 0.96), rgba(240, 227, 200, 0.96));
-  box-shadow: var(--pt-shadow-soft);
-  font-size: clamp(12px, 0.95vw, 15px);
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--pt-ink-soft);
+  padding: 9px 18px;
+  background: rgba(29, 50, 56, 0.92);
+  border: var(--dgy-hair) solid var(--dgy-line);
+  box-shadow: 0 6px 20px rgba(10, 16, 18, 0.35);
+  font-size: clamp(12px, 0.95vw, 14px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--dgy-silk-dim);
   text-align: center;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 260ms var(--pt-ease), transform 420ms var(--pt-spring),
+  transition: opacity 260ms var(--dgy-ease), transform 420ms var(--dgy-ease),
     visibility 0s linear 280ms;
 }
 
-.pt-hint.is-on {
+.dgy-hint.is-on {
   opacity: 1;
   visibility: visible;
   transform: translate(-50%, 0);
-  transition: opacity 240ms var(--pt-ease), transform 460ms var(--pt-spring),
+  transition: opacity 240ms var(--dgy-ease), transform 460ms var(--dgy-ease),
     visibility 0s linear 0s;
 }
 
 /* ------------------------------------------------------------- key caps */
 
-.pt-key {
+/* 键帽:深青面、绢字、底沿一丝石绿——能按的东西才给 2px 圆角。 */
+.dgy-key {
   display: inline-grid;
   place-items: center;
-  min-width: 34px;
-  height: 34px;
+  min-width: 32px;
+  height: 32px;
   padding: 0 10px;
-  border-radius: 11px;
-  background: linear-gradient(180deg, #ffffff 0%, #f3ead6 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 0 var(--pt-cream-3),
-    0 4px 8px rgba(31, 48, 80, 0.2);
-  font-size: 13px;
-  font-weight: 800;
+  border-radius: var(--dgy-radius);
+  background: var(--dgy-raise);
+  border: var(--dgy-hair) solid var(--dgy-line);
+  box-shadow: 0 2px 0 rgba(134, 169, 142, 0.35), 0 4px 8px rgba(10, 16, 18, 0.3);
+  font-family: var(--dgy-font-num);
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--pt-ink);
+  color: var(--dgy-silk);
   text-transform: uppercase;
 }
 
-.pt-key--wide {
-  min-width: 62px;
+.dgy-key--wide {
+  min-width: 60px;
 }
 
 /* ----------------------------------------------------------- overlays */
 
-.pt-overlay {
+.dgy-overlay {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
   padding: 5vh 4vw;
   opacity: 1;
-  transition: opacity 620ms var(--pt-ease);
+  transition: opacity 620ms var(--dgy-ease);
 }
 
-.pt-overlay.is-hidden {
+.dgy-overlay.is-hidden {
   opacity: 0;
   pointer-events: none;
 }
 
-.pt-overlay.is-gone {
+.dgy-overlay.is-gone {
   display: none;
 }
 
 /* --------------------------------------------------------- loading screen */
 
-.pt-loading {
-  background: radial-gradient(120% 90% at 50% 12%, #7fb6e4 0%, #4a86c4 42%, #24446e 100%);
+/* 加载是"进园之前",泥金在这里可以用:标题一道勾线、徽标一方印。 */
+.dgy-loading {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(90, 143, 174, 0.12), rgba(90, 143, 174, 0) 62%),
+    var(--dgy-ground);
   z-index: 3;
 }
 
-.pt-loading::after {
-  /* Warm sun bloom high in the frame, plus a soft corner vignette. The screen
-     should already feel like the 9:30am sky it is about to become. */
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(46vw 40vh at 50% 6%, rgba(255, 243, 214, 0.42), rgba(255, 243, 214, 0) 70%),
-    radial-gradient(120% 100% at 50% 50%, rgba(16, 34, 60, 0) 46%, rgba(14, 28, 50, 0.42) 100%);
-  pointer-events: none;
-}
-
-.pt-loading__inner {
+.dgy-loading__inner {
   position: relative;
   z-index: 1;
   width: min(560px, 82vw);
@@ -238,197 +200,196 @@
 }
 
 /**
- * 载入页徽标:一道月洞门。
+ * 载入页徽标:界尺画的一方庭。
  *
- * 目标尺寸只有 72px。按艺术圣经 §2.7「剪影优先」,这个尺寸上一切细节都会变成噪声——
- * 试过在洞里加竹影,4 倍放大下读成两道刮痕。最终只留四层,靠明度差把"洞"讲清楚:
- *   粉墙(最亮) → 青石门套(中) → 洞里的绿(暗) → 洞底一抹日光地面(亮)
- * 洞里不能有上亮下暗的球面渐变,一有就立刻读成球;暗角要四周均匀,那是墙厚挡的光。
- * 月洞门园子里本来就有(builder/parts/qiangyuan/wall.ts 的 moon 变体),徽标与实物同源。
+ * 换掉了继承来的圆环——圆加径向渐变在这个尺寸上读成球。改成方:界画用界尺,
+ * 方的线脚才是画种的口音。三层,靠明度差把"院"讲清楚:
+ *   外框一道泥金勾线(极少量) → 深青的面 → 石绿的内院,院底压一道金台基。
  */
-.pt-mark {
+.dgy-mark {
   box-sizing: border-box;
   width: clamp(72px, 6.4vw, 92px);
   height: clamp(72px, 6.4vw, 92px);
   margin: 0 auto clamp(18px, 2.6vh, 30px);
-  border-radius: 50%;
-  background:
-    /* 洞底一抹亮:穿过去的远处日光地面,压得很低很宽 */
-    radial-gradient(78% 30% at 50% 88%, rgba(212, 230, 192, 0.92) 0%, rgba(150, 184, 130, 0) 78%),
-    /* 洞里的绿,平的,靠边渐暗 */
-    radial-gradient(88% 88% at 50% 46%, #45703f 0%, #29492e 62%, #172d1d 100%);
-  /* 门套:一道厚青石,压深一档才和粉墙分得开 */
-  border: clamp(7px, 0.78vw, 10px) solid #a49f93;
-  box-shadow:
-    /* 外面是粉墙 */
-    0 0 0 clamp(6px, 0.62vw, 9px) var(--pt-cream-2),
-    0 0 0 calc(clamp(6px, 0.62vw, 9px) + 1px) rgba(31, 48, 80, 0.22),
-    /* 洞口暗角:四周均匀,不是球面 */
-    inset 0 0 12px 3px rgba(8, 22, 12, 0.62),
-    0 10px 24px rgba(15, 24, 42, 0.34);
+  background: var(--dgy-panel);
+  border: var(--dgy-hair) solid var(--dgy-gold);
+  box-shadow: 0 10px 24px rgba(10, 16, 18, 0.4);
   position: relative;
-  overflow: hidden;
-  animation: pt-bob 4.8s var(--pt-ease) infinite;
+  animation: dgy-bob 4.8s var(--dgy-ease) infinite;
 }
 
-/* 门槛:洞底一线,不抢戏 */
-.pt-mark::after {
+/* 内院:石绿一线圈出的方。 */
+.dgy-mark::before {
   content: "";
   position: absolute;
-  left: 15%;
-  right: 15%;
-  bottom: 7%;
-  height: 4%;
-  border-radius: 1px;
-  background: linear-gradient(180deg, #c3bdb0 0%, #a49f93 70%, #837e73 100%);
-  box-shadow: 0 -3px 7px rgba(8, 22, 12, 0.45);
+  inset: 22%;
+  border: var(--dgy-hair) solid var(--dgy-jade);
+  background: linear-gradient(180deg, rgba(134, 169, 142, 0.14), rgba(134, 169, 142, 0.04));
 }
 
-/* 门是砌在墙上的,不该左右摇——只留一点上下的呼吸。 */
-@keyframes pt-bob {
+/* 院底一道台基,泥金,不抢戏。 */
+.dgy-mark::after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 26%;
+  height: 2px;
+  background: var(--dgy-gold);
+  opacity: 0.85;
+}
+
+@keyframes dgy-bob {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
 }
 
-.pt-title {
+.dgy-title {
   margin: 0;
-  font-size: clamp(38px, 4.4vw, 66px);
+  font-size: clamp(36px, 4.2vw, 60px);
   font-weight: 800;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
   line-height: 1.05;
-  color: var(--pt-cream);
-  text-shadow: 0 2px 0 rgba(31, 48, 80, 0.22), 0 12px 30px rgba(15, 24, 42, 0.4);
+  color: var(--dgy-silk);
 }
 
-.pt-subtitle {
-  margin: 10px 0 0;
-  font-size: clamp(12px, 1.05vw, 15px);
-  font-weight: 700;
+/* 泥金勾线,一像素,标题下唯一的一道金。 */
+.dgy-title::after {
+  content: "";
+  display: block;
+  width: 96px;
+  height: var(--dgy-hair);
+  margin: 16px auto 0;
+  background: var(--dgy-gold);
+}
+
+.dgy-subtitle {
+  margin: 14px 0 0;
+  font-size: clamp(11px, 1vw, 14px);
+  font-weight: 600;
   letter-spacing: 0.34em;
-  text-transform: uppercase;
-  color: rgba(250, 243, 228, 0.74);
+  text-indent: 0.34em;
+  color: var(--dgy-silk-dim);
 }
 
-.pt-bar {
+/* 进度条:深槽,石绿的 fillers——"可走"的颜色。 */
+.dgy-bar {
   position: relative;
   margin: clamp(26px, 4vh, 44px) auto 0;
   width: 100%;
-  height: 14px;
-  border-radius: 999px;
-  background: rgba(20, 34, 58, 0.34);
-  box-shadow: inset 0 2px 5px rgba(15, 24, 42, 0.42), 0 1px 0 rgba(255, 255, 255, 0.14);
+  height: 10px;
+  background: rgba(10, 16, 18, 0.5);
+  border: var(--dgy-hair) solid var(--dgy-line);
   overflow: hidden;
 }
 
-.pt-bar__fill {
+.dgy-bar__fill {
   position: absolute;
   inset: 2px;
   width: 0;
-  min-width: 10px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--pt-teal), #b6ee8f 55%, var(--pt-gold));
-  box-shadow: 0 0 14px rgba(255, 212, 71, 0.45);
-  /* Width is eased frame-by-frame in Menu.ts; a CSS transition on top of that
-     would let the bar lag behind the percentage readout. */
+  min-width: 8px;
+  background: linear-gradient(90deg, var(--dgy-jade), #a4c3a8);
+  /* 宽度由 Menu.ts 逐帧缓动,这里不能再叠 CSS transition,否则条会落后于读数。 */
 }
 
-.pt-bar__fill::after {
+.dgy-bar__fill::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 999px;
   background: linear-gradient(
     100deg,
-    rgba(255, 255, 255, 0) 20%,
-    rgba(255, 255, 255, 0.55) 50%,
-    rgba(255, 255, 255, 0) 80%
+    rgba(232, 226, 210, 0) 20%,
+    rgba(232, 226, 210, 0.35) 50%,
+    rgba(232, 226, 210, 0) 80%
   );
   background-size: 220% 100%;
-  animation: pt-sheen 1.7s linear infinite;
+  animation: dgy-sheen 1.7s linear infinite;
 }
 
-@keyframes pt-sheen {
+@keyframes dgy-sheen {
   from { background-position: 140% 0; }
   to { background-position: -60% 0; }
 }
 
-.pt-loading__row {
+.dgy-loading__row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  margin-top: 14px;
-  color: rgba(250, 243, 228, 0.92);
+  margin-top: 12px;
+  color: var(--dgy-silk);
 }
 
-.pt-loading__step {
+.dgy-loading__step {
   font-size: clamp(13px, 1.05vw, 16px);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
   opacity: 0.9;
 }
 
-.pt-loading__pct {
+.dgy-loading__pct {
+  font-family: var(--dgy-font-num);
   font-size: clamp(13px, 1.05vw, 16px);
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
+  color: var(--dgy-silk-dim);
 }
 
 /* ------------------------------------------------------------ start card */
 
-.pt-start {
+/* 开始/暂停卡压在场景上:深青面板、绢字、石绿的按钮,不上金。 */
+.dgy-start {
   z-index: 2;
-  background: radial-gradient(90% 70% at 50% 45%, rgba(16, 30, 52, 0.34), rgba(12, 22, 40, 0.62));
-  backdrop-filter: blur(3px) saturate(1.08);
-  -webkit-backdrop-filter: blur(3px) saturate(1.08);
+  background: rgba(22, 38, 43, 0.55);
+  backdrop-filter: blur(3px) saturate(1.05);
+  -webkit-backdrop-filter: blur(3px) saturate(1.05);
   pointer-events: auto;
   cursor: pointer;
 }
 
-.pt-card {
+.dgy-card {
   width: min(660px, 88vw);
   padding: clamp(26px, 3.4vh, 40px) clamp(28px, 3vw, 46px) clamp(24px, 3vh, 34px);
-  border-radius: var(--pt-r-xl);
-  background: linear-gradient(180deg, var(--pt-cream) 0%, var(--pt-cream-2) 100%);
-  box-shadow: var(--pt-shadow-lift), inset 0 2px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -3px 0 rgba(31, 48, 80, 0.08);
+  background: var(--dgy-panel);
+  border: var(--dgy-hair) solid var(--dgy-line);
+  box-shadow: 0 24px 64px rgba(10, 16, 18, 0.5);
   text-align: center;
-  transform: translateY(0) scale(1);
-  transition: transform 520ms var(--pt-spring), opacity 380ms var(--pt-ease);
+  transform: translateY(0);
+  transition: transform 520ms var(--dgy-ease), opacity 380ms var(--dgy-ease);
 }
 
-.pt-overlay.is-hidden .pt-card {
-  transform: translateY(14px) scale(0.965);
+.dgy-overlay.is-hidden .dgy-card {
+  transform: translateY(14px);
 }
 
-.pt-card__eyebrow {
+.dgy-card__eyebrow {
   font-size: clamp(10px, 0.82vw, 12px);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.4em;
-  text-transform: uppercase;
-  color: var(--pt-ink-faint);
+  text-indent: 0.4em;
+  color: var(--dgy-silk-faint);
 }
 
-.pt-card__title {
-  margin: 8px 0 0;
-  font-size: clamp(30px, 3.2vw, 46px);
+.dgy-card__title {
+  margin: 10px 0 0;
+  font-size: clamp(28px, 3.1vw, 42px);
   font-weight: 800;
-  letter-spacing: 0.1em;
-  color: var(--pt-ink);
-  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  color: var(--dgy-silk);
 }
 
-.pt-card__rule {
-  width: 74px;
-  height: 4px;
+.dgy-card__rule {
+  width: 72px;
+  height: var(--dgy-hair);
   margin: 16px auto 0;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--pt-red), var(--pt-gold));
-  opacity: 0.85;
+  background: var(--dgy-jade);
+  opacity: 0.8;
 }
 
-.pt-legend {
+.dgy-legend {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 12px;
@@ -436,165 +397,160 @@
   text-align: left;
 }
 
-.pt-legend__row {
+.dgy-legend__row {
   display: flex;
   align-items: center;
   gap: 9px;
   padding: 9px 11px;
-  border-radius: var(--pt-r-md);
-  background: rgba(255, 255, 255, 0.55);
-  box-shadow: inset 0 0 0 1.5px rgba(31, 48, 80, 0.06);
+  background: rgba(38, 66, 74, 0.55);
+  border: var(--dgy-hair) solid var(--dgy-line);
   min-width: 0;
 }
 
-.pt-legend__keys {
+.dgy-legend__keys {
   display: flex;
   gap: 4px;
   flex: none;
 }
 
-.pt-legend__keys .pt-key {
+.dgy-legend__keys .dgy-key {
   min-width: 28px;
   height: 28px;
   padding: 0 8px;
-  border-radius: 9px;
   font-size: 11px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 0 var(--pt-cream-3),
-    0 3px 6px rgba(31, 48, 80, 0.16);
 }
 
-.pt-legend__text {
+.dgy-legend__text {
   font-size: clamp(12px, 0.92vw, 14px);
-  font-weight: 700;
-  color: var(--pt-ink-soft);
+  font-weight: 600;
+  color: var(--dgy-silk-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.pt-cta {
+/* 主按钮:石绿,"可走"。 */
+.dgy-cta {
   display: inline-flex;
   align-items: center;
   gap: 12px;
   margin-top: clamp(20px, 2.8vh, 32px);
-  padding: 15px 34px;
+  padding: 14px 34px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--dgy-radius);
   font-family: inherit;
-  font-size: clamp(15px, 1.2vw, 19px);
+  font-size: clamp(15px, 1.2vw, 18px);
   font-weight: 800;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--pt-cream);
-  background: linear-gradient(180deg, #5d99d4 0%, var(--pt-blue) 55%, var(--pt-blue-deep) 100%);
-  box-shadow: 0 4px 0 #23496f, 0 12px 26px rgba(20, 40, 70, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  color: var(--dgy-ground);
+  background: var(--dgy-jade);
+  box-shadow: 0 3px 0 rgba(90, 122, 97, 0.9), 0 12px 26px rgba(10, 16, 18, 0.4);
   cursor: pointer;
   pointer-events: auto;
-  animation: pt-pulse 2.6s var(--pt-ease) infinite;
-  transition: transform 220ms var(--pt-spring), box-shadow 220ms var(--pt-ease);
+  animation: dgy-pulse 2.6s var(--dgy-ease) infinite;
+  transition: transform 220ms var(--dgy-ease), box-shadow 220ms var(--dgy-ease);
 }
 
-.pt-cta:hover {
+.dgy-cta:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 0 #23496f, 0 16px 32px rgba(20, 40, 70, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  box-shadow: 0 5px 0 rgba(90, 122, 97, 0.9), 0 16px 32px rgba(10, 16, 18, 0.45);
 }
 
-.pt-cta:active {
+.dgy-cta:active {
   transform: translateY(2px);
-  box-shadow: 0 2px 0 #23496f, 0 8px 18px rgba(20, 40, 70, 0.4);
+  box-shadow: 0 1px 0 rgba(90, 122, 97, 0.9), 0 8px 18px rgba(10, 16, 18, 0.4);
 }
 
-@keyframes pt-pulse {
+@keyframes dgy-pulse {
   0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.1); }
+  50% { filter: brightness(1.08); }
 }
 
-.pt-card__foot {
+.dgy-card__foot {
   margin: 14px 0 0;
   font-size: clamp(11px, 0.86vw, 13px);
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.05em;
-  color: var(--pt-ink-faint);
+  color: var(--dgy-silk-faint);
 }
 
 /* --------------------------------------------------------------- dialogue */
 
-.pt-dialogue {
+/* 对话面板也压在场景上:深青、绢字,石绿留给光标与名字签。 */
+.dgy-dialogue {
   position: absolute;
   left: 50%;
   bottom: clamp(26px, 4.4vh, 54px);
   width: min(1080px, 88vw);
-  transform: translate(-50%, 26px) scale(0.985);
+  transform: translate(-50%, 26px);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 200ms var(--pt-ease), transform 440ms var(--pt-spring),
+  transition: opacity 200ms var(--dgy-ease), transform 440ms var(--dgy-ease),
     visibility 0s linear 220ms;
 }
 
-.pt-dialogue.is-on {
+.dgy-dialogue.is-on {
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, 0) scale(1);
+  transform: translate(-50%, 0);
   pointer-events: auto;
   cursor: pointer;
-  transition: opacity 180ms var(--pt-ease), transform 520ms var(--pt-spring),
+  transition: opacity 180ms var(--dgy-ease), transform 520ms var(--dgy-ease),
     visibility 0s linear 0s;
 }
 
-.pt-name {
+.dgy-name {
   display: inline-block;
-  margin: 0 0 -14px 26px;
-  padding: 8px 22px 16px;
-  border-radius: var(--pt-r-md) var(--pt-r-md) 0 0;
-  background: linear-gradient(180deg, #5d99d4, var(--pt-blue));
-  box-shadow: 0 -2px 0 rgba(255, 255, 255, 0.28) inset, 0 6px 16px rgba(20, 40, 70, 0.28);
-  color: var(--pt-cream);
+  margin: 0 0 -1px 26px;
+  padding: 7px 20px;
+  background: var(--dgy-raise);
+  border: var(--dgy-hair) solid var(--dgy-line);
+  border-bottom: 0;
+  color: var(--dgy-jade);
   font-size: clamp(13px, 1.02vw, 16px);
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   position: relative;
   z-index: 0;
 }
 
-.pt-name.is-empty {
+.dgy-name.is-empty {
   display: none;
 }
 
-.pt-dialogue__panel {
+.dgy-dialogue__panel {
   position: relative;
   z-index: 1;
   min-height: clamp(112px, 15vh, 158px);
   padding: clamp(20px, 2.4vh, 30px) clamp(26px, 2.6vw, 40px) clamp(24px, 2.6vh, 34px);
-  border-radius: var(--pt-r-xl);
-  background: linear-gradient(180deg, var(--pt-cream) 0%, var(--pt-cream-2) 100%);
-  box-shadow: var(--pt-shadow-lift), inset 0 2px 0 rgba(255, 255, 255, 0.9),
-    inset 0 -3px 0 rgba(31, 48, 80, 0.08), inset 0 0 0 3px rgba(255, 255, 255, 0.4);
+  border-radius: var(--dgy-radius);
+  background: rgba(29, 50, 56, 0.95);
+  border: var(--dgy-hair) solid var(--dgy-line);
+  box-shadow: 0 24px 64px rgba(10, 16, 18, 0.5);
 }
 
-.pt-dialogue__text {
+.dgy-dialogue__text {
   margin: 0;
-  font-size: clamp(17px, 1.5vw, 25px);
-  font-weight: 600;
-  line-height: 1.5;
-  letter-spacing: 0.005em;
-  color: var(--pt-ink);
-  min-height: 1.5em;
+  font-size: clamp(16px, 1.45vw, 23px);
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--dgy-silk);
+  min-height: 1.6em;
   white-space: pre-wrap;
 }
 
-.pt-caret {
+.dgy-caret {
   display: inline-block;
   width: 0.42em;
   margin-left: 1px;
-  color: var(--pt-blue);
+  color: var(--dgy-jade);
   opacity: 0;
 }
 
-.pt-dialogue__next {
+.dgy-dialogue__next {
   position: absolute;
   right: clamp(20px, 2vw, 30px);
   bottom: clamp(14px, 1.8vh, 22px);
@@ -603,30 +559,28 @@
   gap: 8px;
   opacity: 0;
   transform: translateY(-2px);
-  transition: opacity 260ms var(--pt-ease);
+  transition: opacity 260ms var(--dgy-ease);
 }
 
-.pt-dialogue__next.is-on {
+.dgy-dialogue__next.is-on {
   opacity: 1;
-  animation: pt-chev 1.15s var(--pt-ease) infinite;
+  animation: dgy-chev 1.15s var(--dgy-ease) infinite;
 }
 
-.pt-dialogue__next svg {
-  width: 20px;
-  height: 20px;
-  fill: var(--pt-blue);
-  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8));
+.dgy-dialogue__next svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--dgy-jade);
 }
 
-.pt-dialogue__hint {
+.dgy-dialogue__hint {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--pt-ink-faint);
+  color: var(--dgy-silk-faint);
 }
 
-@keyframes pt-chev {
+@keyframes dgy-chev {
   0%, 100% { transform: translateY(-3px); }
   50% { transform: translateY(2px); }
 }
@@ -634,26 +588,26 @@
 /* ----------------------------------------------------------- responsive */
 
 @media (max-width: 620px) {
-  .pt-legend {
+  .dgy-legend {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-height: 620px) {
-  .pt-legend {
+  .dgy-legend {
     gap: 7px 9px;
     margin-top: 14px;
   }
-  .pt-cta {
+  .dgy-cta {
     margin-top: 16px;
     padding: 11px 26px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pt-ui *,
-  .pt-ui *::before,
-  .pt-ui *::after {
+  .dgy-ui *,
+  .dgy-ui *::before,
+  .dgy-ui *::after {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
   }

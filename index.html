@@ -2,20 +2,135 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <title>大观园</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>大观园 · 营造法式</title>
+    <!--
+      门厅:纯静态,不引 three、不引 CDN。世界构建要十几秒,所以园子住在
+      /garden.html,这里只挂 tokens.css 与一点自己的样式,进来秒开。
+      视觉语言见 ART_DIRECTION.md §9(界画青绿);泥金只在这里与加载页出现。
+    -->
+    <link rel="stylesheet" href="/engine/ui/tokens.css" />
     <style>
       :root { color-scheme: dark; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0d10; }
-      body { font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif; }
-      #app { position: fixed; inset: 0; }
-      canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+      html, body { height: 100%; }
+      body {
+        background:
+          radial-gradient(120% 90% at 50% 0%, rgba(90, 143, 174, 0.10), rgba(90, 143, 174, 0) 60%),
+          var(--dgy-ground);
+        color: var(--dgy-silk);
+        font-family: var(--dgy-font-ui);
+        display: grid;
+        place-items: center;
+        padding: 6vh 5vw;
+        -webkit-font-smoothing: antialiased;
+        /* 界尺尖:泥金一线,绢色一点。园子里指针锁定后光标隐藏,与它无关。 */
+        cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Ccircle cx='14' cy='14' r='6.5' fill='none' stroke='%23cda95f' stroke-width='1.4'/%3E%3Ccircle cx='14' cy='14' r='1.6' fill='%23e8e2d2'/%3E%3C/svg%3E") 14 14, auto;
+      }
+
+      .door { width: min(760px, 92vw); text-align: center; }
+
+      .door__title {
+        font-size: clamp(34px, 4.6vw, 54px);
+        font-weight: 800;
+        letter-spacing: 0.22em;
+        text-indent: 0.22em; /* 补足末字被字距推掉的视觉偏心 */
+        color: var(--dgy-silk);
+      }
+      /* 泥金极少量:标题下的一道勾线,界尺画的,只有一像素。 */
+      .door__title::after {
+        content: "";
+        display: block;
+        width: 96px;
+        height: var(--dgy-hair);
+        margin: 18px auto 0;
+        background: var(--dgy-gold);
+      }
+      .door__sub {
+        margin-top: 16px;
+        font-size: clamp(12px, 1vw, 14px);
+        letter-spacing: 0.3em;
+        text-indent: 0.3em;
+        color: var(--dgy-silk-dim);
+      }
+
+      .gates {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--dgy-gap);
+        margin-top: clamp(34px, 6vh, 56px);
+        text-align: left;
+      }
+      .gate {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: clamp(22px, 3vh, 30px) clamp(20px, 2.4vw, 28px);
+        background: var(--dgy-panel);
+        border: var(--dgy-hair) solid var(--dgy-line);
+        border-radius: var(--dgy-radius);
+        color: inherit;
+        text-decoration: none;
+        transition: background var(--dgy-fast) var(--dgy-ease),
+          border-color var(--dgy-fast) var(--dgy-ease),
+          transform var(--dgy-fast) var(--dgy-ease);
+      }
+      .gate:hover { background: var(--dgy-raise); transform: translateY(-2px); }
+      .gate__name { font-size: clamp(19px, 1.7vw, 24px); font-weight: 800; letter-spacing: 0.12em; }
+      .gate--fashi .gate__name { color: var(--dgy-azure); }
+      .gate--garden .gate__name { color: var(--dgy-jade); }
+      .gate:hover .gate__name { text-decoration: underline; text-underline-offset: 6px; }
+      .gate__desc {
+        font-size: clamp(12px, 0.98vw, 14px);
+        line-height: 1.7;
+        color: var(--dgy-silk-dim);
+      }
+      .gate__note { font-size: 12px; color: var(--dgy-silk-faint); }
+
+      /* 点下进园后立刻换文案,不让人对着白屏猜。 */
+      .gate__wait { display: none; font-size: 13px; font-weight: 700; color: var(--dgy-jade); }
+      .gate--garden.is-leaving { pointer-events: none; background: var(--dgy-raise); }
+      .gate--garden.is-leaving .gate__desc,
+      .gate--garden.is-leaving .gate__note { display: none; }
+      .gate--garden.is-leaving .gate__wait { display: block; }
+
+      .door__foot {
+        margin-top: clamp(30px, 5vh, 48px);
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        color: var(--dgy-silk-faint);
+      }
+
+      @media (max-width: 620px) {
+        .gates { grid-template-columns: minmax(0, 1fr); }
+      }
     </style>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/projects/daguanyuan/main.ts"></script>
+    <main class="door">
+      <h1 class="door__title">大观园</h1>
+      <p class="door__sub">《红楼梦》的程序化重建</p>
+
+      <nav class="gates">
+        <a class="gate gate--fashi" href="fashi.html">
+          <span class="gate__name">营造法式</span>
+          <span class="gate__desc">构件图解小百科。园子里每一根梁、每一朵斗拱的算法,和它们各自出自《营造法式》的哪一卷。</span>
+        </a>
+        <a class="gate gate--garden" href="garden.html" id="gate-garden">
+          <span class="gate__name">进园</span>
+          <span class="gate__desc">第一人称漫游。世界不是模型文件,是当面造出来的。</span>
+          <span class="gate__note">造园要十几秒,点下去请稍等,别刷新。</span>
+          <span class="gate__wait">正在开门,造园中……</span>
+        </a>
+      </nav>
+
+      <p class="door__foot">界画青绿 · 每个数都有出处</p>
+    </main>
+    <script>
+      // 点击即反馈:世界构建占主线程十几秒,没有这句话就是对着白屏猜。
+      document.getElementById('gate-garden').addEventListener('click', (e) => {
+        e.currentTarget.classList.add('is-leaving');
+      });
+    </script>
   </body>
 </html>

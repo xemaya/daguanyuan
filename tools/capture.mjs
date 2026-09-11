@@ -91,7 +91,7 @@ const CLEAR_DIALOGUE = () => {
 };
 
 function parseArgs(argv) {
-  const args = { out: 'shots', width: 1600, height: 900, shots: null, url: 'http://127.0.0.1:5173/', settle: 1400 };
+  const args = { out: 'shots', width: 1600, height: 900, shots: null, url: 'http://127.0.0.1:5173/garden.html', settle: 1400 };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--list') args.list = true;
