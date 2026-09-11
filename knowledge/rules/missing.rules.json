@@ -530,6 +530,28 @@
       ],
       "paramSet": "none",
       "notes": "2026-09-11 修匾额时发现;落点 PQ-7 与 P4(scenes/*.json 落地时一并收口)。"
+    },
+    {
+      "id": "99-27",
+      "name": "游园图的传送是调试便利,发布前必须收口",
+      "status": "missing",
+      "statement": "engine/ui/MapOverlay.ts + projects/daguanyuan/map-places.ts 的按 M 传送,是 2026-09-11 为迭代时反复走到潇湘馆加的调试便利,用户当场声明「debug完之后去掉」。它与本项目的第一性原则相冲突:园林的精髓是曲径通幽、移步换景,传送把「走过去」这件事取消了。发布前二选一:(1) 整个摘掉;(2) 收口成「只开放已经走到过的地方」——去过才上图,首次抵达仍然只能靠腿,这样图变成游历的记录而不是游历的替代。现状是 19 区全列、建成的四区随时可去。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "engine/ui/MapOverlay.ts 头注释",
+          "ART_DIRECTION.md §5.5",
+          "docs/ROADMAP.md §PE"
+        ],
+        "keywords": [
+          "移步换景 与 传送 的张力",
+          "已访问才解锁",
+          "发布前摘除"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-11 加入时即声明为临时;落点 P5 或发布前的收口清单。"
     }
   ]
 }
