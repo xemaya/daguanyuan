@@ -2862,7 +2862,7 @@
           "facing": "south",
           "x": -105,
           "z": 98,
-          "plaque": "有凤来仪",
+          "plaque": null,
           "id": "xiaoxiangguan.main-house",
           "kind": "building",
           "construction": {
@@ -2895,7 +2895,6 @@
               "sides": "wall",
               "back": "door",
               "platformH": 0.45,
-              "plaque": "有凤来仪",
               "doorOpen": true,
               "backDoor": {
                 "centerXM": -3.3,
@@ -2992,7 +2991,7 @@
           "facing": "south",
           "x": -105,
           "z": 120,
-          "plaque": null,
+          "plaque": "潇湘馆",
           "id": "xiaoxiangguan.moon-gate",
           "kind": "opening"
         }
@@ -3809,7 +3808,7 @@
           "facing": "south",
           "x": -116,
           "z": -158,
-          "plaque": "蘅芷清芬",
+          "plaque": "蘅芜苑",
           "id": "hengwuyuan.main-house",
           "kind": "building",
           "construction": {

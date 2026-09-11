@@ -1014,7 +1014,10 @@ export function tangSpec(): BuildingOptions {
       columnDiameterFen: 26,
       rafterDiaFen: 7,
     },
-    plaque: '有凤来仪',
+    // 匾额有意留空。第十八回元春「『有鳳來儀』賜名曰『瀟湘館』」——「有凤来仪」是
+    // 第十七回试才的拟稿,已被替换;而正门上挂着的「大观园」出自同一句话,即园子已
+    // 站在赐名之后,此处再挂拟稿就是同一园子里两个时刻并存。院名匾应挂院门(月洞门)
+    // 上,见 knowledge/docs/qingshi/07-honglou.md 07-71 与 docs/ROADMAP.md §PQ-7。
     front: 'door',
     sides: 'wall',
     platformH: 0.45,

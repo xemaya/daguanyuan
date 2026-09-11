@@ -506,6 +506,30 @@
       "needs": [],
       "paramSet": "none",
       "notes": "2026-09-10 仓库卫生 review 发现;落点 P4——occupancy prepass 要等 scenes/*.json 分区数据落地才有真源可读。"
+    },
+    {
+      "id": "99-26",
+      "name": "匾额文字有三份副本,几何只读写死在代码里的那份",
+      "status": "missing",
+      "statement": "匾额文字同时存在于三处:(1) plan.json 的 regions[].buildings[].plaque;(2) plan.json 的 ...construction.options.plaque;(3) builder/parts/damu/building.ts 各预设里的字面量(如 tangSpec 的 plaque)。实际渲染只用第三处——前两处目前无人消费(construction.options 只有 platformH 被 builder/derive/qing/building.ts 读走)。2026-09-11 修正潇湘馆与蘅芜苑的匾额时暴露:改了平面真源,屏幕上不变;改了代码,真源仍错。与 99-25 的 footprint 双真源同病。修法:匾额文字由 plan.json 单一真源出,建筑预设不再写字面量;院名匾挂院门(见 07-71),所以墙类构件也要能挂匾。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/qingshi/07-honglou.md 07-37、07-71",
+          "docs/ROADMAP.md §PQ-7"
+        ],
+        "keywords": [
+          "匾额 单一真源",
+          "plan.json plaque 字段",
+          "建筑预设字面量",
+          "院名匾 挂院门"
+        ]
+      },
+      "needs": [
+        "99-25"
+      ],
+      "paramSet": "none",
+      "notes": "2026-09-11 修匾额时发现;落点 PQ-7 与 P4(scenes/*.json 落地时一并收口)。"
     }
   ]
 }
