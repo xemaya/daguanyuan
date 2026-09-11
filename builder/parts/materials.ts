@@ -96,8 +96,8 @@ export function plasterMaps(size = 1024): MaterialMaps {
   };
 }
 
-export function plasterMaterial(repeat = 1): THREE.MeshStandardMaterial {
-  return memo(`plaster:${repeat}`, () => {
+export function plasterMaterial(repeat = 1, vertexColors = false): THREE.MeshStandardMaterial {
+  return memo(`plaster:${repeat}:${vertexColors}`, () => {
     const m = plasterMaps();
     const mat = new THREE.MeshStandardMaterial({
       map: m.map,
@@ -105,6 +105,7 @@ export function plasterMaterial(repeat = 1): THREE.MeshStandardMaterial {
       roughnessMap: m.roughnessMap,
       roughness: 1,
       metalness: 0,
+      vertexColors,
       normalScale: new THREE.Vector2(0.5, 0.5),
     });
     setRepeat(mat, repeat);
@@ -262,8 +263,8 @@ export function stoneMaps(size = 1024): MaterialMaps {
   };
 }
 
-export function stoneMaterial(repeat = 1): THREE.MeshStandardMaterial {
-  return memo(`stone:${repeat}`, () => {
+export function stoneMaterial(repeat = 1, vertexColors = false): THREE.MeshStandardMaterial {
+  return memo(`stone:${repeat}:${vertexColors}`, () => {
     const m = stoneMaps();
     const mat = new THREE.MeshStandardMaterial({
       map: m.map,
@@ -271,6 +272,7 @@ export function stoneMaterial(repeat = 1): THREE.MeshStandardMaterial {
       roughnessMap: m.roughnessMap,
       roughness: 1,
       metalness: 0,
+      vertexColors,
     });
     setRepeat(mat, repeat);
     return mat;

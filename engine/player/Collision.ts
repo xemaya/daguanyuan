@@ -53,6 +53,8 @@ export interface Platform {
   rot: number;
   y: number;
   tag?: string;
+  /** Optional world-space footprint. Box fields then only provide a broad bound. */
+  polygon?: readonly (readonly [number,number])[];
 }
 
 export interface GroundSampler {
@@ -89,6 +91,17 @@ export class CollisionWorld {
   }
 
   private onPlatform(p: Platform, x: number, z: number): boolean {
+    if(p.polygon) {
+      if(Math.abs(x-p.cx)>p.hx+1e-8||Math.abs(z-p.cz)>p.hz+1e-8)return false;
+      let inside=false;
+      for(let i=0;i<p.polygon.length;i++) {
+        const a=p.polygon[i],b=p.polygon[(i+1)%p.polygon.length],dx=b[0]-a[0],dz=b[1]-a[1];
+        const cross=dx*(z-a[1])-dz*(x-a[0]);
+        if(Math.abs(cross)<1e-8&&x>=Math.min(a[0],b[0])-1e-8&&x<=Math.max(a[0],b[0])+1e-8&&z>=Math.min(a[1],b[1])-1e-8&&z<=Math.max(a[1],b[1])+1e-8)return true;
+        if((a[1]>z)!==(b[1]>z)&&x<a[0]+dx*(z-a[1])/dz)inside=!inside;
+      }
+      return inside;
+    }
     const cos = Math.cos(p.rot);
     const sin = Math.sin(p.rot);
     const rx = x - p.cx;
@@ -134,6 +147,22 @@ export class CollisionWorld {
     const c: CircleCollider = { kind: 'circle', cx, cz, r, minY, maxY, tag };
     this.colliders.push(c);
     return c;
+  }
+
+  addPolygonPlatform(input:readonly (readonly [number,number])[],y:number,tag?:string):Platform {
+    const points=input.map(p=>[p[0],p[1]] as [number,number]);
+    if(points.length>1&&points[0][0]===points.at(-1)![0]&&points[0][1]===points.at(-1)![1])points.pop();
+    if(points.length<3||!Number.isFinite(y)||points.some(p=>p.some(n=>!Number.isFinite(n))))throw new Error('Polygon platform requires finite coordinates and height');
+    let area=0;
+    for(let i=0;i<points.length;i++) {
+      const a=points[i],b=points[(i+1)%points.length];
+      if(Math.hypot(a[0]-b[0],a[1]-b[1])<1e-8)throw new Error('Polygon platform has a zero edge');
+      area+=a[0]*b[1]-b[0]*a[1];
+    }
+    if(Math.abs(area)<1e-8)throw new Error('Polygon platform has no area');
+    const xs=points.map(p=>p[0]),zs=points.map(p=>p[1]),loX=Math.min(...xs),hiX=Math.max(...xs),loZ=Math.min(...zs),hiZ=Math.max(...zs);
+    const p:Platform={cx:(loX+hiX)/2,cz:(loZ+hiZ)/2,hx:(hiX-loX)/2,hz:(hiZ-loZ)/2,rot:0,y,tag,polygon:points};
+    this.platforms.push(p);return p;
   }
 
   /** Wraps an Object3D's world AABB as a box collider. */

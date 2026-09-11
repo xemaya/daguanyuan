@@ -1,8 +1,10 @@
 import { isClosedRing, isSimpleRing, signedArea, locatePoint, containsRing,
-  interiorsOverlap, segmentLocations } from '../builder/plan/geometry.ts';
+  interiorsOverlap, segmentLocations, pointOnSegment } from '../builder/plan/geometry.ts';
 
 import { validatePlanObjects } from '../builder/plan/objects.ts';
 import { compileWallPath, wallLocalPoint, wallMiterX } from '../builder/plan/wall-path.ts';
+import {compileCorridor} from '../builder/plan/corridor-path.ts';
+import {compileBridgePath} from '../builder/plan/bridge-path.ts';
 
 /** Passing implemented assertions is not proof of all seven source constraints. */
 export function auditPlan(plan) {
@@ -42,6 +44,18 @@ export function auditPlan(plan) {
     for (const b of r.buildings ?? []) anchor(b.name, [b.x, b.z]);
     for(const wall of r.linears??[]) {
       try {
+        if(wall.kind==='bridge') {
+          const c=compileBridgePath(wall);
+          ok(containsRing(r.polygon,c.polygon.map(p=>[p[0]+c.origin[0],p[1]+c.origin[1]])),`${wall.id} 桥面超出分区`);
+          continue;
+        }
+        if(wall.kind==='corridor') {
+          const c=compileCorridor(wall);
+          ok(containsRing(r.polygon,c.roofPolygon.map(p=>[p[0]+c.origin[0],p[1]+c.origin[1]])),`${wall.id} 游廊屋面超出分区`);
+          const object=r.buildings.find(b=>b.id===wall.object);
+          ok(object&&object.kind==='corridor'&&wall.points.slice(1).some((b,i)=>pointOnSegment([object.x,object.z],wall.points[i],b)),`${wall.id} 未经过绑定的游廊锚点`);
+          continue;
+        }
         const compiled=compileWallPath(wall);
         ok(wall.id.startsWith(r.id+'.'),`${wall.id} 墙路径不属于本区域`);
         for(const panel of compiled.panels)for(const x of [-panel.length/2,0,panel.length/2])for(const z of [-.305,.305]) {

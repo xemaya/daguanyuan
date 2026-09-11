@@ -673,7 +673,7 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
       ? (x: number) => 0.4 * (0.72 * Math.sin((x / 3.2) * Math.PI * 2 + 0.9) + 0.4 * fbm2(simplex, x * 0.45 + 3.1, 0.37, 3))
       : () => 0;
 
-  const plaster = plasterMaterial(1);
+  const plaster = plasterMaterial(1,true);
   const stone = stoneMaterial(1);
 
   /* --- 墙体 --- */
@@ -700,7 +700,6 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
   // 用顶点色给墙脚压一层 泛潮(§3 #b9b2a3)向上渐淡:只是 y 的线性函数,
   // 在任何三角剖分上插值都精确,不需要加密网格。
   bakeDampGradient(bodyGeo, 0.35, 1.9);
-  plaster.vertexColors = true;
   group.add(shadowed(new THREE.Mesh(bodyGeo, plaster)));
 
   /* --- 青石墙脚 + 石礓 --- */

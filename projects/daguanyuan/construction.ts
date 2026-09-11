@@ -1,8 +1,14 @@
 import plan from './plan.json' with { type: 'json' };
 import { buildBuilding, type BuildingOptions, type BuildingResult } from '@builder/parts/damu/building';
-import { registerPart } from '@builder/parts/registry';
+import { registerPart,type PartContext } from '@builder/parts/registry';
 import { buildWallPath } from '@builder/parts/qiangyuan/wall-path';
 import type { WallPathSpec } from '@builder/plan/wall-path';
+import {buildCorridor} from '@builder/parts/damu/corridor-path';
+import type {CorridorPathSpec} from '@builder/plan/corridor-path';
+import type {BridgePathSpec} from '@builder/plan/bridge-path';
+import {buildBridgePath} from '@builder/parts/shuigong/bridge-path';
+import {makeTerrainField,type GardenPlan} from '@builder/compose/terrain-from-plan';
+import {SEED} from '@builder/compose/config';
 
 /** The project supplies data; generic builders never import a particular garden. */
 export function buildPlannedBuilding(id: string): BuildingResult {
@@ -30,3 +36,21 @@ export function buildPlannedWall(id:string) {
   return buildWallPath(matches[0]);
 }
 registerPart('garden-wall',buildPlannedWall);
+
+export function buildPlannedCorridor(id:string) {
+  const regions=plan.regions as unknown as {id:string;linears?:CorridorPathSpec[]}[];
+  const matches=regions.flatMap(r=>r.linears??[]).filter(c=>c.id===id&&c.kind==='corridor');
+  if(matches.length!==1)throw new Error(`游廊路径 ${id} 须唯一，实际 ${matches.length}`);
+  return buildCorridor(matches[0]);
+}
+registerPart('garden-corridor',buildPlannedCorridor);
+
+let previewGround:((x:number,z:number)=>number)|undefined;
+export function buildPlannedBridge(id:string,context?:PartContext) {
+  const regions=plan.regions as unknown as {linears?:BridgePathSpec[]}[];
+  const matches=regions.flatMap(r=>r.linears??[]).filter(b=>b.id===id&&b.kind==='bridge');
+  if(matches.length!==1)throw new Error(`桥路径 ${id} 须唯一，实际 ${matches.length}`);
+  const ground=context?.ground ?? (previewGround??=makeTerrainField(plan as unknown as GardenPlan,{seed:SEED}).height);
+  return buildBridgePath(matches[0],ground);
+}
+registerPart('garden-bridge',buildPlannedBridge);

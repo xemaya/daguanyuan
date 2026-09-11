@@ -9,7 +9,7 @@ import * as THREE from 'three';
  */
 export interface PartBuild {
   /** Structural output family, independent of the project's registry name. */
-  kind?: 'building' | 'wall-path';
+  kind?: 'building' | 'wall-path' | 'corridor-path' | 'bridge-path';
   /** 构件根节点。 */
   root: THREE.Object3D;
   /** 可选每帧更新(风、水)。 */
@@ -18,7 +18,8 @@ export interface PartBuild {
   groundRadius?: number;
 }
 
-export type PartBuilder = (variant: string) => PartBuild;
+export interface PartContext {ground:(x:number,z:number)=>number}
+export type PartBuilder = (variant: string, context?:PartContext) => PartBuild;
 
 const PARTS = new Map<string, PartBuilder>();
 
@@ -26,9 +27,9 @@ export function registerPart(name: string, builder: PartBuilder): void {
   PARTS.set(name, builder);
 }
 
-export function buildPart(name: string, variant = 'default'): PartBuild | null {
+export function buildPart(name: string, variant = 'default', context?:PartContext): PartBuild | null {
   const b = PARTS.get(name);
-  return b ? b(variant) : null;
+  return b ? b(variant,context) : null;
 }
 
 export function partNames(): string[] {

@@ -5,7 +5,7 @@ import { mergeByMaterial } from './merge';
 interface Entry { mesh: THREE.Mesh; matrix: THREE.Matrix4 }
 
 /** Instance repeated prototypes before material merging would duplicate their vertices. */
-export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 64): THREE.Group {
+export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 64, options:{singleCluster?:boolean} = {}): THREE.Group {
   root.updateWorldMatrix(true,true);
   const buckets=new Map<string,Entry[]>(),keep:Entry[]=[];
   root.traverseVisible(object=>{
@@ -35,12 +35,20 @@ export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 6
       geometry.setAttribute('color',new THREE.Float32BufferAttribute(new Float32Array(geometry.getAttribute('position').count*3).fill(1),3));
     }
     if(!geometry.boundingSphere)geometry.computeBoundingSphere();
-    const grid=new ClusterGrid<Entry>(cellSize);
-    for(const entry of entries){
-      const sphere=geometry.boundingSphere!.clone().applyMatrix4(entry.matrix);
-      grid.add(sphere.center.x,sphere.center.z,entry,sphere.center.y,sphere.radius);
+    // Small parts otherwise split into four cells merely because their local
+    // origin is centred at zero. Keeping their light repeated geometry together
+    // saves submissions without changing a vertex or the instance transforms.
+    let cells:{key:string;items:Entry[]}[];
+    if(options.singleCluster)cells=[{key:'part',items:entries}];
+    else {
+      const grid=new ClusterGrid<Entry>(cellSize);
+      for(const entry of entries){
+        const sphere=geometry.boundingSphere!.clone().applyMatrix4(entry.matrix);
+        grid.add(sphere.center.x,sphere.center.z,entry,sphere.center.y,sphere.radius);
+      }
+      cells=grid.cells();
     }
-    for(const cell of grid.cells()){
+    for(const cell of cells){
       // Every cell references the same BufferGeometry, so the prototype's
       // vertex/index buffers are uploaded once, not copied for each placement.
       const mesh=new THREE.InstancedMesh(geometry,material,cell.items.length);

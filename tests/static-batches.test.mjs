@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {assembleStatic} from '@builder/parts/static-batches.ts';
 
+test('小构件可合为单实例簇且不改变任何放置矩阵',()=>{
+ const root=new THREE.Group(),geo=new THREE.BoxGeometry(1,2,1),mat=new THREE.MeshStandardMaterial();
+ for(let i=0;i<12;i++){const m=new THREE.Mesh(geo,mat);m.position.set(i%2?-2:2,0,i%3?-3:3);m.rotation.y=i*.1;root.add(m);}
+ root.updateMatrixWorld(true);const expected=root.children.map(m=>m.matrixWorld.toArray());
+ const result=assembleStatic(root,8,64,{singleCluster:true});
+ const meshes=result.children.filter(m=>m.isInstancedMesh);assert.equal(meshes.length,1);assert.equal(meshes[0].count,12);
+ const matrix=new THREE.Matrix4();for(let i=0;i<12;i++){meshes[0].getMatrixAt(i,matrix);matrix.toArray().forEach((n,k)=>assert.ok(Math.abs(n-expected[i][k])<1e-6));}
+});
+
 test('重复构件跨空间簇共享一个几何，并保持父级平移与旋转',()=>{
  const root=new THREE.Group(),geometry=new THREE.BoxGeometry(2,3,4),material=new THREE.MeshStandardMaterial();
  root.position.set(10,2,-20);const expected=[];

@@ -25,7 +25,7 @@ import { chromium } from 'playwright';
 const args = { url: 'http://127.0.0.1:4801/' };
 for (let i = 2; i < process.argv.length; i++) if (process.argv[i] === '--url') args.url = process.argv[++i];
 
-/** 十七回游线的航点(x, z, 说明)。桥/亭的摆放要与 composer.ts 的 SCENE 一致。 */
+/** 通行验收航点（主通路+曲廊支线），不用于计算29节点叙事里程。 */
 const ROUTE = [
   [55, 244, '正门台阶前(穿门)'],
   [55, 229, '穿门直行(南墙缺口只在门轴上)'],
@@ -38,7 +38,8 @@ const ROUTE = [
   // 正好爬过山尖而不是绕过);量过地形高程网格后,沿实测的低洼走廊找的这
   // 三个过渡点全程贴着 3.5m 以下的等高线走,不翻山。
   [-34, 206, '翠嶂西口(绕山1)'],
-  [-37, 202, '翠嶂西口(绕山2)'],
+  [-37, 202, '翠嶂西口石栈桥中', 0.3],
+  [-40, 198, '翠嶂西口石栈桥北端', 0.3],
   [-40, 196, '翠嶂西口(cuizhang entrance)'],
   [-24, 186, '绕出豁然开朗'],
   [-6, 180, '沁芳池南岸'],
@@ -89,7 +90,16 @@ const ROUTE = [
   [-105, 122, '对准plan月洞门'],
   [-105, 120, '穿过plan月洞门'],
   [-105, 118.7, '离开圆门圈再向内院走'],
-  [-105, 112, '潇湘馆前院'],
+  [-110, 119, '门内左转向游廊'],
+  [-116, 119, '曲廊南入口前'],
+  [-116, 117, '走上廊面', 0.3],
+  [-116, 108, '曲廊第一转角', 0.3],
+  [-126, 108, '曲廊第二转角', 0.3],
+  [-126, 104, 'plan西廊锚点', 0.3],
+  [-126, 84, '曲廊第三转角', 0.3],
+  [-116, 84, '曲廊后院出口', 0.3],
+  [-112, 84, '走下廊面'],
+  [-113, 104, '绕西侧回前院'],
   [-105, 106, '正房阶前'],
   [-105, 101, '潇湘馆院内'],
   [-105, 98, '潇湘馆阶前(门内)'],
@@ -122,7 +132,7 @@ const setYaw = (yaw) => page.evaluate((y) => { const g = window.__GAME__; const 
  *  桥面航点,哪一站卡住会随机换(headless 按键节流的抖动,不是几何真卡
  *  死——沿途 y 全程停在结构上,没有一次掉到水下),所以卡住先重试一次再
  *  判失败,别把这种抖动当真卡点报。 */
-async function walkTo(tx, tz) {
+async function walkTo(tx, tz, arrival = 0.9) {
   let [x, y, z] = await pos();
   const budget = budgetFor(Math.hypot(tx - x, tz - z));
   const t0 = Date.now();
@@ -131,7 +141,7 @@ async function walkTo(tx, tz) {
   while (Date.now() - t0 < budget) {
     [x, y, z] = await pos();
     const d = Math.hypot(tx - x, tz - z);
-    if (d < 0.9) return { reached: true, x, y, z };
+    if (d < arrival) return { reached: true, x, y, z };
     if (d < lastD - 0.05) { lastD = d; lastProgress = Date.now(); }
     if (Date.now() - lastProgress > 4500) break;
     // 朝向:forward = (-sin yaw, -cos yaw)。
@@ -145,12 +155,12 @@ async function walkTo(tx, tz) {
 }
 
 let ok = true;
-for (const [tx, tz, label] of ROUTE) {
-  let result = await walkTo(tx, tz);
+for (const [tx, tz, label, arrival = 0.9] of ROUTE) {
+  let result = await walkTo(tx, tz, arrival);
   let attempts = 1;
   while (!result.reached && attempts < 3) {
     attempts++;
-    result = await walkTo(tx, tz);
+    result = await walkTo(tx, tz, arrival);
   }
   const { reached, x, y, z } = result;
   const status = reached ? (attempts > 1 ? `ok*${attempts}` : 'ok ') : 'STUCK';

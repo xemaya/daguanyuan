@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
-import { auditPlan } from './plan-audit.mjs';
+import '../tests/ts-resolver.mjs';
+const { auditPlan } = await import('./plan-audit.mjs');
 
 const plan = JSON.parse(readFileSync(new URL('../projects/daguanyuan/plan.json', import.meta.url), 'utf8'));
 const report = auditPlan(plan);

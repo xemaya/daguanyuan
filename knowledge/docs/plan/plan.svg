@@ -186,6 +186,7 @@
 <circle cx="-204.0" cy="-110.0" r="2.6" fill="#f7f2e7" stroke="#4e7a52" stroke-width="0.8"/>
 <circle cx="-204.0" cy="-178.0" r="2.6" fill="#f7f2e7" stroke="#4e7a52" stroke-width="0.8"/>
 </g>
+<g><title>cuizhang.north-landing · grade · 2.60m</title><polygon points="-40.9,195.2 -39.1,195.2 -39.1,196.8 -40.9,196.8 -40.9,195.2" fill="#927441" fill-opacity="0.3" stroke="#927441" stroke-width="0.8" stroke-dasharray="2 1"/></g>
 <g><title>qinfang_ting_qiao.pavilion-deck · deck · 0.40m</title><polygon points="-2.2,145.8 2.2,145.8 2.2,150.2 -2.2,150.2 -2.2,145.8" fill="#386c88" fill-opacity="0.3" stroke="#386c88" stroke-width="0.8" stroke-dasharray="2 1"/></g>
 <g><title>qinfang_ting_qiao.dicui-deck · deck · 0.40m</title><polygon points="-24.4,155.7 -19.6,155.7 -19.6,160.3 -24.4,160.3 -24.4,155.7" fill="#386c88" fill-opacity="0.3" stroke="#386c88" stroke-width="0.8" stroke-dasharray="2 1"/></g>
 <g><title>xiaoxiangguan.main-foundation · grade · 1.00m</title><polygon points="-112.0,92.0 -98.0,92.0 -98.0,104.0 -112.0,104.0 -112.0,92.0" fill="#927441" fill-opacity="0.3" stroke="#927441" stroke-width="0.8" stroke-dasharray="2 1"/></g>
@@ -201,10 +202,14 @@
 <g><title>qinfangzha.bridge-deck · deck · 0.80m</title><polygon points="187.0,-214.0 209.0,-214.0 209.0,-210.0 187.0,-210.0 187.0,-214.0" fill="#386c88" fill-opacity="0.3" stroke="#386c88" stroke-width="0.8" stroke-dasharray="2 1"/></g>
 <g><title>liaoting_huaxu.shore-landing · grade · 0.20m</title><polygon points="-60.0,-131.0 -50.0,-131.0 -50.0,-123.0 -60.0,-123.0 -60.0,-131.0" fill="#927441" fill-opacity="0.3" stroke="#927441" stroke-width="0.8" stroke-dasharray="2 1"/></g>
 <g><title>liaoting_huaxu.water-portal · water-opening · 0.00m</title><polygon points="-39.0,-122.0 -29.0,-122.0 -29.0,-110.0 -39.0,-110.0 -39.0,-122.0" fill="#338884" fill-opacity="0.3" stroke="#338884" stroke-width="0.8" stroke-dasharray="2 1"/></g>
+<g><title>cuizhang.creek-crossing</title><polyline points="-34.0,206.0 -40.0,198.0" fill="none" stroke="#5a5245" stroke-width="1.1"/>
+</g>
 <g><title>xiaoxiangguan.courtyard-wall</title><polyline points="-119.0,120.0 -91.0,120.0 -91.0,66.0 -132.0,66.0 -132.0,112.0 -119.0,112.0 -119.0,120.0" fill="none" stroke="#5a5245" stroke-width="1.1"/>
 <circle cx="-105.00" cy="120.00" r="1.8" fill="#f7f2e7" stroke="#5a5245" stroke-width="0.7"><title>xiaoxiangguan.moon-gate</title></circle>
 <circle cx="-96.00" cy="120.00" r="1.8" fill="#f7f2e7" stroke="#5a5245" stroke-width="0.7"><title>lattice:wan</title></circle>
 <circle cx="-91.00" cy="90.00" r="1.8" fill="#f7f2e7" stroke="#5a5245" stroke-width="0.7"><title>lattice:ice</title></circle>
+</g>
+<g><title>xiaoxiangguan.west-corridor-path</title><polyline points="-116.0,118.0 -116.0,108.0 -126.0,108.0 -126.0,84.0 -116.0,84.0" fill="none" stroke="#5a5245" stroke-width="1.1"/>
 </g>
 <!-- 门 -->
 <g><title>正门(五间·桶瓦泥鳅脊·白石台矶) · facing south</title>
@@ -255,21 +260,22 @@
 <text x="-242.0" y="374.8" font-size="7.6" fill="#7a6e5c">7 暖香坞正门朝南,院落在东西向夹道之北,西门额「穿云 / 度月」,东门外接山坡(五十回)</text>
 <!-- 十七回游线 -->
 <g><title>十七回游线(小径入·另一边出的环线)</title>
-<polyline points="55.0,244.0 30.0,232.0 -2.0,224.0 -28.0,212.0 -40.0,196.0 -24.0,186.0 -6.0,180.0 0.0,164.0 0.0,150.0 -14.0,138.0 -40.0,128.0 -70.0,124.0 -94.0,124.0 -105.0,122.0 -105.0,120.0 -105.0,116.0 -105.0,108.0 -105.0,98.0 -105.0,108.0 -105.0,116.0 -105.0,120.0 -105.0,124.0 -124.0,124.0 -136.0,116.0 -140.0,90.0 -148.0,66.0 -172.0,40.0 -186.0,18.0 -193.0,-20.0 -206.0,-56.0 -200.0,-84.0 -214.0,-120.0 -212.0,-150.0 -196.0,-166.0 -186.0,-150.0 -160.0,-138.0 -124.0,-134.0 -96.0,-142.0 -72.0,-150.0 -60.0,-140.0 -44.0,-124.0 -24.0,-114.0 -8.0,-120.0 6.0,-136.0 16.0,-152.0 24.0,-172.0 24.0,-200.0 40.0,-206.0 62.0,-200.0 86.0,-176.0 110.0,-158.0 140.0,-150.0 168.0,-158.0 190.0,-186.0 198.0,-208.0 204.0,-190.0 210.0,-160.0 206.0,-120.0 200.0,-70.0 204.0,-20.0 210.0,30.0 212.0,90.0 206.0,140.0 190.0,164.0 172.0,178.0 162.0,200.0 152.0,220.0 130.0,232.0 100.0,236.0 75.0,240.0 55.0,244.0" fill="none" stroke="#c2562f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+<polyline points="55.0,244.0 30.0,232.0 -2.0,224.0 -28.0,212.0 -34.0,206.0 -37.0,202.0 -40.0,198.0 -40.0,196.0 -24.0,186.0 -6.0,180.0 0.0,164.0 0.0,150.0 -14.0,138.0 -40.0,128.0 -70.0,124.0 -94.0,124.0 -105.0,122.0 -105.0,120.0 -105.0,116.0 -105.0,108.0 -105.0,98.0 -105.0,108.0 -105.0,116.0 -105.0,120.0 -105.0,124.0 -124.0,124.0 -136.0,116.0 -140.0,90.0 -148.0,66.0 -172.0,40.0 -186.0,18.0 -193.0,-20.0 -206.0,-56.0 -200.0,-84.0 -214.0,-120.0 -212.0,-150.0 -196.0,-166.0 -186.0,-150.0 -160.0,-138.0 -124.0,-134.0 -96.0,-142.0 -72.0,-150.0 -60.0,-140.0 -44.0,-124.0 -24.0,-114.0 -8.0,-120.0 6.0,-136.0 16.0,-152.0 24.0,-172.0 24.0,-200.0 40.0,-206.0 62.0,-200.0 86.0,-176.0 110.0,-158.0 140.0,-150.0 168.0,-158.0 190.0,-186.0 198.0,-208.0 204.0,-190.0 210.0,-160.0 206.0,-120.0 200.0,-70.0 204.0,-20.0 210.0,30.0 212.0,90.0 206.0,140.0 190.0,164.0 172.0,178.0 162.0,200.0 152.0,220.0 130.0,232.0 100.0,236.0 75.0,240.0 55.0,244.0" fill="none" stroke="#c2562f" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
 <line x1="-11.4" y1="219.7" x2="-18.6" y2="216.3" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="0.0" y1="161.0" x2="0.0" y2="153.0" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="-95.6" y1="123.7" x2="-103.4" y2="122.3" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="-105.0" y1="99.0" x2="-105.0" y2="107.0" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="-126.7" y1="122.2" x2="-133.3" y2="117.8" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="-188.8" y1="2.9" x2="-190.2" y2="-4.9" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="-206.8" y1="-155.2" x2="-201.2" y2="-160.8" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="-87.8" y1="-144.7" x2="-80.2" y2="-147.3" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="-3.6" y1="-125.0" x2="1.6" y2="-131.0" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="47.1" y1="-204.1" x2="54.9" y2="-201.9" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="176.5" y1="-168.9" x2="181.5" y2="-175.1" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="203.5" y1="-99.0" x2="202.5" y2="-91.0" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="200.2" y1="148.7" x2="195.8" y2="155.3" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
-<line x1="119.0" y1="233.5" x2="111.0" y2="234.5" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="-35.4" y1="193.1" x2="-28.6" y2="188.9" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="-23.3" y1="134.4" x2="-30.7" y2="131.6" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="-105.0" y1="122.0" x2="-105.0" y2="114.0" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="-105.0" y1="114.0" x2="-105.0" y2="122.0" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="-142.7" y1="81.8" x2="-145.3" y2="74.2" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="-203.8" y1="-66.1" x2="-202.2" y2="-73.9" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="-176.6" y1="-145.7" x2="-169.4" y2="-142.3" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="-54.8" y1="-134.8" x2="-49.2" y2="-129.2" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="18.5" y1="-158.3" x2="21.5" y2="-165.7" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="94.8" y1="-169.4" x2="101.2" y2="-164.6" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="199.7" y1="-202.8" x2="202.3" y2="-195.2" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="206.5" y1="1.0" x2="207.5" y2="9.0" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="168.7" y1="185.4" x2="165.3" y2="192.6" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
+<line x1="68.9" y1="241.2" x2="61.1" y2="242.8" stroke="#c2562f" stroke-width="2" marker-end="url(#ah)"/>
 </g>
 <g text-anchor="middle">
 <text x="9.0" y="227.6" font-size="11" fill="#33291d" stroke="#f7f2e7" stroke-width="2.6" paint-order="stroke" stroke-linejoin="round">正门</text>
@@ -437,7 +443,7 @@
 <text x="482.0" y="323.5" font-size="9" text-anchor="middle" fill="#33291d">150</text>
 <text x="532.0" y="323.5" font-size="9" text-anchor="middle" fill="#33291d">200 m</text>
 <text x="332.0" y="339.5" font-size="8.5" fill="#7a6e5c">1 svg 单位 = 1 m(世界坐标直出:svg x = x,svg y = z)</text>
-<text x="332.0" y="352.5" font-size="8.5" fill="#7a6e5c">图上实测:墙内 23.4 ha · 水面 3.05 ha(13.0%)· 游线全长 1762 m</text>
+<text x="332.0" y="352.5" font-size="8.5" fill="#7a6e5c">图上实测:墙内 23.4 ha · 水面 3.05 ha(13.0%)· 游线全长 1763 m</text>
 <text x="332.0" y="365.5" font-size="8.5" fill="#7a6e5c">入口最近控制点占比 53.3%(仅折线诊断,非29节点验收)</text>
 </g>
 </svg>

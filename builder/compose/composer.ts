@@ -4,6 +4,9 @@ import { buildPart, type PartBuild } from '@builder/parts/registry';
 import '@builder/parts/index';
 import type { BuildingResult } from '@builder/parts/damu/building';
 import type { WallPathResult } from '@builder/parts/qiangyuan/wall-path';
+import type {CorridorResult} from '@builder/parts/damu/corridor-path';
+import type {BridgePathResult} from '@builder/parts/shuigong/bridge-path';
+import {offsetStation} from '@builder/plan/polyline';
 import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
@@ -207,6 +210,7 @@ const SCENE: Placement[] = [
 
   // ---- 翠嶂假山:进门迎面,缝从南入北出(锚点 + 平移簇) ------------
   { part: 'taihu', variant: 'mound', region: 'cuizhang', anchor: 'cuizhang.screen-rocks', x: 0, z: 0, yaw: 0, tag: '翠嶂' },
+  {part:'garden-bridge',variant:'cuizhang.creek-crossing',x:0,z:0,tag:'翠嶂西口石栈桥'},
   { part: 'taihu', variant: 'peak2', ...pt(shift([-6.2, 15.5], D_CUIZHANG)), yaw: 0.6 },
   { part: 'taihu', variant: 'edge3', ...pt(shift([4.4, 10.2], D_CUIZHANG)), yaw: 1.2 },
 
@@ -241,11 +245,10 @@ const SCENE: Placement[] = [
 
   // ---- 潇湘馆:院墙 + 月洞门 + 漏窗 + 正房 + 廊 + 竹(锚点 + 平移簇) --
   // P2：正房地基显式固定在1.0m，引泉沟绕到基础西侧，建筑台基再从此起算。
-  // 院墙已读取plan折线，月洞门按真实锚点接入；西廊仍待线性廊阶段替换。
+  // 院墙已读取plan折线，月洞门按真实锚点接入；西廊也已用法原剖面沿plan路径生成。
   { part: 'garden-building', variant: 'xiaoxiangguan.main-house', region: 'xiaoxiangguan', anchor: 'xiaoxiangguan.main-house', x: 0, z: 0, yaw: 0, tag: '潇湘馆' },
   ...(
     [
-      ['building', 'lang', 2.4, -20.0, Math.PI / 2, '潇湘馆西廊'],
       ['taihu', 'peak4', 5.0, -17.0, 0.4, undefined],
     ] as [string, string, number, number, number, string | undefined][]
   ).map(([part, variant, x, z, yaw, tag]) => {
@@ -253,6 +256,7 @@ const SCENE: Placement[] = [
     return { part, variant, x: wx, z: wz, yaw, tag } as Placement;
   }),
   {part:'garden-wall',variant:'xiaoxiangguan.courtyard-wall',x:0,z:0,tag:'潇湘馆院墙'},
+  {part:'garden-corridor',variant:'xiaoxiangguan.west-corridor-path',x:0,z:0,tag:'潇湘馆曲折游廊'},
   ...(
     [
       ['grove', 14.2, -17.6],
@@ -390,7 +394,7 @@ export function buildGarden(ctx: GameContext): void {
     let part = cache.get(key);
     let fresh = false;
     if (!part) {
-      part = buildPart(p.part, p.variant) ?? undefined;
+      part = buildPart(p.part, p.variant,{ground}) ?? undefined;
       if (!part) {
         console.warn(`[garden] 未登记构件 ${key}`);
         continue;
@@ -409,11 +413,11 @@ export function buildGarden(ctx: GameContext): void {
       if (part.update) updaters.push(part.update);
     }
     calls++;
-    const wall=part.kind==='wall-path'?part as WallPathResult:null;
-    if(wall&&(p.x!==0||p.z!==0||p.y!==undefined||p.yaw))throw new Error('plan墙路径已含世界位置，不能再叠加Placement变换');
-    const [wx, wz] = wall ? wall.path.origin : resolvePosition(p);
+    const linear=part.kind==='wall-path'||part.kind==='corridor-path'||part.kind==='bridge-path'?part as WallPathResult|CorridorResult|BridgePathResult:null;
+    if(linear&&(p.x!==0||p.z!==0||p.y!==undefined||p.yaw))throw new Error('plan线性构件已含世界位置，不能再叠加Placement变换');
+    const [wx, wz] = linear ? linear.path.origin : resolvePosition(p);
     const yaw = p.yaw ?? 0;
-    const y = wall ? wall.spec.elevation_m : p.y ?? ground(wx, wz) + (p.dy ?? 0);
+    const y = linear ? linear.spec.elevation_m : p.y ?? ground(wx, wz) + (p.dy ?? 0);
     const obj = fresh ? part.root : part.root.clone();
     obj.position.set(wx, y, wz);
     obj.rotation.y = yaw;
@@ -421,8 +425,7 @@ export function buildGarden(ctx: GameContext): void {
     if (part.kind === 'building') constructionRecords.push({ id: p.anchor ?? key,
       name: obj.name, position: [wx, y, wz], yaw,
       ...obj.userData.construction, planObject: obj.userData.planObject });
-    if(wall)linearRecords.push({...wall.root.userData.linear,position:[wx,y,wz],
-      blockers:wall.path.blockers.length,joints:wall.path.joints.length,platforms:wall.path.platforms.length});
+    if(linear)linearRecords.push({...linear.root.userData.linear,position:[wx,y,wz]});
     if (part.update) group.add(obj);
     else staticGroup.add(obj);
 
@@ -472,6 +475,21 @@ function registerColliders(
 ): void {
   const col = ctx.collision;
   const kind = variant.replace(/[:\d].*$/, '');
+  if(built.kind==='bridge-path') {
+    const bridge=built as BridgePathResult;
+    col.addPolygonPlatform(bridge.path.polygon.map(p=>[x+p[0],z+p[1]]),y,bridge.spec.id);
+    for(let i=1;i<bridge.path.stations.length;i++)for(const side of [-1,1]) {
+      const a=offsetStation(bridge.path.stations[i-1],side*(bridge.spec.width_m/2-.08)),b=offsetStation(bridge.path.stations[i],side*(bridge.spec.width_m/2-.08));
+      col.addBox(x+(a[0]+b[0])/2,z+(a[1]+b[1])/2,Math.hypot(b[0]-a[0],b[1]-a[1])/2,.1,y,y+bridge.spec.railingHeight_m,Math.atan2(-(b[1]-a[1]),b[0]-a[0]),bridge.spec.id);
+    }
+    return;
+  }
+  if(built.kind==='corridor-path') {
+    const corridor=built as CorridorResult;
+    col.addPolygonPlatform(corridor.path.deckPolygon.map(p=>[x+p[0],z+p[1]]),y+corridor.spec.platformH_m,corridor.spec.id);
+    for(const c of corridor.path.columns)col.addCircle(x+c.point[0],z+c.point[1],c.diameter/2,y+corridor.spec.platformH_m,y+corridor.spec.platformH_m+c.height,corridor.spec.id);
+    return;
+  }
   if(built.kind==='wall-path') {
     const wall=built as WallPathResult;
     for(const b of wall.path.blockers)col.addBox(x+b.cx,z+b.cz,b.hx,b.hz,y+b.minY,y+b.maxY,b.rot,wall.spec.id);

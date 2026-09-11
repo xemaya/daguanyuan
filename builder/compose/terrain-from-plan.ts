@@ -9,19 +9,21 @@
  * 圆角遮罩羽化、双 warp 让边界不规则、路径按折线距离施加影响。
  * 不一样的地方在装配顺序，500 米画布上各要素互相压盖，顺序就是语义：
  *
- *   基底起伏 → 墙外林岗 → 堆山 → 区域台基 → 水体 → 园路
+ *   基底起伏 → 墙外林岗 → 堆山 → 区域台基 → 水体 → 园路 → 桥侧回切 / 显式基础锁平
  *
  *   - 台基在山之后：凸碧堂（tubi_aojing）的台地会把山体局部削平到 elevation_m，
  *     这正是「山脊上的院子」该有的样子；
  *   - 水体在台基之后：南池、引泉沟从区域里穿过的，池底沟底照常下沉；
  *   - 园路在最后，且纵断面从挖完水的场上采样——游线过南池是沁芳亭桥，
  *     桥是构件不是地形，地形上它就是一个被坡度限制器抹缓的浅凹，
- *     绝不允许为了路面把水池填出水面。
+ *     绝不允许为了路面把水池填出水面。桥面标高可约束接岸道路的纵断面，但桥下
+ *     网格仍保留河床；路不能抬高水下地形。显式陆地基础的锁平也不得覆盖水域。
  */
 
 import { Simplex, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { BoundsIndex } from '@engine/scatter/cluster';
-import type { WallPathSpec } from '@builder/plan/wall-path';
+import type { LinearSpec } from '@builder/plan/linears';
+import {compileBridgePath} from '@builder/plan/bridge-path';
 
 /* ------------------------------------------------------------------ */
 /* plan.json 的数据契约（只取本模块消费的字段）                          */
@@ -54,7 +56,7 @@ export interface PlanRegion {
    * mountain terraces use explicit pads instead of flattening the region. */
   grading?: 'region' | 'pads';
   pads?: PlanPad[];
-  linears?: WallPathSpec[];
+  linears?: LinearSpec[];
 }
 
 export interface PlanPad {
@@ -344,6 +346,12 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     ]);
 
   const indexed = opts.spatialIndex !== false;
+  const bridges=plan.regions.flatMap(r=>(r.linears??[]).filter(l=>l.kind==='bridge').map(spec=>{
+    const c=compileBridgePath(spec);
+    return {...makePoly(c.polygon.map(p=>[p[0]+c.origin[0],p[1]+c.origin[1]] as [number,number])),elev:spec.elevation_m,thickness:spec.deckThickness_m,feather:spec.cutFeather_m};
+  }));
+  const bridgeIndex=new BoundsIndex<typeof bridges[number]>(16);
+  for(const b of bridges)bridgeIndex.add(b,b,b.feather);
   const hillIndex = new BoundsIndex<Hill>(32);
   const padIndex = new BoundsIndex<Pad>(32);
   const waterIndex = new BoundsIndex<Water>(32);
@@ -468,6 +476,8 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     for(let i=0;i<t.length;i++) for(const pad of foundationIndex.query(dense.xs[i],dense.zs[i])) {
       if(signedDist(dense.xs[i],dense.zs[i],pad)<=0) pins.set(i,pad.elev);
     }
+    for(let i=0;i<t.length;i++)for(const b of bridgeIndex.query(dense.xs[i],dense.zs[i]))
+      if(signedDist(dense.xs[i],dense.zs[i],b)<=1e-8)pins.set(i,b.elev);
     gradeLimit(t, dense.s, PATH_GRADE, pins);
     smoothProfile(t);
     gradeLimit(t, dense.s, PATH_GRADE, pins);
@@ -628,18 +638,31 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
 
   /** THE ground function。 */
   function height(x: number, z: number): number {
-    let h = naturalHeight(x, z);
+    const natural = naturalHeight(x, z);
+    let h = natural;
+    let wet: boolean | undefined;
+    const isWater = () => wet ??= (indexed ? waterIndex.query(x,z) : waters).some(w=>waterMask(x,z,w)>.001);
     const path = pathBlend(x, z);
     if (path.w > 0.001) {
       h = lerp(h, path.t, path.w);
       // 百年脚步在路心踩出的几厘米微槽。
       h -= path.w * 0.04;
+      // A route crossing a creek needs a deck, not an earth dam. Fixed dry
+      // approach elevations may raise the path profile but cannot fill water.
+      if(h>natural&&isWater())h=natural;
+    }
+    // Cut back the banks smoothly around a bridge, instead of carving an
+    // abrupt vertical trench exactly as wide as the deck. Never raise the bed.
+    for(const b of bridgeIndex.query(x,z)) {
+      const d=signedDist(x,z,b);if(d>b.feather)continue;
+      const cut=lerp(natural,b.elev-b.thickness,smoothstep(b.feather,0,Math.max(0,d)));
+      h=Math.min(h,natural,cut);
     }
     // Road rutting and hill preservation must not tilt an explicitly authored
     // foundation. Water still wins outside the dry pad core: feathering is not
     // permission to fill an adjacent creek or a sluice channel.
     const foundations = indexed ? foundationIndex.query(x,z) : pads.filter(p=>p.explicit);
-    if (foundations.length && !(indexed ? waterIndex.query(x,z) : waters).some(w=>waterMask(x,z,w)>.001)) {
+    if (foundations.length && !isWater()) {
       for (const p of foundations) {
         const w = padMask(x,z,p);
         if (w>.001) h=lerp(h,p.elev,w);

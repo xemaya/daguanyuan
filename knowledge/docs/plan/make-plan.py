@@ -150,7 +150,7 @@ for r in d['regions']:
 for r in d['regions']:
     for wall in r.get('linears', []):
         e('<g><title>%s</title><polyline points="%s" fill="none" stroke="#5a5245" stroke-width="1.1"/>' % (esc(wall['id']),pts(wall['points'])))
-        for insert in wall['inserts']:
+        for insert in wall.get('inserts', []):
             x,z=insert['at']
             e('<circle cx="%.2f" cy="%.2f" r="1.8" fill="%s" stroke="#5a5245" stroke-width="0.7"><title>%s</title></circle>' % (x,z,C['paper'],esc(insert.get('object',insert['variant']))))
         e('</g>')

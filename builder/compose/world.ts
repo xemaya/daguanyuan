@@ -10,6 +10,7 @@ import { buildWater } from '@engine/render/Water';
 import { buildVegetation } from '@builder/parts/zhiwu/vegetation';
 import { buildGarden } from './composer';
 import { prewarmTextures } from './prewarm-textures';
+import {SEED} from './config';
 
 /**
  * World — orchestrates the build order for the garden.
@@ -23,12 +24,12 @@ import { prewarmTextures } from './prewarm-textures';
  * truth for the same fact. Known debt, tracked as missing rule 99-25: the
  * real fix is a single occupancy prepass derived from plan + scenes that
  * terrain, vegetation and buildings all read (lands with P4).
- * New P2 wall paths already supply their own planting clearance from plan;
+ * New P2 wall, corridor and bridge paths supply planting clearance from plan;
  * building occupancy is still the P4 debt above. Do not fix
  * this by reordering the steps now — that would leave the hand-copied copy
  * as the only source of truth and dig the debt deeper.
  */
-export const SEED = 17910000; // 程高本刊行年(1791)——大观园第一次以印本示人。
+export {SEED} from './config';
 
 export class World {
   readonly name = 'world';

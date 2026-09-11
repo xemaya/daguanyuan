@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { BoundsIndex } from '@engine/scatter/cluster';
+import {compileCorridor} from '@builder/plan/corridor-path';
+import {compileBridgePath} from '@builder/plan/bridge-path';
+import {locatePoint,type Point2} from '@builder/plan/geometry';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { poissonScatter, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter';
@@ -285,7 +288,15 @@ function makePlantMask(ctx: GameContext): DensityMask {
   const surfaceAt = ctx.collision.surfaceAt;
   const groundHeight = ctx.collision.groundHeight;
   const wallEdges = new BoundsIndex<readonly [readonly [number,number],readonly [number,number]]>(16);
-  for(const r of getPlan().regions)for(const wall of r.linears??[])for(let i=1;i<wall.points.length;i++) {
+  const corridorFloors=new BoundsIndex<readonly Point2[]>(16);
+  for(const r of getPlan().regions)for(const linear of r.linears??[])if(linear.kind==='corridor') {
+    const c=compileCorridor(linear),poly=c.deckPolygon.map(p=>[p[0]+c.origin[0],p[1]+c.origin[1]] as Point2);
+    corridorFloors.add({minX:Math.min(...poly.map(p=>p[0])),maxX:Math.max(...poly.map(p=>p[0])),minZ:Math.min(...poly.map(p=>p[1])),maxZ:Math.max(...poly.map(p=>p[1]))},poly,.4);
+  } else if(linear.kind==='bridge') {
+    const c=compileBridgePath(linear),poly=c.polygon.map(p=>[p[0]+c.origin[0],p[1]+c.origin[1]] as Point2);
+    corridorFloors.add({minX:Math.min(...poly.map(p=>p[0])),maxX:Math.max(...poly.map(p=>p[0])),minZ:Math.min(...poly.map(p=>p[1])),maxZ:Math.max(...poly.map(p=>p[1]))},poly,.4);
+  }
+  for(const r of getPlan().regions)for(const wall of r.linears??[])if(wall.kind==='wall')for(let i=1;i<wall.points.length;i++) {
     const a=wall.points[i-1],b=wall.points[i];
     wallEdges.add({minX:Math.min(a[0],b[0]),maxX:Math.max(a[0],b[0]),minZ:Math.min(a[1],b[1]),maxZ:Math.max(a[1],b[1])},[a,b],.8);
   }
@@ -294,7 +305,8 @@ function makePlantMask(ctx: GameContext): DensityMask {
       const grass = surfaceAt(x, z) === 'grass' ? 1 : 0;
       const dry = groundHeight(x, z) > VEG.minPlantY ? 1 : 0;
       const atWall=wallEdges.query(x,z).some(edge=>distanceToPolyline(x,z,edge)<.7);
-      return atWall ? 0 : grass * dry;
+      const atCorridor=corridorFloors.query(x,z).some(poly=>locatePoint(poly,[x,z])!=='outside'||distanceToPolyline(x,z,poly)<.4);
+      return atWall||atCorridor ? 0 : grass * dry;
     },
     { minX: TERRAIN.minX, minZ: TERRAIN.minZ, width: TERRAIN.width, depth: TERRAIN.depth },
   );
