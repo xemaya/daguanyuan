@@ -16,3 +16,7 @@ tools/.labtmp/
 # OS / editor droppings and local run logs are not sources.
 .DS_Store
 *.log
+
+# 影像素材:二进制不进库,索引在 docs/film/README.md
+docs/film/**/*.mp4
+docs/film/**/*.webm
