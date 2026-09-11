@@ -1,0 +1,177 @@
+{
+  "angle": "three_quarter",
+  "size": 640,
+  "bg": "studio",
+  "entries": [
+    {
+      "subject": "bamboo:default",
+      "file": "bamboo_default.png",
+      "tris": 49644,
+      "size": [
+        3.4110669147921726,
+        6.342050249542227,
+        3.2208092361688614
+      ]
+    },
+    {
+      "subject": "bamboo:single",
+      "file": "bamboo_single.png",
+      "tris": 3620,
+      "size": [
+        1.6593322781845927,
+        5.206581844518986,
+        1.0936761910561472
+      ]
+    },
+    {
+      "subject": "bamboo:grove",
+      "file": "bamboo_grove.png",
+      "tris": 191724,
+      "size": [
+        7.8024023924954236,
+        5.904856531891185,
+        7.219285298604518
+      ]
+    },
+    {
+      "subject": "bridge:default",
+      "file": "bridge_default.png",
+      "tris": 54276,
+      "size": [
+        9.90999984741211,
+        1.488459050655365,
+        3.056166887283325
+      ]
+    },
+    {
+      "subject": "bridge:bank",
+      "file": "bridge_bank.png",
+      "tris": 19748,
+      "size": [
+        4.180842399597168,
+        1.0121711790561676,
+        1.1666131168603897
+      ]
+    },
+    {
+      "subject": "bridge:railing",
+      "file": "bridge_railing.png",
+      "tris": 3108,
+      "size": [
+        3.180000066757202,
+        0.5424303030595183,
+        0.20000000298023224
+      ]
+    },
+    {
+      "subject": "building:tang",
+      "file": "building_tang.png",
+      "tris": 69382,
+      "size": [
+        13.664227485656738,
+        7.064221385121345,
+        10.445759773254395
+      ]
+    },
+    {
+      "subject": "building:ting",
+      "file": "building_ting.png",
+      "tris": 34782,
+      "size": [
+        7.686365127563477,
+        5.86351681103309,
+        7.5878400802612305
+      ]
+    },
+    {
+      "subject": "building:lang",
+      "file": "building_lang.png",
+      "tris": 20476,
+      "size": [
+        7.121600151062012,
+        4.123973852396011,
+        5.553599834442139
+      ]
+    },
+    {
+      "subject": "building:men",
+      "file": "building_men.png",
+      "tris": 72942,
+      "size": [
+        15.639200210571289,
+        6.7971668268243475,
+        10.186450958251953
+      ]
+    },
+    {
+      "subject": "taihu:peak",
+      "file": "taihu_peak.png",
+      "tris": 26152,
+      "size": [
+        1.377993404865265,
+        2.6126956939697266,
+        1.1101319193840027
+      ]
+    },
+    {
+      "subject": "taihu:mound",
+      "file": "taihu_mound.png",
+      "tris": 116834,
+      "size": [
+        6.586156368255615,
+        2.9011573791503906,
+        4.645738363265991
+      ]
+    },
+    {
+      "subject": "taihu:edge",
+      "file": "taihu_edge.png",
+      "tris": 6248,
+      "size": [
+        0.8145601153373718,
+        0.5967143774032593,
+        0.782670646905899
+      ]
+    },
+    {
+      "subject": "wall:plain",
+      "file": "wall_plain.png",
+      "tris": 16640,
+      "size": [
+        6.159999847412109,
+        2.630000114440918,
+        0.6100000143051147
+      ]
+    },
+    {
+      "subject": "wall:moon",
+      "file": "wall_moon.png",
+      "tris": 26816,
+      "size": [
+        6.159999847412109,
+        2.630000114440918,
+        0.6100000143051147
+      ]
+    },
+    {
+      "subject": "wall:lattice",
+      "file": "wall_lattice.png",
+      "tris": 23952,
+      "size": [
+        6.159999847412109,
+        2.630000114440918,
+        0.6100000143051147
+      ]
+    },
+    {
+      "subject": "wall:cloud",
+      "file": "wall_cloud.png",
+      "tris": 24532,
+      "size": [
+        8.281174182891846,
+        2.947965383529663,
+        0.6100000143051147
+      ]
+    }
+  ]
+}
