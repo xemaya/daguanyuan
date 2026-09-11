@@ -396,7 +396,16 @@ export class PostFX {
     // against sky, leaves against sky — which reads as a rendering fault rather
     // than as a lens. Aberration should be findable only if you look for it.
     chromatic: 0.0005,
-    dofFar: 58,
+    // 58 m 是按老园子(64×72 m,最远视距约 80 m)调的:那时它的意思是"最远那一点点
+    // 发虚"。世界切到 280×226 m 之后视距 200–300 m,smoothstep(26, 58, d) 让
+    // **整个远景都落在满档虚化**里,而 12 个采样点的螺旋核在满半径下会散成一片,
+    // 亮处还因 luma 加权糊出色边——用户 2026-09-11 报的"远处模糊很诡异、很散、
+    // 有奇怪的色边"就是它。PQ-0 修雾把远景从白墙里放出来之后,这个毛病才露出来。
+    //
+    // 220 m 把满档推到园墙那一档,恢复"只有最远一线发虚"的原意。
+    // 这是第三处"按 64 米园子调的米制参数没跟着世界变大"(前两处是雾密度与 AO 半径),
+    // 见 PITFALLS P-17。
+    dofFar: 220,
     dofStrength: 1.0,
   };
 
