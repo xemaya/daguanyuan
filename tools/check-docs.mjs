@@ -40,6 +40,10 @@ const ALLOW = [
     why: '核对来源:指向 node_modules/three 0.185.1 的源码树,不是本仓文件(本仓引用仍逐条校验)',
   })),
   {
+    file: 'docs/superpowers/plans/2026-09-11-frontdoor-and-fashi-gallery.md',
+    why: '实施计划描述的待建文件(门厅、图解页、缩略图烘焙脚本),由单子 H 与 I 落地',
+  },
+  {
     file: 'docs/tellux-borrowing.md',
     why: '外部调研笔记:src/Viewer.ts、hism/pipeline/ 等路径指向 tellux 项目的源码树,不是本仓文件',
   },
