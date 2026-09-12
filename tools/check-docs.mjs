@@ -180,6 +180,11 @@ function checkToken(raw, mdFile) {
   // ——首段纯数字的从来不是仓库路径。(这是 1bc588ca 剥行号时留的洞,当时被
   // 整文件白名单盖住,2026-09-11 写 PQ 计划时门自己报出来。)
   if (/^\d{2,5}$/.test(token.split('/')[0])) return;
+  // 构建产物目录:`shots/` 是 gitignore 的验收截图,`dist/` 是构建输出。
+  // 它们在**新克隆的仓库里根本不存在**,所以拿它们当"失效引用"是假阳性
+  // ——2026-09-12 在隔离 worktree 里验单子 N 时当场撞到:六道门只有这一道红,
+  // 红的却不是被验的那个提交,是门自己。
+  if (/^(shots|dist|node_modules)\//.test(token)) return;
   const rel = relative(ROOT, mdFile);
   const fileWhy = fileAllow.get(rel);
   if (fileWhy) return exempt(rel, token, fileWhy);
