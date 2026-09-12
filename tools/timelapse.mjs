@@ -14,7 +14,7 @@
  * 所以同一个镜头 id 在 `p1t6` 前后拍的不是同一个地方。工具不掩盖这件事：
  * 它按时间排、把每帧的里程碑名烧进画面，那一跳是真的，也是故事本身。
  */
-import { readdirSync, existsSync, statSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { readdirSync, existsSync, statSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -115,5 +115,15 @@ for (const id of ids) {
   index.push({ id, frames: frames.map((f) => ({ milestone: f.name, at: f.at.toISOString() })) });
 }
 
-writeFileSync(join(outDir, 'index.json'), `${JSON.stringify(index, null, 2)}\n`);
-console.log(`\n[timelapse] ${index.length} 段,索引写到 ${args.out}/index.json`);
+// 带 --shots 单跑时只更新这几段,**不要把整份索引覆盖掉**——
+// 第一次就是这么把 22 段的索引冲成 1 段的。
+const indexPath = join(outDir, 'index.json');
+let merged = index;
+if (args.shots && existsSync(indexPath)) {
+  const prev = JSON.parse(readFileSync(indexPath, 'utf8'));
+  const byId = new Map(prev.map((e) => [e.id, e]));
+  for (const e of index) byId.set(e.id, e);
+  merged = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+writeFileSync(indexPath, `${JSON.stringify(merged, null, 2)}\n`);
+console.log(`\n[timelapse] 本次 ${index.length} 段,索引共 ${merged.length} 段 → ${args.out}/index.json`);
