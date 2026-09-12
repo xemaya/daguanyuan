@@ -420,6 +420,9 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     ...SCENE,
     { part: 'taihu', variant: 'peak', x: peakX, z: peakZ, yaw: 2.4 },
     { part: 'taihu', variant: 'peak3', x: peak3X, z: peak3Z, yaw: -1.1 },
+    // 铺地收边:路牙沿 plan.paths 里带 paving 的路在 world 空间直接挤出
+    // (07-41 石子漫、17 回宽阔大路),几何自带世界坐标,必须零变换落位。
+    { part: 'luya', variant: 'default', x: 0, z: 0, y: 0, tag: '路牙' },
     ...shoreStones(ground, pond, causewayEnds),
   ];
 
@@ -477,6 +480,10 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     if (part.kind === 'building') constructionRecords.push({ id: p.anchor ?? key,
       name: obj.name, position: [wx, y, wz], yaw,
       ...obj.userData.construction, planObject: obj.userData.planObject });
+    // 铺地构件不是 building,但 provenance 同样要留在可审的记录里(静态合并会丢 root)。
+    if (p.part === 'luya' && fresh) constructionRecords.push({ id: 'pudi.luya',
+      name: obj.name, position: [wx, y, wz], yaw,
+      provenance: part.root.userData.provenance });
     if(linear)linearRecords.push({...linear.root.userData.linear,position:[wx,y,wz]});
     if (part.update) group.add(obj);
     else staticGroup.add(obj);

@@ -47,6 +47,16 @@ export interface PlanPath {
   points: [number, number][];
   role?:string;
   compatibilityScope?:{regions:string[];margin_m:number;feather_m:number};
+  /**
+   * 路面全宽（米）。缺省走 PATH_HALF_WIDTH 常量档。
+   * 原文只给性格不给米数：「羊腸一條」(07-41) 窄、「平坦寬闊大路」(17 回) 宽，
+   * 具体米数是艺术取值，须在该条的 basis 与 pudi 构件的 provenance.art 里留痕。
+   */
+  width_m?: number;
+  /** 铺装：cobble=石子漫(07-41)、slab=石板/砖(近门大路，17 回「宽阔大路」)。缺省土路。 */
+  paving?: 'cobble' | 'slab';
+  /** 路肩羽化（米）。窄路要收窄，否则 1.2m 的羊肠被 1.1m 羽化泡成 3.4m 的土带。 */
+  feather_m?: number;
 }
 
 export interface PlanRegion {
@@ -85,11 +95,16 @@ export interface GardenPlan {
 
 export interface SurfaceMasks {
   dirt: number;
+  /** 石子漫(鹅卵石)铺装权重。与 slab 互斥；两者都是「stone」表面。 */
   cobble: number;
+  /** 石板/砖铺装权重（近门大路）。 */
+  slab: number;
   sand: number;
   grass: number;
   /** 宏观明暗/踩踏变化，0 = 踩实发暗，1 = 丰茂发亮。 */
   wear: number;
+  /** 苔化权重（07-41「土地下蒼苔布滿」），来自 plan 里 mossInside 的墙体线性。 */
+  moss: number;
 }
 
 export interface TerrainField {
@@ -203,8 +218,9 @@ function inradiusOf(poly: Poly2): number {
   return best;
 }
 
-/** Catmull-Rom 过控制点的密采样（与 terrain.ts 的 smoothPath 同一手法，不依赖 three）。 */
-function resamplePath(
+/** Catmull-Rom 过控制点的密采样（与 terrain.ts 的 smoothPath 同一手法，不依赖 three）。
+ *  导出给 pudi 的路牙挤出用——路牙要贴的那条线就是路面遮罩所认的这条线。 */
+export function resamplePath(
   pts: readonly (readonly [number, number])[],
   perSegment: number,
 ): { xs: Float64Array; zs: Float64Array; s: Float64Array } {
@@ -470,15 +486,23 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     segments: BoundsIndex<number>;
     segmentIds: number[];
     pins: Map<number,number>;
+    /** 半宽/羽化/铺装按路分档（plan.paths[].width_m / feather_m / paving）。 */
+    hw: number;
+    feather: number;
+    paving?: 'cobble' | 'slab';
+    margin: number;
   }
 
-  const PATH_QUERY_MARGIN = PATH_HALF_WIDTH + PATH_FEATHER + 1.5;
   const scopeWeight=(p:PathProfile,x:number,z:number)=>{
     if(!p.scope)return 1;
     const s=p.scope,d=Math.max(0,s.minX-x,x-s.maxX,s.minZ-z,z-s.maxZ);
     return 1-smoothstep(0,s.feather,d);
   };
   const pathProfiles: PathProfile[] = plan.paths.map((p) => {
+    // 路宽按路分档：plan.paths[].width_m 是全宽；缺省回到旧常量档（半宽 1.35m）。
+    const hw = (p.width_m ?? PATH_HALF_WIDTH * 2) / 2;
+    const feather = p.feather_m ?? PATH_FEATHER;
+    const margin = hw + feather + 1.5;
     let scope:PathProfile['scope'];
     if(p.compatibilityScope) {
       const s=p.compatibilityScope;
@@ -512,16 +536,17 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       segments.add({
         minX: Math.min(dense.xs[i], dense.xs[i+1]), maxX: Math.max(dense.xs[i], dense.xs[i+1]),
         minZ: Math.min(dense.zs[i], dense.zs[i+1]), maxZ: Math.max(dense.zs[i], dense.zs[i+1]),
-      }, i, PATH_QUERY_MARGIN);
+      }, i, margin);
     }
-    return { ...dense, t, minX, maxX, minZ, maxZ, segments, segmentIds, pins, scope };
+    return { ...dense, t, minX, maxX, minZ, maxZ, segments, segmentIds, pins, scope, hw, feather, paving: p.paving, margin };
   });
   // Most splat texels are nowhere near a road. Reject them before evaluating
   // ten octaves of domain warp; padding includes the maximum 0.47m warp.
+  const PATH_MAX_MARGIN = Math.max(...pathProfiles.map((p) => p.margin));
   const pathPresence = new BoundsIndex<boolean>(8);
   for (const p of pathProfiles) for (let i=0;i+1<p.xs.length;i++) {
     pathPresence.add({minX:Math.min(p.xs[i],p.xs[i+1]),maxX:Math.max(p.xs[i],p.xs[i+1]),
-      minZ:Math.min(p.zs[i],p.zs[i+1]),maxZ:Math.max(p.zs[i],p.zs[i+1])},true,PATH_QUERY_MARGIN+0.47);
+      minZ:Math.min(p.zs[i],p.zs[i+1]),maxZ:Math.max(p.zs[i],p.zs[i+1])},true,PATH_MAX_MARGIN+0.47);
   }
 
   /*
@@ -602,8 +627,8 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
   /** 点到密采样折线的最近距离与对应纵断面高程。 */
   function pathQuery(x: number, z: number, p: PathProfile): { d: number; t: number } | null {
     if (
-      x < p.minX - PATH_QUERY_MARGIN || x > p.maxX + PATH_QUERY_MARGIN ||
-      z < p.minZ - PATH_QUERY_MARGIN || z > p.maxZ + PATH_QUERY_MARGIN
+      x < p.minX - p.margin || x > p.maxX + p.margin ||
+      z < p.minZ - p.margin || z > p.maxZ + p.margin
     ) {
       return null;
     }
@@ -632,16 +657,15 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
    * 平均会把山顶的路拽到山脚——那是挡土墙，不是平均数。
    * 真正的交叉口（相距 1m 内）上面的对齐循环已把两条路拉到同一高程，
    * 最近者胜在路口因此不会跳变。
+   *
+   * 路宽按路分档（07-41「羊腸」vs 17 回「宽阔大路」）：选中最近的那条之后，
+   * 用**它自己的**半宽与羽化收边；宽度呼吸噪声也按半宽比缩放，
+   * 否则 ±0.32m 的呼吸放在 0.6m 半宽的羊肠上会把路整个吞掉。
    */
-  function pathBlend(x: number, z: number): { w: number; t: number } {
-    if (indexed && pathPresence.query(x,z).length === 0) return {w:0,t:0};
+  function pathBlend(x: number, z: number): { w: number; t: number; d: number; hw: number; feather: number; paving?: 'cobble' | 'slab' } {
+    if (indexed && pathPresence.query(x,z).length === 0) return {w:0,t:0,d:Infinity,hw:0,feather:0};
     const [wx, wz] = warp2(x, z, 0.35, 0.045, 0.12, 0.3);
-    // 半宽会呼吸：一条等宽的之字带仍然读成画上去的丝带。
-    const hw =
-      PATH_HALF_WIDTH +
-      fbm2(nWear, x * 0.02 + 5.5, z * 0.02 - 2.2, 2) * 0.22 +
-      fbm2(nWear, x * 0.09 + 9.4, z * 0.09, 2) * 0.1;
-    let bestD = Infinity, bestT = 0, bestScope = 1;
+    let bestD = Infinity, bestT = 0, bestScope = 1, best: PathProfile | null = null;
     for (const p of pathProfiles) {
       const scope=scopeWeight(p,x,z);if(scope<=0)continue;
       const r = pathQuery(wx, wz, p);
@@ -649,10 +673,24 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
         bestD = r.d;
         bestT = r.t;
         bestScope = scope;
+        best = p;
       }
     }
-    if (bestD === Infinity) return { w: 0, t: 0 };
-    return { w: smoothstep(hw + PATH_FEATHER, hw, bestD)*bestScope, t: bestT };
+    if (!best) return { w: 0, t: 0, d: Infinity, hw: 0, feather: 0 };
+    // 半宽会呼吸：一条等宽的之字带仍然读成画上去的丝带。
+    const ratio = best.hw / PATH_HALF_WIDTH;
+    const hw =
+      best.hw +
+      (fbm2(nWear, x * 0.02 + 5.5, z * 0.02 - 2.2, 2) * 0.22 +
+        fbm2(nWear, x * 0.09 + 9.4, z * 0.09, 2) * 0.1) * ratio;
+    return {
+      w: smoothstep(hw + best.feather, hw, bestD) * bestScope,
+      t: bestT,
+      d: bestD,
+      hw,
+      feather: best.feather,
+      paving: best.paving,
+    };
   }
 
   /** THE ground function。 */
@@ -694,6 +732,15 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
 
   /* ---- 表面材质遮罩 ------------------------------------------------- */
 
+  /*
+   * 苔化地面（第四十回「土地下蒼苔布滿」07-41）：plan 里凡是带 mossInside 的
+   * 线性(目前是潇湘馆院墙)其多边形内部的地面苔化。这是地表混合的事——
+   * 苔不挡人、不改高程、不是新几何。强度是艺术取值，依据留痕在 plan.json 该条 basis。
+   */
+  const mossPolys: Poly2[] = allPlanLinears(plan as unknown as Parameters<typeof allPlanLinears>[0])
+    .filter((l) => (l as { mossInside?: boolean }).mossInside === true)
+    .map((l) => makePoly(l.points.map((pt) => [pt[0], pt[1]] as [number, number])));
+
   function masks(x: number, z: number): SurfaceMasks {
     const path = pathBlend(x, z);
 
@@ -713,10 +760,24 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     const tongue = indexed && bandOuter === 0 ? 0 : smoothstep(0.42, 0.88, fbm2(nScuff, x * 0.11 + 31.7, z * 0.11 - 12.3, 3) + 0.5);
     let dirt = path.w * (1 - clamp(bandOuter * tongue * 0.9, 0, 0.95));
 
-    const cobble = 0; // 铺地等 scenes 数据，地形层不猜。
+    /*
+     * 铺地（单子 N）：plan.paths[] 里带 paving 的路才铺——原文点名的先铺
+     * （潇湘馆院内「石子漫」07-41、近门大路 17 回「宽阔大路」），没点名的留土路。
+     * 铺装收到路肩内侧：边上留一线浮土，石板路才不是从草里硬切出来的色带。
+     * 喂饱 cobble/slab 之后 ctx.collision.surfaceAt 回 'stone'，
+     * 草散布器自己就退开（运行时查 surfaceAt，不需要改散布器）。
+     */
+    let cobble = 0;
+    let slab = 0;
+    if (path.paving && path.w > 0.001 && path.d < Infinity) {
+      const pave = smoothstep(path.hw + path.feather * 0.4, path.hw - 0.22, path.d) * path.w;
+      if (path.paving === 'cobble') cobble = pave * 0.92;
+      else slab = pave * 0.92;
+      dirt *= 1 - Math.max(cobble, slab);
+    }
 
     dirt = clamp(dirt, 0, 1) * (1 - sand);
-    const grass = clamp(1 - sand - cobble - dirt, 0, 1);
+    const grass = clamp(1 - sand - cobble - slab - dirt, 0, 1);
 
     let wear = clamp(
       0.5 +
@@ -727,12 +788,26 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     );
     wear *= 1 - path.w * 0.2;
 
-    return { dirt, cobble, sand, grass, wear };
+    // 苍苔布满的是「土地」：路面与铺装上不长苔，路缝墙根才留一点。
+    let moss = 0;
+    for (const mp of mossPolys) {
+      if (!inBBox(x, z, mp, 0.2)) continue;
+      const d = signedDist(x, z, mp);
+      if (d >= 0) continue;
+      const patch = fbm2(nWear, x * 0.045 + 4.7, z * 0.045 - 1.9, 3) * 0.5 + 0.5;
+      const m = smoothstep(0, 1.1, -d) * (0.30 + 0.70 * patch);
+      if (m > moss) moss = m;
+    }
+    moss = clamp(moss, 0, 1) * (1 - path.w * 0.85) * (1 - Math.max(cobble, slab)) * 0.85;
+    // 苔多草稀：苔化的地面把草皮权重让出来一点，院内读成苔地而不是草坪。
+    const grassOut = clamp(grass * (1 - moss * 0.55), 0, 1);
+
+    return { dirt, cobble, slab, sand, grass: grassOut, wear, moss };
   }
 
   function surface(x: number, z: number): string {
     const m = masks(x, z);
-    if (m.cobble > 0.45) return 'stone';
+    if (Math.max(m.cobble, m.slab) > 0.45) return 'stone';
     if (m.sand > 0.4) return 'sand';
     if (m.dirt > 0.4) return 'dirt';
     return 'grass';

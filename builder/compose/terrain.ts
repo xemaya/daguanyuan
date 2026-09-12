@@ -105,7 +105,14 @@ export const TERRAIN = {
 
 type Field = ReturnType<typeof makeTerrainField>;
 
-/** Bake world-space masks at 1024²; F removes repeated work rather than thinning this field. */
+/** Bake world-space masks at 1024²; F removes repeated work rather than thinning this field.
+ *
+ *  通道打包（单子 N 铺地之后四通道要装六种权重，0.5 是分档线）：
+ *    R dirt ｜ G <0.5=石子漫(cobble)×2、≥0.5=石板(slab)×2−1 ｜
+ *    B <0.5=浅滩沙×2、≥0.5=苔(moss)×2−1 ｜ A wear
+ *  G 里 cobble 与 slab 的区域在空间上不相邻（潇湘馆 vs 正门），B 里 moss 让位给
+ *  sand（见 masks()，苔带与水线沙带重叠处留沙）——mipmap 平均出来的中间值只会
+ *  出现在各自区域的边缘羽化带上，解码后仍是合法的弱权重，不会串成另一种材质。 */
 function bakeSplat(field: Field, size = 1024): THREE.DataTexture {
   const data = new Uint8Array(size * size * 4);
   for (let j = 0; j < size; j++) {
@@ -115,8 +122,8 @@ function bakeSplat(field: Field, size = 1024): THREE.DataTexture {
       const m = field.masks(x, z);
       const o = (j * size + i) * 4;
       data[o] = m.dirt * 255;
-      data[o + 1] = m.cobble * 255;
-      data[o + 2] = m.sand * 255;
+      data[o + 1] = m.slab > 0 ? 128 + Math.min(127, m.slab * 127) : m.cobble * 127;
+      data[o + 2] = m.sand > 0.02 ? Math.min(127, m.sand * 127) : 128 + m.moss * 127;
       data[o + 3] = m.wear * 255;
     }
   }
@@ -213,6 +220,14 @@ const TERRAIN_BLEND = /* glsl */ `
   // ---- splat lookup ------------------------------------------------------
   vec2 sUv = ( tXZ + warpOff - uExtent.xy ) / uExtent.zw;
   vec4 sp = texture2D( uSplat, clamp( sUv, vec2( 0.0015 ), vec2( 0.9985 ) ) );
+  // 通道打包解码(见 bakeSplat 注释):G 0.5 以下石子漫、以上石板;B 0.5 以下沙、以上苔。
+  // 分档线两侧用一小段 smoothstep 软过渡——mip 平均出的中间值落在过渡带里,
+  // 读成边缘羽化,不会在两种铺装之间闪变。
+  float slabSel = smoothstep( 0.46, 0.54, sp.g );
+  float paveW = mix( sp.g, sp.g - 0.5, slabSel ) * 2.0;
+  float mossSel = smoothstep( 0.46, 0.54, sp.b );
+  float sandW = ( 1.0 - mossSel ) * sp.b * 2.0;
+  float mossW = mossSel * max( sp.b - 0.5, 0.0 ) * 2.0;
   // How far into the middle of the track we are. 1 along the centreline,
   // falling away through the shoulders — the profile of where feet actually go.
   float centre = smoothstep( 0.42, 0.95, sp.r );
@@ -227,7 +242,10 @@ const TERRAIN_BLEND = /* glsl */ `
   // there is no single period left for the eye to lock onto.
   float dScale = 0.7900 + macroM * 0.4400;
   vec2 uvD  = ( tXZ + warpOff * 0.62 ) * dScale;
-  vec2 uvC  = ( tXZ + warpOff * 0.14 ) * 0.5150 + vec2( 0.15, 0.42 );
+  // 石子漫的拼花周期(P-07:先算屏幕上几个像素再调强度):cobble 贴图一砖 9×11 窝,
+  // 0.80 的缩放让一块石子在世界里约 0.14m——游线视角 3m 外 ≈ 30px,20m 外 ≈ 5px,
+  // 始终在一像素之上,不会被 mipmap 平均成灰板。原 0.515 的石子 0.22m,读成大卵石。
+  vec2 uvC  = ( tXZ + warpOff * 0.14 ) * 0.8000 + vec2( 0.15, 0.42 );
   vec2 uvS  = ( tXZ + warpOff * 0.34 ) * 0.6400;
 
   float turfMix = clamp( 0.22 + cloud * 0.58, 0.0, 1.0 );
@@ -276,6 +294,33 @@ const TERRAIN_BLEND = /* glsl */ `
   // Per-stone warm/cool jitter so the forecourt is laid, not printed.
   aC *= mix( vec3( 0.93, 0.96, 1.00 ), vec3( 1.09, 1.02, 0.88 ), macroB );
 
+  // ---- 石板甬道(近门大路,17 回「宽阔大路」)-----------------------------
+  // P-07 自查:石板 0.85×0.55m,游线视角(眼高 1.6m)看 3m 外的地面一块板 ≈ 400px、
+  // 30m 外 ≈ 30px——永远在像素之上。板缝约 2.5cm 在 ~25m 外落进亚像素,
+  // 所以缝的对比度随 fwidth 收,远处让 mipmap 平均成浅缝,而不是闪成硬线。
+  vec2 slabUv = tXZ / vec2( 0.85, 0.55 );
+  slabUv.x += mod( floor( slabUv.y ), 2.0 ) * 0.5;    // 逐趟错缝
+  vec2 sCell = fract( slabUv );
+  vec2 sId = floor( slabUv );
+  vec2 sFw = fwidth( slabUv ) + 1e-5;
+  vec2 sEdge = min( sCell, 1.0 - sCell );             // 距板缝(板内坐标 0..0.5)
+  float jointFade = clamp( 1.2 - max( sFw.x, sFw.y ) * 28.0, 0.0, 1.0 );
+  float joint = max(
+    smoothstep( 0.030 + sFw.x * 0.6, 0.030 - sFw.x * 0.6, sEdge.x ),
+    smoothstep( 0.030 + sFw.y * 0.6, 0.030 - sFw.y * 0.6, sEdge.y ) ) * jointFade;
+  float sHash = fract( sin( dot( sId, vec2( 127.1, 311.7 ) ) ) * 43758.5453 );
+  // 板面底色只能取贴图的低频:正常尺度的卵石贴图带着 Worley 浆缝,直接拿来当
+  // 板面会把石板读成碎拼冰裂纹。22m 一期的放大读法是它自身的低频(平滑石色),
+  // 再掺一点 0.6m 尺度的细颗粒。矩形板缝与逐板明度抖动承担「铺的」的读感。
+  vec3 aSlab = texture2D( uCobMap, tXZ * 0.0450 + vec2( 0.53, 0.71 ) ).rgb;
+  aSlab = mix( aSlab, texture2D( uCobMap, tXZ * 1.6000 + vec2( 0.21, 0.83 ) ).rgb, 0.16 );
+  aSlab = mix( vec3( dot( aSlab, LUM ) ), aSlab, 0.35 );
+  aSlab = aSlab * 0.62 + 0.16;
+  aSlab *= vec3( 1.16, 1.09, 0.95 );                  // 青石暖化(ART_DIRECTION §3 青石 #8c8f8a)
+  aSlab *= 0.86 + sHash * 0.22;
+  aSlab *= 1.0 - joint * 0.48;
+  vec3 aPav = mix( aC, aSlab, slabSel );
+
   aT  = mix( vec3( dot( aT, LUM ) ), aT, 0.84 ) * vec3( 1.07, 1.00, 0.84 );
   aS  = mix( vec3( dot( aS, LUM ) ), aS, 0.94 ) * vec3( 1.22, 1.05, 0.72 );
 
@@ -284,8 +329,8 @@ const TERRAIN_BLEND = /* glsl */ `
   // by the layer's own luminance (a good proxy for surface height in all four
   // of these maps) makes pebbles poke through grass and grass fill the mortar
   // joints, which is what sells the transition.
-  vec4 wgt = vec4( clamp( 1.0 - sp.r - sp.g - sp.b, 0.0, 1.0 ), sp.r, sp.g, sp.b );
-  vec4 hgt = vec4( dot( aT, LUM ), dot( aD, LUM ), dot( aC, LUM ), dot( aS, LUM ) );
+  vec4 wgt = vec4( clamp( 1.0 - sp.r - paveW - sandW, 0.0, 1.0 ), sp.r, paveW, sandW );
+  vec4 hgt = vec4( dot( aT, LUM ), dot( aD, LUM ), dot( aPav, LUM ), dot( aS, LUM ) );
   vec4 bias = wgt + hgt * 0.52;
   float peak = max( max( bias.x, bias.y ), max( bias.z, bias.w ) ) - 0.21;
   // The gate was 0.035 wide. On a splat that is metres-per-texel-ish that is a
@@ -296,18 +341,18 @@ const TERRAIN_BLEND = /* glsl */ `
   vec4 bl = max( bias - peak, 0.0 ) * smoothstep( 0.0, 0.10, wgt );
   bl /= max( bl.x + bl.y + bl.z + bl.w, 1e-4 );
 
-  vec3 albedo = aT * bl.x + aD * bl.y + aC * bl.z + aS * bl.w;
+  vec3 albedo = aT * bl.x + aD * bl.y + aPav * bl.z + aS * bl.w;
 
   vec3 nrm =
       decodeN( texture2D( uNrmTD, uvTa ).rg, 1.32 ) * bl.x +
       decodeN( texture2D( uNrmTD, uvD  ).ba, 0.62 * ( 1.0 - centre * 0.38 ) ) * bl.y +
-      decodeN( texture2D( uNrmCS, uvC  ).rg, 1.00 ) * bl.z +
+      decodeN( texture2D( uNrmCS, uvC  ).rg, mix( 1.00, 0.45, slabSel ) ) * bl.z +
       decodeN( texture2D( uNrmCS, uvS  ).ba, 0.58 ) * bl.w;
 
   float rgh =
       texture2D( uRough4, uvTa ).r * bl.x +
       texture2D( uRough4, uvD  ).g * bl.y +
-      texture2D( uRough4, uvC  ).b * bl.z +
+      mix( texture2D( uRough4, uvC  ).b, 0.72, slabSel ) * bl.z +
       texture2D( uRough4, uvS  ).a * bl.w;
 
   // ---- macro colour ------------------------------------------------------
@@ -350,6 +395,17 @@ const TERRAIN_BLEND = /* glsl */ `
   float sandy = bl.w + bl.y * 0.22;
   albedo *= mix( vec3( 1.0 ), vec3( 0.50, 0.49, 0.53 ), wet * sandy );
   rgh = mix( rgh, 0.13, wet * sandy * 0.92 );
+
+  // ---- 苍苔(07-41「土地下蒼苔布滿」)--------------------------------------
+  // 苔是地表混合,不是新几何:苔权重(mossW)把草与浮土压成湿暗的苔绿,
+  // 两级高频噪声让苔成斑而不是整片染色。路面与铺装在 masks() 里已扣掉苔。
+  {
+    float mossPatch = 0.45 + 0.55 * smoothstep( 0.30, 0.72, w2.g * 0.55 + w3.g * 0.45 );
+    float mossAmt = clamp( mossW * ( bl.x + bl.y * 0.6 ) * mossPatch, 0.0, 1.0 );
+    vec3 mossCol = vec3( 0.115, 0.175, 0.075 ) * ( 0.85 + macroB * 0.35 );
+    albedo = mix( albedo, mossCol, mossAmt );
+    rgh = mix( rgh, 0.90, mossAmt * 0.5 );
+  }
 
   gAlbedo = albedo;
   gRough  = clamp( rgh, 0.06, 1.0 );
