@@ -22,6 +22,10 @@
 - 大木作的数字只从规则表出，不许在代码里写字面量。
 - **每处抽象过一问：能不能让下一个区域更快、更准、更美？** 不能就先不做（`docs/DECISIONS.md` D-18）。
 - 收工前 `npm run check`、`npm test`、`npm run check:layers`、`npm run check:rules` 全过。
+- **提交只按路径 `git add`，不许 `git add -A` / `git add .`。** 并行时工作区里有别人的
+  半成品,`-A` 会把它们卷进你的提交——后果不是代码错,是署名与可回溯性错
+  (2026-09-13 单子 O 就这样把单子 Q 的三个文件带走了,查「虎皮石是谁做的」会查到
+  一条讲植物的提交)。派单人自己也踩过:从 `daguanyuan/` 跑 `git add -A` 暂存了整个 monorepo。
 - **多单并行时不许 `git stash`。** 工作区里同时有别人的半成品,stash 会把它们一起卷走
   (2026-09-12 我与单子 P 各犯过一次)。要单独量自己的改动,用
   `git worktree add --detach /tmp/<名> <commit>` 开隔离检出,自带独立端口跑。
