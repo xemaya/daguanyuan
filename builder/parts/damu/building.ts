@@ -63,7 +63,7 @@ export interface BuildingOptions {
   /** 台基石作:青石(缺省)/白石(07-01「白石台磯」)。 */
   plinthMaterial?: 'stone' | 'whiteStone';
   /** 格扇/槛窗的格心纹样:ice/wan/haitang 走墙垣的格心生成器(PQ-2),
-   *  lantern(灯笼锦,07-72③)是本文件自己的生成器——gexinGeometry 不认这个名字;
+   *  lantern(灯笼锦,07-76③)是本文件自己的生成器——gexinGeometry 不认这个名字;
    *  缺省保留步步锦。 */
   lattice?: 'ice' | 'wan' | 'haitang' | 'lantern';
   seed?: number;
@@ -251,7 +251,7 @@ function lanternLatticeGeometry(w: number, h: number, bar: number): THREE.Buffer
 /* ------------------------------------------------------------------ */
 
 /** 一扇格扇,清式标准三段:下裙板(浅浮雕)、中绦环板(浅浮雕缠枝)、上格心(纹样)。
- *  07-72③:纹样原著未写死(「细雕新鲜花样」不是具体名字),这里 artChoice 换掉万字。 */
+ *  07-76③:纹样原著未写死(「细雕新鲜花样」不是具体名字),这里 artChoice 换掉万字。 */
 function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Material, seed: number, pattern?: 'ice' | 'wan' | 'haitang' | 'lantern'): THREE.Group {
   const g = new THREE.Group();
   const bar = 0.035;
@@ -399,8 +399,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       id: 'project:gate-ridge-style',
       name: '正门屋脊做法(泥鳅脊)',
       method: 'artistic_choice',
-      note: '07-72①方向内证可定:原文自判「不落富丽俗套」,而高正脊加正吻正是「富丽俗套」——正门屋脊须软。' +
-        '07-72②「泥鳅脊」具体做法未核到,两读并存:(a)低而圆的正脊,仍有脊线;(b)卷棚,省正脊。' +
+      note: '07-76①方向内证可定:原文自判「不落富丽俗套」,而高正脊加正吻正是「富丽俗套」——正门屋脊须软。' +
+        '07-76②「泥鳅脊」具体做法未核到,两读并存:(a)低而圆的正脊,仍有脊线;(b)卷棚,省正脊。' +
         '这里选 (b):省去起脊/哺鸡脊那组高出屋面的装饰体,让两坡瓦面直接相接——复用 fayuan 卷棚已用的同一个' +
         'ridgeStyle 语义(此前只在 fashi.BuildingSpec 缺这个自由度),不是「原文如此」。' +
         '未选 (a) 是因为它要求给正脊一个新的低矮圆润造型,这里没做,留給下一轮再核。' +
@@ -442,7 +442,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const platHX = m.width / 2 + margin;
   const platHZ = m.depthHalf + margin;
   // 07-01「鑿成西番草花樣」是台基边缘的浅浮雕,不是贴图——见下方 plinthMaterial
-  // === 'whiteStone' 分支(07-72④,只在白石台基上做,别处台基仍素面)。
+  // === 'whiteStone' 分支(07-76④,只在白石台基上做,别处台基仍素面)。
   const plat = new THREE.Mesh(roundedBox(platHX * 2, platH, platHZ * 2, 0.03, 3), plinth);
   plat.position.y = platH / 2;
   plat.receiveShadow = true;
@@ -458,9 +458,9 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       id: 'project:gate-plinth-white-stone',
       name: '正门白石台基与台基高',
       method: 'artistic_choice',
-      note: `第十七回「下面白石台磯,鑿成西番草花樣」(07-01):材质按原文取白石非青石;规则表无门屋台基高,${platH}m 为观感取值;西番草是浅浮雕几何,见台基边缘卷草(07-72④),不是贴图。`,
+      note: `第十七回「下面白石台磯,鑿成西番草花樣」(07-01):材质按原文取白石非青石;规则表无门屋台基高,${platH}m 为观感取值;西番草是浅浮雕几何,见台基边缘卷草(07-76④),不是贴图。`,
     });
-    // 07-72④:西番草(缠枝卷叶)浅浮雕,几何不是贴图,材质用现成的 whiteStoneMaterial()
+    // 07-76④:西番草(缠枝卷叶)浅浮雕,几何不是贴图,材质用现成的 whiteStoneMaterial()
     // (plinth 已经是它)。§10 的具象雕刻只集中在这一处——沿台基一圈做一条卷草带,
     // 别处(木作)只到"有工"的程度,不在这里叠加更多。
     {
@@ -508,7 +508,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       id: 'project:gate-lattice-lantern',
       name: '格心纹样(灯笼锦)',
       method: 'artistic_choice',
-      note: '07-72③:「门栏窗槅皆是细雕新鲜花样」原著没写死具体纹样(曹雪芹没写死),之前用的万字不到头' +
+      note: '07-76③:「门栏窗槅皆是细雕新鲜花样」原著没写死具体纹样(曹雪芹没写死),之前用的万字不到头' +
         '恰恰是最标准的样式,与「新鲜」相反。改用灯笼锦(方格骨架+每格内接菱花):qiangyuan/wall.ts 的' +
         'gexinGeometry 不认这个纹样名(未知 sub 会被它当冰裂处理),所以在本文件另写了' +
         'lanternLatticeGeometry,不是复用/魔改 gexinGeometry。',
@@ -1482,8 +1482,8 @@ export function menSpec(): BuildingOptions {
       columnHeightFen: 300,
       columnDiameterFen: 28,
       rafterDiaFen: 7,
-      // 「上面桶瓦泥鰍脊」:方向内证可定(07-72①)——「不落富丽俗套」排除高正脊
-      // 加正吻。具体做法两读并存(07-72②),这里选卷棚(省正脊),artChoice 见下。
+      // 「上面桶瓦泥鰍脊」:方向内证可定(07-76①)——「不落富丽俗套」排除高正脊
+      // 加正吻。具体做法两读并存(07-76②),这里选卷棚(省正脊),artChoice 见下。
       ridgeStyle: 'rolled',
     },
     // 匾额文字只从 plan.json 读(missing 99-26):正门挂「大观园」(07-37 园之总名;
@@ -1493,7 +1493,7 @@ export function menSpec(): BuildingOptions {
     back: 'door',
     sides: 'wall',
     gatehouse: true,
-    // 07-72③:「细雕新鲜花样」原著没写死具体纹样;万字不到头是最标准的那个,
+    // 07-76③:「细雕新鲜花样」原著没写死具体纹样;万字不到头是最标准的那个,
     // 与「新鲜」相反,换成灯笼锦(artChoice,见 buildBuilding 的 provenance.art)。
     lattice: 'lantern',
     wallMaterial: 'stone',

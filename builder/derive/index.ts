@@ -50,7 +50,7 @@ export interface BuildingSpec {
   columnDiameterFen?: number;
   /** 屋脊做法:raised=起脊(缺省,现状);rolled=卷棚(省正脊)。
    *  规则表未收 fashi 屋脊做法,给了非缺省值须在消费处记 provenance.art
-   *  [07-72]。fayuan 参数集另有同名字段,两条链独立实现,互不借用。 */
+   *  [07-76]。fayuan 参数集另有同名字段,两条链独立实现,互不借用。 */
   ridgeStyle?: 'raised' | 'rolled';
 }
 
