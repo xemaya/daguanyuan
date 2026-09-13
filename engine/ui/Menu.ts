@@ -6,6 +6,8 @@
  * still baking) and expose a tiny imperative API to the HUD.
  */
 
+import { COMFORT_LABELS, COMFORT_LEVELS, getComfortLevel, setComfortLevel } from '@engine/core/Comfort';
+
 /** Small DOM helper — keeps the builders below readable. */
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -221,6 +223,7 @@ export class StartCard {
       legend.appendChild(row);
     }
     card.appendChild(legend);
+    card.appendChild(this.buildComfortRow());
 
     this.cta = el('button', 'dgy-cta') as HTMLButtonElement;
     this.cta.type = 'button';
@@ -244,6 +247,35 @@ export class StartCard {
     };
     this.cta.addEventListener('click', fire);
     this.el.addEventListener('click', fire);
+  }
+
+  /**
+   * B1: 视角摇晃是否让人晕是体感，量不出来，所以给三档让用户自己走一遍选，
+   * 不在代码里替他拍板默认值该多轻。选择立即生效且持久化（见 Comfort.ts）。
+   */
+  private buildComfortRow(): HTMLElement {
+    const row = el('div', 'dgy-comfort');
+    row.appendChild(el('div', 'dgy-comfort__label', '镜头晃动'));
+    const opts = el('div', 'dgy-comfort__options');
+    const buttons: HTMLButtonElement[] = [];
+    for (const lvl of COMFORT_LEVELS) {
+      const btn = el('button', 'dgy-comfort__opt', COMFORT_LABELS[lvl]) as HTMLButtonElement;
+      btn.type = 'button';
+      btn.classList.toggle('is-active', lvl === getComfortLevel());
+      btn.addEventListener('click', (e) => {
+        // Must not bubble to the card's own click handler, which would read
+        // this as "点击入园" and dismiss the pause screen the player just
+        // opened to change this setting.
+        e.stopPropagation();
+        e.preventDefault();
+        setComfortLevel(lvl);
+        for (const b of buttons) b.classList.toggle('is-active', b === btn);
+      });
+      buttons.push(btn);
+      opts.appendChild(btn);
+    }
+    row.appendChild(opts);
+    return row;
   }
 
   get visible(): boolean {

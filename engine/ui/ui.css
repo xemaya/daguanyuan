@@ -429,6 +429,54 @@
   text-overflow: ellipsis;
 }
 
+.dgy-comfort {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 9px 11px;
+  background: rgba(38, 66, 74, 0.55);
+  border: var(--dgy-hair) solid var(--dgy-line);
+}
+
+.dgy-comfort__label {
+  font-size: clamp(12px, 0.92vw, 14px);
+  font-weight: 600;
+  color: var(--dgy-silk-dim);
+  white-space: nowrap;
+}
+
+.dgy-comfort__options {
+  display: flex;
+  gap: 6px;
+}
+
+.dgy-comfort__opt {
+  padding: 6px 12px;
+  border: var(--dgy-hair) solid var(--dgy-line);
+  border-radius: var(--dgy-radius);
+  background: transparent;
+  color: var(--dgy-silk-dim);
+  font-family: inherit;
+  font-size: clamp(11px, 0.86vw, 13px);
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background var(--dgy-fast) var(--dgy-ease), color var(--dgy-fast) var(--dgy-ease), border-color var(--dgy-fast) var(--dgy-ease);
+}
+
+.dgy-comfort__opt:hover {
+  border-color: var(--dgy-jade);
+  color: var(--dgy-silk);
+}
+
+.dgy-comfort__opt.is-active {
+  background: var(--dgy-jade);
+  border-color: var(--dgy-jade);
+  color: var(--dgy-ground);
+}
+
 /* 主按钮:石绿,"可走"。 */
 .dgy-cta {
   display: inline-flex;
@@ -591,12 +639,23 @@
   .dgy-legend {
     grid-template-columns: minmax(0, 1fr);
   }
+  .dgy-comfort {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .dgy-comfort__options {
+    justify-content: space-between;
+  }
 }
 
 @media (max-height: 620px) {
   .dgy-legend {
     gap: 7px 9px;
     margin-top: 14px;
+  }
+  .dgy-comfort {
+    margin-top: 10px;
   }
   .dgy-cta {
     margin-top: 16px;
