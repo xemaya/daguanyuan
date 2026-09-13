@@ -463,10 +463,20 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     // 07-76④:西番草(缠枝卷叶)浅浮雕,几何不是贴图,材质用现成的 whiteStoneMaterial()
     // (plinth 已经是它)。§10 的具象雕刻只集中在这一处——沿台基一圈做一条卷草带,
     // 别处(木作)只到"有工"的程度,不在这里叠加更多。
+    //
+    // C3(2026-09-14 backlog)返工:原实现每个波峰只放一个压扁的球,主藤是纯正弦波——
+    // 正弦波不管多平滑都是"过一个尖",从没真正卷起来过,读成一道带小结点的锯齿细线。
+    // 「卷草」的卷字要求真闭合的螺旋/C形/S形回转。现在每个波峰处让藤蔓绕一整圈再继续
+    // (loopSteps),圆心比波峰更往外顶一个 curlR,曲线才有真闭合的卷;藤蔓本身也加粗
+    // (bandR)、振幅加大(bandAmp),不然浅浮雕在正常观距下还是读不出明暗。叶片从压扁的
+    // 球改成尖头的四棱锥压扁件,贴着卷心外沿,指向卷心离藤的那一侧——读成叶尖而不是芽点。
     {
       const bandY = platH * 0.55;
-      const bandR = Math.min(0.016, platH * 0.05);
-      const bandAmp = Math.min(0.045, platH * 0.11);
+      // 卷心是这条带的主角:半径要比藤蔓粗细大好几倍,中心才镂空、读成"卷"而不是
+      // 一颗珠子;主藤起伏只是把卷心托起来的引子,振幅比卷心小。
+      const curlR = Math.min(0.052, platH * 0.135);
+      const bandAmp = curlR * 0.55;
+      const bandR = Math.min(0.016, platH * 0.042);
       const inMargin = 0.16; // 让开转角,免得四条带在角部穿插
       type Side = { x0: number; z0: number; x1: number; z1: number; nx: number; nz: number };
       const sides: Side[] = [
@@ -478,27 +488,74 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       for (const s of sides) {
         const len = Math.hypot(s.x1 - s.x0, s.z1 - s.z0);
         if (len < 0.3) continue;
-        const wavelength = 0.42; // 一个卷叶周期
-        const nSeg = Math.max(6, Math.round(len / (wavelength / 2)));
+        const ux = (s.x1 - s.x0) / len;
+        const uz = (s.z1 - s.z0) / len;
+        const wavelength = Math.max(0.5, curlR * 4.4); // 给整圆卷心留够位置,不挤邻居
+        const nPeriods = Math.max(2, Math.round(len / wavelength));
         const pts: THREE.Vector3[] = [];
-        for (let i = 0; i <= nSeg; i++) {
-          const t = i / nSeg;
-          const x = lerp(s.x0, s.x1, t);
-          const z = lerp(s.z0, s.z1, t);
-          const y = bandY + Math.sin((t * len) / wavelength * Math.PI * 2) * bandAmp;
-          pts.push(new THREE.Vector3(x + s.nx * 0.015, y, z + s.nz * 0.015));
+        const leafSpots: { pos: THREE.Vector3; out: THREE.Vector3 }[] = [];
+        const along = (t: number): [number, number] => [
+          lerp(s.x0, s.x1, t) + s.nx * 0.015,
+          lerp(s.z0, s.z1, t) + s.nz * 0.015,
+        ];
+        {
+          const [x0, z0] = along(0);
+          pts.push(new THREE.Vector3(x0, bandY, z0));
+        }
+        for (let i = 0; i < nPeriods; i++) {
+          const sign = i % 2 === 0 ? 1 : -1;
+          const t0 = i / nPeriods;
+          const t1 = (i + 1) / nPeriods;
+          const tPeak = t0 + (t1 - t0) * 0.5;
+          // 上升段:基线爬到波峰,缓入缓出。
+          const riseSteps = 5;
+          for (let k = 1; k <= riseSteps; k++) {
+            const lt = k / riseSteps;
+            const t = lerp(t0, tPeak, lt);
+            const [x, z] = along(t);
+            const y = bandY + sign * bandAmp * Math.sin((lt * Math.PI) / 2);
+            pts.push(new THREE.Vector3(x, y, z));
+          }
+          // 卷心:圆心比波峰再往外顶 curlR,从波峰位置绕整整一圈回到波峰——这一圈就是"卷"。
+          const [px, pz] = along(tPeak);
+          const peakY = bandY + sign * bandAmp;
+          const centerY = peakY + sign * curlR;
+          const loopSteps = 14;
+          for (let k = 1; k <= loopSteps; k++) {
+            const ang = -Math.PI / 2 + (k / loopSteps) * Math.PI * 2 * -sign;
+            const alongOff = Math.cos(ang) * curlR; // 正圆卷心,中间才镂空读成"卷"
+            const y = centerY + Math.sin(ang) * curlR * sign;
+            pts.push(new THREE.Vector3(px + ux * alongOff, y, pz + uz * alongOff));
+            // 卷心转到离藤最远的一点(4/loopSteps 附近)时在外沿钉一片叶。
+            if (k === Math.round(loopSteps * 0.32)) {
+              const outX = px + ux * alongOff * 1.3;
+              const outZ = pz + uz * alongOff * 1.3;
+              leafSpots.push({
+                pos: new THREE.Vector3(outX, y, outZ),
+                out: new THREE.Vector3(ux * alongOff, Math.sin(ang) * curlR * sign, uz * alongOff).normalize(),
+              });
+            }
+          }
+          // 下降段:卷心绕回后落回基线,衔接下一个波峰。
+          const fallSteps = 5;
+          for (let k = 1; k <= fallSteps; k++) {
+            const lt = k / fallSteps;
+            const t = lerp(tPeak, t1, lt);
+            const [x, z] = along(t);
+            const y = bandY + sign * bandAmp * Math.sin(((1 - lt) * Math.PI) / 2);
+            pts.push(new THREE.Vector3(x, y, z));
+          }
         }
         root.add(ridgeTube(pts, bandR, plinth));
-        for (let i = 1; i < nSeg; i += 2) {
-          const t = i / nSeg;
-          const x = lerp(s.x0, s.x1, t);
-          const z = lerp(s.z0, s.z1, t);
-          const y = bandY + Math.sin((t * len) / wavelength * Math.PI * 2) * bandAmp;
-          const leaf = new THREE.Mesh(new THREE.SphereGeometry(bandR * 1.7, 6, 4), plinth);
-          leaf.scale.set(1, 0.5, 0.55);
-          leaf.position.set(x + s.nx * 0.03, y, z + s.nz * 0.03);
-          leaf.castShadow = true;
-          root.add(leaf);
+        for (const leaf of leafSpots) {
+          const geo = new THREE.ConeGeometry(bandR * 2.1, bandR * 5.2, 4, 1);
+          geo.scale(1, 1, 0.42); // 压扁成叶片而不是立体的锥
+          const mesh = new THREE.Mesh(geo, plinth);
+          mesh.position.copy(leaf.pos).addScaledVector(leaf.out, 0.012);
+          // 锥尖原朝局部 +Y;转到朝 leaf.out(卷心甩出去的方向),叶尖就指向外沿。
+          mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), leaf.out);
+          mesh.castShadow = true;
+          root.add(mesh);
         }
       }
     }
