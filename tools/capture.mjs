@@ -202,6 +202,41 @@ await page.evaluate(() => {
 });
 }
 await freezeGame();
+
+/**
+ * Warms up every pipeline the selected shots will need.
+ *
+ * WebGPU compiles render pipelines lazily, on first use of a given
+ * material/geometry/blend-mode combination. `capture.mjs` used to teleport
+ * straight into each shot and read `engine.fps` a dozen frames later — if
+ * that shot was the first to bring a given material into view, the
+ * compile stall landed inside the fps window and the manifest recorded a
+ * one-off number (e.g. 8fps) that had nothing to do with sustained
+ * rendering — after warmup, shots that read wildly low now sit in the
+ * same steady-state band as their neighbours.
+ * Doing one dry, unmeasured pass over the exact same positions first pays
+ * that one-time compile cost before any fps number is read.
+ */
+const warmupStart = Date.now();
+for (const shot of selected) {
+  await page.evaluate(
+    ({ pos, yaw, pitch }) => {
+      const g = window.__GAME__;
+      const T = g.THREE;
+      g.player.teleport(new T.Vector3(pos[0], pos[1], pos[2]), yaw);
+      g.player.state.pitch = pitch;
+      g.player.update(1 / 60);
+      g.player.update(1 / 60);
+    },
+    shot,
+  );
+  await page.evaluate(
+    () => new Promise((res) => { let n = 0; const s = () => (++n >= 8 ? res() : requestAnimationFrame(s)); requestAnimationFrame(s); }),
+  );
+}
+const warmupMs = Date.now() - warmupStart;
+console.log(`> warmed up ${selected.length} shot(s) in ${warmupMs}ms`);
+
 const manifest = [];
 
 /** Waits until the game handle exists again after a reload. */
@@ -318,6 +353,8 @@ const rendering = await page.evaluate(() => {
     viewport: [innerWidth,innerHeight], pixelRatio: e.renderer.getPixelRatio(), quality: e.quality.name,
     fixedTime: e.fixedTime, adaptiveResolution: e.adaptiveResolution, bootTimings: window.__GAME__.bootTimings };
 });
+rendering.warmupMs = warmupMs;
+rendering.fpsMethodology = 'measured after a dry warmup pass over the same shots, so lazy pipeline-compile stalls (WebGPU) land before any fps read, not inside it';
 const buildMs = await page.evaluate(() => window.__GAME__.world.buildDurationMs);
 const linears = await page.evaluate(() => window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.linears ?? []);
 const entry=resolve(ROOT,'artifacts/wg-current/dist/garden.html');
