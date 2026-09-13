@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 /**
  * capture.mjs — deterministic screenshot harness for visual QA.
  *
@@ -16,7 +18,7 @@
  */
 
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -185,6 +187,7 @@ if (bootError) {
 // Let texture bakes, shader compiles and the first shadow update finish.
 await page.waitForTimeout(args.settle);
 
+async function freezeGame() {
 await page.evaluate(() => {
   const e = window.__GAME__.engine;
   e.adaptiveResolution = false;
@@ -196,11 +199,14 @@ await page.evaluate(() => {
   e.renderer.setPixelRatio(1);
   e.postfx.setSize(innerWidth, innerHeight);
 });
+}
+await freezeGame();
 const manifest = [];
 
 /** Waits until the game handle exists again after a reload. */
 async function waitForGame(timeout = 90000) {
-  await page.waitForFunction(() => window.__GAME__ !== undefined, { timeout });
+  await page.waitForFunction(() => window.__GAME__ !== undefined, null, { timeout });
+  await freezeGame();
   await page.waitForTimeout(args.settle);
 }
 
@@ -278,7 +284,9 @@ async function captureShot(shot, attempt = 0) {
         triangles: info.render.triangles,
         textures: info.memory.textures,
         geometries: info.memory.geometries,
-        programs: info.programs ? info.programs.length : null,
+        programs: info.memory.programs ?? info.programs?.length ?? null,
+        sceneSubmissions: g.engine.postfx.sceneStats,
+        frameSubmissions: g.engine.postfx.frameStats,
       };
     });
 
@@ -311,7 +319,30 @@ const rendering = await page.evaluate(() => {
 });
 const buildMs = await page.evaluate(() => window.__GAME__.world.buildDurationMs);
 const linears = await page.evaluate(() => window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.linears ?? []);
-writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ shots: manifest, consoleErrors, constructions, linears, buildMs, rendering }, null, 2));
+const entry=resolve(ROOT,'artifacts/wg-current/dist/garden.html');
+const source={gitHead:execFileSync('git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim(),
+  buildEntrySha256:existsSync(entry)?createHash('sha256').update(readFileSync(entry)).digest('hex'):null,
+  buildMtime:existsSync(entry)?statSync(entry).mtime.toISOString():null};
+const geometry=await page.evaluate(async()=>{
+ const hash=async array=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array(array.buffer,array.byteOffset,array.byteLength)))).map(x=>x.toString(16).padStart(2,'0')).join('');
+ const seen=new Set(), geometries=[],transforms=[];let meshes=0,instances=0;
+ window.__GAME__.engine.scene.updateMatrixWorld(true);
+ const pending=[];
+ window.__GAME__.engine.scene.traverse(o=>{
+  if(!o.isMesh)return;meshes++;
+  const g=o.geometry;
+  if(!seen.has(g)){seen.add(g);pending.push((async()=>{const pos=g.attributes.position.array;geometries.push({vertices:g.attributes.position.count,indices:g.index?.count??0,position:await hash(pos),index:g.index?await hash(g.index.array):null})})())}
+  const matrices=[];
+  if(o.isInstancedMesh){const a=o.instanceMatrix.array;instances+=a.length/16;for(let i=0;i<a.length;i+=16)matrices.push(Array.from(a.slice(i,i+16)).join(','));matrices.sort()}
+  transforms.push(JSON.stringify({name:o.name,world:o.matrixWorld.elements,matrices}));
+ });
+ await Promise.all(pending);geometries.sort((a,b)=>a.position.localeCompare(b.position));transforms.sort();
+ const encoded=new TextEncoder().encode(JSON.stringify({geometries,transforms}));
+ return{meshes,uniqueGeometries:geometries.length,instanceCapacity:instances,geometryAndTransformsSha256:await hash(encoded)};
+});
+writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ source, shots: manifest, consoleErrors, constructions, linears, buildMs, rendering, geometry }, null, 2));
+if(rendering.statisticsVersion>=2){const expected=new URL(args.url).searchParams.get('backend')==='webgl2'?'webgl2':'webgpu';if(rendering.backend!==expected){console.error(`Expected ${expected}, received ${rendering.backend}`);process.exitCode=1}}
+
 
 if (consoleErrors.length) {
   console.log(`\n${consoleErrors.length} console error(s):`);

@@ -165,7 +165,7 @@ export function buildWater(ctx: GameContext): void {
   const nodes = waterNodes(bindUniforms(uniforms));
   const restWorld = modelWorldMatrix.mul(vec4(positionLocal, 1)).xyz;
   mat.positionNode = positionLocal.add(vec3(0, nodes.waveHeight(restWorld, cameraPosition), 0));
-  const surface = nodes.waterSurface(positionWorld.xz, positionView.negate());
+  const surface = nodes.waterSurface(positionWorld.xz, positionView.negate()).toVar();
   const params = surface.element(1);
   const far = surface.element(2).x;
   mat.colorNode = surface.element(0);

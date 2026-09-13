@@ -53,6 +53,7 @@ export class Engine {
   frameLimit = 60;
   readonly timings: { frameMs: number[]; cpuMs: number[] } = { frameMs: [], cpuMs: [] };
   private lastFrame = 0;
+  private disposed = false;
   private container: HTMLElement;
   private accum = 0;
   private frames = 0;
@@ -102,10 +103,16 @@ export class Engine {
     this.camera.coordinateSystem = this.renderer.coordinateSystem;
     this.camera.updateProjectionMatrix();
     if (!this.adaptiveResolution) this.renderer.setPixelRatio(1);
+    const markDeviceLost = this.renderer.onDeviceLost.bind(this.renderer);
     this.renderer.onDeviceLost = (info) => {
+      if (this.disposed) return;
+      markDeviceLost(info);
       this.running = false;
+      this.input.suspended = true;
+      if (document.pointerLockElement === this.renderer.domElement) document.exitPointerLock();
       const recovery = document.createElement('button');
       recovery.textContent = '图形设备已重置，点击重新载入';
+      Object.assign(recovery.style, {position:'fixed',zIndex:'10000',top:'50%',left:'50%',transform:'translate(-50%,-50%)',padding:'16px 24px',cursor:'pointer'});
       recovery.onclick = () => location.reload();
       this.container.appendChild(recovery);
       console.error('[renderer] device lost', info);
@@ -205,6 +212,7 @@ export class Engine {
   };
 
   dispose(): void {
+    this.disposed = true;
     this.running = false;
     this.renderer.setAnimationLoop(null);
     window.removeEventListener('resize', this.onResize);

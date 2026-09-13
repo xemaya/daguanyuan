@@ -1,0 +1,7 @@
+import{chromium}from'playwright';import{readFileSync,mkdirSync,writeFileSync}from'node:fs';
+const root='shots/wg-comparison';mkdirSync(root,{recursive:true});const manifest=JSON.parse(readFileSync('shots/wg/manifest.json'));
+const b=await chromium.launch({headless:true});const p=await b.newPage({viewport:{width:1604,height:480}});
+const data=path=>`data:image/png;base64,${readFileSync(path).toString('base64')}`;const rows=[];
+try{for(const shot of manifest.shots){const file=`${root}/${shot.id}.png`;await p.setContent(`<body style="margin:0;background:#191919;color:#eee;font:14px system-ui"><div style="display:flex;gap:4px"><section><div style="height:28px">OPQ · historical WebGL · ${shot.id}</div><img style="width:800px;display:block" src="${data('shots/opq/'+shot.id+'.png')}"></section><section><div style="height:28px">WG · actual WebGPU · fixed time 10 s</div><img style="width:800px;display:block" src="${data(shot.file)}"></section></div>`);await p.screenshot({path:file,fullPage:true});rows.push({id:shot.id,file})}}finally{await b.close()}
+writeFileSync(`${root}/index.html`,`<!doctype html><meta charset="utf-8"><title>WG / OPQ</title><body style="margin:24px;background:#171a1d;color:#eee;font:16px system-ui"><h1>OPQ → WG</h1><p>Historical OPQ is animated and includes earlier R geometry. WG has fixed time 10 s. Compare appearance, not pixels.</p>${rows.map(r=>`<h2>${r.id}</h2><img style="width:100%;max-width:1604px" src="${r.id}.png">`).join('')}</body>`);
+console.log(`Wrote ${rows.length} side-by-side comparisons to ${root}`);

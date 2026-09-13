@@ -18,7 +18,7 @@ import * as THREE from 'three/webgpu';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { pass } from 'three/tsl';
 import { smaa } from 'three/addons/tsl/display/SMAANode.js';
-import { rendererOptions } from '@engine/core/renderer';
+import { rendererOptions, backendName } from '@engine/core/renderer';
 import { buildPart, partNames, type PartBuild } from '@builder/parts/registry';
 import '@builder/parts/index';
 import { setPlan, type GardenPlan } from '@builder/compose/terrain';
@@ -344,6 +344,7 @@ function startTurntable(stage: HTMLElement, part: PartBuild): () => void {
   let cleanup: (() => void) | undefined;
   void renderer.init().then(() => {
     if (disposed) { renderer.dispose(); return; }
+    stage.dataset.rendererBackend = backendName(renderer);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a3038);
@@ -431,12 +432,14 @@ function startTurntable(stage: HTMLElement, part: PartBuild): () => void {
   observer.observe(stage);
 
   const clock = new THREE.Clock();
+  let rendered = false;
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 1 / 20);
     const t = clock.elapsedTime;
     part.update?.(dt, t);
     root.rotation.y = t * 0.4;
     composer.render();
+    if (!rendered) { stage.dataset.rendererReady = 'true'; rendered = true; }
   });
 
   cleanup = () => {

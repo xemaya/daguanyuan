@@ -1,5 +1,5 @@
 import type { IUniform } from 'three';
-import { Fn, texture, uniform, vec3, vec4, uv, varying, positionLocal, modelWorldMatrix, normalWorld, cameraViewMatrix, positionViewDirection, attribute, mix, varyingProperty, diffuseColor } from 'three/tsl';
+import { Fn, texture, uniform, vec3, vec4, uv, varying, positionLocal, modelWorldMatrix, normalWorldGeometry, cameraViewMatrix, positionViewDirection, attribute, mix, varyingProperty, diffuseColor } from 'three/tsl';
 import { bindUniforms } from '@engine/render/nodes/bindings';
 import { FoliageNodeMaterial, foliagePosition } from '@engine/render/nodes/foliage';
 /**
@@ -159,7 +159,7 @@ export function createFoliageMaterial(
   if (o.map) {
     if (tri) {
       const wp = restWorld;
-      const wn = normalWorld;
+      const wn = normalWorldGeometry;
       const weights = wn.abs().pow(4);
       const blend = weights.div(weights.x.add(weights.y).add(weights.z).max(0.0001));
       const p = wp.mul(nodes.uTriScale);

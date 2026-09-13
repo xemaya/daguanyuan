@@ -64,7 +64,10 @@ async function boot(): Promise<void> {
     engine.input.suspended = false;
   });
   hud.root.appendChild(gardenMap.el);
-  gardenMap.el.addEventListener('click', (event) => event.stopPropagation());
+  gardenMap.el.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (!gardenMap.visible) engine.input.suspended = false;
+  });
   hud.pauseSuppressed = () => gardenMap.visible;
 
   engine.add({
@@ -117,9 +120,10 @@ async function boot(): Promise<void> {
 
   // Cull before pipeline warmup using the backend-aligned projection. Future
   // cells compile on demand instead of blocking initial readiness for the whole map.
+  if (engine.fixedTime !== null) world.ctx.env.windTime.value = engine.fixedTime;
   world.update(0, engine.fixedTime ?? 0);
   const compileStarted = performance.now();
-  await engine.renderer.compileAsync(engine.scene, engine.camera);
+  await engine.postfx.compileAsync();
   bootTimings.compileMs = performance.now() - compileStarted;
   const firstFrameStarted = performance.now();
   engine.postfx.render(0);
@@ -143,7 +147,7 @@ async function boot(): Promise<void> {
   // request made directly inside the gesture that triggered it, so nothing may
   // be awaited ahead of it — `audio.unlock()` follows for that reason.
   container.addEventListener('click', () => {
-    if (gardenMap.visible) return;
+    if (gardenMap.visible || !engine.running) return;
     engine.input.requestLock();
     audio.unlock();
   });

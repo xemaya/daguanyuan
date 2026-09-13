@@ -1,4 +1,4 @@
-import { positionWorld, normalWorld, normalView, cameraViewMatrix } from 'three/tsl';
+import { positionWorld, normalWorldGeometry, normalView, cameraViewMatrix } from 'three/tsl';
 import { bindUniforms } from '@engine/render/nodes/bindings';
 import { terrainNodes } from './nodes/terrain';
 import * as THREE from 'three/webgpu';
@@ -225,7 +225,7 @@ export function buildTerrain(ctx: GameContext): void {
   };
 
   const nodes = terrainNodes(bindUniforms(uniforms));
-  const surface = nodes.terrainSurface(positionWorld.xz, positionWorld.y, normalWorld);
+  const surface = nodes.terrainSurface(positionWorld.xz, positionWorld.y, normalWorldGeometry).toVar();
   mat.colorNode = surface.element(0);
   mat.roughnessNode = surface.element(2).x;
   mat.normalNode = nodes.terrainNormal(normalView, surface.element(1), cameraViewMatrix);

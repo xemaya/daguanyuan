@@ -1,9 +1,10 @@
 import * as THREE from 'three/webgpu';
-import { pass, mrt, output, normalViewGeometry, faceDirection, vec4, vec3, vec2, mix, convertToTexture, uniform, Fn, float, If, uv, smoothstep, screenSize } from 'three/tsl';
+import { pass, mrt, output, normalViewGeometry, frontFacing, negateOnBackSide, vec4, vec3, vec2, mix, convertToTexture, uniform, Fn, float, If, uv, smoothstep, screenSize } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { denoise } from 'three/addons/tsl/display/DenoiseNode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { smaa } from 'three/addons/tsl/display/SMAANode.js';
+import type NodeBuilder from 'three/src/nodes/core/NodeBuilder.js';
 import type Node from 'three/src/nodes/core/Node.js';
 import { gradeNode, encodeOutputNode } from '../render/nodes/grade';
 import type { Engine, QualityTier } from './Engine';
@@ -29,6 +30,7 @@ export class PostFX {
   activeEffects: string[] = [];
   private views: Record<string, Node<'vec4'>> = {};
   private beauty!: Node<'vec4'>;
+  private scenePass!: ReturnType<typeof pass>;
   private engine: Engine;
   private time = uniform(0);
   private resources: {dispose(): void}[] = [];
@@ -63,9 +65,13 @@ export class PostFX {
   applyQuality(q: QualityTier): void {
     for(const node of this.resources)node.dispose();
     this.resources=[];
-    const scenePass=pass(this.engine.scene,this.engine.camera,{samples:q.msaaSamples>0?4:0});
+    const scenePass=this.scenePass=pass(this.engine.scene,this.engine.camera,{samples:q.msaaSamples>0?4:0});
     this.resources.push(scenePass);
-    const targets=mrt(q.ssao||q.dof ? {output,normal:vec4(normalViewGeometry.mul(faceDirection),1),aoMask:vec4(1)} : {output});
+    const aoNormal=Fn((builder: NodeBuilder)=>(builder as NodeBuilder & {isFlatShading(): boolean}).isFlatShading()?normalViewGeometry:negateOnBackSide(normalViewGeometry))();
+    // The old FrontSide normal override did not shade DoubleSide back faces.
+    // Keep their actual depth for DOF/occlusion, but do not turn thin leaf backs black.
+    const opaqueCoverage=Fn((builder: NodeBuilder)=>builder.material.side===THREE.DoubleSide?float(frontFacing):float(1))();
+    const targets=mrt(q.ssao||q.dof ? {output,normal:vec4(aoNormal,1),aoMask:vec4(vec3(opaqueCoverage),1)} : {output});
     if(q.ssao||q.dof){
       targets.setBlendMode('normal',new THREE.BlendMode(THREE.MaterialBlending));
       targets.setBlendMode('aoMask',new THREE.BlendMode(THREE.MaterialBlending));
@@ -146,6 +152,7 @@ export class PostFX {
     this.activeEffects.push('grade');
     this.composer.needsUpdate=true;
   }
+  async compileAsync(): Promise<void> { await this.scenePass.compileAsync(this.engine.renderer); }
   inspectBuffer(name: string | null): void {
     this.composer.outputNode=name ? this.views[name]??this.beauty : this.beauty;
     this.composer.needsUpdate=true;

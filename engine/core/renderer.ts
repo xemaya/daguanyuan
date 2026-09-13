@@ -6,6 +6,7 @@ export function backendName(renderer: WebGPURenderer): 'webgpu' | 'webgl2' | 'un
   return backend.isWebGPUBackend ? 'webgpu' : backend.isWebGLBackend ? 'webgl2' : 'uninitialized';
 }
 
-export function rendererOptions(): { forceWebGL: boolean } {
-  return { forceWebGL: new URLSearchParams(location.search).get('backend') === 'webgl2' };
+export function rendererOptions(): { forceWebGL: boolean; trackTimestamp: boolean } {
+  const params = new URLSearchParams(location.search);
+  return { forceWebGL: params.get('backend') === 'webgl2', trackTimestamp: params.has('profile') };
 }

@@ -146,7 +146,7 @@ frameFrom(az, el);
 /* ---- Post ------------------------------------------------------------ */
 const scenePass = pass(scene, camera);
 const composer = new THREE.RenderPipeline(renderer, smaa(scenePass));
-await renderer.compileAsync(scene, camera);
+await scenePass.compileAsync(renderer);
 composer.render();
 
 const clock = new THREE.Clock();
