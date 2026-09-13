@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { registerPart, type PartBuild } from '@builder/parts/registry';
-import { CN, plasterMaterial, stoneMaterial, tileMaterial, woodMaterial } from '@builder/parts/materials';
+import { CN, plasterMaterial, stoneMaterial, tigerSkinMaterial, tileMaterial, woodMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { Simplex, fbm2, makeRng, smoothstep, clamp, lerp } from '@engine/core/Noise';
 import { WALL_STYLE } from './wall-style';
@@ -73,14 +73,19 @@ function arcPts(cx: number, cy: number, r: number, a0: number, a1: number, segs:
   }
 }
 
-/** 圆角矩形,逆时针。 */
-function roundedRect(x0: number, y0: number, x1: number, y1: number, r: number, segs = 4): P2[] {
+/**
+ * 圆角矩形,逆时针。`bottomSteps`>1 时给底边(贴地那条)加密取样点——
+ * 单靠两端点连一条直线没法在中段按 x 施加高程扰动("随势砌去",见
+ * buildWall 的 sinkIntoGround)。默认 1 与旧行为完全一致。
+ */
+function roundedRect(x0: number, y0: number, x1: number, y1: number, r: number, segs = 4, bottomSteps = 1): P2[] {
   const pts: P2[] = [];
   const H = Math.PI / 2;
   arcPts(x1 - r, y0 + r, r, -H, 0, segs, pts);
   arcPts(x1 - r, y1 - r, r, 0, H, segs, pts);
   arcPts(x0 + r, y1 - r, r, H, 2 * H, segs, pts);
   arcPts(x0 + r, y0 + r, r, 2 * H, 3 * H, segs, pts);
+  for (let i = 1; i < bottomSteps; i++) pts.push([lerp(x0 + r, x1 - r, i / bottomSteps), y0]);
   return pts;
 }
 
@@ -110,7 +115,7 @@ function wavyRect(x0: number, y0: number, x1: number, top: (x: number) => number
  * 墙脚被月洞切出的缺口:矩形顶边中段沿圆弧下凹。圆心 (0,cy) 半径 R 与 y1 相交处
  * 进弧,绕过圆底再回到 y1。逆时针。
  */
-function notchedRect(x0: number, y0: number, x1: number, y1: number, r: number, cy: number, R: number): P2[] {
+function notchedRect(x0: number, y0: number, x1: number, y1: number, r: number, cy: number, R: number, bottomSteps = 1): P2[] {
   const pts: P2[] = [];
   const H = Math.PI / 2;
   arcPts(x1 - r, y0 + r, r, -H, 0, 4, pts);
@@ -121,6 +126,8 @@ function notchedRect(x0: number, y0: number, x1: number, y1: number, r: number, 
   arcPts(0, cy, R, a1, -Math.PI - a1, 48, pts);
   arcPts(x0 + r, y1 - r, r, H, 2 * H, 4, pts);
   arcPts(x0 + r, y0 + r, r, 2 * H, 3 * H, 4, pts);
+  // 缺口挖在顶边(月洞),底边(贴地)仍是完整一条,同样按 bottomSteps 加密。
+  for (let i = 1; i < bottomSteps; i++) pts.push([lerp(x0 + r, x1 - r, i / bottomSteps), y0]);
   return pts;
 }
 
@@ -197,6 +204,23 @@ function projectUV(geo: THREE.BufferGeometry, y0: number, h: number, uScale: num
     uv[i * 2 + 1] = v;
   }
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
+/**
+ * 虎皮石墙基"随势砌去":让贴地的石作沿 x 起伏地"沉"进地面,顶部(topH,
+ * 与上方粉墙/构件的接缝处)锁死不动——只动底,接缝还是原来那条平直线,
+ * 不会露馅。`dip` 必须 ≤0(只沉不浮,见 WALL_STYLE.baseSink 的注释)。
+ */
+function sinkIntoGround(geo: THREE.BufferGeometry, topH: number, dip: (x: number) => number): void {
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const t = clamp(1 - y / topH, 0, 1);
+    pos.setY(i, y + dip(x) * t);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
 }
 
 /* ------------------------------------------------------------------ */
@@ -689,9 +713,16 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
     kind === 'cloud'
       ? (x: number) => 0.4 * (0.72 * Math.sin((x / 3.2) * Math.PI * 2 + 0.9) + 0.4 * fbm2(simplex, x * 0.45 + 3.1, 0.37, 3))
       : () => 0;
+  // 虎皮石墙基"隨勢砌去":全园每一段粉墙都吃到,不分 kind。同一颗噪声
+  // (借用云墙那颗、换一段不相关的取样区)按墙的本地 x 给基脚沉深——
+  // 只沉不浮,见 WALL_STYLE.baseSink 的注释。每约 1.5m 给一个起伏,
+  // 太密会读成锯齿,太疏又摊不开"随势"的感觉。
+  const groundSteps = Math.max(1, Math.round(L / 1.5));
+  const groundDip = (x: number) => -WALL_STYLE.baseSink * (0.5 - 0.5 * fbm2(simplex, x * 0.14 + 41.7, 5.2, 3));
 
   const plaster = plasterMaterial(1,true);
   const stone = stoneMaterial(1);
+  const tigerSkin = tigerSkinMaterial(1);
 
   /* --- 墙体 --- */
   const bodyHoles: P2[][] = [];
@@ -719,21 +750,23 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
   bakeDampGradient(bodyGeo, 0.35, 1.9);
   group.add(shadowed(new THREE.Mesh(bodyGeo, plaster)));
 
-  /* --- 青石墙脚 + 石礓 --- */
+  /* --- 虎皮石墙脚 + 石礓("下面虎皮石,隨勢砌去",07-02) --- */
   const baseBevel = 0.018;
   const baseOutline =
     kind === 'moon'
-      ? notchedRect(-hl - baseEnd + baseBevel, baseBevel, hl + baseEnd - baseBevel, BASE_H - baseBevel, 0.02, MOON_CY, MOON_R + 0.006 + baseBevel)
-      : roundedRect(-hl - baseEnd + baseBevel, baseBevel, hl + baseEnd - baseBevel, BASE_H - baseBevel, 0.02, 4);
+      ? notchedRect(-hl - baseEnd + baseBevel, baseBevel, hl + baseEnd - baseBevel, BASE_H - baseBevel, 0.02, MOON_CY, MOON_R + 0.006 + baseBevel, groundSteps)
+      : roundedRect(-hl - baseEnd + baseBevel, baseBevel, hl + baseEnd - baseBevel, BASE_H - baseBevel, 0.02, 4, groundSteps);
   const baseGeo = extrudeSolid(baseOutline, [], BASE_T, baseBevel, 3);
   projectUV(baseGeo, 0, 1.4, 1.4);
-  group.add(shadowed(new THREE.Mesh(baseGeo, stone)));
+  sinkIntoGround(baseGeo, BASE_H, groundDip);
+  group.add(shadowed(new THREE.Mesh(baseGeo, tigerSkin)));
 
   const plinthBevel = 0.014;
-  const plinthOutline = roundedRect(-hl - plinthEnd + plinthBevel, plinthBevel, hl + plinthEnd - plinthBevel, PLINTH_H - plinthBevel, 0.01, 3);
+  const plinthOutline = roundedRect(-hl - plinthEnd + plinthBevel, plinthBevel, hl + plinthEnd - plinthBevel, PLINTH_H - plinthBevel, 0.01, 3, groundSteps);
   const plinthGeo = extrudeSolid(plinthOutline, [], PLINTH_T, plinthBevel, 2);
   projectUV(plinthGeo, 0, 1.4, 1.4);
-  group.add(shadowed(new THREE.Mesh(plinthGeo, stone)));
+  sinkIntoGround(plinthGeo, PLINTH_H, groundDip);
+  group.add(shadowed(new THREE.Mesh(plinthGeo, tigerSkin)));
 
   /* --- 压顶 --- */
   for (const m of buildCoping(hl, wave, options.flushEnds)) group.add(shadowed(m));

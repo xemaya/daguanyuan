@@ -20,7 +20,9 @@
           "院外遮映",
           "入门夹路",
           "后院泉流竹下"
-        ]
+        ],
+        "category": "树",
+        "region": "xiaoxiangguan"
       },
       "quote": "忽抬頭看見前面一帶粉垣,里面數楹修舍,有千百竿翠竹遮映。‖一進門,只見兩邊翠竹夾路,土地下蒼苔布滿,中間羊腸一條石子漫的路。",
       "location": "第十七回‖第四十回",
@@ -44,7 +46,9 @@
         ],
         "spot": "潇湘馆后院",
         "size": "大株",
-        "role": "后院点景"
+        "role": "后院点景",
+        "category": "树",
+        "region": "xiaoxiangguan"
       },
       "quote": "從里間房內又得一小門,出去則是後院,有大株梨花兼著芭蕉。",
       "location": "第十七回",
@@ -63,7 +67,9 @@
       "params": {
         "species": "苍苔",
         "spot": "潇湘馆",
-        "role": "地面覆盖"
+        "role": "地面覆盖",
+        "category": "苔",
+        "region": "xiaoxiangguan"
       },
       "quote": "一進門,只見兩邊翠竹夾路,土地下蒼苔布滿,中間羊腸一條石子漫的路。",
       "location": "第四十回",
@@ -85,7 +91,9 @@
         "spot": "怡红院庭院",
         "count": 1,
         "form": "其势若伞",
-        "season": "春(开花)"
+        "season": "春(开花)",
+        "category": "树",
+        "region": "yihongyuan"
       },
       "quote": "那一邊乃是一棵西府海棠,其勢若傘,絲垂翠縷,葩吐丹砂。……這叫作'女兒棠',乃是外國之种。",
       "location": "第十七回",
@@ -104,7 +112,9 @@
       "params": {
         "species": "芭蕉",
         "spot": "怡红院庭院",
-        "count": "数本"
+        "count": "数本",
+        "category": "树",
+        "region": "yihongyuan"
       },
       "quote": "一邊种著數本芭蕉,那一邊乃是一棵西府海棠‖只見院內略略有幾點山石,种著芭蕉",
       "location": "第十七回‖第二十六回",
@@ -124,7 +134,9 @@
       "params": {
         "species": "碧桃",
         "spot": "怡红院入口",
-        "role": "入口导引"
+        "role": "入口导引",
+        "category": "树",
+        "region": "yihongyuan"
       },
       "quote": "一徑引人繞著碧桃花,穿過一層竹篱花障編就的月洞門",
       "location": "第十七回",
@@ -143,7 +155,9 @@
       "params": {
         "species": "柳",
         "spot": "怡红院外围",
-        "role": "环护"
+        "role": "环护",
+        "category": "树",
+        "region": "yihongyuan"
       },
       "quote": "俄見粉牆環護,綠柳周垂。",
       "location": "第十七回",
@@ -165,7 +179,9 @@
           "宝相"
         ],
         "spot": "怡红院后院",
-        "form": "满架"
+        "form": "满架",
+        "category": "藤",
+        "region": "yihongyuan"
       },
       "quote": "果得一門出去,院中滿架薔薇,寶相。",
       "location": "第十七回",
@@ -184,7 +200,9 @@
       "params": {
         "species": "松",
         "spot": "怡红院",
-        "associated": "松下仙鹤两只"
+        "associated": "松下仙鹤两只",
+        "category": "树",
+        "region": "yihongyuan"
       },
       "quote": "那邊有兩只仙鶴在松樹下剔翎。",
       "location": "第二十六回",
@@ -212,7 +230,12 @@
           "绕柱",
           "萦砌",
           "盘阶"
-        ]
+        ],
+        "category": [
+          "藤",
+          "草"
+        ],
+        "region": "hengwuyuan"
       },
       "quote": "竟把里面所有房屋悉皆遮住,而且一株花木也無。只見許多异草:或有牽藤的,或有引蔓的,或垂山巔,或穿石隙,甚至垂檐繞柱,縈砌盤階",
       "location": "第十七回",
@@ -236,7 +259,12 @@
         ],
         "spot": "蘅芜苑",
         "season": "愈冷逾苍翠",
-        "fruit": "结实似珊瑚豆子,累垂可爱"
+        "fruit": "结实似珊瑚豆子,累垂可爱",
+        "category": [
+          "藤",
+          "草"
+        ],
+        "region": "hengwuyuan"
       },
       "quote": "那些奇草仙藤愈冷逾蒼翠,都結了實,似珊瑚豆子一般,累垂可愛",
       "location": "第四十回",
@@ -259,7 +287,9 @@
         "species": "杏",
         "spot": "稻香村",
         "count": "几百株",
-        "season": "春(花期如喷火蒸霞)"
+        "season": "春(花期如喷火蒸霞)",
+        "category": "树",
+        "region": "daoxiangcun"
       },
       "quote": "有幾百株杏花,如噴火蒸霞一般。",
       "location": "第十七回",
@@ -284,7 +314,12 @@
         ],
         "spot": "稻香村",
         "form": "树稚新条编就两溜青篱",
-        "rows": 2
+        "rows": 2,
+        "category": [
+          "树",
+          "灌"
+        ],
+        "region": "daoxiangcun"
       },
       "quote": "外面卻是桑,榆,槿,柘,各色樹稚新條,隨其曲折,編就兩溜青篱。",
       "location": "第十七回",
@@ -306,7 +341,9 @@
           "菜花"
         ],
         "spot": "稻香村篱外",
-        "form": "分畦列亩,漫然无际"
+        "form": "分畦列亩,漫然无际",
+        "category": "草",
+        "region": "daoxiangcun"
       },
       "quote": "下面分畦列畝,佳蔬菜花,漫然無際。",
       "location": "第十七回",
@@ -328,7 +365,12 @@
           "槿(篱)"
         ],
         "spot": "芦雪庵",
-        "form": "四面掩覆"
+        "form": "四面掩覆",
+        "category": [
+          "水生",
+          "灌"
+        ],
+        "region": "luxueguang"
       },
       "quote": "茅檐土壁,槿篱竹牖,推窗便可垂釣,四面都是蘆葦掩覆",
       "location": "第四十九回",
@@ -350,7 +392,12 @@
           "落花"
         ],
         "spot": "蓼汀花溆石洞",
-        "form": "倒垂/浮荡"
+        "form": "倒垂/浮荡",
+        "category": [
+          "藤",
+          "草"
+        ],
+        "region": "liaoting_huaxu"
       },
       "quote": "忽聞水聲潺湲,瀉出石洞,上則蘿薜倒垂,下則落花浮蕩。",
       "location": "第十七回",
@@ -383,7 +430,14 @@
           "蔷薇院",
           "芭蕉坞"
         ],
-        "route": "稻香村→蓼汀花溆"
+        "route": "稻香村→蓼汀花溆",
+        "category": [
+          "藤",
+          "灌",
+          "草",
+          "树"
+        ],
+        "region": "huajia_huapu"
       },
       "quote": "過了荼蘼架,再入木香棚,越牡丹亭,度芍藥圃,入薔薇院,出芭蕉塢,盤旋曲折。",
       "location": "第十七回",
@@ -402,7 +456,9 @@
       "params": {
         "species": "青松",
         "spot": "正殿",
-        "form": "拂檐"
+        "form": "拂檐",
+        "category": "树",
+        "region": "shengqin_biesu"
       },
       "quote": "青松拂檐,玉欄繞砌,金輝獸面,彩煥螭頭。",
       "location": "第十七回",
@@ -424,7 +480,9 @@
           "翠柏"
         ],
         "spot": "贾氏宗祠",
-        "position": "白石甬路两边"
+        "position": "白石甬路两边",
+        "category": "树",
+        "region": "wai_宗祠"
       },
       "quote": "進入院中,白石甬路,兩邊皆是蒼松翠柏。",
       "location": "第五十三回",
@@ -443,7 +501,9 @@
       "params": {
         "species": "芍药",
         "spot": "红香圃",
-        "form": "栏"
+        "form": "栏",
+        "category": "草",
+        "region": "huajia_huapu"
       },
       "quote": "寶釵等隨攜了他們同到了芍藥欄中紅香圃三間小敞廳內。",
       "location": "第六十二回",
@@ -462,7 +522,9 @@
       "params": {
         "species": "梧桐",
         "spot": "秋爽斋后廊檐下",
-        "size": "细"
+        "size": "细",
+        "category": "树",
+        "region": "qiushuangzhai"
       },
       "quote": "後廊檐下的梧桐也好了,就只細些。",
       "location": "第四十回",
@@ -484,7 +546,12 @@
           "藤萝"
         ],
         "spot": "入门翠嶂",
-        "form": "成斑/掩映"
+        "form": "成斑/掩映",
+        "category": [
+          "苔",
+          "藤"
+        ],
+        "region": "cuizhang"
       },
       "quote": "見白石峻嶒,或如鬼怪,或如猛獸,縱橫拱立,上面苔蘚成斑,藤蘿掩映",
       "location": "第十七回",
@@ -507,7 +574,9 @@
         ],
         "spot": "紫菱洲",
         "confidence": "L4",
-        "note": "由名推定,非原文直接描写"
+        "note": "由名推定,非原文直接描写",
+        "category": "水生",
+        "region": "zilingzhou"
       },
       "quote": "更有'蓼風軒','藕香榭','紫菱洲','荇葉渚'等名",
       "location": "第十八回",
@@ -526,7 +595,9 @@
       "params": {
         "species": "乔木(未指名)",
         "spot": "石洞以北山坳",
-        "role": "遮蔽飞楼"
+        "role": "遮蔽飞楼",
+        "category": "树",
+        "region": "cuizhang"
       },
       "quote": "兩邊飛樓插空,雕甍繡檻,皆隱于山坳樹杪之間。",
       "location": "第十七回",
@@ -534,6 +605,435 @@
         "https://zh.wikisource.org/wiki/紅樓夢/第017回"
       ],
       "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-25",
+      "name": "正门·门前古松",
+      "status": "underdetermined",
+      "statement": "plan.json 于园正门外列门前古松一株(门外净空,不作密植)。前八十回大观园正门段(第十七回'只見正門五間……一色水磨群牆')无门前古松明文;'古松'全书仅见于后四十回(第九十五、一〇三、一一六回),且均非园门。名目存 plan 清单,引句无着落。",
+      "formula": "fact",
+      "params": {
+        "species": "古松",
+        "spot": "大观园正门外",
+        "note": "门外净空,不作密植(plan 注)",
+        "category": "树",
+        "region": "zhengmen"
+      },
+      "needs": [],
+      "paramSet": "none",
+      "resolution": {
+        "method": "artistic_choice",
+        "note": "名目见于 plan.json 清单,前八十回无门前古松明文,引句待补核"
+      }
+    },
+    {
+      "id": "90-26",
+      "name": "沁芳亭·堤柳与隔岸花(沁芳联)",
+      "status": "ok",
+      "statement": "沁芳亭联'绕堤柳借三篙翠,隔岸花分一脉香':堤岸植柳,隔水有花。联为宝玉立于亭上即景所拟,贾政听了点头微笑,未记被否。",
+      "formula": "fact",
+      "params": {
+        "species": [
+          "柳",
+          "花(未指名)"
+        ],
+        "spot": "沁芳亭桥",
+        "form": "绕堤/隔岸",
+        "note": "隔岸花未指名,暂归灌",
+        "category": [
+          "树",
+          "灌"
+        ],
+        "region": "qinfang_ting_qiao"
+      },
+      "quote": "繞堤柳借三篙翠,隔岸花分一脈香。",
+      "location": "第十七回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第017回"
+      ],
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-27",
+      "name": "稻香村·稻茎覆墙",
+      "status": "ok",
+      "statement": "稻香村黄泥矮墙,墙头皆用稻茎掩护。",
+      "formula": "fact",
+      "params": {
+        "species": "稻茎",
+        "spot": "稻香村墙头",
+        "role": "墙头掩护",
+        "category": "草",
+        "region": "daoxiangcun"
+      },
+      "quote": "轉過山怀中,隱隱露出一帶黃泥筑就矮牆,牆頭皆用稻莖掩護。",
+      "location": "第十七回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第017回"
+      ],
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-28",
+      "name": "蘅芜苑·诸香草名录",
+      "status": "ok",
+      "statement": "蘅芜苑异草中宝玉点出藤萝薜荔、杜若蘅芜、茞兰、清葛、金簦草、玉蕗藤、紫芸、青芷八种名目;杜若蘅芜/茞兰/清葛已见 90-11,本条补全名录,与 90-10 无花木硬约束并存(全是藤蔓香草,无一株花木)。",
+      "formula": "fact",
+      "params": {
+        "species": [
+          "藤萝薜荔",
+          "杜若蘅芜",
+          "茞兰",
+          "清葛",
+          "金簦草",
+          "玉蕗藤",
+          "紫芸",
+          "青芷"
+        ],
+        "spot": "蘅芜苑",
+        "note": "与 90-10/90-11 同回同源",
+        "category": [
+          "藤",
+          "草"
+        ],
+        "region": "hengwuyuan"
+      },
+      "quote": "這些之中也有藤蘿薜荔。那香的是杜若蘅蕪,那一种大約是茞蘭,這一种大約是清葛,那一种是金簦草,這一种是玉蕗藤,紅的自然是紫芸,綠的定是青芷。",
+      "location": "第十七回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第017回"
+      ],
+      "needs": [
+        "90-10",
+        "90-11"
+      ],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-29",
+      "name": "藕香榭·桂花",
+      "status": "ok",
+      "statement": "藕香榭山坡下有两棵桂花,秋来开得好;凤姐因桂花与河水碧清荐此榭设宴(第三十八回螃蟹宴)。",
+      "formula": "fact",
+      "params": {
+        "species": "桂",
+        "count": "两棵",
+        "spot": "藕香榭山坡下",
+        "season": "秋",
+        "category": "树",
+        "region": "ouxiangxie"
+      },
+      "quote": "藕香榭已經擺下了,那山坡下兩棵桂花開的又好,河里的水又碧清,坐在河當中亭子上豈不敞亮",
+      "location": "第三十八回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第038回"
+      ],
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-30",
+      "name": "藕香榭·荷",
+      "status": "underdetermined",
+      "statement": "plan.json 于藕香榭列'荷/残菱'。榭名取藕,但第三十八回凤姐只言'河里的水又碧清'未及荷;第四十回残荷(宝玉'破荷叶可恨'、黛玉'留得残荷听雨声')在荇叶渚—花溆萝港水面,归属藕香榭证据不足。",
+      "formula": "fact",
+      "params": {
+        "species": [
+          "荷",
+          "菱"
+        ],
+        "spot": "藕香榭",
+        "note": "榭名取藕;残荷原文在荇叶渚—花溆水面",
+        "category": "水生",
+        "region": "ouxiangxie"
+      },
+      "location": "第三十八回‖第四十回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第038回",
+        "https://zh.wikisource.org/wiki/紅樓夢/第040回"
+      ],
+      "needs": [],
+      "paramSet": "none",
+      "resolution": {
+        "method": "artistic_choice",
+        "note": "名目见于 plan.json 清单,藕香榭植荷无直接明文(仅榭名取藕与邻水残荷),引句待补核"
+      }
+    },
+    {
+      "id": "90-31",
+      "name": "紫菱洲·蓼花与芦苇",
+      "status": "ok",
+      "statement": "紫菱洲岸上蓼花苇叶,池内翠荇香菱;宝玉《紫菱洲歌》'蓼花菱叶不胜愁'。与 90-23(由名推定的菱)互证:第七十九回实写其地有菱、有蓼、有苇。",
+      "formula": "fact",
+      "params": {
+        "species": [
+          "蓼花",
+          "芦苇",
+          "菱"
+        ],
+        "spot": "紫菱洲岸上/池内",
+        "season": "秋(摇摇落落)",
+        "category": [
+          "草",
+          "水生"
+        ],
+        "region": "zilingzhou"
+      },
+      "quote": "再看那岸上的蓼花葦葉,池內的翠荇香菱,也都覺搖搖落落,似有追憶故人之態,迥非素常逞妍斗色之可比。‖蓼花菱葉不胜愁,重露繁霜壓纖梗。",
+      "location": "第七十九回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第079回"
+      ],
+      "needs": [
+        "90-23"
+      ],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-32",
+      "name": "秋爽斋·白菊(陈设)",
+      "status": "ok",
+      "statement": "秋爽斋案上斗大汝窑花囊插满白菊——插花陈设,非庭院种植;秋季。",
+      "formula": "fact",
+      "params": {
+        "species": "白菊",
+        "spot": "秋爽斋室内",
+        "form": "汝窑花囊插花(陈设非种植)",
+        "season": "秋",
+        "category": "草",
+        "region": "qiushuangzhai"
+      },
+      "quote": "那一邊設著斗大的一個汝窯花囊,插著滿滿的一囊水晶球兒的白菊。",
+      "location": "第四十回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第040回"
+      ],
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-33",
+      "name": "栊翠庵·红梅",
+      "status": "ok",
+      "statement": "栊翠庵中有十数株红梅,映雪如胭脂;第五十回宝玉访妙玉乞红梅即此。",
+      "formula": "fact",
+      "params": {
+        "species": "红梅",
+        "count": "十数株",
+        "spot": "栊翠庵中(妙玉门前)",
+        "season": "冬(映雪)",
+        "category": "树",
+        "region": "longcuian"
+      },
+      "quote": "回頭一看,恰是妙玉門前櫳翠庵中有十數株紅梅如胭脂一般,映著雪色,分外顯得精神,好不有趣",
+      "location": "第四十九回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第049回"
+      ],
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-34",
+      "name": "栊翠庵·青松翠竹与花木繁盛",
+      "status": "ok",
+      "statement": "栊翠庵院中花木繁盛(第四十一回贾母语,明写);第四十九回雪日'远远的是青松翠竹'系宝玉出怡红院赴芦雪庵途中远望所见,归在栊翠庵属近似落代,见 docs/plants/00-catalog.md open_questions。",
+      "formula": "fact",
+      "params": {
+        "species": [
+          "青松",
+          "翠竹"
+        ],
+        "spot": "栊翠庵",
+        "note": "花木繁盛为原文明写;青松翠竹归属为近似",
+        "category": "树",
+        "region": "longcuian"
+      },
+      "quote": "至院中見花木繁盛,賈母笑道:\"到底是他們修行的人,沒事常常修理,比別處越發好看。\"‖遠遠的是青松翠竹,自己卻如裝在玻璃盒內一般",
+      "location": "第四十一回‖第四十九回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第041回",
+        "https://zh.wikisource.org/wiki/紅樓夢/第049回"
+      ],
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-35",
+      "name": "凸碧堂/凹晶馆·桂与湘妃竹墩",
+      "status": "ok",
+      "statement": "凸碧山庄中秋赏月处折桂花传花、闻笛于桂花树下;凹晶馆黛玉湘云联诗坐湘妃竹墩——竹墩是坐具,记材质不记种植。",
+      "formula": "fact",
+      "params": {
+        "species": [
+          "桂",
+          "湘妃竹(坐具)"
+        ],
+        "spot": "凸碧山庄/凹晶溪馆",
+        "season": "中秋",
+        "note": "湘妃竹墩为坐具材质,非种植",
+        "category": "树",
+        "region": "tubi_aojing"
+      },
+      "quote": "賈母便命折一枝桂花來,命一媳婦在屏後擊鼓傳花‖猛不防只聽那壁廂桂花樹下,嗚嗚咽咽,悠悠揚揚,吹出笛聲來‖二人遂在兩個湘妃竹墩上坐下",
+      "location": "第七十五回‖第七十六回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第075回",
+        "https://zh.wikisource.org/wiki/紅樓夢/第076回"
+      ],
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-36",
+      "name": "暖香坞·蓼花",
+      "status": "underdetermined",
+      "statement": "plan.json 于暖香坞列蓼花并注'轩名所本'——蓼风轩名见于第十八回元妃赐名清单,但原文无一处写暖香坞/蓼风轩植蓼;蓼花实见于紫菱洲(90-31)与蓼汀(90-16 区域)。",
+      "formula": "fact",
+      "params": {
+        "species": "蓼花",
+        "spot": "暖香坞",
+        "note": "由轩名所本推定",
+        "category": "草",
+        "region": "nuanxiangwu"
+      },
+      "location": "第十八回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第018回"
+      ],
+      "needs": [],
+      "paramSet": "none",
+      "resolution": {
+        "method": "artistic_choice",
+        "note": "名目见于 plan.json 清单(轩名所本),暖香坞植蓼无原文,引句待补核"
+      }
+    },
+    {
+      "id": "90-37",
+      "name": "暖香坞·腊梅",
+      "status": "underdetermined",
+      "statement": "plan.json 于暖香坞列腊梅(冬景)。全书腊梅仅一见:第五十二回赖大婶子送宝琴两盆腊梅、两盆水仙,宝琴分送黛玉(水仙)与探春(腊梅),皆盆栽陈设,与暖香坞无关;第五十回暖香坞冬景亦无腊梅明文。",
+      "formula": "fact",
+      "params": {
+        "species": "腊梅",
+        "spot": "暖香坞",
+        "note": "plan 注'冬景';原文腊梅为盆栽且在探春/黛玉处",
+        "category": "树",
+        "region": "nuanxiangwu"
+      },
+      "location": "第五十二回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第052回"
+      ],
+      "needs": [],
+      "paramSet": "none",
+      "resolution": {
+        "method": "artistic_choice",
+        "note": "名目见于 plan.json 清单,暖香坞腊梅无原文(第五十二回腊梅在秋爽斋/潇湘馆),引句待补核"
+      }
+    },
+    {
+      "id": "90-38",
+      "name": "沁芳闸·桃花(柳见 90-26)",
+      "status": "ok",
+      "statement": "沁芳闸桥边有桃花,三月中浣宝玉坐桃花底下石上读《会真记》;闸边之柳无直接明文,由沁芳联'绕堤柳'(90-26)推定。",
+      "formula": "fact",
+      "params": {
+        "species": [
+          "桃花",
+          "柳(由 90-26 推定)"
+        ],
+        "spot": "沁芳闸桥边",
+        "season": "春(三月中浣)",
+        "category": "树",
+        "region": "qinfangzha"
+      },
+      "quote": "走到沁芳閘橋邊桃花底下一塊石上坐著,展開《會真記》,從頭細玩。",
+      "location": "第二十三回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第023回"
+      ],
+      "needs": [
+        "90-26"
+      ],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-39",
+      "name": "蓼汀花溆·垂柳与桃杏",
+      "status": "ok",
+      "statement": "蓼汀花溆池边两行垂柳,杂着桃杏,遮天蔽日。",
+      "formula": "fact",
+      "params": {
+        "species": [
+          "垂柳",
+          "桃",
+          "杏"
+        ],
+        "spot": "蓼汀花溆池边",
+        "form": "两行,遮天蔽日",
+        "category": "树",
+        "region": "liaoting_huaxu"
+      },
+      "quote": "池邊兩行垂柳,雜著桃杏,遮天蔽日,真無一些塵土。",
+      "location": "第十七回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第017回"
+      ],
+      "needs": [],
+      "paramSet": "none"
+    },
+    {
+      "id": "90-40",
+      "name": "嘉荫堂·桂与老槐",
+      "status": "underdetermined",
+      "statement": "plan.json 于嘉荫堂列桂(中秋赏月)与老槐。第七十五回贾母于嘉荫堂前月台焚香拜月,然'折桂花传花'与'桂花树下闻笛'均在山上凸碧山庄(见 90-35);'老槐'全书仅见于'指桑说槐'类口语,无一处落实嘉荫堂。",
+      "formula": "fact",
+      "params": {
+        "species": [
+          "桂",
+          "老槐"
+        ],
+        "spot": "嘉荫堂",
+        "note": "桂实写于凸碧山庄;老槐无落实",
+        "category": "树",
+        "region": "jiayintang"
+      },
+      "location": "第七十五回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第075回"
+      ],
+      "needs": [],
+      "paramSet": "none",
+      "resolution": {
+        "method": "artistic_choice",
+        "note": "名目见于 plan.json 清单,嘉荫堂桂/老槐均无直接明文,引句待补核"
+      }
+    },
+    {
+      "id": "90-41",
+      "name": "秋爽斋·芭蕉",
+      "status": "ok",
+      "statement": "秋爽斋有芭蕉(与梧桐并植);探春结社起号自称\"蕉下客\",即本此。",
+      "formula": "fact",
+      "params": {
+        "species": "芭蕉",
+        "spot": "秋爽斋",
+        "note": "与梧桐并植;探春号蕉下客所本",
+        "category": "树",
+        "region": "qiushuangzhai"
+      },
+      "quote": "這里梧桐芭蕉盡有,或指梧桐芭蕉起個倒好。……探春笑道:\"有了,我最喜芭蕉,就稱'蕉下客'罷。\"",
+      "location": "第三十七回",
+      "urls": [
+        "https://zh.wikisource.org/wiki/紅樓夢/第037回"
+      ],
+      "needs": [
+        "90-21"
+      ],
       "paramSet": "none"
     }
   ]

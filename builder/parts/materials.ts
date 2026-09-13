@@ -325,6 +325,69 @@ export function whiteStoneMaterial(repeat = 1): THREE.MeshStandardMaterial {
   });
 }
 
+/**
+ * 虎皮石:不规则杂色毛石乱砌,缝是灰浆的浅色网(07-02「下面虎皮石,隨勢砌去」)。
+ * 颜色就地取青石/白石两组既有色按石块分派,不新引颜色(一园一色)。
+ *
+ * P-07 教训:石块尺度要先按屏幕像素算,不能凭感觉调。这里沿用全园"石类贴图
+ * 1.4m 一个周期"的既有换算(见 stoneMaterial/whiteStoneMaterial 的 projectUV
+ * 调用同样传 1.4);CELLS=7 意味着一个周期里约 7 块石头,单块约 0.2m——
+ * 与已经在用、经受过验收的凿痕(stoneMaps)、瓦垄(tileMaps)同一数量级,
+ * 不会被 mipmap 拍成灰板。
+ */
+export function tigerSkinMaps(size = 1024): MaterialMaps {
+  const CELLS = 7;
+  const cell = (u: number, v: number) => worley(u, v, CELLS, 4109);
+  const jointT = (w: { f1: number; f2: number }) => smoothstep(0, 0.05, w.f2 - w.f1);
+  // 乱砌:大小不一、形状不规则、颜色深浅斑驳——"虎皮"二字的来处。
+  const PALETTE = [CN.stone, CN.stoneDark, CN.whiteStone, CN.whiteStoneDark];
+  const mortar = CN.plasterStain; // 灰浆的浅色网,比石块本身更亮更暖
+  const h = (u: number, v: number) => {
+    const w = cell(u, v);
+    const bulge = tileableFbm(NOISE.stone, u * CELLS * 1.6 + (w.id % 977) * 0.01, v * CELLS * 1.6, 40, 3);
+    return clamp(0.42 + jointT(w) * 0.34 + bulge * 0.14, 0, 1);
+  };
+  return {
+    map: cached('cn.tigerSkin.albedo', () =>
+      bakeColorMap({
+        size,
+        color: (u, v) => {
+          const w = cell(u, v);
+          const joint = jointT(w);
+          const base = PALETTE[w.id % PALETTE.length];
+          const shade = tileableFbm(NOISE.stone, u * CELLS * 1.1, v * CELLS * 1.1, 22, 3) * 0.5 + 0.5;
+          const stoneC = mixHex(base, shade > 0.5 ? 0xffffff : 0x000000, Math.abs(shade - 0.5) * 0.2);
+          const mc = hexToRgb(mortar);
+          return [
+            lerp(stoneC[0], mc[0], 1 - joint),
+            lerp(stoneC[1], mc[1], 1 - joint),
+            lerp(stoneC[2], mc[2], 1 - joint),
+          ];
+        },
+      }),
+    ),
+    normalMap: cached('cn.tigerSkin.normal', () => bakeNormalMap({ size, height: h }, 1.9)),
+    roughnessMap: cached('cn.tigerSkin.rough', () =>
+      bakeScalarMap(512, (u, v) => lerp(0.86, 0.66, jointT(cell(u, v)))),
+    ),
+  };
+}
+
+export function tigerSkinMaterial(repeat = 1): THREE.MeshStandardMaterial {
+  return memo(`tigerSkin:${repeat}`, () => {
+    const m = tigerSkinMaps();
+    const mat = new THREE.MeshStandardMaterial({
+      map: m.map,
+      normalMap: m.normalMap,
+      roughnessMap: m.roughnessMap,
+      roughness: 1,
+      metalness: 0,
+    });
+    setRepeat(mat, repeat);
+    return mat;
+  });
+}
+
 /** 太湖石:灰白石灰岩,坑洞里发暗、发青。用三平面投影,不依赖 UV。 */
 export function taihuMaps(size = 1024): MaterialMaps {
   const h = (u: number, v: number) => {

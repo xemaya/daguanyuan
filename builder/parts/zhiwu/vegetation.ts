@@ -25,11 +25,18 @@ import {
   bakeCanopyShading,
 } from './foliage-materials';
 import { TERRAIN, getPlan } from '@builder/compose/terrain';
+import {
+  bananaClusterGeometry,
+  wisteriaDrapeGeometry,
+  mossPatchGeometry,
+  pearBlossomGeometry,
+  bankFlowerGeometry,
+} from './garden-plants';
 /** Formerly the tall-grass encounter mask; the garden has none, so everything is clear. */
 const wildGrassClearance = (_x: number, _z: number, _pad = 0): number => 1;
 
 /**
- * Vegetation — every plant in Pallet Town.
+ * Vegetation — 大观园四区的活物。
  *
  * Three ideas carry the whole system:
  *
@@ -38,21 +45,27 @@ const wildGrassClearance = (_x: number, _z: number, _pad = 0): number => 1;
  *     buttresses at the base and tapers to nothing at the crown, plus limbs
  *     grown off the same curve. Canopies are metaball clusters — five to eight
  *     overlapping blobs fused into one skin and then noise-displaced — so the
- *     silhouette is lumpy and asymmetric from every angle. Six species are
- *     generated, then instanced with seeded per-tree scale, yaw, lean and hue.
+ *     silhouette is lumpy and asymmetric from every angle. PQ-5c: 树种已从
+ *     pallet-town-3d 的温带森林（橡/桦/梣）换成 plan.json 植物清单里游线
+ *     点名的几种（古松横展、堤柳下垂、梨花白冠），换的是参数与一个新增的
+ *     `droop` 自由度，骨架不动。种什么由 region 定，不再是全场同一个
+ *     洗牌分布。
  *
  *  2. **Foliage is a lighting problem, not a modelling problem.** See
- *     `src/fx/FoliageMaterials.ts`: wrapped diffuse, shadow-correct back-lit
+ *     `foliage-materials.ts`: wrapped diffuse, shadow-correct back-lit
  *     transmission, and interior occlusion baked into vertex colours. A canopy
  *     without those three reads as a painted ball no matter how good its
  *     silhouette is.
  *
  *  3. **The ground is never empty.** Grass, clover, flowers and weeds are
  *     scattered against a baked plantability grid so nothing grows on the path,
- *     the forecourt, the beach, inside a building footprint or below the
- *     waterline — and everything else is dense. The grid is baked once from
- *     `collision.surfaceAt` so the mask can never drift from the terrain
- *     shader's own splat.
+ *     the forecourt, inside a building footprint or below the waterline.
+ *     PQ-5b: 草从单一抖动网格改成三个互质周期、各自转过角度的抖动网格叠加
+ *     （单网格的俯视周期是肉眼最先抓到的东西），再用低频噪声把密度压出
+ *     斑块——疏处让地表露出来。露土的**着色**不归本单（WG 之后的 PQ 着色半）。
+ *
+ *  芭蕉、垂蔓、苔斑与两种花型（梨花、隔岸花）的几何在
+ *  `./garden-plants.ts`；本文件只管材质、散布与装配。
  */
 
 /* ------------------------------------------------------------------ */
@@ -75,7 +88,10 @@ const VEG = {
   chunk: 13,
   /** Everything beyond this from the camera is hidden. */
   cullRadius: 41,
-  /** Jittered-grid cell for grass tufts. Smaller = denser. */
+  /**
+   * 草丛散布网格的基准周期，米。PQ-5b：实际散布用三个互质周期的旋转网格
+   * 叠加（见 buildVegetation 的 GRASS_LATTICES），此值只作远景稀化的参照。
+   */
   grassCell: 0.32,
   /** Minimum ground height a plant may sit at. Water is at y = 0. */
   minPlantY: 0.2,
@@ -121,23 +137,113 @@ const FOOTPRINTS: { cx: number; cz: number; hx: number; hz: number }[] = [
 ];
 
 /**
- * Hand-placed hero trees. P1 Task 6: repositioned by the same cluster deltas
- * as `composer.ts`'s SCENE (not pixel-exact — just clear of FOOTPRINTS and
- * on dry ground). Two of the eight landed inside the new, much larger 南池
- * after a straight translate (the old pond was ~9m radius; this one is
- * ~30m+) and were manually moved to dry ground nearby instead of drowned.
+ * Hand-placed hero trees, keyed by species. P1 Task 6: repositioned by the same
+ * cluster deltas as `composer.ts`'s SCENE. PQ-5c: 换成大观园的树种——翠嶂
+ * 石间是古松与老槐，正门外两株古松（「门前古松」，门外净空故只点两株），
+ * 沁芳池岸的柳由 `plantBankWillows` 从 plan.json 的水系岸线读出来，
+ * 潇湘馆后院的大株梨花单独落位。
  */
-const HERO_TREES: [number, number, number][] = [
-  // x, z, species index
-  [-4.9, 197.8, 0], // cuizhang cluster
-  [30, 125, 5], // qinfang cluster — moved off 南池 (raw translate (11.7,149) was underwater)
-  [-126.6, 110, 1], // xiaoxiang cluster
-  [19.4, 201.4, 0], // cuizhang cluster
-  [-2.2, 208.4, 3], // cuizhang cluster
-  [19.4, 209.2, 2], // cuizhang cluster
-  [-6.4, 205.2, 4], // cuizhang cluster
-  [-45, 165, 1], // qinfang cluster — moved off 南池 (raw translate (14.3,156) was underwater)
+const HERO_TREES: [number, number, string][] = [
+  // x, z, species key
+  [-4.9, 197.8, 'pine-old'], // cuizhang cluster
+  [-126.6, 110, 'locust'], // xiaoxiang 院外
+  [19.4, 201.4, 'pine-old'], // cuizhang cluster
+  [-2.2, 208.4, 'locust'], // cuizhang cluster
+  [19.4, 209.2, 'pine-old'], // cuizhang cluster
+  [-6.4, 205.2, 'cypress'], // cuizhang cluster
+  [40.5, 244.2, 'pine-old'], // 正门前东侧
+  [69.5, 244.2, 'pine-old'], // 正门前西侧
+  // 潇湘馆后院：「有大株梨花兼著芭蕉」（第十七回）。在房屋台基与引泉沟之间落位。
+  [-108, 84.5, 'pear'],
 ];
+
+/* ------------------------------------------------------------------ */
+/* 按区选种                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 园子长什么由 `plan.json` 的 `regions[].plants` 定，不再全场一副牌洗匀。
+ *
+ * 这里只列**已经做了几何的种**与区域的对应；清单里有而骨架还没做的
+ * （桂花、梧桐、荷、芦苇……）用最接近的已有种落代，落代关系逐条记在
+ * `knowledge/docs/plants/00-catalog.md` 的 open_questions 里，不算考据结论。
+ * `mix: []` 是硬约束：蘅芜苑「一株花木也无」，芦苇荡不长树。
+ */
+const REGION_TREES: Record<string, { mix: string[]; density: number }> = {
+  zhengmen: { mix: ['pine-old'], density: 0.18 }, // 门前古松,净空
+  cuizhang: { mix: ['pine-old', 'locust', 'locust'], density: 1 },
+  qinfang_ting_qiao: { mix: ['willow', 'willow', 'peach'], density: 1 },
+  xiaoxiangguan: { mix: ['pear', 'locust'], density: 1 },
+  daoxiangcun: { mix: ['peach', 'peach', 'elm', 'elm'], density: 1 }, // 杏花如霞 + 桑榆槿柘
+  hengwuyuan: { mix: [], density: 0 }, // 一株花木也无
+  yihongyuan: { mix: ['haitang', 'willow', 'peach'], density: 1 },
+  shengqin_biesu: { mix: ['cypress', 'pine-old'], density: 1 }, // 青松拂檐
+  ouxiangxie: { mix: ['elm'], density: 0.8 }, // 桂花→常绿阔叶近似
+  zilingzhou: { mix: [], density: 0 }, // 菱蓼芦苇,水生
+  qiushuangzhai: { mix: ['locust'], density: 1 }, // 梧桐→槐形近似
+  longcuian: { mix: ['cypress', 'peach'], density: 1 }, // 青松 + 红梅(花色近似)
+  tubi_aojing: { mix: ['elm'], density: 0.8 }, // 桂→常绿阔叶近似
+  nuanxiangwu: { mix: ['peach'], density: 0.7 }, // 腊梅→粉花小乔木近似
+  qinfangzha: { mix: ['peach', 'willow'], density: 1 }, // 桃花 + 柳
+  liaoting_huaxu: { mix: ['willow', 'willow', 'peach'], density: 1 }, // 垂柳杂桃杏
+  luxueguang: { mix: [], density: 0 }, // 四面芦苇
+  jiayintang: { mix: ['locust', 'elm'], density: 1 }, // 老槐 + 桂(近似)
+  huajia_huapu: { mix: ['pear'], density: 0.5 },
+};
+
+/** 区域之外的背景混交：园子里不出橡/桦/梣/枫那一套温带森林。 */
+const FALLBACK_MIX = ['elm', 'elm', 'locust', 'cypress', 'pine-old'];
+
+interface RegionPoly {
+  id: string;
+  poly: readonly (readonly [number, number])[];
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+let regionPolys: RegionPoly[] | null = null;
+
+/** plan.json 的 region 轮廓是闭合折线,世界坐标与 plan 坐标同一套(P1 Task 6)。 */
+function regionOf(x: number, z: number): string | null {
+  if (!regionPolys) {
+    regionPolys = [];
+    const regions = (getPlan() as { regions?: { id: string; polygon?: [number, number][] }[] }).regions ?? [];
+    for (const r of regions) {
+      if (!r.polygon || r.polygon.length < 3) continue;
+      const xs = r.polygon.map((p) => p[0]);
+      const zs = r.polygon.map((p) => p[1]);
+      regionPolys.push({
+        id: r.id,
+        poly: r.polygon,
+        minX: Math.min(...xs),
+        maxX: Math.max(...xs),
+        minZ: Math.min(...zs),
+        maxZ: Math.max(...zs),
+      });
+    }
+  }
+  for (const r of regionPolys) {
+    if (x < r.minX || x > r.maxX || z < r.minZ || z > r.maxZ) continue;
+    if (locatePoint(r.poly, [x, z]) !== 'outside') return r.id;
+  }
+  return null;
+}
+
+/** plan.json 水系的岸线环(去闭合重复点)。找不到返回 null。 */
+function waterRingPoints(id: string): [number, number][] | null {
+  type WaterPoly = { id?: string; polygon?: [number, number][] };
+  const waters = (getPlan() as { water?: WaterPoly[] }).water ?? [];
+  const w = waters.find((e) => e.id === id);
+  if (!w?.polygon || w.polygon.length < 3) return null;
+  const raw = w.polygon;
+  const closed =
+    raw.length > 1 &&
+    raw[0][0] === raw[raw.length - 1][0] &&
+    raw[0][1] === raw[raw.length - 1][1];
+  return closed ? raw.slice(0, -1) : raw;
+}
 
 /* ------------------------------------------------------------------ */
 /* Species                                                             */
@@ -176,100 +282,116 @@ interface TreeDef {
   barkTint: number;
   tint: number;
   lumpy: number;
+  /**
+   * 垂枝度，0 = 枝条上扬（默认），1 = 垂柳。PQ-5c 新增的自由度：
+   * 骨架原本只有「枝向光上弯」一个方向，柳的剪影（长枝先平出再垂落）
+   * 表不出来。droop 压低枝的出射角、加长枝长、并让枝梢沿程下垂。
+   */
+  droop?: number;
 }
 
 /**
- * Eight distinct forms, not one form eight times.
+ * 大观园游线上的树，不是温带森林。
  *
- * The single most damning fault in the old treeline was that every trunk was the
- * same trunk: six species existed but they shared a family resemblance —
- * comparable height, comparable thickness, five limbs starting at the same
- * fraction of the spine — so at a glance the wood was fifteen copies of one
- * asset. What separates these is deliberately *structural*, in descending order
- * of how much it changes the silhouette:
+ * PQ-5c 换血：旧的八种（橡/梣/松/云杉/白桦/枫/棘）继承自 pallet-town-3d，
+ * 是 D-01 记下的代价。现在按 `plan.json` 的 regions[].plants 与
+ * `knowledge/rules/plants.rules.json` 换成名目有据的种。骨架不动
+ * （脊线 + 分枝 + 冠球 + 轮廓碎叶卡），换的是参数；柳的垂枝加了
+ * `droop` 一个自由度，芭蕉的大叶丛生骨架装不下，单独成件
+ * （`garden-plants.ts`）。
  *
- *  - **Height spread of better than 2 : 1** (2.9 m of stubby thorn against
- *    6.8 m of pine). Scale jitter cannot fake this; a uniformly scaled tree is
- *    the same tree, and the eye reads the proportion, not the size.
- *  - **Slenderness**, independently varied: `h / r` runs from 9 (fat gnarled
- *    oak) to 38 (whippy birch).
- *  - **Where the limbs are.** A tree that forks at 25% of its height and one
- *    that carries a clean bole to 70% do not look related. `limbStart` and
- *    `limbEnd` now differ per species instead of every species spreading its
- *    limbs over the same upper half.
- *  - **Lean and curve**, from ruler-straight pine to a 0.3 lean, 0.5 curve
- *    windswept thorn.
+ * 剪影仍然按结构区分，还是那四条，只是落点换了：
+ *
+ *  - **高度差大于 2 : 1**（3.2 m 的海棠对 6.6 m 的青松）。
+ *  - **细长度**独立变化：`h / r` 从槐的 ~11 到松的 ~27。
+ *  - **分枝的位置**。低分叉开张的古松与一干到顶的青松不像亲戚。
+ *  - **倾侧与弯度**，从笔直的青松到 0.26 倾侧、0.46 弯度的古松；
+ *    柳再多一个垂枝方向。
  */
 const SPECIES: TreeDef[] = [
   {
-    key: 'oak-broad',
-    h: 3.6, r: 0.34, flare: 0.30, lean: 0.09, curve: 0.18,
+    // 榆——背景杂树主力，江南庭院常见。SPECIES[0] 同时供远景构件
+    // （distant/scene.ts 的 buildDistantTreeGeometry），保持平实阔叶形。
+    key: 'elm',
+    h: 4.2, r: 0.30, flare: 0.28, lean: 0.10, curve: 0.20,
     limbs: 5, limbStart: 0.42, limbEnd: 0.95, roots: 5,
-    crown: 'broad', crownR: 2.05, crownSquash: 0.78,
+    crown: 'broad', crownR: 2.0, crownSquash: 0.80,
     res: 22, leafSet: 'warm', bark: 'oak',
-    barkTint: 0xc79a68, tint: 0xeaf6d4, lumpy: 0.34,
+    barkTint: 0xb08a5e, tint: 0xdff0c4, lumpy: 0.34,
   },
   {
-    key: 'oak-old',
-    h: 4.4, r: 0.46, flare: 0.44, lean: 0.05, curve: 0.12,
+    // 老槐——苍劲开张的深色阔叶。嘉荫堂点名，也作园中骨架树。
+    key: 'locust',
+    h: 5.4, r: 0.50, flare: 0.46, lean: 0.07, curve: 0.16,
     limbs: 7, limbStart: 0.30, limbEnd: 0.88, roots: 6,
-    crown: 'open', crownR: 2.35, crownSquash: 0.70,
+    crown: 'open', crownR: 2.5, crownSquash: 0.72,
     res: 22, leafSet: 'warm', bark: 'oak',
-    barkTint: 0xb0854f, tint: 0xe2eec2, lumpy: 0.38,
+    barkTint: 0x8f6c42, tint: 0xd6e6b4, lumpy: 0.40,
   },
   {
-    key: 'ash-tall',
-    h: 5.8, r: 0.26, flare: 0.19, lean: 0.06, curve: 0.30,
-    limbs: 4, limbStart: 0.62, limbEnd: 0.99, roots: 4,
-    crown: 'dome', crownR: 1.70, crownSquash: 1.10,
-    res: 21, leafSet: 'warm', bark: 'ash',
-    // Warmed from 0xbaa483. That was a neutral grey-tan, and an ash is the
-    // slenderest, tallest thing in the wood so it is nearly always the trunk
-    // filling the foreground of the treeline shot — the one place a grey-blue
-    // trunk is unmissable. ART_DIRECTION §3 has no neutral greys in it.
-    barkTint: 0xb59066, tint: 0xdff0c6, lumpy: 0.30,
+    // 古松——横展虬枝，平顶微垂。「门前古松」「青松拂檐」的门面。
+    // 针叶冠 + 宽冠幅 + 强倾侧弯曲 + 一点垂枝,读作盆景松而不是圣诞松。
+    key: 'pine-old',
+    h: 5.2, r: 0.38, flare: 0.30, lean: 0.26, curve: 0.46,
+    limbs: 6, limbStart: 0.30, limbEnd: 0.92, roots: 6,
+    crown: 'open', crownR: 2.7, crownSquash: 0.50,
+    res: 21, leafSet: 'needle', bark: 'oak',
+    barkTint: 0x96604a, tint: 0xc2d8b4, lumpy: 0.42,
+    droop: 0.3,
   },
   {
-    key: 'pine',
-    h: 6.8, r: 0.25, flare: 0.16, lean: 0.02, curve: 0.06,
+    // 青松——挺拔圆锥的那一棵,省亲主轴与山寺用。
+    key: 'cypress',
+    h: 6.6, r: 0.24, flare: 0.15, lean: 0.02, curve: 0.06,
     limbs: 5, limbStart: 0.44, limbEnd: 0.99, roots: 3,
-    crown: 'conic', crownR: 1.42, crownSquash: 1.85,
+    crown: 'conic', crownR: 1.45, crownSquash: 1.80,
     res: 20, leafSet: 'needle', bark: 'ash',
-    barkTint: 0xa97c55, tint: 0xcfe6c8, lumpy: 0.30,
+    barkTint: 0x7a6a52, tint: 0xb8d2ae, lumpy: 0.30,
   },
   {
-    key: 'spruce-young',
-    h: 3.2, r: 0.16, flare: 0.11, lean: 0.03, curve: 0.08,
-    limbs: 4, limbStart: 0.18, limbEnd: 0.86, roots: 3,
-    crown: 'conic', crownR: 1.06, crownSquash: 2.05,
-    res: 18, leafSet: 'needle', bark: 'ash',
-    barkTint: 0x9c7a58, tint: 0xc4dcbc, lumpy: 0.32,
+    // 堤柳——「绕堤柳借三篙翠」。droop 拉满:长枝先平出再垂落,
+    // 冠球挂在垂枝梢上,读成垂帘。
+    key: 'willow',
+    h: 4.8, r: 0.28, flare: 0.22, lean: 0.14, curve: 0.30,
+    limbs: 8, limbStart: 0.42, limbEnd: 0.98, roots: 4,
+    crown: 'open', crownR: 2.4, crownSquash: 0.60,
+    res: 20, leafSet: 'cool', bark: 'ash',
+    barkTint: 0x77644c, tint: 0xd8ebae, lumpy: 0.30,
+    droop: 1.0,
   },
   {
-    key: 'birch',
-    h: 6.1, r: 0.16, flare: 0.11, lean: 0.19, curve: 0.38,
-    limbs: 4, limbStart: 0.70, limbEnd: 1.0, roots: 3,
-    crown: 'open', crownR: 1.42, crownSquash: 1.02,
-    res: 20, leafSet: 'cool', bark: 'pale',
-    barkTint: 0xe6e0d0, tint: 0xeef8d2, lumpy: 0.32,
-  },
-  {
-    key: 'maple',
-    h: 4.6, r: 0.24, flare: 0.21, lean: 0.14, curve: 0.26,
-    limbs: 5, limbStart: 0.52, limbEnd: 0.96, roots: 4,
-    crown: 'broad', crownR: 1.78, crownSquash: 0.94,
+    // 梨树——「大株梨花」。花期白冠,tint 即是花色。
+    key: 'pear',
+    h: 4.0, r: 0.26, flare: 0.24, lean: 0.10, curve: 0.24,
+    limbs: 5, limbStart: 0.38, limbEnd: 0.92, roots: 4,
+    crown: 'broad', crownR: 2.0, crownSquash: 0.82,
     res: 21, leafSet: 'warm', bark: 'ash',
-    barkTint: 0xc2a071, tint: 0xf6efb4, lumpy: 0.32,
+    barkTint: 0x6e5640, tint: 0xf4f2e4, lumpy: 0.36,
   },
   {
-    key: 'thorn',
-    h: 2.9, r: 0.31, flare: 0.34, lean: 0.30, curve: 0.50,
-    limbs: 6, limbStart: 0.22, limbEnd: 0.92, roots: 5,
-    crown: 'open', crownR: 1.62, crownSquash: 0.66,
-    res: 20, leafSet: 'cool', bark: 'oak',
-    barkTint: 0xa8814d, tint: 0xdaeeb8, lumpy: 0.36,
+    // 碧桃/杏——粉花小乔。「一径引人绕着碧桃花」「几百株杏花如喷火蒸霞」。
+    key: 'peach',
+    h: 3.4, r: 0.22, flare: 0.20, lean: 0.16, curve: 0.30,
+    limbs: 5, limbStart: 0.40, limbEnd: 0.95, roots: 4,
+    crown: 'dome', crownR: 1.7, crownSquash: 0.95,
+    res: 20, leafSet: 'warm', bark: 'ash',
+    barkTint: 0x6a4a34, tint: 0xf6d2c8, lumpy: 0.34,
+  },
+  {
+    // 西府海棠——「其势若伞,丝垂翠缕,葩吐丹砂」。低干、平顶伞冠。
+    key: 'haitang',
+    h: 3.2, r: 0.22, flare: 0.20, lean: 0.06, curve: 0.14,
+    limbs: 4, limbStart: 0.55, limbEnd: 0.95, roots: 4,
+    crown: 'open', crownR: 2.1, crownSquash: 0.48,
+    res: 20, leafSet: 'warm', bark: 'ash',
+    barkTint: 0x7a5c40, tint: 0xf2dcd2, lumpy: 0.32,
+    droop: 0.35,
   },
 ];
+
+const SPECIES_INDEX: Record<string, number> = Object.fromEntries(
+  SPECIES.map((d, i) => [d.key, i]),
+);
 
 /* ------------------------------------------------------------------ */
 /* Plantability grid                                                   */
@@ -369,6 +491,8 @@ function shellCards(
     flexBoost: number;
     /** Bias placement toward the top of the blob. 0 = uniform. */
     crownBias?: number;
+    /** 卡片宽比,默认 1。垂枝树（柳）给 0.6 上下,让碎叶读成条而不是片。 */
+    narrow?: number;
   },
 ): THREE.BufferGeometry {
   const rng = makeRng(o.seed);
@@ -412,7 +536,7 @@ function shellCards(
     // Exposed shell vertices carry the biggest clumps; buried ones get a scrap
     // that only shows through a gap.
     const h = rangeOf(rng, o.minSize, o.maxSize) * (0.66 + thick * 0.45);
-    const w = h * rangeOf(rng, 0.95, 1.35);
+    const w = h * rangeOf(rng, 0.95, 1.35) * (o.narrow ?? 1);
 
     const card = curvedCard(w, h, rangeOf(rng, -0.16, 0.16) * h, rangeOf(rng, -0.12, 0.12) * h, 2);
     m.compose(p.clone().addScaledVector(dir, -h * o.sink), q, new THREE.Vector3(1, 1, 1));
@@ -599,20 +723,25 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
     // Golden-angle phyllotaxis plus jitter: limbs spiral round the trunk the
     // way they do on a real tree instead of sitting on one plane.
     const az = i * 2.39996 + rng() * 0.9;
-    const rise = lerp(1.15, 0.5, t) + rng() * 0.35;
-    const len = def.h * rangeOf(rng, 0.3, 0.52) * (1 - t * 0.35);
+    // droop flattens the launch angle and lengthens the limb, then pulls the
+    // tip down quadratically: willow hangs, pine-old spreads level, upright
+    // species leave it 0 and keep the original upward bend.
+    const droop = def.droop ?? 0;
+    const rise = lerp(1.15, 0.5, t) * (1 - droop * 0.6) + rng() * 0.35;
+    const len = def.h * rangeOf(rng, 0.3, 0.52) * (1 - t * 0.35) * (1 + droop * 0.5);
     const dir = new THREE.Vector3(Math.cos(az), rise, Math.sin(az)).normalize();
 
     const lp: THREE.Vector3[] = [];
     const LS = 4;
     for (let k = 0; k <= LS; k++) {
       const u = k / LS;
-      // Limbs bend upward toward the light as they extend.
+      // Limbs bend upward toward the light as they extend; droop species
+      // sag past the midpoint instead.
       const up = u * u * 0.42;
       lp.push(
         new THREE.Vector3(
           attach.x + dir.x * len * u + tangent.x * len * u * 0.25,
-          attach.y + dir.y * len * u + len * up * 0.5,
+          attach.y + dir.y * len * u + len * up * 0.5 - droop * u * u * len * 0.8,
           attach.z + dir.z * len * u + tangent.z * len * u * 0.25,
         ),
       );
@@ -811,6 +940,7 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
   // size are up hard on the old values and the cards sit proud of the surface
   // rather than half-buried: the blob's silhouette is the thing that reads as
   // 2004, and only these cards break it.
+  const droopN = def.droop ?? 0;
   const fringe = shellCards(canopy, {
     seed: seed ^ 0x1eaf,
     count: Math.round(150 + cR * cR * def.crownSquash * 88),
@@ -819,16 +949,19 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
     // between them — and a narrow band gives an evenly scalloped edge, which is
     // its own kind of procedural tell. Less sink for the same reason: the cards
     // have to stand proud of the blob to break its outline at all.
-    minSize: cR * 0.20,
+    // Droop species (willow) get smaller, narrower cards so the fringe reads
+    // as hanging twigs with leaf strips rather than broad pads.
+    minSize: cR * (droopN > 0 ? 0.15 : 0.20),
     // 0.66 was too far: the biggest cards are wider than the opaque pad at the
     // root of the cluster texture is tall, so a card caught face-on showed that
     // pad as a bare green lozenge sitting on the crown. 0.56 keeps the size
     // spread without any single card being large enough to read as a panel.
-    maxSize: cR * 0.56,
-    upBias: def.crown === 'conic' ? 0.12 : 0.26,
+    maxSize: cR * (droopN > 0 ? 0.42 : 0.56),
+    upBias: def.crown === 'conic' ? 0.12 : droopN > 0 ? 0.1 : 0.26,
     sink: 0.30,
-    flexBoost: 0.45,
+    flexBoost: 0.45 + droopN * 0.35,
     crownBias: 0.68,
+    narrow: droopN > 0 ? 0.6 : 1,
   });
   // Re-normalise compliance against the whole tree so a card 6m up moves like
   // the branch under it rather than like a blade of grass on the ground.
@@ -1494,6 +1627,10 @@ export function buildVegetation(ctx: GameContext): void {
     const m = mask.at(x, z);
     if (m < 0.55) return 0;
     if (HERO_TREES.some(([hx,hz]) => Math.hypot(x-hx,z-hz)<2.5)) return 0;
+    // 区域硬约束先行:蘅芜苑「一株花木也无」、芦苇荡不长树,mix 为空即全区无树。
+    const reg = regionOf(x, z);
+    const rt = reg ? REGION_TREES[reg] : undefined;
+    if (rt && rt.mix.length === 0) return 0;
     // Background copses occupy dry rising land, leaving the authored route and
     // its sightline foreground open until region-specific planting lands in P3.
     const routeDistance = Math.min(...treePaths.map(p => distanceToPolyline(x,z,p.points)));
@@ -1501,7 +1638,7 @@ export function buildVegetation(ctx: GameContext): void {
     if (routeClearance <= 0) return 0;
     const land = 0.045 + smoothstep(1.8,5.5,ground(x,z)) * 0.55;
     const c = fbm2(clump, x * 0.09, z * 0.09, 3) * 0.5 + 0.5;
-    return clamp(land * (0.35+c*0.95),0,1) * routeClearance * outsideBuildings(x,z,1.4);
+    return clamp(land * (0.35+c*0.95),0,1) * routeClearance * outsideBuildings(x,z,1.4) * (rt?.density ?? 1);
   };
 
   /**
@@ -1577,23 +1714,55 @@ export function buildVegetation(ctx: GameContext): void {
   };
 
   for (const s of treeSpots) {
-    // Species distribution varies with position so the wood has regions rather
-    // than a uniform shuffle: conifers cluster on the high banks, birches in
-    // the damper hollows near the shore.
-    const bias = fbm2(clump, s.x * 0.045 + 30, s.z * 0.045, 2);
-    let idx: number;
-    const r = rng();
-    if (bias > 0.18) idx = r < 0.5 ? 2 : r < 0.72 ? 1 : r < 0.9 ? 0 : 5;
-    else if (bias < -0.18) idx = r < 0.4 ? 3 : r < 0.68 ? 4 : r < 0.88 ? 0 : 1;
-    else idx = r < 0.3 ? 0 : r < 0.55 ? 4 : r < 0.75 ? 1 : r < 0.9 ? 5 : 3;
+    // 按区选种:园子长什么由 plan.json 的 regions[].plants 定(REGION_TREES),
+    // 区域之外用 FALLBACK_MIX 的背景混交。mix 是带权重复键的牌堆,抽一张即得种。
+    const reg = regionOf(s.x, s.z);
+    const rt = reg ? REGION_TREES[reg] : undefined;
+    const mix = rt && rt.mix.length > 0 ? rt.mix : FALLBACK_MIX;
+    const idx = SPECIES_INDEX[mix[Math.floor(rng() * mix.length)]];
     placeTree(s.x, s.z, idx);
   }
 
-  for (const [x, z, idx] of HERO_TREES) {
-    if (mask.at(x, z) < 0.4) continue;
-    // Two of the authored trees predate the wild-grass clearing on the shelf.
-    if (wildGrassClearance(x, z) < 0.5) continue;
-    placeTree(x, z, idx);
+  for (const [x, z, key] of HERO_TREES) {
+    // 手放点只管脚下站得住(不是水面/深沟);古树可以立在铺装与台基旁,
+    // 不受草皮 mask 约束。
+    if (ground(x, z) < VEG.minPlantY) continue;
+    placeTree(x, z, SPECIES_INDEX[key]);
+  }
+
+  /* ---------------- 沁芳堤柳 ---------------------------------------- */
+
+  // 「繞堤柳借三篙翠」(第十七回沁芳联)。柳不走 copse 散布:沿 plan.json 的
+  // pool.south(南池·沁芳亭桥池)岸线逐段向外 2.2 m 落位,间距 4.5 m,
+  // 让柳真正「绕堤」而不是碰巧长在池边。
+  {
+    const ring = waterRingPoints('pool.south');
+    const willowIdx = SPECIES_INDEX['willow'];
+    if (ring && willowIdx !== undefined) {
+      const cx = ring.reduce((a, p) => a + p[0], 0) / ring.length;
+      const cz = ring.reduce((a, p) => a + p[1], 0) / ring.length;
+      const planted: { x: number; z: number }[] = [];
+      for (let e = 0; e < ring.length; e++) {
+        const [ax, az] = ring[e];
+        const [bx, bz] = ring[(e + 1) % ring.length];
+        const steps = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / 4));
+        for (let s = 0; s < steps; s++) {
+          const vx = lerp(ax, bx, s / steps);
+          const vz = lerp(az, bz, s / steps);
+          const dx = vx - cx;
+          const dz = vz - cz;
+          const dl = Math.hypot(dx, dz) || 1;
+          const x = vx + (dx / dl) * 2.2;
+          const z = vz + (dz / dl) * 2.2;
+          if (ground(x, z) < VEG.minPlantY) continue;
+          if (mask.at(x, z) < 0.3) continue;
+          if (outsideBuildings(x, z, 0.5) < 0.5) continue;
+          if (planted.some((p) => Math.hypot(p.x - x, p.z - z) < 4.5)) continue;
+          planted.push({ x, z });
+          placeTree(x, z, willowIdx);
+        }
+      }
+    }
   }
 
   /* ---------------- tree instancing -------------------------------- */
@@ -1823,6 +1992,174 @@ export function buildVegetation(ctx: GameContext): void {
     culler.add([mesh, leaves], { skipShadow: [leaves] });
   });
 
+  /* ---------------- 点名种植(PQ-5c) --------------------------------- */
+
+  /**
+   * 游线上点了名的三样:潇湘馆后院的芭蕉、翠嶂石间的藤萝垂蔓、苍苔斑。
+   * 依据见 knowledge/rules/plants.rules.json 与 docs/plants/00-catalog.md。
+   * 这里只落几何与位置,着色沿用既有 foliage 材质管线。
+   */
+  {
+    const nRng = makeRng(ctx.seed ^ 0x9a1de7);
+
+    // —— 芭蕉:「有大株梨花兼著芭蕉」(第十七回),潇湘馆后院两丛,大叶丛生。——
+    {
+      const spots = [
+        { x: -102.0, z: 86.5 },
+        { x: -106.5, z: 88.2 },
+      ].filter((s) => ground(s.x, s.z) >= VEG.minPlantY && outsideBuildings(s.x, s.z, 0.3) > 0.5);
+      if (spots.length) {
+        const mesh = makeInstanced(
+          bananaClusterGeometry(ctx.seed ^ 0xbaba),
+          canopyMat('warm', 0xd8ecb0, 1.7, 0.5),
+          spots.length, nRng, 1,
+        );
+        for (let i = 0; i < spots.length; i++) {
+          const s = spots[i];
+          const sc = rangeOf(nRng, 0.85, 1.15);
+          const y = ground(s.x, s.z);
+          euler.set(0, nRng() * Math.PI * 2, 0, 'ZYX');
+          q.setFromEuler(euler);
+          pos3.set(s.x, y - 0.05, s.z);
+          scl.set(sc, sc, sc);
+          m4.compose(pos3, q, scl);
+          mesh.setMatrixAt(i, m4);
+          ctx.collision.addCircle(s.x, s.z, 0.55, y - 0.5, y + 2.2, 'banana');
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.name = 'Banana_xiaoxiang';
+        mesh.computeBoundingSphere();
+        group.add(mesh);
+        culler.add([mesh], {});
+      }
+    }
+
+    // —— 藤萝:翠嶂「藤萝薜荔」攀于山石。垂蔓锚在假山肩部,向下垂落。
+    // 锚点不手猜高度:在每个候选点附近 ±1.2 m 扫 5×5,取地面场最高的点
+    // (即石顶/石肩),锚在其表面下 0.12 m;扫不到明显高于基面的点就放弃,
+    // 免得垂蔓浮空。——
+    {
+      const wanted = [
+        { x: 5.4, z: 200.8 },
+        { x: 8.6, z: 199.6 },
+        { x: 10.8, z: 202.6 },
+        { x: 6.8, z: 204.0 },
+      ];
+      const anchors: { x: number; z: number; y: number }[] = [];
+      for (const w of wanted) {
+        const baseY = ground(w.x, w.z);
+        let best: { x: number; z: number; y: number } | null = null;
+        for (let gx = -2; gx <= 2; gx++) {
+          for (let gz = -2; gz <= 2; gz++) {
+            const px = w.x + gx * 0.6;
+            const pz = w.z + gz * 0.6;
+            const py = ground(px, pz);
+            if (!best || py > best.y) best = { x: px, z: pz, y: py };
+          }
+        }
+        if (best && best.y > baseY + 0.8) anchors.push(best);
+      }
+      if (anchors.length) {
+        const mesh = makeInstanced(
+          wisteriaDrapeGeometry(ctx.seed ^ 0x7e17),
+          createFoliageMaterial(ctx.env, {
+            color: 0xd8e6b8,
+            map: shrubTex,
+            roughness: 0.85,
+            windScale: 1.5,
+            wrap: 0.6,
+            transColor: 0xb2e065,
+            transStrength: 2.6,
+            transPower: 2.0,
+            haloStrength: 0.15,
+            alphaTest: 0.36,
+            side: THREE.DoubleSide,
+          }),
+          anchors.length, nRng, 1,
+        );
+        for (let i = 0; i < anchors.length; i++) {
+          const a = anchors[i];
+          const sc = rangeOf(nRng, 0.9, 1.25);
+          euler.set(0, nRng() * Math.PI * 2, 0, 'ZYX');
+          q.setFromEuler(euler);
+          pos3.set(a.x, a.y - 0.12, a.z);
+          scl.set(sc, sc, sc);
+          m4.compose(pos3, q, scl);
+          mesh.setMatrixAt(i, m4);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.castShadow = false;
+        mesh.receiveShadow = true;
+        mesh.name = 'Wisteria_cuizhang';
+        mesh.computeBoundingSphere();
+        group.add(mesh);
+        culler.add([mesh], { maxDist: 42, skipShadow: [mesh] });
+      }
+    }
+
+    // —— 苍苔:「土地下苍苔布满」(潇湘馆,第四十回)与翠嶂石阴。苔是贴地低丘,
+    // 无贴图纯顶点色,近看才生效,所以距离剔除收得很近。——
+    {
+      const spots: { x: number; z: number; s: number }[] = [];
+      // 翠嶂石阴环带
+      for (let i = 0; i < 12; i++) {
+        const a = nRng() * Math.PI * 2;
+        const r = rangeOf(nRng, 3.8, 7.5);
+        spots.push({ x: 8 + Math.cos(a) * r, z: 202 + Math.sin(a) * r, s: rangeOf(nRng, 0.7, 1.4) });
+      }
+      // 潇湘馆入口石子路两侧(月洞门 → 正房)。路向 (-0.292,-0.956),法向 (0.956,-0.292)。
+      for (let i = 0; i < 10; i++) {
+        const t = i / 9;
+        const px = lerp(-100, -105.5, t);
+        const pz = lerp(122, 104, t);
+        const side = nRng() < 0.5 ? -1 : 1;
+        const off = rangeOf(nRng, 1.0, 1.8);
+        spots.push({ x: px + side * 0.956 * off, z: pz - side * 0.292 * off, s: rangeOf(nRng, 0.5, 1.0) });
+      }
+      // 后院梨树下
+      for (let i = 0; i < 3; i++) {
+        const a = nRng() * Math.PI * 2;
+        const r = rangeOf(nRng, 0.8, 2.0);
+        spots.push({ x: -108 + Math.cos(a) * r, z: 84.5 + Math.sin(a) * r, s: rangeOf(nRng, 0.6, 1.1) });
+      }
+      const ok = spots.filter(
+        (s) => ground(s.x, s.z) >= VEG.minPlantY && outsideBuildings(s.x, s.z, 0.1) > 0.5,
+      );
+      if (ok.length) {
+        const mesh = makeInstanced(
+          mossPatchGeometry(ctx.seed ^ 0x7055, 0.5),
+          createFoliageMaterial(ctx.env, {
+            color: 0x7d8f56,
+            roughness: 0.98,
+            windScale: 0,
+            wrap: 0.55,
+            transStrength: 0.0,
+            haloStrength: 0.0,
+          }),
+          ok.length, nRng, 1,
+        );
+        for (let i = 0; i < ok.length; i++) {
+          const s = ok[i];
+          euler.set(0, nRng() * Math.PI * 2, 0, 'ZYX');
+          q.setFromEuler(euler);
+          pos3.set(s.x, ground(s.x, s.z) + 0.01, s.z);
+          scl.set(s.s, s.s, s.s);
+          m4.compose(pos3, q, scl);
+          mesh.setMatrixAt(i, m4);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.castShadow = false;
+        mesh.receiveShadow = true;
+        mesh.name = 'Moss_patches';
+        mesh.computeBoundingSphere();
+        group.add(mesh);
+        culler.add([mesh], { maxDist: 22, skipShadow: [mesh] });
+      }
+    }
+  }
+
   /* ---------------- forest floor ------------------------------------ */
 
   /**
@@ -2026,7 +2363,12 @@ export function buildVegetation(ctx: GameContext): void {
     const m = mask.at(x, z);
     if (m < 0.12) return 0;
     const patch = 0.68 + (fbm2(clump, x * 0.13, z * 0.13, 3) * 0.5 + 0.5) * 0.62;
-    return clamp(Math.pow(m, 1.35) * patch, 0, 1) * outsideBuildings(x, z, 0.05);
+    // 低频斑块(PQ-5d):一汪一汪地稀下去,草稀处地表自然露出。只调密度,
+    // 不动着色——若还要更裸露的土色,那是材质活,留给 WG。下限 0.28:
+    // 再低正门前景一类的大片留白会秃成土场,0.28 保住「薄草见土」的读法。
+    const gapN = fbm2(clump, x * 0.023 + 53, z * 0.023 + 17, 2) * 0.5 + 0.5;
+    const gap = lerp(0.28, 1.0, smoothstep(0.34, 0.52, gapN));
+    return clamp(Math.pow(m, 1.35) * patch * gap, 0, 1) * outsideBuildings(x, z, 0.05);
   };
 
   // Chunk grid: each chunk is its own InstancedMesh so the renderer can
@@ -2040,8 +2382,9 @@ export function buildVegetation(ctx: GameContext): void {
   const denseChunks = chunks.map((_, ci) => {
     const x = VEG.scatterMinX + (ci % chunkCols + 0.5) * VEG.chunk;
     const z = VEG.scatterMinZ + (Math.floor(ci / chunkCols) + 0.5) * VEG.chunk;
-    // Anything visible from a route keeps the original 0.32m lattice. Only
-    // distant ground uses every third cell; path-boundary chunks stay dense.
+    // Anything visible from a route keeps every lattice at full share. Only
+    // distant ground applies each lattice's `far` fraction; path-boundary
+    // chunks stay dense.
     const margin = VEG.drawDist.grass + VEG.chunk * Math.SQRT2 / 2 + 8;
     return paths.some(p => distanceToPolyline(x,z,p.points) < margin);
   });
@@ -2066,25 +2409,52 @@ export function buildVegetation(ctx: GameContext): void {
     return cj * chunkCols + ci;
   };
 
+  /**
+   * 三档旋转抖动网格叠加,取代单一 0.32 m 方格(PQ-5d)。
+   *
+   * 旧做法是一张轴对齐的抖动网格,俯视时 0.32 m 的周期直接读成方格。
+   * 这里叠三张互相旋转、周期不成整数比的格网(0.31 / 0.47 / 0.74 m),
+   * 各自的周期在叠加里互相错开,任何单一频率都不再主导;每档带份额
+   * 抽数(share)控制该档贡献,`far` 是该档在远景 chunk 里的保留比例
+   * (0 = 远景整档跳过)。三档各自独立 rng,格网绕散布盒中心旋转。
+   */
+  const GRASS_LATTICES = [
+    { cell: 0.31, share: 0.6, rot: 0.31, ox: 0.13, oz: 0.71, far: 0 },
+    { cell: 0.47, share: 0.36, rot: -0.83, ox: 0.57, oz: 0.23, far: 0.3 },
+    { cell: 0.74, share: 0.2, rot: 1.21, ox: 0.91, oz: 0.44, far: 1 },
+  ];
+
   {
-    const cell = VEG.grassCell;
-    const gRng = makeRng(ctx.seed ^ 0x9ea5501);
-    const nx = Math.ceil((VEG.scatterMaxX - VEG.scatterMinX) / cell);
-    const nz = Math.ceil((VEG.scatterMaxZ - VEG.scatterMinZ) / cell);
-    for (let j = 0; j < nz; j++) {
-      for (let i = 0; i < nx; i++) {
-        // Jittered grid rather than dart-throwing: at fourteen thousand tufts
-        // the rejection test dominates the build time and buys nothing, because
-        // overlapping grass is exactly what a lawn looks like.
-        const x = VEG.scatterMinX + (i + gRng()) * cell;
-        const z = VEG.scatterMinZ + (j + gRng()) * cell;
-        const acceptance = gRng();
-        const ci = chunkOf(x, z);
-        // Consume the same three draws even for sparse cells, so adding the
-        // distant tier never re-rolls plants beside the route.
-        if (!denseChunks[ci] && (i % 3 !== 0 || j % 3 !== 0)) continue;
-        if (acceptance > grassDensity(x, z)) continue;
-        chunks[ci].push({ x, z, v: chunkVariant(ci), g: 0 });
+    const cx0 = (VEG.scatterMinX + VEG.scatterMaxX) / 2;
+    const cz0 = (VEG.scatterMinZ + VEG.scatterMaxZ) / 2;
+    // 旋转后格网要盖住整个轴对齐散布盒,取对角线一半为半径。
+    const half =
+      Math.hypot(VEG.scatterMaxX - VEG.scatterMinX, VEG.scatterMaxZ - VEG.scatterMinZ) / 2 + 1;
+    for (const lat of GRASS_LATTICES) {
+      const gRng = makeRng(ctx.seed ^ Math.imul(Math.round(lat.cell * 1000), 7919) ^ 0x9ea5501);
+      const cosR = Math.cos(lat.rot);
+      const sinR = Math.sin(lat.rot);
+      const n = Math.ceil((half * 2) / lat.cell);
+      for (let j = 0; j < n; j++) {
+        for (let i = 0; i < n; i++) {
+          // Jittered lattice rather than dart-throwing: at this tuft count the
+          // rejection test dominates build time and buys nothing, because
+          // overlapping grass is exactly what a lawn looks like.
+          const lx = (i + gRng() - n / 2) * lat.cell + lat.ox;
+          const lz = (j + gRng() - n / 2) * lat.cell + lat.oz;
+          const x = cx0 + lx * cosR - lz * sinR;
+          const z = cz0 + lx * sinR + lz * cosR;
+          if (x < VEG.scatterMinX || x > VEG.scatterMaxX || z < VEG.scatterMinZ || z > VEG.scatterMaxZ) continue;
+          if (gRng() > lat.share) continue;
+          const acceptance = gRng();
+          const ci = chunkOf(x, z);
+          if (!denseChunks[ci]) {
+            if (lat.far <= 0) continue;
+            if (gRng() > lat.far) continue;
+          }
+          if (acceptance > grassDensity(x, z)) continue;
+          chunks[ci].push({ x, z, v: chunkVariant(ci), g: 0 });
+        }
       }
     }
   }
@@ -2311,6 +2681,140 @@ export function buildVegetation(ctx: GameContext): void {
       group.add(mesh);
       culler.add([mesh], { maxDist: VEG.drawDist.flowers });
     });
+
+    // —— 梨花:潇湘馆后院「大株梨花」树下的花莛(PQ-5b 新花型之一)。
+    // 院里是土地不是草皮,这里只验脚下站得住,绕开草皮 mask;
+    // 「花该长在哪些地表」的门槛整体归 PQ-4,本单子只交花型。——
+    {
+      const spots: { x: number; z: number }[] = [];
+      for (let i = 0; i < 14; i++) {
+        const a = fRng() * Math.PI * 2;
+        const r = rangeOf(fRng, 1.0, 2.2);
+        const x = -108 + Math.cos(a) * r;
+        const z = 84.5 + Math.sin(a) * r;
+        if (ground(x, z) < VEG.minPlantY) continue;
+        if (outsideBuildings(x, z, 0.1) < 0.5) continue;
+        spots.push({ x, z });
+      }
+      if (spots.length) {
+        const mesh = makeInstanced(
+          pearBlossomGeometry(ctx.seed ^ 0x9ea2),
+          createFoliageMaterial(ctx.env, {
+            color: 0xffffff,
+            map: petal.map,
+            normalMap: petal.normalMap,
+            normalScale: 0.5,
+            roughness: 0.7,
+            windScale: 1.3,
+            wrap: 0.62,
+            transColor: 0xfff6ea,
+            transStrength: 1.7,
+            haloStrength: 0.12,
+            side: THREE.DoubleSide,
+          }),
+          spots.length, fRng, 1,
+        );
+        for (let i = 0; i < spots.length; i++) {
+          const s = spots[i];
+          const sc = rangeOf(fRng, 0.85, 1.3);
+          euler.set(rangeOf(fRng, -0.12, 0.12), fRng() * Math.PI * 2, rangeOf(fRng, -0.12, 0.12), 'ZYX');
+          q.setFromEuler(euler);
+          pos3.set(s.x, ground(s.x, s.z) - 0.01, s.z);
+          scl.set(sc, sc * rangeOf(fRng, 0.9, 1.2), sc);
+          m4.compose(pos3, q, scl);
+          mesh.setMatrixAt(i, m4);
+          col.setRGB(rangeOf(fRng, 0.92, 1.05), rangeOf(fRng, 0.92, 1.05), rangeOf(fRng, 0.9, 1.02));
+          mesh.setColorAt(i, col);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        mesh.castShadow = false;
+        mesh.receiveShadow = true;
+        mesh.name = 'Flowers_pear_xiaoxiang';
+        mesh.computeBoundingSphere();
+        group.add(mesh);
+        culler.add([mesh], { maxDist: VEG.drawDist.flowers });
+      }
+    }
+
+    // —— 隔岸花:「隔岸花分一脈香」(第十七回沁芳联)。沿南池岸外 1–3.2 m
+    // 一条花带,三种淡色(粉/米白/淡紫)分株混生,高莛锥序读作远远一带花气。——
+    {
+      const ring = waterRingPoints('pool.south');
+      if (ring) {
+        const cx = ring.reduce((a, p) => a + p[0], 0) / ring.length;
+        const cz = ring.reduce((a, p) => a + p[1], 0) / ring.length;
+        const TINTS: [number, number, number][] = [
+          [0.95, 0.78, 0.85],
+          [0.97, 0.94, 0.88],
+          [0.79, 0.71, 0.91],
+        ];
+        const buckets: { x: number; z: number }[][] = TINTS.map(() => []);
+        let prev: { x: number; z: number } | null = null;
+        for (let e = 0; e < ring.length; e++) {
+          const [ax, az] = ring[e];
+          const [bx, bz] = ring[(e + 1) % ring.length];
+          const steps = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / 0.8));
+          for (let s = 0; s < steps; s++) {
+            const vx = lerp(ax, bx, s / steps);
+            const vz = lerp(az, bz, s / steps);
+            const dx = vx - cx;
+            const dz = vz - cz;
+            const dl = Math.hypot(dx, dz) || 1;
+            const out = rangeOf(fRng, 1.0, 3.2);
+            const x = vx + (dx / dl) * out;
+            const z = vz + (dz / dl) * out;
+            if (ground(x, z) < VEG.minPlantY) continue;
+            if (mask.at(x, z) < 0.5) continue;
+            if (outsideBuildings(x, z, 0.2) < 0.5) continue;
+            if (prev && Math.hypot(prev.x - x, prev.z - z) < 0.8) continue;
+            prev = { x, z };
+            buckets[Math.floor(fRng() * TINTS.length) % TINTS.length].push({ x, z });
+          }
+        }
+        buckets.forEach((spots, ti) => {
+          if (!spots.length) return;
+          const tint = TINTS[ti];
+          const mesh = makeInstanced(
+            bankFlowerGeometry((ctx.seed ^ 0xba9f10) + ti * 613, tint),
+            createFoliageMaterial(ctx.env, {
+              color: 0xffffff,
+              map: petal.map,
+              normalMap: petal.normalMap,
+              normalScale: 0.5,
+              roughness: 0.72,
+              windScale: 1.4,
+              wrap: 0.6,
+              transColor: new THREE.Color(tint[0], tint[1], tint[2]).getHex(),
+              transStrength: 1.6,
+              haloStrength: 0.12,
+              side: THREE.DoubleSide,
+            }),
+            spots.length, fRng, 1,
+          );
+          for (let i = 0; i < spots.length; i++) {
+            const s = spots[i];
+            const sc = rangeOf(fRng, 0.85, 1.35);
+            euler.set(rangeOf(fRng, -0.14, 0.14), fRng() * Math.PI * 2, rangeOf(fRng, -0.14, 0.14), 'ZYX');
+            q.setFromEuler(euler);
+            pos3.set(s.x, ground(s.x, s.z) - 0.01, s.z);
+            scl.set(sc, sc * rangeOf(fRng, 0.9, 1.25), sc);
+            m4.compose(pos3, q, scl);
+            mesh.setMatrixAt(i, m4);
+            col.setRGB(rangeOf(fRng, 0.92, 1.06), rangeOf(fRng, 0.92, 1.06), rangeOf(fRng, 0.92, 1.06));
+            mesh.setColorAt(i, col);
+          }
+          mesh.instanceMatrix.needsUpdate = true;
+          if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+          mesh.castShadow = false;
+          mesh.receiveShadow = true;
+          mesh.name = `Flowers_bank_${ti}`;
+          mesh.computeBoundingSphere();
+          group.add(mesh);
+          culler.add([mesh], { maxDist: VEG.drawDist.flowers });
+        });
+      }
+    }
   }
 
   // ---- weeds / ferns ----------------------------------------------
@@ -2401,7 +2905,7 @@ export function buildVegetation(ctx: GameContext): void {
   group.userData.treePlacements = treeBases;
   group.userData.naturalTreeCount = treeSpots.length;
   group.userData.grassCoverage = { denseChunks: denseChunks.filter(Boolean).length,
-    chunks: denseChunks.length, nearCell: VEG.grassCell, farCell: VEG.grassCell * 3 };
+    chunks: denseChunks.length, lattices: GRASS_LATTICES.map((l) => l.cell) };
 }
 
 /** Static distant backgrounds reuse the existing broadleaf generator at a
