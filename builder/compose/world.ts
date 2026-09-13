@@ -5,8 +5,8 @@ import { CollisionWorld } from '@engine/player/Collision';
 import { InteractionSystem } from '@engine/player/Interaction';
 
 import { buildAtmosphere } from '@engine/render/Atmosphere';
-import { buildTerrain } from './terrain';
-import { buildWater } from '@engine/render/Water';
+import { buildTerrain, getPlan } from './terrain';
+import { buildWater, setWaterFlows } from '@engine/render/Water';
 import { buildVegetation } from '@builder/parts/zhiwu/vegetation';
 import { buildGarden } from './composer';
 import { prewarmTextures } from './prewarm-textures';
@@ -81,7 +81,7 @@ export class World {
       ['调色', async () => { this.root.userData.textureWarmup = await prewarmTextures(); }],
       ['开天', buildAtmosphere],
       ['理地', buildTerrain],
-      ['引水', buildWater],
+      ['引水', (ctx) => { setWaterFlows(getPlan().water); buildWater(ctx); }],
       ['植树', buildVegetation],
       ['起屋叠石', buildGarden],
     ];
