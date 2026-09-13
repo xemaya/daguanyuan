@@ -20,6 +20,9 @@
 - 大木作的数字只从规则表出，不许在代码里写字面量。规则表里缺就补规则表，**不要补代码**——`book.num()` 取不到会抛，错误信息里带着 `formula` 原文告诉你该结构化哪个数。
 - **不许用 TypeScript 参数属性、`enum`、`namespace`、装饰器**：`tsc --noEmit` 认，`npm test` 的 strip-only 模式不认，而且不报编译错，整个模块直接挂（PITFALLS P-15）。
 - **规则号只在规则集内唯一**，273 个里 115 个跨文件重号。开工先跑 `book.collisions()`，撞了的写限定形式 `use('fayuan:06-01')`（PITFALLS P-16）。
+- **多单并行时不许 `git stash`。** 工作区里同时有别人的半成品,stash 会把它们一起卷走
+  (2026-09-12 我与单子 P 各犯过一次)。要单独量自己的改动,用
+  `git worktree add --detach /tmp/<名> <commit>` 开隔离检出,自带独立端口跑。
 - 提交信息末尾附：
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>

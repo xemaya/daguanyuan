@@ -24,6 +24,9 @@
 - preview 带 `--strictPort`；园子在 **`/garden.html`**。
 - **全场景三角数 ≤ 400 万**（现在 230–336 万），draw call 增量 ≤ 10。两组数字写进提交信息。
 - **`engine/` 一个字都别碰**——WG 排在 N/O/P/Q 之后，要独占它。
+- **多单并行时不许 `git stash`。** 工作区里同时有别人的半成品,stash 会把它们一起卷走
+  (2026-09-12 我与单子 P 各犯过一次)。要单独量自己的改动,用
+  `git worktree add --detach /tmp/<名> <commit>` 开隔离检出,自带独立端口跑。
 - 提交信息末尾附：
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>

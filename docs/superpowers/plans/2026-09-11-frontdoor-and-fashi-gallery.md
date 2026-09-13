@@ -18,6 +18,9 @@
 - **不许用 TypeScript 参数属性、`enum`、`namespace`、装饰器**（PITFALLS P-15）。
 - preview 一律带 `--strictPort`（PITFALLS P-11）。
 - **界面文字用简体，原文引句保持繁体**，两者用无衬线与衬线分开（`ART_DIRECTION.md §9`）。
+- **多单并行时不许 `git stash`。** 工作区里同时有别人的半成品,stash 会把它们一起卷走
+  (2026-09-12 我与单子 P 各犯过一次)。要单独量自己的改动,用
+  `git worktree add --detach /tmp/<名> <commit>` 开隔离检出,自带独立端口跑。
 - 提交信息末尾附：
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>

@@ -22,6 +22,9 @@
 - 大木作的数字只从规则表出，不许在代码里写字面量。
 - **每处抽象过一问：能不能让下一个区域更快、更准、更美？** 不能就先不做（`docs/DECISIONS.md` D-18）。
 - 收工前 `npm run check`、`npm test`、`npm run check:layers`、`npm run check:rules` 全过。
+- **多单并行时不许 `git stash`。** 工作区里同时有别人的半成品,stash 会把它们一起卷走
+  (2026-09-12 我与单子 P 各犯过一次)。要单独量自己的改动,用
+  `git worktree add --detach /tmp/<名> <commit>` 开隔离检出,自带独立端口跑。
 - 提交信息末尾附：
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>

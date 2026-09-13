@@ -18,6 +18,9 @@
 - **大木作的数字只从规则表出**，取不到就补规则表不补代码；书里没有的用 `book.artChoice()` 留痕进 `provenance.art`。
 - **全场景三角数不许超过现在的 1.2 倍**。现在 14 镜是 227–330 万（`shots/p1done/manifest.json`），
   上限 **400 万**。
+- **多单并行时不许 `git stash`。** 工作区里同时有别人的半成品,stash 会把它们一起卷走
+  (2026-09-12 我与单子 P 各犯过一次)。要单独量自己的改动,用
+  `git worktree add --detach /tmp/<名> <commit>` 开隔离检出,自带独立端口跑。
 - 提交信息末尾附：
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
