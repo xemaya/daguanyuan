@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { auditPlan } from '../tools/plan-audit.mjs';
+import { auditWaterFlow } from '../tools/check-plan.mjs';
 const source = JSON.parse(readFileSync('projects/daguanyuan/plan.json', 'utf8'));
 const copy = () => structuredClone(source);
 
@@ -40,4 +41,23 @@ test('occlusion consumes real hill and still requires 3D evidence', () => {
   p.hills.find(h => h.name.startsWith('翠嶂')).polygon = small;
   assert.ok(auditPlan(p).diagnostics.gateSightlines.intersected < original.diagnostics.gateSightlines.intersected);
   assert.equal(original.constraints.find(c => c.id === 5).status, 'incomplete');
+});
+test('水系流向字段:现 plan 全过,缺 flow、反向折点、负流速均被拦', () => {
+  assert.deepEqual(auditWaterFlow(source), []);
+  // 流动水系缺 centerline
+  const noLine = copy();
+  delete noLine.water.find(w => w.id === 'creek.north').centerline;
+  assert.ok(auditWaterFlow(noLine).some(f => f.includes('creek.north') && f.includes('centerline')));
+  // centerline 折点越出 polygon
+  const stray = copy();
+  stray.water.find(w => w.id === 'creek.south').centerline[0] = [0, 0];
+  assert.ok(auditWaterFlow(stray).some(f => f.includes('creek.south') && f.includes('多边形外')));
+  // 负流速
+  const negative = copy();
+  negative.water.find(w => w.id === 'pool.main').flow_m_s = -0.5;
+  assert.ok(auditWaterFlow(negative).some(f => f.includes('pool.main') && f.includes('flow_m_s')));
+  // 缺 flow_m_s(静水也必须显式写 0)
+  const missing = copy();
+  delete missing.water.find(w => w.id === 'pool.east').flow_m_s;
+  assert.ok(auditWaterFlow(missing).some(f => f.includes('pool.east')));
 });

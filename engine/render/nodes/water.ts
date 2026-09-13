@@ -42,6 +42,20 @@ const bedInside = /*@__PURE__*/ Fn( ( [ p ] ) => {
 
 } );
 
+// Flow map (bakeFlow in Water.ts): RG = 世界 XZ 流向单位向量编到 [0,1]
+// (0.5=静),B = 流速 m/s(FLOW_RANGE=1,岸缘 2m 内渐零),A = 0池/1溪。
+// 方向不在着色器里重新归一化——线性过滤在溪湾处自然混向,不会产生奇异点。
+
+const uFlow = bindings.uFlow;
+
+const sampleFlow = /*@__PURE__*/ Fn( ( [ p ] ) => {
+
+	const fuv = clamp( p.sub( uBedWindow.xy ).div( uBedWindow.zw ), vec2( 0.002 ), vec2( 0.998 ) );
+
+	return uFlow.sample( fuv );
+
+} );
+
 const uWaveAmp = bindings.uWaveAmp;
 const uSwell = bindings.uSwell;
 const uChop = bindings.uChop;
@@ -139,6 +153,19 @@ const waterSurface = /*@__PURE__*/ Fn( ( [ vWXZ, vViewPosition ] ) => {
 	const caustic = pow( clamp( ca1.mul( ca2 ).mul( 2.3 ), 0.0, 1.0 ), 1.7 );
 	col.addAssign( caustic.mul( vec3( 0.26, 0.40, 0.33 ) ).mul( sub( 1.0, dt ) ).mul( 0.35 ) );
 
+	// ---- 沿流条痕(溪) ------------------------------------------------------
+	// detail.B 的条痕在流向坐标系里采样:顺流方向拉长(0.055)、横跨方向压缩
+	// (0.35),并以流速顺流滚动。强度走 A 通道(溪=1/池=0),岸缘与溪池交界由
+	// 烘焙羽化与线性过滤平滑过渡,没有肉眼可见的分界。池域 A=0,此项为零。
+
+	const flowTexel = sampleFlow( P );
+	const flowDir = flowTexel.rg.mul( 2.0 ).sub( 1.0 );
+	const flowSpeed = flowTexel.b;
+	const flowAlong = dot( P, flowDir );
+	const flowAcross = dot( P, vec2( flowDir.y.negate(), flowDir.x ) );
+	const flowStreak = uDetail.sample( vec2( flowAlong.mul( 0.055 ).sub( flowSpeed.mul( t ).mul( 0.055 ) ), flowAcross.mul( 0.35 ) ) ).b;
+	col.mulAssign( add( 1.0, flowStreak.sub( 0.5 ).mul( 0.30 ).mul( flowTexel.a ) ) );
+
 	// ---- shoreline foam ----------------------------------------------------
 	// Two out-of-phase swells plus a per-place offset: the wash arrives at
 	// different points of the beach at different times, which is the difference
@@ -205,6 +232,21 @@ const waterNormal = /*@__PURE__*/ Fn( ( [ vWXZ, vViewPosition, normal_immutable,
 	// layer scales at non-harmonic ratios.
 
 	const dist = length( vViewPosition );
+
+	// ---- 溪动池静 ---------------------------------------------------------
+	// 溪:三层法线的采样点沿 flowDir × flowSpeed × uTime 平移,取代该 texel 处
+	// 的全局风向滚动(flowK=1 时风偏移归零);池:flowDir=(0,0)、flowK=0,
+	// 域扭曲微动与既有风滚动原样保留。流速按水深衰减——浅水更慢。
+	// 溪池之间由流速通道的烘焙羽化过渡,不出现分界线。
+
+	const flowTexel = sampleFlow( vWXZ );
+	const flowDir = flowTexel.rg.mul( 2.0 ).sub( 1.0 );
+	const flowSpeed = flowTexel.b;
+	const flowK = smoothstep( 0.015, 0.12, flowSpeed );
+	const depthK = mix( 0.30, 1.0, smoothstep( 0.06, 0.9, gDepth ) );
+	const adv = flowDir.mul( flowSpeed ).mul( depthK ).mul( uTime );
+	const windK = sub( 1.0, flowK );
+
 	const wA = uDetail.sample( vWXZ.mul( 0.0072 ).add( vec2( 0.00090, 0.00061 ).mul( uTime ) ) ).bg.sub( 0.5 );
 	const wB = uDetail.sample( vWXZ.mul( 0.0231 ).sub( vec2( 0.00135, 0.00194 ).mul( uTime ) ) ).br.sub( 0.5 );
 	const Pw = vWXZ.add( wA.mul( 11.0 ) ).add( wB.mul( 2.6 ) );
@@ -214,9 +256,9 @@ const waterNormal = /*@__PURE__*/ Fn( ( [ vWXZ, vViewPosition, normal_immutable,
 	const r1 = mat2( 0.9285, 0.3714, - 0.3714, 0.9285 );
 	const r2 = mat2( - 0.2554, 0.9668, - 0.9668, - 0.2554 );
 	const r3 = mat2( 0.6157, - 0.7880, 0.7880, 0.6157 );
-	const nA = uSwell.sample( r1.mul( Pw ).mul( 0.0417 ).add( vec2( 0.0193, 0.0108 ).mul( uTime ) ) ).xyz.mul( 2.0 ).sub( 1.0 );
-	const nB = uChop.sample( r2.mul( Pw ).mul( 0.1123 ).sub( vec2( 0.0131, 0.0246 ).mul( uTime ) ) ).xyz.mul( 2.0 ).sub( 1.0 );
-	const nC = uChop.sample( r3.mul( Pw ).mul( 0.2971 ).add( vec2( - 0.0287, 0.0165 ).mul( uTime ) ) ).xyz.mul( 2.0 ).sub( 1.0 );
+	const nA = uSwell.sample( r1.mul( Pw.add( adv ) ).mul( 0.0417 ).add( vec2( 0.0193, 0.0108 ).mul( uTime ).mul( windK ) ) ).xyz.mul( 2.0 ).sub( 1.0 );
+	const nB = uChop.sample( r2.mul( Pw.add( adv ) ).mul( 0.1123 ).sub( vec2( 0.0131, 0.0246 ).mul( uTime ).mul( windK ) ) ).xyz.mul( 2.0 ).sub( 1.0 );
+	const nC = uChop.sample( r3.mul( Pw.add( adv ) ).mul( 0.2971 ).add( vec2( - 0.0287, 0.0165 ).mul( uTime ).mul( windK ) ) ).xyz.mul( 2.0 ).sub( 1.0 );
 
 	// Each layer's xy is expressed in its own rotated frame; multiplying the
 	// vector from the left applies the transpose, i.e. the inverse rotation, and
