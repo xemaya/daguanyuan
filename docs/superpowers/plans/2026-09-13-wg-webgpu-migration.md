@@ -47,7 +47,13 @@ playtest  PASS（/garden.html 全线）
 ## 全局约束
 
 - 工作目录 `~/Workspace/games/daguanyuan`，分支 `editor`。
-- **WG 期间不派任何并行任务。** 你独占渲染文件。若发现别人的改动进来了，停下来回报。
+- **单子 R 与你并行跑**（试玩反馈里的立即项）。它占：`builder/parts/pudi/`、
+  `builder/compose/composer.ts`、`builder/compose/terrain-from-plan.ts`、
+  `builder/parts/qiangyuan/`、`builder/parts/xiaomu/plaque.ts`。**一个都不许碰。**
+  除它以外**不再派别的并行任务**，渲染层是你独占的。
+- **唯一的接触面**：`luya.ts` 与 `vegetation.ts` 都只读 `import { TERRAIN } from '@builder/compose/terrain'`。
+  你拥有 `terrain.ts`,但**不要改 `TERRAIN` 的形状**——真要改,停下来回报,别让 R 在半路上崩。
+- R 会用 4821 端口,**你用 4801**。
 - 提交只按路径 `git add`，**不许 `git add -A`**（PITFALLS **P-19**）。
 - **不许 `git stash`**——要隔离量自己的改动，用 `git worktree add --detach /tmp/<名> <commit>`。
 - **不许用 TypeScript 参数属性、`enum`、`namespace`、装饰器**（**P-15**）。
