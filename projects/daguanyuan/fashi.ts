@@ -141,6 +141,20 @@ const FAMILY_LABEL: Record<string, string> = {
 };
 
 /**
+ * D2(2026-09-14 backlog):"程序化造型"原来把 qiangyuan/shishan/shuigong/zhiwu
+ * 四个门类拍平成一栏。按 builder/parts/ 的门类分栏,3 栏(大木作/斗拱本体/程序化
+ * 造型)变 5 栏(大木作/墙垣/叠山/水工/植物)——大木作、斗拱本体两栏本就独立,
+ * 这里只管原先被拍平的那一栏怎么拆。顺序按门类在墙-石-水-植物的观感递进排。
+ */
+const PROCEDURAL_CATEGORY: Record<string, string> = {
+  wall: '墙垣',       // builder/parts/qiangyuan/
+  taihu: '叠山',      // builder/parts/shishan/
+  bridge: '水工',     // builder/parts/shuigong/
+  bamboo: '植物',     // builder/parts/zhiwu/
+};
+const PROCEDURAL_CATEGORY_ORDER = ['墙垣', '叠山', '水工', '植物'];
+
+/**
  * 各族在册的展示变体。登记表只登记族、不管变体(变体语法写死在各构件
  * 文件里),所以变体清单只能按族列出;新族进柜时回退到 default。
  */
@@ -149,7 +163,11 @@ const FAMILY_VARIANTS: Record<string, string[]> = {
   bridge: ['default', 'bank', 'railing'],
   building: ['tang', 'ting', 'lang', 'men'],
   taihu: ['peak', 'mound', 'edge'],
-  wall: ['plain', 'moon', 'lattice', 'cloud'],
+  // D2(2026-09-14 backlog):原来只有一个泛用的 'lattice',其实走的是
+  // gexinGeometry 的 sub='' 分支(冰裂)——「万字不到头」这套纹样(sub='wan')
+  // 一直能通过 buildWall('lattice:wan') 生成,只是没进这张柜台,漏窗墙的三种
+  // 纹样(万字/冰裂/海棠,见 qiangyuan/wall.ts 的 SUBS)现在都各开一格。
+  wall: ['plain', 'moon', 'lattice:wan', 'lattice:ice', 'lattice:haitang', 'cloud'],
 };
 
 const VARIANT_LABEL: Record<string, Record<string, string>> = {
@@ -157,7 +175,12 @@ const VARIANT_LABEL: Record<string, Record<string, string>> = {
   bridge: { default: '曲桥', bank: '驳岸', railing: '栏杆' },
   building: { tang: '堂 · 三间歇山', ting: '亭 · 四角攒尖', lang: '廊 · 硬山', men: '门 · 五间硬山' },
   taihu: { peak: '独峰', mound: '假山组', edge: '驳岸石' },
-  wall: { plain: '直墙', moon: '月洞门墙', lattice: '漏窗墙', cloud: '云墙' },
+  wall: {
+    plain: '直墙', moon: '月洞门墙', cloud: '云墙',
+    'lattice:wan': '漏窗墙 · 万字',
+    'lattice:ice': '漏窗墙 · 冰裂',
+    'lattice:haitang': '漏窗墙 · 海棠',
+  },
 };
 
 function buildCatalog(): GalleryItem[] {
@@ -265,21 +288,6 @@ function componentCard(c: ComponentRec): HTMLElement {
   return card;
 }
 
-function ruleCard(r: RuleRec): HTMLElement {
-  const card = el('button', 'fashi-card');
-  card.type = 'button';
-  const meta = el('div', 'meta');
-  meta.style.padding = '12px';
-  meta.appendChild(el('div', 'name', r.name));
-  meta.appendChild(el('div', 'sub2', `${r.set}:${r.id}`));
-  const badges = el('div', 'badges');
-  badges.appendChild(statusBadge(r.status));
-  meta.appendChild(badges);
-  card.appendChild(meta);
-  card.addEventListener('click', () => openDetail(`${r.set}:${r.id}`));
-  return card;
-}
-
 function renderGallery(): void {
   const head = el('header', 'fashi-head');
   head.appendChild(el('h1', '', '营造法式图解'));
@@ -291,8 +299,6 @@ function renderGallery(): void {
 
   const buildings = CATALOG.filter((i) => i.kind === 'building');
   const procedural = CATALOG.filter((i) => i.kind === 'procedural');
-  const gapRules = ALL_RULES.filter((r) => r.status === 'refuted' || r.status === 'missing')
-    .sort((a, b) => (a.status === b.status ? `${a.set}:${a.id}`.localeCompare(`${b.set}:${b.id}`) : a.status === 'refuted' ? -1 : 1));
 
   const s1 = el('section', 'fashi-section');
   s1.appendChild(el('h2', '', '大木作'));
@@ -310,21 +316,21 @@ function renderGallery(): void {
   s2.appendChild(g2);
   app.appendChild(s2);
 
-  const s3 = el('section', 'fashi-section');
-  s3.appendChild(el('h2', '', '程序化造型'));
-  s3.appendChild(el('p', 'note', '墙、石、竹、桥没有营造规则出处,不给它们编一个;造型依据见 ART_DIRECTION.md'));
-  const g3 = el('div', 'fashi-grid');
-  for (const i of procedural) g3.appendChild(partCard(i));
-  s3.appendChild(g3);
-  app.appendChild(s3);
-
-  const s4 = el('section', 'fashi-section');
-  s4.appendChild(el('h2', '', '驳倒与缺失'));
-  s4.appendChild(el('p', 'note', '被两名核验者推翻的,与书里就是没有的——"我们不知道"也是可展示的内容'));
-  const g4 = el('div', 'fashi-grid');
-  for (const r of gapRules) g4.appendChild(ruleCard(r));
-  s4.appendChild(g4);
-  app.appendChild(s4);
+  // D2:程序化造型按门类拆成独立栏,不再拍平成一栏——见 PROCEDURAL_CATEGORY。
+  for (const category of PROCEDURAL_CATEGORY_ORDER) {
+    const items = procedural.filter((i) => PROCEDURAL_CATEGORY[i.part] === category);
+    if (items.length === 0) continue;
+    const s = el('section', 'fashi-section');
+    s.appendChild(el('h2', '', category));
+    s.appendChild(el('p', 'note', '没有营造规则出处,不给它编一个;造型依据见 ART_DIRECTION.md'));
+    const g = el('div', 'fashi-grid');
+    for (const i of items) g.appendChild(partCard(i));
+    s.appendChild(g);
+    app.appendChild(s);
+  }
+  // D2:「驳倒与缺失」栏撤掉——规则状态机(ALL_RULES/RuleRec.status)在代码里
+  // 不动,只是不再往这张展示页放;通过 openDetail 仍能点到具体规则的驳倒/
+  // 缺失状态,只是不再单独开一栏罗列。
 }
 
 /* ------------------------------------------------------------------ */
