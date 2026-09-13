@@ -1,4 +1,5 @@
 import { positionLocal, modelWorldMatrix, vec4, vec3, positionWorld, positionView, normalView, cameraPosition, cameraViewMatrix } from 'three/tsl';
+import { mrt, float } from 'three/tsl';
 import { bindUniforms } from './nodes/bindings';
 import { waterNodes } from './nodes/water';
 import * as THREE from 'three/webgpu';
@@ -160,6 +161,7 @@ export function buildWater(ctx: GameContext): void {
     dithering: true,
   });
 
+  // Transparent color blends normally; preserve opaque MRT normals underneath.
   const nodes = waterNodes(bindUniforms(uniforms));
   const restWorld = modelWorldMatrix.mul(vec4(positionLocal, 1)).xyz;
   mat.positionNode = positionLocal.add(vec3(0, nodes.waveHeight(restWorld, cameraPosition), 0));
@@ -172,6 +174,8 @@ export function buildWater(ctx: GameContext): void {
   mat.normalNode = nodes.waterNormal(positionWorld.xz, positionView.negate(), normalView, cameraViewMatrix, far, params.z, params.y);
   mat.emissiveNode = nodes.waterGlitter(positionWorld.xz, positionView.negate(), mat.normalNode, cameraViewMatrix, far, params.y);
 
+  // AO belongs to opaque radiance: transparent coverage attenuates AO without writing depth.
+  mat.mrtNode = mrt({ normal: vec4(0,0,0,0), aoMask: vec4(0,0,0,float(mat.opacityNode as import('three/src/nodes/core/Node.js').default<'float'>)) });
   const geometry = new THREE.PlaneGeometry(window.width,window.depth,Math.ceil(window.width/2),Math.ceil(window.depth/2));
   geometry.rotateX(-Math.PI/2);
   const mesh = new THREE.Mesh(geometry, mat);

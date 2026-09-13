@@ -1,4 +1,5 @@
 import { Fn, attribute, positionGeometry, positionLocal, modelWorldMatrix, modelWorldMatrixInverse, cameraPosition, vec2, vec3, vec4, uv, varying, uniform, texture, sin, mix, smoothstep as nodeSmoothstep, max, varyingProperty } from 'three/tsl';
+import { mrt, float } from 'three/tsl';
 import * as THREE from 'three/webgpu';
 import { makeRng, rangeOf, fbm2, smoothstep, clamp, lerp } from '@engine/core/Noise';
 import { NOISE, hexToRgb } from '@engine/core/TextureLab';
@@ -390,6 +391,9 @@ export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
     return mix(uniform(hazeColor.clone()),texel.rgb.mul(bright).mul(exposure).mul(warm),fade.mul(0.66).add(0.34));
   })();
   material.opacityNode = texel.a.mul(fade.mul(0.42).add(0.58));
+  // Transparent color blends normally; preserve opaque MRT normals underneath.
+  // AO belongs to opaque radiance: transparent coverage attenuates AO without writing depth.
+  material.mrtNode = mrt({ normal: vec4(0,0,0,0), aoMask: vec4(0,0,0,float(material.opacityNode as import('three/src/nodes/core/Node.js').default<'float'>)) });
   material.name = 'CloudBillboard';
 
   const geo = new THREE.PlaneGeometry(1, 1, 1, 1);

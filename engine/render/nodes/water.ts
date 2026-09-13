@@ -211,9 +211,9 @@ const waterNormal = /*@__PURE__*/ Fn( ( [ vWXZ, vViewPosition, normal_immutable,
 
 	// 21.8 deg, 104.8 deg, -52.0 deg.
 
-	const r1 = mat2( 0.9285, - 0.3714, 0.3714, 0.9285 );
-	const r2 = mat2( - 0.2554, - 0.9668, 0.9668, - 0.2554 );
-	const r3 = mat2( 0.6157, 0.7880, - 0.7880, 0.6157 );
+	const r1 = mat2( 0.9285, 0.3714, - 0.3714, 0.9285 );
+	const r2 = mat2( - 0.2554, 0.9668, - 0.9668, - 0.2554 );
+	const r3 = mat2( 0.6157, - 0.7880, 0.7880, 0.6157 );
 	const nA = uSwell.sample( r1.mul( Pw ).mul( 0.0417 ).add( vec2( 0.0193, 0.0108 ).mul( uTime ) ) ).xyz.mul( 2.0 ).sub( 1.0 );
 	const nB = uChop.sample( r2.mul( Pw ).mul( 0.1123 ).sub( vec2( 0.0131, 0.0246 ).mul( uTime ) ) ).xyz.mul( 2.0 ).sub( 1.0 );
 	const nC = uChop.sample( r3.mul( Pw ).mul( 0.2971 ).add( vec2( - 0.0287, 0.0165 ).mul( uTime ) ) ).xyz.mul( 2.0 ).sub( 1.0 );
