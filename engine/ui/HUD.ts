@@ -59,6 +59,7 @@ export class HUD {
   private hint: HTMLElement;
   private hintTimer = 0;
 
+  pauseSuppressed = (): boolean => false;
   private booted = false;
   private auto = false;
   /** Seconds left before an unlock is treated as a real pause. */
@@ -161,7 +162,7 @@ export class HUD {
   }
 
   private pauseIfUnlocked(): void {
-    if (this.auto || !this.booted) return;
+    if (this.auto || !this.booted || this.pauseSuppressed()) return;
     if (document.pointerLockElement === this.ctx.engine.renderer.domElement) return;
     this.start.show('paused', this.relockWait());
     this.ctx.engine.input.suspended = true;
@@ -187,7 +188,7 @@ export class HUD {
    * the game switches to drag-to-look rather than leaving the camera dead.
    */
   private onLockDenied(): void {
-    if (this.auto || !this.booted) return;
+    if (this.auto || !this.booted || this.pauseSuppressed()) return;
     const input = this.ctx.engine.input;
 
     if (input.lockFailures >= 2 || !input.lockSupported) {
@@ -260,6 +261,9 @@ export class HUD {
       this.start.hide();
       this.crosshair.classList.add('is-on');
       this.setFocus(this.ctx.interaction.focused);
+    } else if (this.pauseSuppressed()) {
+      this.wasPointerLocked = false;
+      this.lockReturn = 0;
     } else if (this.wasPointerLocked && this.booted && !this.auto) {
       this.wasPointerLocked = false;
       // Small grace period so a relock inside the same gesture cannot flash

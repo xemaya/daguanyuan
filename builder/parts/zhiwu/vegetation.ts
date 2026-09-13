@@ -1,3 +1,4 @@
+import { applyCanopyShadow } from './foliage-materials';
 import {allPlanLinears} from '@builder/plan/linears';
 import * as THREE from 'three';
 import { BoundsIndex } from '@engine/scatter/cluster';
@@ -1513,7 +1514,7 @@ export function buildVegetation(ctx: GameContext): void {
       haloStrength: 0.0,
       side: THREE.FrontSide,
     });
-  const barkMats: Record<BarkSet, THREE.MeshStandardMaterial> = {
+  const barkMats: Record<BarkSet, ReturnType<typeof createFoliageMaterial>> = {
     oak: makeBarkMat('oak'),
     ash: makeBarkMat('ash'),
     pale: makeBarkMat('pale'),
@@ -1576,12 +1577,12 @@ export function buildVegetation(ctx: GameContext): void {
       side: THREE.DoubleSide,
     });
 
-  const fringeMats: Record<LeafSet, THREE.MeshStandardMaterial> = {
+  const fringeMats: Record<LeafSet, ReturnType<typeof createFoliageMaterial>> = {
     warm: makeFringeMat('warm', clusterTex),
     cool: makeFringeMat('cool', clusterTex),
     needle: makeFringeMat('needle', clusterTex),
   };
-  const shrubMats: Record<'warm' | 'cool', THREE.MeshStandardMaterial> = {
+  const shrubMats: Record<'warm' | 'cool', ReturnType<typeof createFoliageMaterial>> = {
     warm: makeFringeMat('warm', shrubTex),
     cool: makeFringeMat('cool', shrubTex),
   };
@@ -1596,12 +1597,7 @@ export function buildVegetation(ctx: GameContext): void {
    * exposes the inside of the back, and a single-sided depth pass would then let
    * light through the *whole* crown rather than through one gap.
    */
-  const canopyDepthMat = new THREE.MeshDepthMaterial({
-    depthPacking: THREE.RGBADepthPacking,
-    alphaMap: canopyPerforationMap(),
-    alphaTest: 0.5,
-    side: THREE.DoubleSide,
-  });
+
 
   /* ---------------- species geometry ------------------------------- */
 
@@ -1797,7 +1793,7 @@ export function buildVegetation(ctx: GameContext): void {
     // onto the forest floor. See `canopyPerforationMap`. One shared depth
     // material across every species: it samples nothing species-specific, and a
     // material per species would be eight programs for one effect.
-    canopyMesh.customDepthMaterial = canopyDepthMat;
+    applyCanopyShadow(canopyMesh.material as THREE.Material);
     // All three meshes must share phases or the crown will sway off its own
     // trunk and the leaf cards will slide off the crown.
     canopyMesh.geometry.setAttribute('aWind', trunkMesh.geometry.getAttribute('aWind'));
@@ -1920,7 +1916,7 @@ export function buildVegetation(ctx: GameContext): void {
     canopyMat('cool', 0xaccb85, 1.5, 3.4),
     canopyMat('warm', 0xc6da9c, 1.25, 2.7),
   ];
-  const bushFringeMats: THREE.MeshStandardMaterial[] = [
+  const bushFringeMats: ReturnType<typeof createFoliageMaterial>[] = [
     shrubMats.warm, shrubMats.cool, shrubMats.warm,
   ];
 

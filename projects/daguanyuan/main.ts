@@ -21,6 +21,8 @@ const SPAWN = new THREE.Vector3(55, 0, 248);
 const SPAWN_YAW = 0;
 
 async function boot(): Promise<void> {
+  const bootStarted = performance.now();
+  const bootTimings: Record<string, number> = {};
   // P1 Task 6: `builder/` may not import `@project/plan.json` itself
   // (`check:layers`), so the project layer injects it once, before
   // `world.build()` walks its steps and reaches `buildTerrain`/`buildGarden`.
@@ -30,6 +32,8 @@ async function boot(): Promise<void> {
   const engine = new Engine(container);
   // Demand-built vegetation must warm the actual spawn before loading completes.
   engine.camera.position.copy(SPAWN);
+  await engine.init();
+  bootTimings.rendererInitMs = performance.now() - bootStarted;
   engine.initPost();
 
   const world = new World(engine);
@@ -43,7 +47,10 @@ async function boot(): Promise<void> {
 
   // Update order: input -> player -> world -> hud.
   engine.add({ name: 'player-sys', update: (dt) => player.update(dt) });
-  engine.add({ name: 'world-sys', update: (dt, t) => world.update(dt, t) });
+  engine.add({ name: 'world-sys', update: (dt, t) => {
+    if (engine.fixedTime !== null) world.ctx.env.windTime.value = engine.fixedTime - dt;
+    world.update(dt, t);
+  } });
   engine.add({ name: 'hud-sys', update: (dt) => hud.update(dt) });
   engine.add({ name: 'audio-sys', update: (dt) => audio.update(dt) });
 
@@ -57,6 +64,8 @@ async function boot(): Promise<void> {
     engine.input.suspended = false;
   });
   hud.root.appendChild(gardenMap.el);
+  gardenMap.el.addEventListener('click', (event) => event.stopPropagation());
+  hud.pauseSuppressed = () => gardenMap.visible;
 
   engine.add({
     name: 'map-sys',
@@ -106,11 +115,23 @@ async function boot(): Promise<void> {
     },
   });
 
+  // Cull before pipeline warmup using the backend-aligned projection. Future
+  // cells compile on demand instead of blocking initial readiness for the whole map.
+  world.update(0, engine.fixedTime ?? 0);
+  const compileStarted = performance.now();
+  await engine.renderer.compileAsync(engine.scene, engine.camera);
+  bootTimings.compileMs = performance.now() - compileStarted;
+  const firstFrameStarted = performance.now();
+  engine.postfx.render(0);
+  bootTimings.firstFrameMs = performance.now() - firstFrameStarted;
+  bootTimings.worldBuildMs = world.buildDurationMs;
+  bootTimings.readyMs = performance.now() - bootStarted;
+  console.info('[boot] timings', JSON.stringify(bootTimings));
   hud.hideLoading();
   engine.start();
 
   // Expose for the automated visual-QA harness.
-  Object.assign(window, { __GAME__: { engine, world, player, hud, THREE } });
+  Object.assign(window, { __GAME__: { engine, world, player, hud, THREE, bootTimings } });
   window.dispatchEvent(new CustomEvent('game:ready'));
   world.ctx.events.emit(EVENTS.WORLD_READY);
 
@@ -122,6 +143,7 @@ async function boot(): Promise<void> {
   // request made directly inside the gesture that triggered it, so nothing may
   // be awaited ahead of it — `audio.unlock()` follows for that reason.
   container.addEventListener('click', () => {
+    if (gardenMap.visible) return;
     engine.input.requestLock();
     audio.unlock();
   });

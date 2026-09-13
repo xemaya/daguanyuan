@@ -1,4 +1,6 @@
-import * as THREE from 'three';
+import { worldOffsetToLocal } from '@engine/render/nodes/position';
+import { positionLocal, attribute, uniform, vec2, vec3, sin, uv, texture, frontFacing, mix, float } from 'three/tsl';
+import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { registerPart, type PartBuild } from '@builder/parts/registry';
 import { bambooMaterial, CN } from '@builder/parts/materials';
@@ -15,7 +17,7 @@ import { bakeColorMap, bakeScalarMap, bakeNormalMap, cached, mixHex, hexToRgb, N
  *   叶  = 4 三角的披针形叶卡(alpha 卡裁形),3–5 片一簇挂在枝上,全丛一个 InstancedMesh。
  *   裙脚= 落叶土丘,竿脚埋进去(艺术圣经 §2.5 不穿地)。
  *
- * 风:两种材质的 onBeforeCompile 共享一个 uTime;竿/枝/叶用同一条"随高度平方
+ * 风:两种节点材质共享一个 uTime;竿/枝/叶用同一条"随高度平方
  * 增大"的摆动公式,所以叶不会从枝上滑走;叶再叠一层自己的高频小抖。
  *
  * draw calls:竿 + 枝 + 叶 + 土丘 = 4(grove 把五丛塞进同四个 mesh,仍是 4)。
@@ -218,7 +220,7 @@ function moundGeometry(rng: () => number, R: number, H: number, cx: number, cz: 
 const LEAF_BACK = 0x4d7236;
 
 /** 披针形叶:alpha 裁形 + 中脉 + 基深尖浅的渐变。 */
-function leafMaterial(uTime: { value: number }): THREE.MeshStandardMaterial {
+function leafMaterial(uTime: { value: number }): THREE.MeshStandardNodeMaterial {
   const halfWidth = (v: number) => {
     // 披针形:最宽在 30% 处,尖端收成针。
     const w = Math.pow(v, 0.45) * Math.pow(1 - v, 1.05);
@@ -244,7 +246,7 @@ function leafMaterial(uTime: { value: number }): THREE.MeshStandardMaterial {
     }),
   );
   const alphaMap = cached('cn.bamboo.leaf.alpha', () => bakeScalarMap(128, inside));
-  const mat = new THREE.MeshStandardMaterial({
+  const mat = new THREE.MeshStandardNodeMaterial({
     map,
     alphaMap,
     alphaTest: 0.5,
@@ -257,14 +259,13 @@ function leafMaterial(uTime: { value: number }): THREE.MeshStandardMaterial {
   const back = hexToRgb(LEAF_BACK);
   const front = hexToRgb(CN.bamboo);
   const backMul = [back[0] / front[0], back[1] / front[1], back[2] / front[2]].map((x) => x.toFixed(3));
-  attachWind(mat, uTime, true, `
-    if ( !gl_FrontFacing ) diffuseColor.rgb *= vec3( ${backMul.join(', ')} );
-  `);
+  attachWind(mat, uTime, true);
+  mat.colorNode = uniform(mat.color).rgb.mul(texture(map).rgb).mul(mix(vec3(...backMul.map(Number) as [number,number,number]),vec3(1),float(frontFacing)));
   return mat;
 }
 
 /** 落叶土。 */
-function litterMaterial(): THREE.MeshStandardMaterial {
+function litterMaterial(): THREE.MeshStandardNodeMaterial {
   const litter = (u: number, v: number) => {
     // 细长的枯叶条:各向异性 fbm 取阈值,两个方向叠一层免得全朝一边。
     const a = tileableFbm(NOISE.paint, u * 5, v * 1, 14, 2) * 0.5 + 0.5;
@@ -273,7 +274,7 @@ function litterMaterial(): THREE.MeshStandardMaterial {
     const mask = smoothstep(0.35, 0.6, w.f1);
     return clamp(smoothstep(0.66, 0.76, a) + smoothstep(0.68, 0.78, b) * 0.8, 0, 1) * (0.3 + mask * 0.7);
   };
-  return new THREE.MeshStandardMaterial({
+  return new THREE.MeshStandardNodeMaterial({
     roughness: 0.95,
     metalness: 0,
     map: cached('cn.bamboo.litter.albedo', () =>
@@ -311,57 +312,21 @@ function litterMaterial(): THREE.MeshStandardMaterial {
  * 每实例 aBWind = (竿相位, 竿振幅, 叶相位)。竿/枝/叶共用同一条随高度平方增大的
  * 摆动,所以叶不会从枝上滑走;叶再叠一层高频小抖(按 uv.y 从基到尖增大)。
  */
-function attachWind(
-  mat: THREE.MeshStandardMaterial,
-  uTime: { value: number },
-  leaf: boolean,
-  fragExtra = '',
-): void {
-  const flutter = leaf
-    ? `
-    float fl = sin( t * 3.1 + aBWind.z ) * 0.55 + sin( t * 5.7 + aBWind.z * 2.1 ) * 0.45;
-    mvPosition.xyz += vec3( ${WIND_DIR.x.toFixed(3)} * 0.5, 1.0, ${WIND_DIR.y.toFixed(3)} * 0.5 ) * fl * uv.y * 0.009;`
-    : '';
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uBTime = uTime;
-    shader.vertexShader = shader.vertexShader
-      .replace(
-        '#include <common>',
-        `#include <common>
-uniform float uBTime;
-#ifdef USE_INSTANCING
-attribute vec3 aBWind;
-#else
-const vec3 aBWind = vec3( 0.0 );
-#endif`,
-      )
-      .replace(
-        '#include <project_vertex>',
-        `vec4 mvPosition = vec4( transformed, 1.0 );
-#ifdef USE_INSTANCING
-  mvPosition = instanceMatrix * mvPosition;
-#endif
-{
-  float t = uBTime;
-  float h = clamp( mvPosition.y / ${NOMINAL_H.toFixed(2)}, 0.0, 1.0 );
-  float hh = h * h;
-  float s = sin( t * 0.85 + aBWind.x ) + sin( t * 1.9 + aBWind.x * 1.37 ) * 0.35;
-  vec2 dir = vec2( ${WIND_DIR.x.toFixed(4)}, ${WIND_DIR.y.toFixed(4)} );
-  vec2 sway = dir * s * aBWind.y * hh;
-  sway += vec2( -dir.y, dir.x ) * sin( t * 1.25 + aBWind.x * 0.71 ) * aBWind.y * 0.3 * hh;
-  mvPosition.xz += sway;${flutter}
-}
-mvPosition = modelViewMatrix * mvPosition;
-gl_Position = projectionMatrix * mvPosition;`,
-      );
-    if (fragExtra) {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <alphatest_fragment>',
-        `#include <alphatest_fragment>\n${fragExtra}`,
-      );
-    }
-  };
-  mat.customProgramCacheKey = () => (leaf ? 'cn.bamboo.leaf' : 'cn.bamboo.culm');
+function attachWind(mat: THREE.MeshStandardNodeMaterial, uTime: { value: number }, leaf: boolean): void {
+  const time = uniform(0).onFrameUpdate(() => uTime.value);
+  const wind = attribute<'vec3'>('aBWind', 'vec3');
+  // r185 positionLocal is already instance-transformed; do not multiply twice.
+  const h = positionLocal.y.div(NOMINAL_H).clamp(0,1).pow(2);
+  const wave = sin(time.mul(0.85).add(wind.x)).add(sin(time.mul(1.9).add(wind.x.mul(1.37))).mul(0.35));
+  const dir = vec2(WIND_DIR.x,WIND_DIR.y);
+  const sway = dir.mul(wave).mul(wind.y).mul(h).add(vec2(-WIND_DIR.y,WIND_DIR.x).mul(sin(time.mul(1.25).add(wind.x.mul(0.71)))).mul(wind.y).mul(0.3).mul(h));
+  let offset: import('three/src/nodes/core/Node.js').default<'vec3'> = vec3(sway.x,0,sway.y);
+  if (leaf) {
+    const flutter = sin(time.mul(3.1).add(wind.z)).mul(0.55).add(sin(time.mul(5.7).add(wind.z.mul(2.1))).mul(0.45));
+    offset = offset.add(vec3(WIND_DIR.x*0.5,1,WIND_DIR.y*0.5).mul(flutter).mul(uv().y).mul(0.009));
+  }
+  // NodeMaterial reuses this position for beauty, shadow and MRT normal/depth.
+  mat.positionNode = positionLocal.add(worldOffsetToLocal(offset));
 }
 
 /* ------------------------------------------------------------------ */
@@ -592,7 +557,8 @@ function build(variant: string): PartBuild {
     else mounds.push(moundGeometry(rng, 0.4, 0.07, c.cx, c.cz));
   }
 
-  const culmMat = bambooMaterial();
+  const culmMat = new THREE.MeshStandardNodeMaterial();
+  THREE.MeshStandardMaterial.prototype.copy.call(culmMat, bambooMaterial());
   attachWind(culmMat, uTime, false);
   const culmMesh = makeInstanced(culmSegmentGeometry(), culmMat, culm);
   culmMesh.name = 'bamboo.culm';

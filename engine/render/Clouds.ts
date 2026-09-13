@@ -1,4 +1,5 @@
-import * as THREE from 'three';
+import { Fn, attribute, positionGeometry, positionLocal, modelWorldMatrix, modelWorldMatrixInverse, cameraPosition, vec2, vec3, vec4, uv, varying, uniform, texture, sin, mix, smoothstep as nodeSmoothstep, max, varyingProperty } from 'three/tsl';
+import * as THREE from 'three/webgpu';
 import { makeRng, rangeOf, fbm2, smoothstep, clamp, lerp } from '@engine/core/Noise';
 import { NOISE, hexToRgb } from '@engine/core/TextureLab';
 
@@ -349,85 +350,9 @@ export interface CloudLayerOptions {
 export interface CloudLayer {
   group: THREE.Group;
   mesh: THREE.InstancedMesh;
-  material: THREE.ShaderMaterial;
+  material: THREE.MeshBasicNodeMaterial;
   update: (windTime: number) => void;
 }
-
-const CLOUD_VERT = /* glsl */ `
-  attribute vec2 aScale;
-  attribute vec2 aUvOff;
-  attribute vec3 aMisc;   // x brightness, y phase, z flipX
-
-  uniform float uTime;
-  uniform vec2  uUvInset;   // x = margin, y = usable span
-
-  varying vec2  vUv;
-  varying float vBright;
-  varying float vFade;
-
-  void main() {
-    vec3 center = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-    vec3 toCam = cameraPosition - center;
-    float dist = max(length(toCam), 1e-4);
-    vec3 f = toCam / dist;
-
-    // Y-locked billboard: the quad yaws to face the camera but never rolls,
-    // so cloud bases stay horizontal however the player turns.
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), f));
-    vec3 up = normalize(cross(f, right));
-
-    // Very slow convective breathing keeps a static sky from feeling like a
-    // matte painting.
-    float breathe = 1.0 + sin(uTime * 0.11 + aMisc.y) * 0.024;
-    float squash = 1.0 - sin(uTime * 0.09 + aMisc.y * 1.7) * 0.018;
-
-    vec2 p = position.xy * aScale * breathe;
-    p.y *= squash;
-    p.x *= aMisc.z;
-
-    vec3 world = center + right * p.x + up * p.y;
-
-    // Inset by a texel so bilinear taps can never reach the neighbouring
-    // atlas tile, which otherwise streaks a hairline across the sprite.
-    vUv = aUvOff + uUvInset.x + uv * uUvInset.y;
-    vBright = aMisc.x;
-
-    // Elevation above the viewer, used to sink low clouds into the haze band.
-    float el = (center.y - cameraPosition.y) / dist;
-    vFade = smoothstep(0.004, 0.085, el);
-
-    gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
-  }
-`;
-
-const CLOUD_FRAG = /* glsl */ `
-  precision highp float;
-
-  uniform sampler2D uMap;
-  uniform vec3  uHaze;
-  uniform vec3  uSunTint;
-  uniform float uExposure;
-  uniform float uOpacity;
-
-  varying vec2  vUv;
-  varying float vBright;
-  varying float vFade;
-
-  void main() {
-    vec4 t = texture2D(uMap, vUv);
-    if (t.a < 0.003) discard;
-
-    vec3 col = t.rgb * vBright * uExposure;
-    // Warm the sunlit highlights a touch; the bake stays neutral so a single
-    // atlas can serve any time of day.
-    col *= mix(vec3(1.0), uSunTint, smoothstep(0.62, 1.0, max(t.r, max(t.g, t.b))));
-    // Aerial perspective: clouds low on the horizon dissolve into the haze.
-    col = mix(uHaze, col, 0.34 + 0.66 * vFade);
-
-    float a = t.a * uOpacity * (0.58 + 0.42 * vFade);
-    gl_FragColor = vec4(col, a);
-  }
-`;
 
 export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
   const { seed, count, hazeColor, exposure } = opts;
@@ -435,28 +360,36 @@ export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
 
   const atlas = bakeCloudAtlas(seed);
 
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      uMap: { value: atlas },
-      uHaze: { value: hazeColor.clone() },
-      uSunTint: { value: new THREE.Color(1.07, 1.02, 0.93) },
-      uExposure: { value: exposure },
-      uOpacity: { value: 1.0 },
-      uTime: { value: 0 },
-      uUvInset: { value: new THREE.Vector2(1.5 / (TILE * 2), 0.5 - 3.0 / (TILE * 2)) },
-    },
-    vertexShader: CLOUD_VERT,
-    fragmentShader: CLOUD_FRAG,
-    transparent: true,
-    depthWrite: false,
-    // Depth *test* stays on so terrain and trees correctly occlude the sky
-    // layer; depth write stays off so clouds never fight each other.
-    depthTest: true,
-    side: THREE.DoubleSide,
-    fog: false,
-    toneMapped: false,
-    blending: THREE.NormalBlending,
+  const clock = uniform(0);
+  const material = new THREE.MeshBasicNodeMaterial({
+    transparent: true, depthWrite: false, depthTest: true, side: THREE.DoubleSide, fog: false,
   });
+  const miscNode = attribute<'vec3'>('aMisc', 'vec3');
+  // positionLocal has already received instanceMatrix in NodeMaterial.setupPosition.
+  // The instance translation is recovered by subtracting the unit quad position.
+  const centre = modelWorldMatrix.mul(vec4(positionLocal.sub(positionGeometry), 1)).xyz;
+  const toCam = cameraPosition.sub(centre);
+  const distance = toCam.length().max(0.0001);
+  const forward = toCam.div(distance);
+  const right = vec3(0, 1, 0).cross(forward).normalize();
+  const up = forward.cross(right).normalize();
+  const breathe = sin(clock.mul(0.11).add(miscNode.y)).mul(0.024).add(1);
+  const squash = sin(clock.mul(0.09).add(miscNode.y.mul(1.7))).mul(-0.018).add(1);
+  const quad = positionGeometry.xy.mul(attribute<'vec2'>('aScale', 'vec2')).mul(breathe).mul(vec2(miscNode.z,squash));
+  const fade = varyingProperty('float');
+  material.positionNode = Fn(() => {
+    fade.assign(nodeSmoothstep(0.004,0.085,centre.y.sub(cameraPosition.y).div(distance)));
+    return modelWorldMatrixInverse.mul(vec4(centre.add(right.mul(quad.x)).add(up.mul(quad.y)),1)).xyz;
+  })();
+  const bright = varying(miscNode.x);
+  const tileUV = varying(attribute<'vec2'>('aUvOff', 'vec2').add(1.5/(TILE*2)).add(uv().mul(0.5-3/(TILE*2))));
+  const texel = texture(atlas,tileUV);
+  material.colorNode = Fn(() => {
+    texel.a.lessThan(0.003).discard();
+    const warm = mix(vec3(1),vec3(1.07,1.02,0.93),nodeSmoothstep(0.62,1,max(texel.r,max(texel.g,texel.b))));
+    return mix(uniform(hazeColor.clone()),texel.rgb.mul(bright).mul(exposure).mul(warm),fade.mul(0.66).add(0.34));
+  })();
+  material.opacityNode = texel.a.mul(fade.mul(0.42).add(0.58));
   material.name = 'CloudBillboard';
 
   const geo = new THREE.PlaneGeometry(1, 1, 1, 1);
@@ -580,7 +513,7 @@ export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
     mesh,
     material,
     update: (windTime: number) => {
-      material.uniforms.uTime.value = windTime;
+      clock.value = windTime;
       // Whole-shell yaw. At 200-400 m this reads as slow lateral drift with no
       // wrap-around pop, and costs one matrix update per frame.
       group.rotation.y = windTime * 0.0016;

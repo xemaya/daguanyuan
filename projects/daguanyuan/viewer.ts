@@ -34,6 +34,11 @@ const angleName = params.get('angle') ?? 'three_quarter';
 const bg = params.get('bg') ?? 'studio';
 
 const container = document.getElementById('app')!;
+if (params.has('sample')) {
+  const { runSample } = await import('./wg-samples');
+  await runSample(container, params.get('sample')!);
+  return;
+}
 
 const renderer = new THREE.WebGPURenderer({ ...rendererOptions(), antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));

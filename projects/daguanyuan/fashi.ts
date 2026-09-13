@@ -14,12 +14,11 @@
  * 自动进柜,不在这里维护构件清单(变体清单是各构件文件自己约定的,登记表
  * 没有枚举 API,只能按族列出已知变体)。
  */
-import * as THREE from 'three';
+import * as THREE from 'three/webgpu';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { pass } from 'three/tsl';
+import { smaa } from 'three/addons/tsl/display/SMAANode.js';
+import { rendererOptions } from '@engine/core/renderer';
 import { buildPart, partNames, type PartBuild } from '@builder/parts/registry';
 import '@builder/parts/index';
 import { setPlan, type GardenPlan } from '@builder/compose/terrain';
@@ -333,7 +332,7 @@ function renderGallery(): void {
 /* ------------------------------------------------------------------ */
 
 function startTurntable(stage: HTMLElement, part: PartBuild): () => void {
-  const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGPURenderer({ ...rendererOptions(), antialias: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -341,6 +340,10 @@ function startTurntable(stage: HTMLElement, part: PartBuild): () => void {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   stage.appendChild(renderer.domElement);
+  let disposed = false;
+  let cleanup: (() => void) | undefined;
+  void renderer.init().then(() => {
+    if (disposed) { renderer.dispose(); return; }
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a3038);
@@ -413,19 +416,13 @@ function startTurntable(stage: HTMLElement, part: PartBuild): () => void {
   }
   frame();
 
-  const composer = new EffectComposer(
-    renderer,
-    new THREE.WebGLRenderTarget(stage.clientWidth || 2, stage.clientHeight || 2, { type: THREE.HalfFloatType, samples: 4 }),
-  );
-  composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new OutputPass());
-  composer.addPass(new SMAAPass());
+  const composer = new THREE.RenderPipeline(renderer, smaa(pass(scene,camera)));
 
   function resize(): void {
     const w = stage.clientWidth || 2;
     const h = stage.clientHeight || 2;
     renderer.setSize(w, h);
-    composer.setSize(w, h);
+
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
@@ -442,7 +439,7 @@ function startTurntable(stage: HTMLElement, part: PartBuild): () => void {
     composer.render();
   });
 
-  return () => {
+  cleanup = () => {
     observer.disconnect();
     renderer.setAnimationLoop(null);
     composer.dispose();
@@ -450,6 +447,8 @@ function startTurntable(stage: HTMLElement, part: PartBuild): () => void {
     renderer.dispose();
     renderer.domElement.remove();
   };
+  }).catch((error) => { if (!disposed) { console.error('[turntable]',error); stage.textContent = String(error); } });
+  return () => { disposed = true; cleanup?.(); renderer.domElement.remove(); };
 }
 
 /* ------------------------------------------------------------------ */

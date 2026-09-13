@@ -145,7 +145,7 @@ const page = await browser.newPage({
 
 const consoleErrors = [];
 page.on('console', (msg) => {
-  if (msg.type() === 'error') consoleErrors.push(msg.text());
+  if (msg.type() === 'error') { consoleErrors.push(msg.text()); console.error(msg.text().slice(0,1200)); }
 });
 page.on('pageerror', (err) => consoleErrors.push(`pageerror: ${err.message}`));
 
@@ -185,6 +185,17 @@ if (bootError) {
 // Let texture bakes, shader compiles and the first shadow update finish.
 await page.waitForTimeout(args.settle);
 
+await page.evaluate(() => {
+  const e = window.__GAME__.engine;
+  e.adaptiveResolution = false;
+  e.fixedTime = 10;
+  e.governResolution = () => {};
+  const world = window.__GAME__.world;
+  const update = world.update.bind(world);
+  world.update = (dt) => { world.ctx.env.windTime.value = 10 - dt; update(dt,10); };
+  e.renderer.setPixelRatio(1);
+  e.postfx.setSize(innerWidth, innerHeight);
+});
 const manifest = [];
 
 /** Waits until the game handle exists again after a reload. */
@@ -260,11 +271,14 @@ async function captureShot(shot, attempt = 0) {
       const info = g.engine.renderer.info;
       return {
         fps: Math.round(g.engine.fps),
-        drawCalls: info.render.calls,
+        drawCalls: info.render.drawCalls ?? info.render.calls,
+        renderer: g.engine.backend ?? 'webgl-legacy',
+        statisticsVersion: g.engine.statisticsVersion ?? 1,
+        statisticsScope: g.engine.statisticsVersion ? 'all-frame-submissions' : 'shadow-plus-main',
         triangles: info.render.triangles,
         textures: info.memory.textures,
         geometries: info.memory.geometries,
-        programs: info.programs ? info.programs.length : 0,
+        programs: info.programs ? info.programs.length : null,
       };
     });
 
@@ -289,9 +303,15 @@ for (const shot of selected) {
 
 const constructions = await page.evaluate(() =>
   window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.constructions ?? []);
+const rendering = await page.evaluate(() => {
+  const e = window.__GAME__.engine;
+  return { backend: e.backend ?? 'webgl-legacy', statisticsVersion: e.statisticsVersion ?? 1,
+    viewport: [innerWidth,innerHeight], pixelRatio: e.renderer.getPixelRatio(), quality: e.quality.name,
+    fixedTime: e.fixedTime, adaptiveResolution: e.adaptiveResolution, bootTimings: window.__GAME__.bootTimings };
+});
 const buildMs = await page.evaluate(() => window.__GAME__.world.buildDurationMs);
 const linears = await page.evaluate(() => window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.linears ?? []);
-writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ shots: manifest, consoleErrors, constructions, linears, buildMs }, null, 2));
+writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ shots: manifest, consoleErrors, constructions, linears, buildMs, rendering }, null, 2));
 
 if (consoleErrors.length) {
   console.log(`\n${consoleErrors.length} console error(s):`);
@@ -300,3 +320,5 @@ if (consoleErrors.length) {
 
 await browser.close();
 console.log(`\nWrote ${manifest.length} shot(s) to ${args.out}/`);
+
+if (consoleErrors.length) process.exitCode = 1;

@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'three/webgpu';
 import type { GameContext } from '@engine/core/Context';
 import { createSkyMaterial, createSkyUniforms, SKY_PALETTE } from './SkyShader';
 import { buildCloudLayer } from './Clouds';

@@ -419,7 +419,7 @@ export class InstanceCuller {
     camera.updateMatrixWorld();
     this.viewInverse.copy(camera.matrixWorld).invert();
     this.projScreen.multiplyMatrices(camera.projectionMatrix, this.viewInverse);
-    this.frustum.setFromProjectionMatrix(this.projScreen);
+    this.frustum.setFromProjectionMatrix(this.projScreen, camera.coordinateSystem, camera.reversedDepth);
     camera.getWorldPosition(this.camPos);
     const px = this.camPos.x;
     const py = this.camPos.y;
