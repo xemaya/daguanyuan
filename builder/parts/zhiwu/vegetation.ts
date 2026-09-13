@@ -1,6 +1,7 @@
 import { applyCanopyShadow } from './foliage-materials';
 import {allPlanLinears} from '@builder/plan/linears';
 import * as THREE from 'three';
+import { positionWorld, vec2, vec3, mix, add, mx_fractal_noise_float } from 'three/tsl';
 import { BoundsIndex } from '@engine/scatter/cluster';
 import {compileCorridor} from '@builder/plan/corridor-path';
 import {compileBridgePath} from '@builder/plan/bridge-path';
@@ -26,6 +27,7 @@ import {
   bakeCanopyShading,
 } from './foliage-materials';
 import { TERRAIN, getPlan } from '@builder/compose/terrain';
+import { makeGrassCoverField } from '@builder/compose/grass-cover';
 import {
   bananaClusterGeometry,
   wisteriaDrapeGeometry,
@@ -1461,6 +1463,9 @@ export function buildVegetation(ctx: GameContext): void {
   const ground = ctx.collision.groundHeight;
   const mask = makePlantMask(ctx);
   const clump = new Simplex(ctx.seed ^ 0x0c10ff);
+  // 草被疏密场(单子 T):grassDensity 与地形 masks.soil(露土)共用同一实现,
+  // 种子/频率与原内联写法逐字相同——草分布不因这次抽取而变。
+  const grassCover = makeGrassCoverField(ctx.seed);
 
   const group = new THREE.Group();
   group.name = 'Vegetation';
@@ -2347,6 +2352,18 @@ export function buildVegetation(ctx: GameContext): void {
     alphaToCoverage: true,
     side: THREE.DoubleSide,
   });
+  // ---- 草色相斑块(单子 T) ----------------------------------------------
+  // 世界坐标低频 fbm 调制乘进 colorNode,叠在逐簇 instanceColor 抖动之上
+  // (不替换,instanceColor 走 diffuseColor 链自动乘入):一片偏黄一片偏绿、
+  // 明度微差。强度刻意收敛——俯视看不出平铺感就够,不把草地画花。
+  {
+    const hueA = mx_fractal_noise_float(positionWorld.xz.mul(0.031), 2, 2.0, 0.55).mul(0.5).add(0.5).saturate();
+    const hueB = mx_fractal_noise_float(positionWorld.xz.mul(0.011).add(vec2(7.3, 2.9)), 2, 2.0, 0.55).mul(0.5).add(0.5).saturate();
+    const warmth = hueA.mul(0.62).add(hueB.mul(0.38));
+    const patchTint = mix(vec3(0.95, 1.01, 0.92), vec3(1.09, 1.01, 0.82), warmth);
+    const baseColor = grassMat.colorNode! as unknown as import('three/src/nodes/core/Node.js').default<'vec3'>;
+    grassMat.colorNode = baseColor.mul(patchTint).mul(add(0.94, hueB.mul(0.12)));
+  }
   // Two variants only: every extra variant multiplies the chunk draw calls, and
   // the per-instance yaw / non-uniform scale plus an eleven-blade texture
   // already make repeats impossible to spot.
@@ -2358,12 +2375,11 @@ export function buildVegetation(ctx: GameContext): void {
   const grassDensity = (x: number, z: number): number => {
     const m = mask.at(x, z);
     if (m < 0.12) return 0;
-    const patch = 0.68 + (fbm2(clump, x * 0.13, z * 0.13, 3) * 0.5 + 0.5) * 0.62;
-    // 低频斑块(PQ-5d):一汪一汪地稀下去,草稀处地表自然露出。只调密度,
-    // 不动着色——若还要更裸露的土色,那是材质活,留给 WG。下限 0.28:
-    // 再低正门前景一类的大片留白会秃成土场,0.28 保住「薄草见土」的读法。
-    const gapN = fbm2(clump, x * 0.023 + 53, z * 0.023 + 17, 2) * 0.5 + 0.5;
-    const gap = lerp(0.28, 1.0, smoothstep(0.34, 0.52, gapN));
+    const patch = grassCover.patch(x, z);
+    // 低频斑块(PQ-5d):一汪一汪地稀下去,草稀处地表自然露出。单子 T 起,
+    // 露土着色也接上了:masks.soil 与本场同一个 gapN(grass-cover.ts),
+    // 草稀处就是地表透土处,逐点对齐由 terrain-index 测试断言。
+    const gap = grassCover.gap(x, z);
     return clamp(Math.pow(m, 1.35) * patch * gap, 0, 1) * outsideBuildings(x, z, 0.05);
   };
 

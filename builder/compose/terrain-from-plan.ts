@@ -25,6 +25,7 @@ import { BoundsIndex } from '@engine/scatter/cluster';
 import {allPlanLinears,type LinearSpec} from '@builder/plan/linears';
 import {compileBridgePath} from '@builder/plan/bridge-path';
 import {terrainWindow} from '@builder/plan/window';
+import { makeGrassCoverField, bareSoilAmount } from './grass-cover';
 
 /* ------------------------------------------------------------------ */
 /* plan.json 的数据契约（只取本模块消费的字段）                          */
@@ -105,6 +106,17 @@ export interface SurfaceMasks {
   wear: number;
   /** 苔化权重（07-41「土地下蒼苔布滿」），来自 plan 里 mossInside 的墙体线性。 */
   moss: number;
+  /**
+   * 露土权重（单子 T）。仅当草皮是兜底材质（非路非铺装非沙非苔）且草被
+   * 低频洼地（grass-cover 的 gapN）落到阈值以下时生效——与 vegetation.ts
+   * 的 grassDensity 同源同判定，草稀处就是露土处。打包在扩展 splat 的 R。
+   */
+  soil: number;
+  /**
+   * 湿痕权重（单子 T）。水线 ±1.2m 且高程贴近水面（waterLevel=0）的地带，
+   * 复用沙带那趟水线距离计算。打包在扩展 splat 的 G。
+   */
+  wet: number;
 }
 
 export interface TerrainField {
@@ -321,6 +333,8 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
   const nWear = new Simplex((seed * 17 + 88301) | 0);
   const nScuff = new Simplex((seed * 19 + 60623) | 0);
   const nRim = new Simplex((seed * 23 + 1543) | 0);
+  // 草被疏密场:masks.soil(露土)与 vegetation 的 grassDensity 共用同一实现。
+  const grassCover = makeGrassCoverField(seed);
 
   /** 双 warp：粗项扭整体边界，细项咬碎最后半米。频率按 500m 画布缩过。 */
   function warp2(x: number, z: number, amp1: number, f1: number, amp2: number, f2: number): [number, number] {
@@ -746,12 +760,17 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
 
     // 水线一圈浅滩沙。园子里没有海滩，这只是池岸的湿脚。
     let sand = 0;
+    // 湿痕(单子 T)与沙带同一趟水线距离计算:更窄的一圈(±1.2m),
+    // 够不够湿还要再看高程贴不贴水面(下面 wet 一段)。
+    let wetBand = 0;
     for (const w of indexed ? waterIndex.query(x, z) : waters) {
       if (!inBBox(x, z, w, 3.5)) continue;
       const [wx, wz] = warp2(x, z, w.warpA, 0.06, w.warpB, 0.24);
       const sd = signedDist(wx, wz, w);
       const band = smoothstep(2.0, 0.2, sd) * smoothstep(-2.8, -0.6, sd);
       if (band > sand) sand = band * 0.85;
+      const wb = smoothstep(1.2, 0.35, Math.abs(sd));
+      if (wb > wetBand) wetBand = wb;
     }
 
     // 路与草皮的边界：形状不规则还不够，性格也不能均匀——
@@ -799,10 +818,29 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       if (m > moss) moss = m;
     }
     moss = clamp(moss, 0, 1) * (1 - path.w * 0.85) * (1 - Math.max(cobble, slab)) * 0.85;
-    // 苔多草稀：苔化的地面把草皮权重让出来一点，院内读成苔地而不是草坪。
-    const grassOut = clamp(grass * (1 - moss * 0.55), 0, 1);
 
-    return { dirt, cobble, slab, sand, grass: grassOut, wear, moss };
+    // 露土(单子 T):草被低频洼地落到阈值以下,且草皮是兜底材质
+    // (非路非铺装非沙非苔)时,地面透出真土。与 vegetation.ts 的
+    // grassDensity 调同一个 grass-cover 场:草稀处就是露土处,逐点对齐。
+    const fallback = clamp(1 - sand - Math.max(cobble, slab) - dirt, 0, 1);
+    const soil = clamp(
+      bareSoilAmount(grassCover.gapN(x, z)) * fallback * (1 - Math.min(1, moss * 1.2)) * 0.9,
+      0,
+      1,
+    );
+    // 苔多草稀：苔化的地面把草皮权重让出来一点，院内读成苔地而不是草坪。
+    // 露土再从草皮里扣——土是从草里露出来的，不是盖在草上的一层。
+    const grassOut = clamp(grass * (1 - moss * 0.55) - soil, 0, 1);
+
+    // 湿痕(单子 T):水线 ±1.2m 之内,还要高程贴近水面(0,terrain.ts 的
+    // ctx.terrain.waterLevel)——岸坡上离地高的部分不湿。只在湿带候选点
+    // 才采样 height(),1024² 烘焙里这趟成本只落在池岸一圈。
+    let wet = 0;
+    if (wetBand > 0.01) {
+      wet = wetBand * smoothstep(0.42, 0.12, Math.abs(height(x, z))) * 0.92;
+    }
+
+    return { dirt, cobble, slab, sand, grass: grassOut, wear, moss, soil, wet };
   }
 
   function surface(x: number, z: number): string {

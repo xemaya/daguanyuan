@@ -14,6 +14,7 @@ import {
   packScalarQuad,
 } from '@engine/render/TerrainMaterials';
 import { makeTerrainField, type GardenPlan, type SurfaceMasks } from './terrain-from-plan';
+import { bakeSplatMainData, bakeSplatExtData } from './splat';
 
 export type { GardenPlan };
 
@@ -106,30 +107,13 @@ export const TERRAIN = {
 /* Splat bake                                                          */
 /* ------------------------------------------------------------------ */
 
-type Field = ReturnType<typeof makeTerrainField>;
-
 /** Bake world-space masks at 1024²; F removes repeated work rather than thinning this field.
  *
- *  通道打包（单子 N 铺地之后四通道要装六种权重，0.5 是分档线）：
- *    R dirt ｜ G <0.5=石子漫(cobble)×2、≥0.5=石板(slab)×2−1 ｜
- *    B <0.5=浅滩沙×2、≥0.5=苔(moss)×2−1 ｜ A wear
- *  G 里 cobble 与 slab 的区域在空间上不相邻（潇湘馆 vs 正门），B 里 moss 让位给
- *  sand（见 masks()，苔带与水线沙带重叠处留沙）——mipmap 平均出来的中间值只会
- *  出现在各自区域的边缘羽化带上，解码后仍是合法的弱权重，不会串成另一种材质。 */
-function bakeSplat(field: Field, size = 1024): THREE.DataTexture {
-  const data = new Uint8Array(size * size * 4);
-  for (let j = 0; j < size; j++) {
-    const z = TERRAIN.minZ + ((j + 0.5) / size) * TERRAIN.depth;
-    for (let i = 0; i < size; i++) {
-      const x = TERRAIN.minX + ((i + 0.5) / size) * TERRAIN.width;
-      const m = field.masks(x, z);
-      const o = (j * size + i) * 4;
-      data[o] = m.dirt * 255;
-      data[o + 1] = m.slab > 0 ? 128 + Math.min(127, m.slab * 127) : m.cobble * 127;
-      data[o + 2] = m.sand > 0.02 ? Math.min(127, m.sand * 127) : 128 + m.moss * 127;
-      data[o + 3] = m.wear * 255;
-    }
-  }
+ *  两张图的通道打包格式与纯像素循环都在 ./splat.ts（不依赖 three，测试直接
+ *  断言同输入同字节流）；这里只包 DataTexture。主 splat 四通道装满
+ *  dirt/pave/sand-moss/wear，单子 T 的露土(soil)与湿痕(wet)在扩展 splat 的
+ *  R/G，B/A 留空备用。 */
+function splatTexture(data: Uint8Array, size = 1024): THREE.DataTexture {
   const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -188,7 +172,8 @@ export function buildTerrain(ctx: GameContext): void {
   const dirt = timed('dirt maps', () => sharpen(trackEarthMaps()));
   const cobble = timed('cobble maps', () => sharpen(cobbleMaps()));
   const sand = timed('sand maps', () => sharpen(sandMaps()));
-  const splat = timed('splat', () => bakeSplat(field));
+  const splat = timed('splat', () => splatTexture(bakeSplatMainData(field, TERRAIN)));
+  const splatExt = timed('splat ext', () => splatTexture(bakeSplatExtData(field, TERRAIN)));
   const warp = timed('warp', () => terrainWarpTexture());
   const nrmTD = packNormalPair('turf-dirt', turf.normalMap, dirt.normalMap);
   const nrmCS = packNormalPair('cobble-sand', cobble.normalMap, sand.normalMap);
@@ -210,6 +195,7 @@ export function buildTerrain(ctx: GameContext): void {
 
   const uniforms = {
     uSplat: { value: splat },
+    uSplat2: { value: splatExt },
     uWarp: { value: warp },
     uTurfMap: { value: turf.map },
     uDirtMap: { value: dirt.map },

@@ -6,6 +6,7 @@ export function terrainNodes(bindings): Record<string, (...args: any[]) => any> 
 
 
 const uSplat = bindings.uSplat;
+const uSplat2 = bindings.uSplat2;
 const uWarp = bindings.uWarp;
 const uTurfMap = bindings.uTurfMap;
 const uDirtMap = bindings.uDirtMap;
@@ -84,6 +85,10 @@ const terrainSurface = /*@__PURE__*/ Fn( ( [ vTerXZ, vTerH, vTerN ] ) => {
 
 	const sUv = tXZ.add( warpOff ).sub( uExtent.xy ).div( uExtent.zw );
 	const sp = uSplat.sample( clamp( sUv, vec2( 0.0015 ), vec2( 0.9985 ) ) );
+
+	// 扩展 splat(单子 T):R=soil 露土、G=wet 湿痕,无分档,同一副 warp 后的 UV。
+
+	const sp2 = uSplat2.sample( clamp( sUv, vec2( 0.0015 ), vec2( 0.9985 ) ) );
 
 	// 通道打包解码(见 bakeSplat 注释):G 0.5 以下石子漫、以上石板;B 0.5 以下沙、以上苔。
 	// 分档线两侧用一小段 smoothstep 软过渡——mip 平均出的中间值落在过渡带里,
@@ -275,6 +280,33 @@ const terrainSurface = /*@__PURE__*/ Fn( ( [ vTerXZ, vTerH, vTerN ] ) => {
 
 	const damp = smoothstep( 0.40, 0.05, vTerH ).mul( bl.x ).mul( add( 0.30, macroM.mul( 0.95 ) ) );
 	albedo.mulAssign( mix( vec3( 1.0 ), vec3( 0.745, 0.885, 0.785 ), clamp( damp, 0.0, 1.0 ).mul( 0.62 ) ) );
+
+	// ---- 露土(单子 T) ---------------------------------------------------
+	// soil 权重与草散布的 gap 场同源(builder/compose/grass-cover.ts):
+	// 草稀处地表同步透土。土色比园路 dirt 更暗更饱和——园路是走熟的浮土,
+	// 露土是草皮啃出的生土。过渡带用 w2/w3 高频把边界咬成颗粒,
+	// 一条 smoothstep 渐变带会读成画上去的污渍。
+
+	const soilGrain = smoothstep( 0.28, 0.74, w2.b.mul( 0.55 ).add( w3.b.mul( 0.45 ) ) );
+	const soilAmt = (clamp( sp2.r.mul( add( 0.55, soilGrain.mul( 0.85 ) ) ), 0.0, 1.0 ).mul( bl.x )).toVar();
+	const aSoil = (uDirtMap.sample( uvD2.mul( 2.30 ).add( vec2( 1.7, 3.9 ) ) ).rgb).toVar();
+
+	// 提饱和、压暗、暖化。在宏观染色之后混入,绿色 tint 不会污染土色。
+
+	aSoil.assign( mix( vec3( dot( aSoil, LUM ) ), aSoil, 1.30 ) );
+	aSoil.assign( aSoil.mul( 0.50 ).mul( vec3( 1.34, 0.92, 0.60 ) ) );
+	albedo.assign( mix( albedo, aSoil, soilAmt.mul( 0.92 ) ) );
+	rgh.assign( mix( rgh, 0.96, soilAmt.mul( 0.85 ) ) );
+
+	// ---- 湿痕(单子 T) ----------------------------------------------------
+	// masks.wet:水线 ±1.2m 且高程贴水面的地带。湿处 turf/sand/soil 变暗、
+	// roughness 明显降低;w2.a 让湿边斑驳,不是一圈均匀的灰带。与下面按
+	// 高度的旧岸线 damp 带互补:那个管雨水洼地,这个管池岸。
+
+	const wetM = (clamp( sp2.g.mul( add( 0.70, w2.a.mul( 0.55 ) ) ), 0.0, 1.0 )).toVar();
+	const wetTargets = clamp( bl.x.add( bl.w ).add( soilAmt ), 0.0, 1.0 );
+	albedo.mulAssign( mix( vec3( 1.0 ), vec3( 0.56, 0.55, 0.57 ), wetM.mul( wetTargets ).mul( 0.85 ) ) );
+	rgh.assign( mix( rgh, 0.15, wetM.mul( wetTargets ).mul( 0.85 ) ) );
 
 	// ---- shoreline damp band ---------------------------------------------
 	// Tight around the waterline: a wide gradient turns the whole beach grey.
