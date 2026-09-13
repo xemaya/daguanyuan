@@ -552,6 +552,28 @@
       "needs": [],
       "paramSet": "none",
       "notes": "2026-09-11 加入时即声明为临时;落点 P5 或发布前的收口清单。"
+    },
+    {
+      "id": "99-28",
+      "name": "一座五间 Tier A 门屋该不该走江南参数集",
+      "status": "missing",
+      "statement": "正门是五间 Tier A 门屋,现走 `fashi`(清官式)参数集,其 `Frame` 没有 `ridgeStyle` 字段;卷棚/软脊只在 `fayuan`(江南)参数集里实现(`builder/derive/fayuan/building.ts:69`)。07-76 已指出原著用江南词描述这座门(「泥鳅脊」本身就是江南脊名),要给正门上软脊须二选一:给 fashi 加 ridgeStyle 自由度,或把正门改由 fayuan 推导——后者要先裁定这条。现状是 menSpec 继续走 fashi,是绕开,没有解决。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/qingshi/07-honglou.md 07-76",
+          "builder/parts/damu/building.ts",
+          "builder/derive/fayuan/building.ts"
+        ],
+        "keywords": [
+          "menSpec fashi ridgeStyle",
+          "泥鳅脊 江南参数集",
+          "Tier A 门屋 参数集裁定"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-13 backlog B3 补记;单子 P 当时守规矩没碰 missing.rules.json,那时划给了别人,留下这条没记。"
     }
   ]
 }
