@@ -48,6 +48,10 @@ export interface BuildingSpec {
   /** 檐柱高覆盖(分)。 */
   columnHeightFen?: number;
   columnDiameterFen?: number;
+  /** 屋脊做法:raised=起脊(缺省,现状);rolled=卷棚(省正脊)。
+   *  规则表未收 fashi 屋脊做法,给了非缺省值须在消费处记 provenance.art
+   *  [07-72]。fayuan 参数集另有同名字段,两条链独立实现,互不借用。 */
+  ridgeStyle?: 'raised' | 'rolled';
 }
 
 export interface Frame {
@@ -56,6 +60,8 @@ export interface Frame {
   zhu: Zhu;
   juzhe: Juzhe;
   yanchu: Yanchu;
+  /** 缺省 raised(现状起脊);见 BuildingSpec.ridgeStyle。 */
+  ridgeStyle: 'raised' | 'rolled';
   /** 这一栋屋每个数字的来路,分证据/推定/艺术三支。 */
   provenance: Provenance;
   /** 以下全部为米。 */
@@ -159,6 +165,7 @@ export function deriveWithBook(book: RuleBook, spec: BuildingSpec, era: Era = 's
     zhu,
     juzhe,
     yanchu: yc,
+    ridgeStyle: spec.ridgeStyle ?? 'raised',
     m: {
       columnX,
       depthHalf: (depthFen / 2) * f,

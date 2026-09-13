@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { registerPart, type PartBuild } from '@builder/parts/registry';
 import { deriveBuilding, type BuildingSpec, type Frame } from '@builder/derive/index';
 import { deriveFayuanBuilding, type FayuanBuildingSpec, type FayuanBuildingFrame } from '@builder/derive/fayuan/building';
@@ -61,8 +62,10 @@ export interface BuildingOptions {
   gatehouse?: boolean;
   /** 台基石作:青石(缺省)/白石(07-01「白石台磯」)。 */
   plinthMaterial?: 'stone' | 'whiteStone';
-  /** 格扇/槛窗的格心纹样:给了就换用墙垣的格心生成器(PQ-2);缺省保留步步锦。 */
-  lattice?: 'ice' | 'wan' | 'haitang';
+  /** 格扇/槛窗的格心纹样:ice/wan/haitang 走墙垣的格心生成器(PQ-2),
+   *  lantern(灯笼锦,07-72③)是本文件自己的生成器——gexinGeometry 不认这个名字;
+   *  缺省保留步步锦。 */
+  lattice?: 'ice' | 'wan' | 'haitang' | 'lantern';
   seed?: number;
 }
 
@@ -199,12 +202,57 @@ function ridgeTube(points: THREE.Vector3[], r: number, mat: THREE.Material): THR
   return mesh;
 }
 
+/** 灯笼锦格心:方格骨架(整根,不错位)+ 每格内接一个菱花,是"灯笼"读法的来处。
+ *  与 wan(万字不到头)、ice(冰裂)同层但另起一支——qiangyuan/wall.ts 的
+ *  gexinGeometry 不认这个纹样名(未知 sub 会被它当 ice 处理),所以另写,不复用。 */
+function lanternLatticeGeometry(w: number, h: number, bar: number): THREE.BufferGeometry {
+  const cell = 0.3;
+  const nx = Math.max(2, Math.round(w / cell));
+  const ny = Math.max(2, Math.round(h / cell));
+  const cw = w / nx;
+  const ch = h / ny;
+  const depth = bar * 0.9;
+  const geos: THREE.BufferGeometry[] = [];
+  const addSeg = (x0: number, y0: number, x1: number, y1: number) => {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    if (len < 1e-4) return;
+    const geo = new THREE.BoxGeometry(len, bar, depth);
+    geo.rotateZ(Math.atan2(y1 - y0, x1 - x0));
+    geo.translate((x0 + x1) / 2, (y0 + y1) / 2, 0);
+    geos.push(geo);
+  };
+  for (let i = 0; i <= nx; i++) {
+    const x = -w / 2 + i * cw;
+    addSeg(x, -h / 2, x, h / 2);
+  }
+  for (let j = 0; j <= ny; j++) {
+    const y = -h / 2 + j * ch;
+    addSeg(-w / 2, y, w / 2, y);
+  }
+  for (let i = 0; i < nx; i++) {
+    for (let j = 0; j < ny; j++) {
+      const cx = -w / 2 + (i + 0.5) * cw;
+      const cy = -h / 2 + (j + 0.5) * ch;
+      const hx = cw / 2 - bar * 0.6;
+      const hy = ch / 2 - bar * 0.6;
+      addSeg(cx - hx, cy, cx, cy - hy);
+      addSeg(cx, cy - hy, cx + hx, cy);
+      addSeg(cx + hx, cy, cx, cy + hy);
+      addSeg(cx, cy + hy, cx - hx, cy);
+    }
+  }
+  const merged = mergeGeometries(geos.map((g) => g.toNonIndexed()), false);
+  if (!merged) throw new Error('lantern lattice merge failed');
+  return merged;
+}
+
 /* ------------------------------------------------------------------ */
 /* 格扇                                                                */
 /* ------------------------------------------------------------------ */
 
-/** 一扇格扇:上部花格(万字/冰裂/步步锦)、下部裙板。 */
-function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Material, seed: number, pattern?: 'ice' | 'wan' | 'haitang'): THREE.Group {
+/** 一扇格扇,清式标准三段:下裙板(浅浮雕)、中绦环板(浅浮雕缠枝)、上格心(纹样)。
+ *  07-72③:纹样原著未写死(「细雕新鲜花样」不是具体名字),这里 artChoice 换掉万字。 */
+function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Material, seed: number, pattern?: 'ice' | 'wan' | 'haitang' | 'lantern'): THREE.Group {
   const g = new THREE.Group();
   const bar = 0.035;
   const frameD = 0.05;
@@ -222,18 +270,80 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
   add(0, -h / 2 + bar / 2, w, bar);
   add(-w / 2 + bar / 2, 0, bar, h);
   add(w / 2 - bar / 2, 0, bar, h);
-  // 抹头:裙板与花格的分界在 0.38h。
-  const split = -h / 2 + h * 0.38;
-  add(0, split, w, bar);
-  add(0, split + bar * 1.6, w, bar * 0.6, frameD * 0.8);
-  // 裙板。
-  const skirt = new THREE.Mesh(roundedBox(w - bar * 2, h * 0.38 - bar * 1.5, 0.03, 0.005, 2), mat);
-  skirt.position.set(0, (-h / 2 + split) / 2, 0);
+  // 抹头:下·裙板 0~28%h,中·绦环板一条窄带(clamp,矮格扇也不挤没),上·格心余下。
+  const skirtTop = -h / 2 + h * 0.28;
+  const tiaoH = clamp(h * 0.12, 0.07, 0.2);
+  const tiaoTop = skirtTop + tiaoH;
+  const addRail = (y: number) => {
+    add(0, y, w, bar);
+    add(0, y + bar * 1.6, w, bar * 0.6, frameD * 0.8);
+  };
+  addRail(skirtTop);
+  addRail(tiaoTop);
+  // 下·裙板:素板 + 浅浮雕(起线边框 + 中心团花),按 §10"木作更克制"从简。
+  const skirtW = w - bar * 2;
+  const skirtH = skirtTop - (-h / 2) - bar * 1.5;
+  const skirtCY = (-h / 2 + skirtTop) / 2;
+  const skirt = new THREE.Mesh(roundedBox(skirtW, skirtH, 0.03, 0.005, 2), mat);
+  skirt.position.set(0, skirtCY, 0);
   skirt.receiveShadow = true;
   g.add(skirt);
-  // 花格:窗纸打底。给了纹样就用墙垣的格心生成器(PQ-2,直箱棂条),
-  // 没给保留带错位的"步步锦"方格。
-  const gy0 = split + bar * 2.2;
+  {
+    const inset = Math.min(skirtW, skirtH) * 0.16;
+    const fb = 0.012;
+    const rz = 0.03 / 2 + fb / 2;
+    const bw = skirtW - inset * 2;
+    const bh = skirtH - inset * 2;
+    if (bw > 0.05 && bh > 0.05) {
+      const frameBar = (x: number, y: number, sx: number, sy: number) => {
+        const bm = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, fb), mat);
+        bm.position.set(x, skirtCY + y, rz);
+        bm.castShadow = true;
+        g.add(bm);
+      };
+      frameBar(0, bh / 2, bw, fb);
+      frameBar(0, -bh / 2, bw, fb);
+      frameBar(-bw / 2, 0, fb, bh);
+      frameBar(bw / 2, 0, fb, bh);
+      const medallion = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(bw, bh) * 0.22, Math.min(bw, bh) * 0.22, fb, 10), mat);
+      medallion.rotation.x = Math.PI / 2;
+      medallion.position.set(0, skirtCY, rz + fb * 0.4);
+      medallion.castShadow = true;
+      g.add(medallion);
+    }
+  }
+  // 中·绦环板:浅浮雕缠枝卷草——复用脊那根 ridgeTube,一条波形藤蔓 + 几个卷叶点。
+  const tiaoW = w - bar * 2;
+  const tiaoCY = (skirtTop + tiaoTop) / 2;
+  const tiaoBoard = new THREE.Mesh(roundedBox(tiaoW, tiaoH - bar * 1.5, 0.025, 0.004, 2), mat);
+  tiaoBoard.position.set(0, tiaoCY, 0);
+  tiaoBoard.receiveShadow = true;
+  g.add(tiaoBoard);
+  if (tiaoW > 0.2) {
+    const reliefZ = 0.025 / 2 + 0.012;
+    const halfSpan = tiaoW / 2 - 0.06;
+    const amp = Math.min(tiaoH, 0.16) * 0.24;
+    const vinePts: THREE.Vector3[] = [];
+    const nSeg = 6;
+    for (let i = 0; i <= nSeg; i++) {
+      const t = i / nSeg;
+      const x = lerp(-halfSpan, halfSpan, t);
+      const y = tiaoCY + Math.sin(t * Math.PI * 2.2) * amp;
+      vinePts.push(new THREE.Vector3(x, y, reliefZ));
+    }
+    g.add(ridgeTube(vinePts, Math.min(0.012, tiaoH * 0.12), mat));
+    for (const t of [0.18, 0.5, 0.82]) {
+      const x = lerp(-halfSpan, halfSpan, t);
+      const y = tiaoCY + Math.sin(t * Math.PI * 2.2) * amp;
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(Math.min(0.022, tiaoH * 0.2), 6, 4), mat);
+      leaf.scale.set(1, 0.55, 0.5);
+      leaf.position.set(x, y + amp * 0.55, reliefZ + 0.014);
+      leaf.castShadow = true;
+      g.add(leaf);
+    }
+  }
+  // 格心:窗纸打底,纹样按 pattern 生成(见下方 gexinGeometry / lanternLatticeGeometry)。
+  const gy0 = tiaoTop + bar * 2.2;
   const gy1 = h / 2 - bar;
   const gh = gy1 - gy0;
   const gw = w - bar * 2;
@@ -241,7 +351,8 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
   p.position.set(0, (gy0 + gy1) / 2, 0);
   g.add(p);
   if (pattern) {
-    const lattice = new THREE.Mesh(gexinGeometry(pattern, gw, gh, 0.02, seed, true), mat);
+    const geo = pattern === 'lantern' ? lanternLatticeGeometry(gw, gh, 0.02) : gexinGeometry(pattern, gw, gh, 0.02, seed, true);
+    const lattice = new THREE.Mesh(geo, mat);
     lattice.position.set(0, (gy0 + gy1) / 2, 0);
     lattice.castShadow = true;
     lattice.receiveShadow = true;
@@ -283,6 +394,21 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const fr = 'paramSet' in opts.spec ? deriveFayuanBuilding(opts.spec) : deriveBuilding(opts.spec);
   const legacy = 'cai' in fr ? fr : null;
   const rolled = 'ridgeStyle' in fr && fr.ridgeStyle === 'rolled';
+  if (legacy && rolled) {
+    fr.provenance.art.push({
+      id: 'project:gate-ridge-style',
+      name: '正门屋脊做法(泥鳅脊)',
+      method: 'artistic_choice',
+      note: '07-72①方向内证可定:原文自判「不落富丽俗套」,而高正脊加正吻正是「富丽俗套」——正门屋脊须软。' +
+        '07-72②「泥鳅脊」具体做法未核到,两读并存:(a)低而圆的正脊,仍有脊线;(b)卷棚,省正脊。' +
+        '这里选 (b):省去起脊/哺鸡脊那组高出屋面的装饰体,让两坡瓦面直接相接——复用 fayuan 卷棚已用的同一个' +
+        'ridgeStyle 语义(此前只在 fashi.BuildingSpec 缺这个自由度),不是「原文如此」。' +
+        '未选 (a) 是因为它要求给正脊一个新的低矮圆润造型,这里没做,留給下一轮再核。' +
+        '「泥鳅脊」本身是江南脊名,而正门在这里走 fashi(官式材分)推导——这处口径错位没有解决,只是绕开' +
+        '(未把正门整体改判给 fayuan 参数集,那是参数集层的决定,不在本单子范围),记为待补 missing:' +
+        '「一座五间 Tier A 门屋该不该走江南参数集」，本单子未写入 knowledge/rules/missing.rules.json(该文件属单子 O)。',
+    });
+  }
   const m = fr.m;
   const seed = opts.seed ?? 7;
   const root = new THREE.Group();
@@ -315,8 +441,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
   const margin = opts.platformMarginM ?? (isTing ? 0.55 : 0.9);
   const platHX = m.width / 2 + margin;
   const platHZ = m.depthHalf + margin;
-  // 07-01「鑿成西番草花樣」是台基边缘的浅浮雕,不是贴图;程序化浮雕本期做不出,
-  // 先留素面台基,不用噪声贴图冒充雕花(待 P3 石作专件)。
+  // 07-01「鑿成西番草花樣」是台基边缘的浅浮雕,不是贴图——见下方 plinthMaterial
+  // === 'whiteStone' 分支(07-72④,只在白石台基上做,别处台基仍素面)。
   const plat = new THREE.Mesh(roundedBox(platHX * 2, platH, platHZ * 2, 0.03, 3), plinth);
   plat.position.y = platH / 2;
   plat.receiveShadow = true;
@@ -332,7 +458,60 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       id: 'project:gate-plinth-white-stone',
       name: '正门白石台基与台基高',
       method: 'artistic_choice',
-      note: `第十七回「下面白石台磯,鑿成西番草花樣」(07-01):材质按原文取白石非青石;规则表无门屋台基高,${platH}m 为观感取值;西番草是浅浮雕不是贴图,本期留素面待 P3 石作专件。`,
+      note: `第十七回「下面白石台磯,鑿成西番草花樣」(07-01):材质按原文取白石非青石;规则表无门屋台基高,${platH}m 为观感取值;西番草是浅浮雕几何,见台基边缘卷草(07-72④),不是贴图。`,
+    });
+    // 07-72④:西番草(缠枝卷叶)浅浮雕,几何不是贴图,材质用现成的 whiteStoneMaterial()
+    // (plinth 已经是它)。§10 的具象雕刻只集中在这一处——沿台基一圈做一条卷草带,
+    // 别处(木作)只到"有工"的程度,不在这里叠加更多。
+    {
+      const bandY = platH * 0.55;
+      const bandR = Math.min(0.016, platH * 0.05);
+      const bandAmp = Math.min(0.045, platH * 0.11);
+      const inMargin = 0.16; // 让开转角,免得四条带在角部穿插
+      type Side = { x0: number; z0: number; x1: number; z1: number; nx: number; nz: number };
+      const sides: Side[] = [
+        { x0: -platHX + inMargin, z0: platHZ, x1: platHX - inMargin, z1: platHZ, nx: 0, nz: 1 },
+        { x0: -platHX + inMargin, z0: -platHZ, x1: platHX - inMargin, z1: -platHZ, nx: 0, nz: -1 },
+        { x0: -platHX, z0: -platHZ + inMargin, x1: -platHX, z1: platHZ - inMargin, nx: -1, nz: 0 },
+        { x0: platHX, z0: -platHZ + inMargin, x1: platHX, z1: platHZ - inMargin, nx: 1, nz: 0 },
+      ];
+      for (const s of sides) {
+        const len = Math.hypot(s.x1 - s.x0, s.z1 - s.z0);
+        if (len < 0.3) continue;
+        const wavelength = 0.42; // 一个卷叶周期
+        const nSeg = Math.max(6, Math.round(len / (wavelength / 2)));
+        const pts: THREE.Vector3[] = [];
+        for (let i = 0; i <= nSeg; i++) {
+          const t = i / nSeg;
+          const x = lerp(s.x0, s.x1, t);
+          const z = lerp(s.z0, s.z1, t);
+          const y = bandY + Math.sin((t * len) / wavelength * Math.PI * 2) * bandAmp;
+          pts.push(new THREE.Vector3(x + s.nx * 0.015, y, z + s.nz * 0.015));
+        }
+        root.add(ridgeTube(pts, bandR, plinth));
+        for (let i = 1; i < nSeg; i += 2) {
+          const t = i / nSeg;
+          const x = lerp(s.x0, s.x1, t);
+          const z = lerp(s.z0, s.z1, t);
+          const y = bandY + Math.sin((t * len) / wavelength * Math.PI * 2) * bandAmp;
+          const leaf = new THREE.Mesh(new THREE.SphereGeometry(bandR * 1.7, 6, 4), plinth);
+          leaf.scale.set(1, 0.5, 0.55);
+          leaf.position.set(x + s.nx * 0.03, y, z + s.nz * 0.03);
+          leaf.castShadow = true;
+          root.add(leaf);
+        }
+      }
+    }
+  }
+  if (opts.lattice === 'lantern') {
+    fr.provenance.art.push({
+      id: 'project:gate-lattice-lantern',
+      name: '格心纹样(灯笼锦)',
+      method: 'artistic_choice',
+      note: '07-72③:「门栏窗槅皆是细雕新鲜花样」原著没写死具体纹样(曹雪芹没写死),之前用的万字不到头' +
+        '恰恰是最标准的样式,与「新鲜」相反。改用灯笼锦(方格骨架+每格内接菱花):qiangyuan/wall.ts 的' +
+        'gexinGeometry 不认这个纹样名(未知 sub 会被它当冰裂处理),所以在本文件另写了' +
+        'lanternLatticeGeometry,不是复用/魔改 gexinGeometry。',
     });
   }
   // 正面踏步。
@@ -1303,6 +1482,9 @@ export function menSpec(): BuildingOptions {
       columnHeightFen: 300,
       columnDiameterFen: 28,
       rafterDiaFen: 7,
+      // 「上面桶瓦泥鰍脊」:方向内证可定(07-72①)——「不落富丽俗套」排除高正脊
+      // 加正吻。具体做法两读并存(07-72②),这里选卷棚(省正脊),artChoice 见下。
+      ridgeStyle: 'rolled',
     },
     // 匾额文字只从 plan.json 读(missing 99-26):正门挂「大观园」(07-37 园之总名;
     // 挂正门是艺术摆放,见 ROADMAP §PQ-7)。
@@ -1311,7 +1493,9 @@ export function menSpec(): BuildingOptions {
     back: 'door',
     sides: 'wall',
     gatehouse: true,
-    lattice: 'wan', // 第十七回「门栏窗槅皆是细雕新鲜花样」:万字不到头
+    // 07-72③:「细雕新鲜花样」原著没写死具体纹样;万字不到头是最标准的那个,
+    // 与「新鲜」相反,换成灯笼锦(artChoice,见 buildBuilding 的 provenance.art)。
+    lattice: 'lantern',
     wallMaterial: 'stone',
     plinthMaterial: 'whiteStone', // 「下面白石台磯」——白石,不是青石
     platformH: 0.75, // 规则表无门屋台基高,观感取值(记 provenance.art)
