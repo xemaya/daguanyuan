@@ -11,3 +11,11 @@ Controlled comparison contract: cameras from tools/capture.mjs, seed from World 
 Browser matrix: installed Chromium actual WebGPU required for primary acceptance, same node material renderer with forceWebGL for WebGL2 compatibility; Safari/Firefox manual device acceptance pending unless run. Backend is read after init from backend.isWebGPUBackend / isWebGLBackend. Never infer it from navigator.gpu or renderer class.
 
 Baseline gates: six gates and 139/139 tests passed (parent independent run); npm run build passed, 1.23 s bundling. WG0 does not change geometry or visuals.
+
+## WG1 — part viewer
+
+Viewer now initializes WebGPURenderer before PMREM, compiles the scene, renders a first frame before publishing readiness, and uses RenderPipeline + SMAA with exactly one output conversion. Standard wood/stone materials, neutral lighting, PCF and camera framing are unchanged. `?backend=webgl2` requests the same renderer's forceWebGL compatibility path.
+
+Actual initialized backends verified: WebGPU and WebGL2, building:ting and taihu:peak. Both backends reported identical submitted geometry/size (55,198 / 26,152 triangles; 20 / 7 all-frame drawCalls including post), no console/page errors on load or resize. Images and manifest: `shots/wg1/`. Reproducer: `node tools/wg-viewer-check.mjs`. Typecheck and build passed. This phase migrates the viewer only, not the garden.
+
+WG1 unchanged-world cold build measured 17089.29999998212 ms (shots/wg1-world; not a controlled FPS comparison).
