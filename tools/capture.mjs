@@ -64,6 +64,15 @@ const SHOTS = [
   { id: 'treeline',      pos: [-45, 0, 170.0], yaw: 1.10, pitch: 0.14, desc: '窗口边缘的林带与天(本窗口不是真墙,见 TERRAIN.playMinX 等阻挡体)。' },
   { id: 'backlit',       pos: [-0.9, 0, 154.4],    yaw: -2.57, pitch: 0.20,  desc: '逆光——bloom 与轮廓光。' },
   { id: 'creek_flow',    pos: [-2, 0, 195],     yaw: -0.38, pitch: -0.15, desc: 'PQ着色半新增：沁芳溪南段岸边顺流望——溪要流、池要静，肉眼一眼能分。' },
+  /* 单子 AD · 第四档「贴脸机位」。上面这些机位全是全景，鼓钉、瓦当、格心
+   * 纹样在 1600×900 里是两个像素——等于不存在。下面五个各盯一个关键部位，
+   * 评审一个回合只看它们加一张联络表(tools/shoot-part.mjs --sheet)，
+   * 不看 14 张全景。带 group 的机位默认不拍，用 --group closeup 单独取。 */
+  { id: 'cu_gate_eave',    pos: [55, 0, 240.0],   yaw: 0.0,   pitch: 0.42,  group: 'closeup', desc: '贴脸·正门檐口:瓦当滴水与椽望的收头(用户反馈5「瓦与木架分层、无瓦当滴水」)。' },
+  { id: 'cu_gate_plaque',  pos: [55, 0, 239.4],   yaw: 0.0,   pitch: 0.30,  group: 'closeup', desc: '贴脸·大观园匾:匾宽与当心间的关系(用户反馈10;第五档断言的取证机位)。' },
+  { id: 'cu_baogushi',     pos: [53.2, 0, 240.0], yaw: 0.55,  pitch: -0.30, group: 'closeup', desc: '贴脸·抱鼓石:鼓钉那一圈与它离门轴的距离(用户反馈1)。' },
+  { id: 'cu_wall_seam',    pos: [68.0, 0, 239.0], yaw: 1.35,  pitch: -0.08, group: 'closeup', desc: '贴脸·南墙接缝:六段粉墙相接处的墙脚与压顶(用户反馈3;名册侧接缝门报这里互插0.16~0.22m)。' },
+  { id: 'cu_lattice',      pos: [62.0, 0, 238.4], yaw: 1.35,  pitch: 0.06,  group: 'closeup', desc: '贴脸·格心:灯笼锦的纹样构成(用户反馈2「窗花粗糙」)。' },
 ];
 
 /**
@@ -94,7 +103,7 @@ const CLEAR_DIALOGUE = () => {
 };
 
 function parseArgs(argv) {
-  const args = { out: 'shots', width: 1600, height: 900, shots: null, url: 'http://127.0.0.1:5173/garden.html', settle: 1400 };
+  const args = { out: 'shots', width: 1600, height: 900, shots: null, group: null, url: 'http://127.0.0.1:5173/garden.html', settle: 1400 };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--list') args.list = true;
@@ -104,6 +113,7 @@ function parseArgs(argv) {
     else if (a === '--shots') args.shots = argv[++i].split(',').map((s) => s.trim());
     else if (a === '--url') args.url = argv[++i];
     else if (a === '--settle') args.settle = Number(argv[++i]);
+    else if (a === '--group') args.group = argv[++i];
   }
   return args;
 }
@@ -118,7 +128,10 @@ if (args.list) {
 const outDir = resolve(ROOT, args.out);
 mkdirSync(outDir, { recursive: true });
 
-const selected = args.shots ? SHOTS.filter((s) => args.shots.includes(s.id)) : SHOTS;
+let selected = args.shots ? SHOTS.filter((s) => args.shots.includes(s.id)) : SHOTS;
+// 分组机位默认不进全景轮换：不带 --shots / --group 时，行为与单子 AD 之前完全一致。
+if (args.group) selected = selected.filter((s) => s.group === args.group);
+else if (!args.shots) selected = selected.filter((s) => !s.group);
 if (selected.length === 0) {
   console.error(`No shots matched: ${args.shots?.join(',')}`);
   process.exit(1);

@@ -22,6 +22,7 @@ for (let i = 2; i < process.argv.length; i++) {
   else if (a === '--width') args.width = Number(process.argv[++i]);
   else if (a === '--height') args.height = Number(process.argv[++i]);
   else if (a === '--bg') args.bg = process.argv[++i];
+  else if (a === '--sheet') args.sheet = true;
 }
 const outDir = resolve(ROOT, args.out);
 mkdirSync(outDir, { recursive: true });
@@ -60,6 +61,30 @@ for (const subject of subjects) {
   }
 }
 writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
+/* 单子 AD · 第四档：把这一轮棚拍拼成一张联络表。
+ * capture 的机位全是全景，鼓钉、瓦当、格心纹样在里面是两个像素——
+ * 它们在现有产出里根本不存在。改的是投喂方式，不是判据：一个回合交
+ * 1 张联络表 + 1 组贴脸图，不是 14 张全景。
+ * 拼图用 playwright 自己渲 HTML 再截图,不为此引入图像库(spec §4)。 */
+if (args.sheet && manifest.length) {
+  const cols = Math.min(4, Math.ceil(Math.sqrt(manifest.length)));
+  const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const cells = manifest.map((m) => `<figure><img src="${esc(m.file)}"><figcaption>${esc(m.subject)} · ${esc(m.angle)}<br><small>${(m.tris / 1000).toFixed(1)}k tris · ${m.size.map((v) => v.toFixed(2)).join('×')}m</small></figcaption></figure>`).join('');
+  const html = `<meta charset="utf-8"><style>
+    body{margin:0;background:#141414;color:#ddd;font:13px/1.5 -apple-system,"PingFang SC",sans-serif}
+    .grid{display:grid;grid-template-columns:repeat(${cols},1fr);gap:12px;padding:16px}
+    figure{margin:0}img{width:100%;display:block;background:#000}
+    figcaption{padding:6px 2px;color:#bbb}small{color:#7a7a7a}
+  </style><div class="grid">${cells}</div>`;
+  writeFileSync(resolve(outDir, 'contact-sheet.html'), html);
+  const sheet = await browser.newPage({ viewport: { width: cols * 340 + 32, height: 800 } });
+  await sheet.goto('file://' + resolve(outDir, 'contact-sheet.html'), { waitUntil: 'load' });
+  await sheet.waitForTimeout(500);
+  writeFileSync(resolve(outDir, 'contact-sheet.png'), await sheet.screenshot({ type: 'png', fullPage: true }));
+  await sheet.close();
+  console.log(`  联络表 → ${args.out}/contact-sheet.png（${manifest.length} 格，${cols} 列）`);
+}
 if (errors.length) console.log(`\n${errors.length} console error(s):\n` + errors.slice(0, 10).map((e) => '  ' + e).join('\n'));
 await browser.close();
 console.log(`\nWrote part shots to ${args.out}/`);
