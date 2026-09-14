@@ -1,0 +1,8 @@
+{
+  "$comment": "单子 AD 第一档对账的基线。knownGaps 与 feral 只许降不许升；built.missing 不设基线——已建成区必须 100%，缺一个就是红的。数字是 2026-09-14 跑 `node tools/manifest-diff.mjs --coverage` 当场量的，不是估的。",
+  "measuredAt": "2026-09-14",
+  "builtRegions": ["zhengmen", "cuizhang", "qinfang_ting_qiao", "xiaoxiangguan"],
+  "builtCoverage": "10/23",
+  "knownGaps": 80,
+  "feral": 44
+}

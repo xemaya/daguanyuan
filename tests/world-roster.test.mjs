@@ -21,3 +21,52 @@ test('建成四区的 plan 对象全集是 23 个——对账门的分母',()=>{
  assert.equal(new Set(objs).size,objs.length,'plan 对象 id 在建成区内重复');
  assert.equal(objs.length,23);
 });
+
+import {coverage} from '../tools/manifest-diff.mjs';
+
+/** 一份最小的假 manifest：只登记了正门本身，台矶与粉墙都没造。 */
+const fakeManifest={
+ builtRegions:['zhengmen'],
+ constructions:[
+  {id:'zhengmen.main-gate',part:'garden-building',variant:'zhengmen.main-gate',planId:'zhengmen.main-gate',position:[55,0,236],yaw:0},
+  {id:'wall:plain',part:'wall',variant:'plain',planId:null,position:[65,0,236],yaw:0},
+ ],
+};
+
+test('对账门把 zhengmen.forecourt-terrace 当成缺项报出来',()=>{
+ const c=coverage(plan,fakeManifest);
+ assert.deepEqual(c.builtRegions,['zhengmen']);
+ assert.equal(c.built.total,4);              // main-gate + forecourt-terrace + flanking-wall + rock-01
+ assert.equal(c.built.covered,1);
+ assert.ok(c.built.missing.includes('zhengmen.forecourt-terrace'),'台矶必须被报为缺项');
+ assert.ok(c.built.missing.includes('zhengmen.flanking-wall'));
+});
+
+test('planId=null 的构件进野生件表，不算缺项也不算覆盖',()=>{
+ const c=coverage(plan,fakeManifest);
+ assert.equal(c.feral.length,1);
+ assert.equal(c.feral[0].variant,'plain');
+});
+
+test('未建区的对象是 known-gap，不进缺项',()=>{
+ const c=coverage(plan,fakeManifest);
+ assert.ok(c.knownGaps>0);
+ assert.ok(!c.built.missing.some(id=>id.startsWith('daoxiangcun.')));
+});
+
+test('身份传递：建成的线性构件把它的 insert 与 model-reference 条目一起认领',()=>{
+ const m={builtRegions:['xiaoxiangguan'],constructions:[
+  {id:'xiaoxiangguan.courtyard-wall',part:'garden-wall',variant:'xiaoxiangguan.courtyard-wall',planId:'xiaoxiangguan.courtyard-wall',position:[0,0,0],yaw:0},
+  {id:'xiaoxiangguan.west-corridor-path',part:'garden-corridor',variant:'xiaoxiangguan.west-corridor-path',planId:'xiaoxiangguan.west-corridor-path',position:[0,0,0],yaw:0},
+ ]};
+ const c=coverage(plan,m);
+ assert.ok(!c.built.missing.includes('xiaoxiangguan.moon-gate'),'月洞门是已建院墙上的开口，不是缺项');
+ assert.ok(!c.built.missing.includes('xiaoxiangguan.corridor'),'游廊的实体就是已建的 west-corridor-path');
+});
+
+test('身份传递不许过度吸收：线性构件没建时，它的 insert 与引用条目照样是缺项',()=>{
+ const c=coverage(plan,{builtRegions:['xiaoxiangguan'],constructions:[]});
+ assert.ok(c.built.missing.includes('xiaoxiangguan.moon-gate'));
+ assert.ok(c.built.missing.includes('xiaoxiangguan.corridor'));
+ assert.ok(c.built.missing.includes('xiaoxiangguan.courtyard-wall'));
+});
