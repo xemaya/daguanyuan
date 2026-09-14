@@ -11773,6 +11773,53 @@
       "assert": "cone",
       "status": "underdetermined",
       "note": "框景。月洞门(xiaoxiangguan.moon-gate,x=-105,z=120)与正房(xiaoxiangguan.main-house,x=-105,z=98)同轴,viewpoint 取 tools/playtest.mjs 已核验航点「对准plan月洞门」(-105,122)。apertureHalfWidth_m=1.088 取自 builder/parts/qiangyuan/wall-style.ts 的 WALL_STYLE.gate.clearRadius(圆洞净半径,施工艺术尺寸非原文实测)。平面验证:视锥两侧边(洞口净宽两端)与视点-目标连线的相对朝向,不验三维(门楣高度、正房檐口是否也在视锥内另计)。"
+    },
+    {
+      "id": "X-04",
+      "type": "approach_axis",
+      "subject": "zhengmen",
+      "targets": [
+        "hill.cuizhang"
+      ],
+      "path": [
+        [55, 260],
+        [55, 244]
+      ],
+      "at": [55, 244],
+      "threshold_deg": 15,
+      "source": {
+        "chapter": 17,
+        "ref": "07-03",
+        "quote": "遂命開門,只見迎面一帶翠嶂擋在前面。"
+      },
+      "assert": "angle",
+      "status": "ok",
+      "note": "PE-3(单子 X4):从原文抽的第一条,'迎面'是行进方向断言,与 X-01 的'遮挡'是两件事——迎面证的是翠嶂正对着穿门而入的去向,不证它挡住了更远处的视线(那是 X-01 的活)。path 取 tools/playtest.mjs 已核验航点「正门台阶前(穿门)」(55,244)与其前一步(55,260,沿同一 x 直行推出,未落盘为独立航点);at 用穿门时刻(55,244)。target 用 hill.cuizhang 多边形形心(47.375,206.5625),实测夹角 11.46°,threshold_deg=15 留出约 3.5° 余量而不失'迎面'的字面强度。甲已核(2026-09-14 逐字回维基文库第十七回,'迎面……擋在前面'紧接'遂命開門'一句,是开门瞬间的直陈,不是后续行走中的观感);乙待核:形心代表'迎面正对'是否合适——翠嶂是一整片不规则山体(x∈[-60,152]),形心未必是原文说话人视觉锚定的那一点,若乙核判该用山体最近边缘或视觉质心（渲染后目测的'团块中心'）而非几何形心,threshold_deg 与本条判定可能要重算,记入 knowledge/docs/qingshi/07-honglou.md 的 open_questions。"
+    },
+    {
+      "id": "X-05",
+      "type": "filtered_view",
+      "subject": "xiaoxiangguan.bamboo",
+      "targets": [
+        "xiaoxiangguan.main-house"
+      ],
+      "from": [
+        [-94, 124]
+      ],
+      "filters": {
+        "scene": "xiaoxiangguan",
+        "part": "bamboo",
+        "radius_m": { "grove": 2.95, "clump": 1.1, "single": 0.6 }
+      },
+      "ratio": [0.1, 0.5],
+      "source": {
+        "chapter": 17,
+        "ref": "07-07",
+        "quote": "忽抬頭看見前面一帶粉垣,里面數楹修舍,有千百竿翠竹遮映。"
+      },
+      "assert": "occlusion-ratio",
+      "status": "ok",
+      "note": "PE-3(单子 X4):「遮映」是原文自己定的类型——不是「挡住」(occlusion,X-01)也不是「先不见后见」(reveal,X-02),是隔着竹子部分看见,filtered_view/occlusion-ratio 正是为这种半透关系开的口子。viewpoint 取 tools/playtest.mjs 航点「从南侧绕过院墙东角」(-94,124),对应'忽抬头看见'那一刻(绕过院墙东角、粉垣与竹丛第一次同时入目)。radius_m 三档(grove 2.95 / clump 1.1 / single 0.6)照抄 builder/compose/occupancy.ts 的 SOLID_RADII——不重新量,那张表已经把 builder/parts/zhiwu/bamboo.ts 的几何参数(种子点抖动、丛内 spread、竿高倾斜)折成半径,单子AF1 的门也在用同一张表。实测本条 6 处 scene 现状(2 grove + 5 clump)下 3 个候选视点(-94,124)/(-100,122)/(-105,122)算出的比例都落在 0.21–0.25,取 ratio=[0.1,0.5] 留出改丛位仍算'遮映'的余量,不许 0(无遮挡,不是原文说的'遮映')也不许逼近 1(全挡,该条会变成 X-01 那种 occlusion,不是这条描述的关系)。甲已核(2026-09-14 逐字回维基文库第十七回,'千百竿翠竹遮映'紧接'一帶粉垣...數楹修舍'一句,遮映的对象就是数楹修舍/正房);乙待核:七丛竹里只标了 part='bamboo'、未分'哪几丛在视点-正房连线上'才是叙事真正指的那几竿——本条把七丛一起算,可能比原文'一带粉垣内'那个更局部的遮映范围宽,若乙核判该收窄到面向视点这一侧的丛,ratio 区间要重算。本条能补上,是因为单子AF3(28eff95a)刚把这七丛里那处'竹子穿墙'的坐标修完提交,之前(单子X4写作当下)这份 scene 数据还在另一条并行 WIP 里改,未落盘时验它属于验一个还在动的数——见 knowledge/docs/qingshi/07-honglou.md 的 open_questions 第14条。"
     }
   ],
   "legacy": {

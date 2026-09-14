@@ -37,6 +37,28 @@ test('突变:潇湘馆月洞门挪离正房轴线后,框景条目必须红', () 
   assert.ok(fails.some(f => f.startsWith(framed.id)), `挪门后框景未失败: ${JSON.stringify(fails)}`);
 });
 
+test('突变:翠嶂挪开后,X4 的迎面(approach_axis)条目必须红', () => {
+  const p = copy();
+  const axis = p.experience.find(e => e.type === 'approach_axis');
+  if (!axis) return; // X4 之前没有 approach_axis 条目,跳过
+  const hill = p.hills.find(h => h.id === 'hill.cuizhang');
+  hill.polygon = hill.polygon.map(([x, z]) => [x + 80, z]);
+  const { fails } = auditExperience(p);
+  assert.ok(fails.some(f => f.startsWith(axis.id)), `挪动山体后 ${axis.id} 未失败: ${JSON.stringify(fails)}`);
+});
+
+test('突变:潇湘馆竹丛全挪去墙角远处后,遮映(filtered_view)条目必须红', () => {
+  const p = copy();
+  const filtered = p.experience.find(e => e.type === 'filtered_view');
+  if (!filtered) return; // X4 之前没有 filtered_view 条目,跳过
+  const scenes = { xiaoxiangguan: structuredClone(JSON.parse(readFileSync('projects/daguanyuan/scenes/xiaoxiangguan.json', 'utf8'))) };
+  for (const pl of scenes.xiaoxiangguan.placements) {
+    if (pl.part === 'bamboo') { pl.dx -= 60; pl.dz -= 60; } // 挪去视点-正房连线够不到的角落
+  }
+  const { fails } = auditExperience(p, { loadScene: (id) => scenes[id] ?? null });
+  assert.ok(fails.some(f => f.startsWith(filtered.id)), `竹丛挪开后 ${filtered.id} 未失败: ${JSON.stringify(fails)}`);
+});
+
 test('诚实规则:art 来源不许标 ok,ok 必须有原文回目与引文', () => {
   const base = copy().experience[0];
   assert.ok(validateExperienceEntry({ ...base, source: { kind: 'art' }, status: 'ok' })
