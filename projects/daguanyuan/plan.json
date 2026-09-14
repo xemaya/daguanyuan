@@ -11752,6 +11752,27 @@
       "assert": "visibility-flip",
       "status": "ok",
       "note": "豁然。前一采样点视线被山体挡住、后一采样点不被挡,两点间出现「先不见、转出即见」。采样点取自已核验的十七回游线节点与 playtest 实测航点。"
+    },
+    {
+      "id": "X-03",
+      "type": "framed_view",
+      "subject": "xiaoxiangguan.moon-gate",
+      "targets": [
+        "xiaoxiangguan.main-house"
+      ],
+      "from": [
+        [-105, 122]
+      ],
+      "frame": {
+        "apertureHalfWidth_m": 1.088
+      },
+      "source": {
+        "kind": "art",
+        "note": "原文(07-08/07-41)只写院墙内千百竿翠竹遮映、甬路羊肠石子漫成,未写门框景这一层。框景是我们做的(单子 J 把匾挂到月洞门上时顺带得到的):门与正房同 x=-105 轴线对齐,人立门外南望,圆洞正框住正房。"
+      },
+      "assert": "cone",
+      "status": "underdetermined",
+      "note": "框景。月洞门(xiaoxiangguan.moon-gate,x=-105,z=120)与正房(xiaoxiangguan.main-house,x=-105,z=98)同轴,viewpoint 取 tools/playtest.mjs 已核验航点「对准plan月洞门」(-105,122)。apertureHalfWidth_m=1.088 取自 builder/parts/qiangyuan/wall-style.ts 的 WALL_STYLE.gate.clearRadius(圆洞净半径,施工艺术尺寸非原文实测)。平面验证:视锥两侧边(洞口净宽两端)与视点-目标连线的相对朝向,不验三维(门楣高度、正房檐口是否也在视锥内另计)。"
     }
   ],
   "legacy": {
