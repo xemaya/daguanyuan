@@ -476,6 +476,9 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     // 铺地收边:路牙沿 plan.paths 里带 paving 的路在 world 空间直接挤出
     // (07-41 石子漫、17 回宽阔大路),几何自带世界坐标,必须零变换落位。
     { part: 'luya', variant: 'default', x: 0, z: 0, y: 0, tag: '路牙' },
+    // 单子 AH:石压边沿 plan.water 里带 centerline 的窄沟(目前只有引泉沟)
+    // 在 world 空间直接挤出,同样零变换落位,与路牙同一路数。
+    { part: 'shiyabian', variant: 'default', x: 0, z: 0, y: 0, tag: '石压边' },
     ...shoreStones(ground, pond, causewayEnds),
   ];
 
