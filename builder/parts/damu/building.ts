@@ -813,7 +813,9 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       const mesh = new THREE.Mesh(set.geometry, wood);
       mesh.position.set(p.x, lanTop + pupai, p.z);
       mesh.rotation.y = p.rot;
-      mesh.castShadow = true;
+      // 攒在檐口阴影区内,关闭投影换一半渲染量(阴影 pass 会把 3.8k/攒再画一遍);
+      // 单件棚拍仍投影。全场景三角数预算见单子 V(≤400 万)。
+      mesh.castShadow = false;
       mesh.receiveShadow = true;
       root.add(mesh);
     }

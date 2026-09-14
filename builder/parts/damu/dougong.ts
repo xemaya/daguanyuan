@@ -153,13 +153,15 @@ function boxDk(w: number, h: number, d: number, cx: number, cy: number, cz: numb
   return g;
 }
 
-/** 四面直线收分的台段(斗底欹;线性收分是插值选择,调用方记 art)。 */
-function taperedBoxDk(w: number, h: number, d: number, bottomScale: number, cy: number): THREE.BufferGeometry {
+/** 四面直线收分的台段(斗底欹;线性收分是插值选择,调用方记 art)。
+ *  底欹+腰合一:taperEndY 以下从 bottomScale 收到 1,以上直身——少一圈顶点。 */
+function taperedBoxDk(w: number, h: number, d: number, bottomScale: number, cy: number, taperEndY?: number): THREE.BufferGeometry {
   const g = new THREE.BoxGeometry(w, h, d);
   const pos = g.attributes.position as THREE.BufferAttribute;
+  const tEnd = taperEndY === undefined ? h : taperEndY;
   for (let i = 0; i < pos.count; i++) {
-    const t = (pos.getY(i) + h / 2) / h;
-    const s = bottomScale + (1 - bottomScale) * t;
+    const y = pos.getY(i) + h / 2;
+    const s = y >= tEnd ? 1 : bottomScale + (1 - bottomScale) * (y / tEnd);
     pos.setXYZ(i, pos.getX(i) * s, pos.getY(i), pos.getZ(i) * s);
   }
   g.computeVertexNormals();
@@ -179,9 +181,8 @@ interface DouProfile {
 
 function douGeometryDk(p: DouProfile): THREE.BufferGeometry {
   const geos: THREE.BufferGeometry[] = [];
-  geos.push(taperedBoxDk(p.L, p.diH, p.W, p.diScale, p.diH / 2));
-  geos.push(boxDk(p.L, p.yaoH, p.W, 0, p.diH + p.yaoH / 2, 0));
-  // 耳段挖斗槽:槽不占实体,按槽把顶面划成剩下的方块。
+  // 底欹与腰合一(一段完成收分+直身),耳段按斗槽留方块。
+  geos.push(taperedBoxDk(p.L, p.diH + p.yaoH, p.W, p.diScale, (p.diH + p.yaoH) / 2, p.diH));
   const earY = p.diH + p.yaoH;
   const sx = p.slots.find((s) => s.axis === 'z')?.width ?? 0; // 顺跳槽(z 向长)占 x 向宽
   const sz = p.slots.find((s) => s.axis === 'x')?.width ?? 0; // 横栱槽(x 向长)占 z 向宽
@@ -295,7 +296,7 @@ function hengwanGeometryDk(p: { L: number; W: number; H: number; seatW: number; 
   s.quadraticCurveTo(seatX, p.H - 2 * p.seatDepth, seatX - p.seatW / 2, p.H);
   s.lineTo(-half, p.H);
   s.closePath();
-  const geo = new THREE.ExtrudeGeometry(s, { depth: p.W, bevelEnabled: false, curveSegments: 12 });
+  const geo = new THREE.ExtrudeGeometry(s, { depth: p.W, bevelEnabled: false, curveSegments: 8 });
   geo.translate(0, 0, -p.W / 2);
   return geo;
 }
