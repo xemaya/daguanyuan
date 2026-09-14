@@ -20,6 +20,8 @@ import { makeRng } from '@engine/core/Noise';
 import { SEED } from './config';
 import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
 import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
+import type { Frame } from '@builder/derive/index';
+import { BAOGUSHI_BASE_W_M } from '@builder/parts/shishan/baogushi';
 
 /**
  * 装配器:把构件按 scene 表放进园子,并把每类构件的落脚(平台)与阻挡登记
@@ -299,16 +301,31 @@ function lanternSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: numb
 }
 
 /**
- * 抱鼓石(门当)的摆放(局部坐标):正门前踏跺两侧一对,立在台基前缘外的
- * 地面上。07-01 原文无此物,设它是"门"最强的视觉符号——纯艺术选择,
- * 尺寸与形制的留痕在构件的 `root.userData.provenance.art` 里。
+ * 抱鼓石(门当)的摆放(局部坐标):贴着中柱缝门框,坐在门槛两端(用户
+ * 2026-09-14 反馈第 1 条:「门口两个石当,位置不对」)。07-01 原文无此
+ * 物,设它是"门"最强的视觉符号——纯艺术选择,尺寸与形制的留痕在构件的
+ * `root.userData.provenance.art` 里。
+ *
+ * 间距由当心间净宽推导,不是拍一个数:z 取「中柱缝」(gatehouse 的板门
+ * 就装在这一缝,见 building.ts 的 `中柱(门屋分心造)`)。x 必须落在当心间
+ * 净宽**以内**、贴着两侧中柱的内皮——当心间以外(|lx| > 当心间半宽)是
+ * 次间,次间在 gatehouse 里是砌实的槛窗墙(见 building.ts 的
+ * `front==='door'` 分支),把石头摆到那一侧就是把它摆进墙体里，从外面
+ * 看根本不存在(排查过程见单子 AI 回报)。返回的 ly 是台基顶面的局部
+ * 高度——落点在台基面上,不能再用地面高度(旧代码 `ground(x,z)` 对台基
+ * 范围内的点是错的,那正是石头此前"没在门口、在台阶两边草地上"的成因
+ * 之一)。
  */
-function baogushiSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: number }[] | null {
+function baogushiSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: number; ly: number }[] | null {
   if (p.part !== 'building' || p.variant !== 'men' || built.kind !== 'building') return null;
   const b = built as BuildingResult;
+  const m = (b.frame as Frame).m;
+  const centerRight = m.columnX[m.columnX.length / 2];
+  const doorGapM = 0.02; // 门枕外沿与中柱内皮之间留一道缝,避免贴死导致的 z-fight
+  const lx = centerRight - m.columnD / 2 - doorGapM - BAOGUSHI_BASE_W_M / 2;
   return [
-    { lx: -2.0, lz: b.platform.hz + 0.42 },
-    { lx: 2.0, lz: b.platform.hz + 0.42 },
+    { lx: -lx, lz: 0, ly: b.platform.y },
+    { lx, lz: 0, ly: b.platform.y },
   ];
 }
 
@@ -505,7 +522,7 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
 
   let calls = 0;
   const lanternSpots: { x: number; y: number; z: number }[] = [];
-  const baogushiSpots: { x: number; z: number }[] = [];
+  const baogushiSpots: { x: number; y: number; z: number }[] = [];
   for (const p of all) {
     const key = `${p.part}:${p.variant ?? 'default'}`;
     let part = cache.get(key);
@@ -587,7 +604,9 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     // 抱鼓石守在正门口(艺术选择,07-01 无此物):跟着正门走。
     for (const s of baogushiSpotsFor(p, part) ?? []) {
       const [bx, bz] = toWorld(wx, wz, yaw, s.lx, s.lz);
-      baogushiSpots.push({ x: bx, z: bz });
+      // 落点在台基面上(s.ly 是台基顶的局部高度),不能再查地面高度——
+      // 台基范围内地面高度和台基面高度是两回事。
+      baogushiSpots.push({ x: bx, y: y + s.ly, z: bz });
     }
 
     if (p.pier) {
@@ -624,19 +643,18 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     const baogushi = buildPart('baogushi', 'default', { ground });
     if (baogushi) {
       for (const s of baogushiSpots) {
-        const gy = ground(s.x, s.z);
         const st = baogushi.root.clone();
-        st.position.set(s.x, gy, s.z);
+        st.position.set(s.x, s.y, s.z);
         st.name = '抱鼓石';
         staticGroup.add(st);
-        // 挡人不挡路:两颗石在踏跺两侧,门轴中线(x=55)畅通。
-        ctx.collision.addCircle(s.x, s.z, 0.34, gy, gy + 0.95, '抱鼓石');
+        // 挡人不挡路:两颗石在门洞两侧,门轴中线(x=55)畅通。
+        ctx.collision.addCircle(s.x, s.z, 0.44, s.y, s.y + 1.25, '抱鼓石');
         registerObject({
           id: 'zhengmen.baogushi',
           name: '抱鼓石(门当)',
           part: 'baogushi',
           variant: 'default',
-          position: [s.x, gy, s.z],
+          position: [s.x, s.y, s.z],
           yaw: 0,
           planId: null,
           provenance: baogushi.root.userData.provenance,

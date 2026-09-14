@@ -70,7 +70,7 @@ const SHOTS = [
    * 不看 14 张全景。带 group 的机位默认不拍，用 --group closeup 单独取。 */
   { id: 'cu_gate_eave',    pos: [55, 0, 240.0],   yaw: 0.0,   pitch: 0.42,  group: 'closeup', desc: '贴脸·正门檐口:瓦当滴水与椽望的收头(用户反馈5「瓦与木架分层、无瓦当滴水」)。' },
   { id: 'cu_gate_plaque',  pos: [55, 0, 239.4],   yaw: 0.0,   pitch: 0.30,  group: 'closeup', desc: '贴脸·大观园匾:匾宽与当心间的关系(用户反馈10;第五档断言的取证机位)。' },
-  { id: 'cu_baogushi',     pos: [53.2, 0, 240.0], yaw: 0.55,  pitch: -0.30, group: 'closeup', desc: '贴脸·抱鼓石:鼓钉那一圈与它离门轴的距离(用户反馈1)。' },
+  { id: 'cu_baogushi',     pos: [53.6, 0, 238.6], yaw: 0.35,  pitch: -0.35, group: 'closeup', desc: '贴脸·抱鼓石:鼓钉那一圈与它贴门框的距离(用户反馈1；单子 AI 把它从台阶外的草地挪到中柱缝门框边)。' },
   { id: 'cu_wall_seam',    pos: [68.0, 0, 239.0], yaw: 1.35,  pitch: -0.08, group: 'closeup', desc: '贴脸·南墙接缝:六段粉墙相接处的墙脚与压顶(用户反馈3;名册侧接缝门报这里互插0.16~0.22m)。' },
   { id: 'cu_lattice',      pos: [62.0, 0, 238.4], yaw: 1.35,  pitch: 0.06,  group: 'closeup', desc: '贴脸·格心:灯笼锦的纹样构成(用户反馈2「窗花粗糙」)。' },
 ];

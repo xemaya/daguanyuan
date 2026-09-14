@@ -34,20 +34,32 @@ function drumGeometry(R: number, T: number): THREE.BufferGeometry {
   return g;
 }
 
+// 尺寸全部无出处,为观感取值(见 userData.provenance.art)。用户 2026-09-14
+// 走完正门拍板「做大、做精」(D6)：五间大门不施朱粉,气派要由尺度撑,原
+// 0.54/1.04/0.34m 一档在 13.76m 门脸前读得单薄——整体放大到 ×1.3。
+const SCALE = 1.3;
+const BAOGUSHI_BASE_W_M = 0.54 * SCALE;
+const BAOGUSHI_BASE_L_M = 1.04 * SCALE;
+const BAOGUSHI_BASE_H_M = 0.14 * SCALE;
+const BAOGUSHI_DRUM_R_M = 0.34 * SCALE;
+const BAOGUSHI_DRUM_T_M = 0.18 * SCALE;
+const BAOGUSHI_PILLOW_W_M = 0.24 * SCALE; // 门枕尾:伸到门槛下承门轴
+const BAOGUSHI_PILLOW_H_M = 0.2 * SCALE;
+export { BAOGUSHI_BASE_W_M, BAOGUSHI_BASE_L_M };
+
 export function buildBaogushi(): PartBuild {
   const stone = whiteStoneMaterial(1);
   const g = new THREE.Group();
   g.name = 'Baogushi';
 
-  // 尺寸全部无出处,为观感取值(见 userData.provenance.art)。
-  const baseW = 0.54;
-  const baseL = 1.04;
-  const baseH = 0.14;
-  const drumR = 0.34;
-  const drumT = 0.18;
+  const baseW = BAOGUSHI_BASE_W_M;
+  const baseL = BAOGUSHI_BASE_L_M;
+  const baseH = BAOGUSHI_BASE_H_M;
+  const drumR = BAOGUSHI_DRUM_R_M;
+  const drumT = BAOGUSHI_DRUM_T_M;
   const drumZ = baseL / 2 - drumT / 2 - 0.06; // 鼓坐在基座靠门外一端
-  const pillowW = 0.24; // 门枕尾:伸到门槛下承门轴
-  const pillowH = 0.2;
+  const pillowW = BAOGUSHI_PILLOW_W_M;
+  const pillowH = BAOGUSHI_PILLOW_H_M;
   const pillowL = baseL - 0.1;
 
   const add = (geo: THREE.BufferGeometry, x: number, y: number, z: number) => {
@@ -68,22 +80,26 @@ export function buildBaogushi(): PartBuild {
   // 鼓。
   const drumY = baseH + pillowH + drumR - 0.04; // 鼓帮略沉进门枕,不悬空
   add(drumGeometry(drumR, drumT), 0, drumY, drumZ);
-  // 鼓钉:前后脸各一圈八颗。小圆头,不雕兽面(兽头大门是宁府的门制,07-53)。
-  const studGeo = new THREE.SphereGeometry(0.02, 6, 4);
+  // 鼓钉:前后脸各一圈十四颗,紧贴鼓面外缘(D6:原九颗等距半球铺满整个
+  // 鼓面偏大,近观读成"麻子"——钉本身缩小、加密,且只沿边缘一圈,鼓心
+  // 留素面,才读成"钉"而不是散点。不雕兽面(兽头大门是宁府门制,07-53)。
+  const studGeo = new THREE.SphereGeometry(0.014, 6, 4);
+  const studCount = 14;
+  const studRingR = drumR * 0.86;
   for (const face of [-1, 1]) {
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
+    for (let i = 0; i < studCount; i++) {
+      const a = (i / studCount) * Math.PI * 2;
       add(
         studGeo,
-        Math.cos(a) * drumR * 0.7,
-        drumY + Math.sin(a) * drumR * 0.7,
-        drumZ + face * (drumT / 2 + 0.004),
+        Math.cos(a) * studRingR,
+        drumY + Math.sin(a) * studRingR,
+        drumZ + face * (drumT / 2 + 0.003),
       );
     }
   }
   // 挟鼓:鼓脚两侧两块小斜楔,把鼓"抱"住。
   for (const sx of [-1, 1]) {
-    const w = add(roundedBox(0.09, 0.24, drumT + 0.05, 0.015, 2), sx * (drumR * 0.55), baseH + pillowH + 0.02, drumZ);
+    const w = add(roundedBox(0.09 * SCALE, 0.24 * SCALE, drumT + 0.05, 0.015, 2), sx * (drumR * 0.55), baseH + pillowH + 0.02, drumZ);
     w.rotation.z = sx * 0.38;
   }
 
@@ -100,13 +116,15 @@ export function buildBaogushi(): PartBuild {
         note:
           '《红楼梦》第十七回写正门无抱鼓石(07-01),规则表亦无门枕石条目;' +
           '设此物是因为它是"门"最强的视觉符号(ROADMAP PQ-7)。' +
-          `鼓径 ${drumR * 2}m、鼓厚 ${drumT}m、基座 ${baseW}×${baseL}m、门枕宽 ${pillowW}m,` +
-          '皆为观感取值;鼓面朝内外、不雕兽面(兽头是宁府门制,07-53)。',
+          `鼓径 ${(drumR * 2).toFixed(2)}m、鼓厚 ${drumT.toFixed(2)}m、基座 ${baseW.toFixed(2)}×${baseL.toFixed(2)}m、门枕宽 ${pillowW.toFixed(2)}m,` +
+          `均为观感取值,较此前一档整体放大 ${SCALE}× (用户 2026-09-14 反馈第 1/6 条拍板"做大做精");` +
+          `鼓面朝内外、不雕兽面(兽头是宁府门制,07-53);鼓钉改为沿鼓面外缘一圈 ${studCount} 颗、` +
+          '半径 0.014m,不再是原先九颗铺满整个鼓面偏大读成"麻子"的半球。',
       },
     ],
   };
   merged.userData.provenance = provenance;
-  return { root: merged, groundRadius: 1.2 };
+  return { root: merged, groundRadius: 1.2 * SCALE };
 }
 
 registerPart('baogushi', () => buildBaogushi());
