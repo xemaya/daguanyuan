@@ -107,12 +107,12 @@ export function buildAtmosphere(ctx: GameContext): void {
   scene.add(clouds.group);
 
   /* ---------------------------------------------------------------- */
-  /* 天光挂钩:云影(W1)进后期链                                          */
+  /* 天光挂钩:云影(W1) + 空气透视(W2) 进后期链                          */
   /* ---------------------------------------------------------------- */
 
-  // The post chain owns the effect because it needs scene depth: a cloud
-  // shadow must land on every material at once, which no per-material hook
-  // can do without touching PQ's calibrated shaders.
+  // The post chain owns both effects because they need scene depth: cloud
+  // shadows must land on every material at once, and the aerial swap needs
+  // the per-pixel fog depth. Fog itself stays exactly where P-17 put it.
   engine.postfx.setSkyHook({
     shadowTex: clouds.shadow.texture,
     shadowExtent: clouds.shadow.extent,
@@ -121,6 +121,15 @@ export function buildAtmosphere(ctx: GameContext): void {
     shadowStrength: 0.30,
     shadowRate: CLOUD_DRIFT_RATE,
     windTime: env.windTime,
+    // 85% of the flat fog colour becomes direction-aware; the remainder keeps
+    // the P-17 "slightly deeper than the sky" character at the horizon.
+    aerialStrength: 0.85,
+    zenith: skyColor.clone(),
+    horizon: horizonColor.clone(),
+    haze: hazeColor.clone(),
+    sunColor: sunColor.clone(),
+    sunDir: toSun.clone(),
+    skyIntensity: SKY_INTENSITY,
   });
 
   /* ---------------------------------------------------------------- */

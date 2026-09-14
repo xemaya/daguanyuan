@@ -24,15 +24,23 @@ export interface GradeSettings {
 }
 
 /**
- * SkyHook — the atmosphere system's slot in the post chain (单子 W1).
+ * SkyHook — the atmosphere system's slot in the post chain (单子 W).
  *
- * Cloud shadows: a baked low-frequency occlusion map (Clouds.ts) sampled in
- * world XZ, counter-rotated by the cloud shell's yaw so shade patches stay
- * glued to their clouds. Multiplicative, capped low: a slow change in
- * daylight, never a cast shadow.
+ * Two effects share one world-position reconstruction:
  *
- * The effect gates on real geometry depth so the sky dome and the clouds
- * themselves (no depth write) are never tinted by their own shadow.
+ *  W1 cloud shadows — a baked low-frequency occlusion map (Clouds.ts) sampled
+ *    in world XZ, counter-rotated by the cloud shell's yaw so shade patches
+ *    stay glued to their clouds. Multiplicative, capped low: a slow change in
+ *    daylight, never a cast shadow.
+ *  W2 aerial perspective — FogExp2 already mixed flat `fog.color` into the
+ *    scene per material. Adding `(directionalSky - fogColor) * fogFactor`
+ *    *replaces* that flat colour with the sky gradient evaluated along the
+ *    view ray, exactly: mix(scene, fog, f) + (dir − fog)·f ≡ mix(scene, dir, f).
+ *    The P-17 fog numbers (density, fog.color) stay untouched; only the
+ *    colour the fog fades *toward* becomes direction-aware.
+ *
+ * Both gate on real geometry depth so the sky dome and the clouds themselves
+ * (no depth write) are never tinted by their own shadow.
  */
 export interface SkyHook {
   /** R = occlusion 0..1 over a world XZ square centred on the origin. */
@@ -45,6 +53,15 @@ export interface SkyHook {
   shadowRate: number;
   /** Shared environment clock; drives the shadow map's counter-rotation. */
   windTime: { value: number };
+  /** 0 keeps the flat P-17 fog colour; 1 fades fully toward the directional sky. */
+  aerialStrength: number;
+  zenith: THREE.Color;
+  horizon: THREE.Color;
+  haze: THREE.Color;
+  sunColor: THREE.Color;
+  /** Direction from the origin *toward* the sun. */
+  sunDir: THREE.Vector3;
+  skyIntensity: number;
 }
 
 export class PostFX {
@@ -152,7 +169,16 @@ export class PostFX {
     if(hook&&this.skyFxOn){
       // Live cells: fog is owned by Atmosphere and set after this graph is built.
       const fogDensity=uniform(0).onFrameUpdate(()=>this.fogCells.density.value);
+      const fogColor=uniform(this.fogCells.color.value).onFrameUpdate(()=>this.fogCells.color.value);
       const wind=uniform(0).onFrameUpdate(()=>hook.windTime.value);
+      // Static palette, bound once as vec3 uniforms so TSL nodes (not THREE
+      // objects) carry the math.
+      const asVec3=(c: THREE.Color)=>uniform(new THREE.Vector3(c.r,c.g,c.b));
+      const zenithU=asVec3(hook.zenith);
+      const horizonU=asVec3(hook.horizon);
+      const hazeU=asVec3(hook.haze);
+      const sunColorU=asVec3(hook.sunColor);
+      const sunDirU=uniform(hook.sunDir);
       const camPosU=uniform(this.camCells.pos.value).onFrameUpdate(()=>this.camCells.pos.value);
       const camWorldU=uniform(this.camCells.world.value).onFrameUpdate(()=>this.camCells.world.value);
       const projInvU=uniform(this.camCells.projInv.value).onFrameUpdate(()=>this.camCells.projInv.value);
@@ -166,8 +192,21 @@ export class PostFX {
         const worldPos=camPosU.add(worldDir.mul(radial));
         // Sky dome and cloud billboards write no depth; only shade real geometry.
         const sceneGate=smoothstep(585,598,viewDistance).oneMinus();
-        const fogF=exp(fogDensity.mul(fogDensity).mul(radial).mul(radial).negate()).oneMinus();
 
+        // ---- W2 aerial perspective ----------------------------------------
+        // Same FogExp2 factor the materials used; see SkyHook for why adding
+        // (dir − fogColor)·f is an exact swap of the flat fog colour.
+        const fogF=exp(fogDensity.mul(fogDensity).mul(radial).mul(radial).negate()).oneMinus();
+        const up=clamp(worldDir.y,0,1);
+        const aer=mix(zenithU,horizonU,pow(up.oneMinus(),3.9)).toVar();
+        aer.assign(mix(aer,hazeU,pow(up.oneMinus(),19).mul(0.28)));
+        // Sun-azimuth warming, same term as nodes/sky.ts.
+        const az=max(dot(normalize(worldDir.xz.add(1e-5)),normalize(sunDirU.xz.add(1e-5))),0);
+        aer.addAssign(sunColorU.mul(pow(az,2.6).mul(0.085).mul(pow(up.oneMinus(),1.6))));
+        aer.mulAssign(hook.skyIntensity*0.68);
+        const delta=aer.sub(fogColor).mul(fogF).mul(hook.aerialStrength).mul(sceneGate);
+
+        // ---- W1 cloud shadow ----------------------------------------------
         // Counter-rotate world XZ by the shell yaw so patches track the clouds.
         const th=wind.mul(hook.shadowRate);
         const cth=cos(th),sth=sin(th);
@@ -179,7 +218,7 @@ export class PostFX {
         const occEff=occ.mul(fogF.oneMinus().mul(0.75).add(0.25));
         const shadowMul=occEff.mul(hook.shadowStrength).mul(sceneGate).oneMinus();
 
-        return colIn.mul(shadowMul);
+        return colIn.mul(shadowMul).add(delta);
       })(hdr.rgb);
       hdr=vec4(adjust,hdr.a);
       this.activeEffects.push('skyfx');
