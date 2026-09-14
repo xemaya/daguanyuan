@@ -22,6 +22,7 @@ import {
   petalMaps,
   taperedTube,
   curvedCard,
+  twigCluster,
   mergeGeos,
   setFlex,
   bakeCanopyShading,
@@ -496,6 +497,13 @@ function shellCards(
     crownBias?: number;
     /** 卡片宽比,默认 1。垂枝树（柳）给 0.6 上下,让碎叶读成条而不是片。 */
     narrow?: number;
+    /**
+     * C2:轮廓边缘一圈用有真体积的 twigCluster 换掉平卡片(见 twigCluster 的
+     * 注释)。fraction 是"曝光度够高的候选里,有多大比例换成 twig"——不是全
+     * 冠的比例,越靠冠内部(up01 低)的从不参与,所以整体面数增幅远小于
+     * fraction 本身暗示的数字（约 1.5-2.5x 单卡片,不是 1.5-2.5x 全冠）。
+     */
+    volumetric?: { fraction: number; leaves?: number };
   },
 ): THREE.BufferGeometry {
   const rng = makeRng(o.seed);
@@ -541,7 +549,16 @@ function shellCards(
     const h = rangeOf(rng, o.minSize, o.maxSize) * (0.66 + thick * 0.45);
     const w = h * rangeOf(rng, 0.95, 1.35) * (o.narrow ?? 1);
 
-    const card = curvedCard(w, h, rangeOf(rng, -0.16, 0.16) * h, rangeOf(rng, -0.12, 0.12) * h, 2);
+    // C2:only the outer, most-exposed ring (up01 high) is a candidate for a
+    // twig — the interior stays flat cards, which is most of the crown by
+    // vertex count, so the real cost stays well under `fraction` of the total.
+    // A deterministic stride on `i` (not another rng() draw) keeps every other
+    // card's random sequence identical to before this option existed.
+    const vol = o.volumetric;
+    const isTwig = !!vol && up01 > 0.55 && i % 5 < Math.round(vol.fraction * 5);
+    const card = isTwig
+      ? twigCluster(h * 0.9, w * 0.09, w * 0.62, h * 0.62, vol!.leaves ?? 3, o.narrow ?? 1, rng)
+      : curvedCard(w, h, rangeOf(rng, -0.16, 0.16) * h, rangeOf(rng, -0.12, 0.12) * h, 2);
     m.compose(p.clone().addScaledVector(dir, -h * o.sink), q, new THREE.Vector3(1, 1, 1));
     card.applyMatrix4(m);
 
@@ -965,6 +982,9 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
     flexBoost: 0.45 + droopN * 0.35,
     crownBias: 0.68,
     narrow: droopN > 0 ? 0.6 : 1,
+    // C2(2026-09-14 backlog):「植物……质感还是假发片」——real depth only on the
+    // outer, most-exposed ring (see shellCards' volumetric option / twigCluster).
+    volumetric: { fraction: 0.4, leaves: 3 },
   });
   // Re-normalise compliance against the whole tree so a card 6m up moves like
   // the branch under it rather than like a blade of grass on the ground.

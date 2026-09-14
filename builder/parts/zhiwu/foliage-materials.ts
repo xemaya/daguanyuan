@@ -1106,6 +1106,68 @@ export function curvedCard(
   return geo;
 }
 
+/**
+ * A tiny 3D twig: a thin tapered stem with a handful of leaf blades fanned
+ * around its tip at different yaws and outward tilts.
+ *
+ * C2(2026-09-14 backlog):「植物……质感还是假发片」. A `curvedCard` is one
+ * plane — from any angle off its own normal it reads as paper, no matter how
+ * much the vertex-colour occlusion or the shell placement is tuned, because a
+ * plane never has a self-shadowed far side. A twig's leaves point in several
+ * directions at once, so some of them are always oblique to the camera and
+ * some are always behind others — that is the one thing a flat card cannot
+ * fake. Reserved for the outer silhouette ring of a crown (see the `volumetric`
+ * option on `shellCards`), not the whole canopy: costs roughly 3-4x a single
+ * card, so blanketing the interior would blow the triangle budget for a
+ * silhouette improvement nobody sees past the outer leaves anyway.
+ *
+ * Shares `curvedCard`'s local convention (grows from the origin along +Y) so
+ * it drops into the same placement/transform code the caller already has for
+ * single cards, and its UVs run 0..1 along both the stem and every leaf, so
+ * the caller's existing "buried root dark, exposed tip lit" gradient (keyed
+ * off `uv.y`) still lands in the right place without any twig-specific case.
+ */
+export function twigCluster(
+  stemLen: number,
+  stemR: number,
+  leafW: number,
+  leafH: number,
+  leafCount: number,
+  narrow: number,
+  rng: () => number,
+): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const stem = new THREE.CylinderGeometry(stemR * 0.35, stemR, stemLen, 4, 1, true);
+  stem.translate(0, stemLen / 2, 0);
+  parts.push(stem);
+
+  const up = new THREE.Vector3(0, 1, 0);
+  const dir = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < leafCount; i++) {
+    const yaw = (i / leafCount) * Math.PI * 2 + lerp(-0.35, 0.35, rng());
+    // >1 lies the leaf flatter (more silhouette-breaking), <1 stands it up
+    // (more depth read from a face-on angle) — mixing both is the point.
+    const spread = lerp(0.55, 1.15, rng());
+    dir.set(Math.sin(yaw) * spread, 1, Math.cos(yaw) * spread).normalize();
+    q.setFromUnitVectors(up, dir);
+    const leaf = curvedCard(
+      leafW * lerp(0.8, 1.2, rng()) * narrow,
+      leafH * lerp(0.75, 1.2, rng()),
+      leafH * 0.16,
+      0,
+      1,
+    );
+    m.compose(new THREE.Vector3(0, stemLen * lerp(0.5, 0.9, rng()), 0), q, new THREE.Vector3(1, 1, 1));
+    leaf.applyMatrix4(m);
+    parts.push(leaf);
+  }
+  const geo = mergeGeos(parts);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 /* ------------------------------------------------------------------ */
 /* Vertex colour bake                                                  */
 /* ------------------------------------------------------------------ */
