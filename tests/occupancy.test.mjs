@@ -168,3 +168,28 @@ test('挂在檐下的灯在墙顶之上,不算插进墙里',()=>{
  const grounded={...aloft,position:[-91,1,100]};
  assert.equal(auditSolidVsWall([grounded],f).hits.length,1);
 });
+
+/** 三态测试（spec 单子 AF 的验收判据）：修前红 / 修后绿 / 挪回去再红。
+ *  只验一头不算——只验「修后绿」的话，一个永远返回空的门也能过。 */
+test('三态：潇湘馆那丛竹,修前穿墙 / 修后清出 / 挪回去再穿墙',()=>{
+ const f=buildOccupancy(plan,built,scenes);
+ const house=plan.regions.find(r=>r.id==='xiaoxiangguan').buildings.find(b=>b.id==='xiaoxiangguan.main-house');
+ const groveAt=dx=>[{id:'bamboo:grove',part:'bamboo',variant:'grove',
+  position:[house.x+dx,1,house.z+0.6],size:[7.80,5.90,7.22],planId:null}];
+ const depth=dx=>{const h=auditSolidVsWall(groveAt(dx),f).hits;return h.length?h[0].depth:0;};
+
+ const BEFORE=11.1;   // 用户报「竹子穿墙」时的那个数
+ // 修后的数从**真文件**里读,这条测试因此同时守着这次修复:有人把它改回去就红。
+ const entry=scenes.find(s=>s.region==='xiaoxiangguan').placements
+  .find(p=>p.part==='bamboo'&&p.variant==='grove'&&p.dz===0.6);
+ const AFTER=entry.dx;
+
+ assert.ok(depth(BEFORE)>0, `修前必须穿墙,实际 ${depth(BEFORE)}`);
+ assert.ok(Math.abs(depth(BEFORE)-0.28)<0.01, `修前深度该是 0.28m,实际 ${depth(BEFORE).toFixed(3)}`);
+ assert.equal(depth(AFTER), 0, `修后必须清出墙体,dx=${AFTER} 仍穿 ${depth(AFTER).toFixed(3)}m`);
+ assert.equal(depth(BEFORE), depth(11.1), '挪回去必须重新穿墙——门不是一次性的');
+
+ // 别挪多了:只许刚清出,不许挪到院子中间。阈值实测在 dx=10.82。
+ assert.ok(AFTER>=10.6, `dx=${AFTER} 挪过头了,07-07「遮映」要的是竹贴着墙`);
+ assert.ok(AFTER<=10.82, `dx=${AFTER} 还没清出墙体`);
+});
