@@ -43,6 +43,10 @@ const ALLOW = [
     file: 'docs/superpowers/plans/2026-09-11-frontdoor-and-fashi-gallery.md',
     why: '实施计划描述的待建文件(门厅、图解页、缩略图烘焙脚本),由单子 H 与 I 落地',
   },
+  ...[
+    { f: 'docs/superpowers/plans/2026-09-14-w-sky.md', p: 'docs/reviews/2026-09-14-clouds.md' },
+    { f: 'docs/superpowers/plans/2026-09-14-x-experience.md', p: 'tools/check-experience.mjs' },
+  ].map(({ f, p }) => ({ file: f, path: p, why: '单子 W / X 的待建产物,落地前不存在' })),
   {
     file: 'docs/superpowers/plans/2026-09-14-p3-dougong.md',
     path: 'builder/parts/damu/dougong.ts',
