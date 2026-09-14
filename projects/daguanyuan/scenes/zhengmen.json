@@ -1,6 +1,6 @@
 {
   "region": "zhengmen",
-  "$comment": "正门。点名件由 plan 生成，这里只写 plan 里没有锚点的东西。六段粉墙是历史遗留：plan 里其实有 zhengmen.flanking-wall 这个对象，但它没有 layout 折线，所以现在由六段独立 wall 顶替——AD 的对账门把它报成缺项、接缝门报出四处互插 0.16~0.22m，两者都是这件事的症状。给 flanking-wall 补折线之后，这六条 placements 应当整段删掉。",
+  "$comment": "正门。点名件由 plan 生成，这里只写 plan 里没有锚点的东西。六段粉墙是历史遗留：plan 里其实有 zhengmen.flanking-wall 这个对象，但它没有 layout 折线，所以现在由六段独立 wall 顶替——AD 的对账门把它报成缺项、接缝门报出四处互插 0.16~0.22m，两者都是这件事的症状。给 flanking-wall 补折线之后，这六条 placements 应当整段删掉。zhengmen.forecourt-terrace 同一单（AI，2026-09-14）补了 construction：plan 里只给了锚点，这里绑 forecourt-terrace 构件。",
   "named": [
     {
       "object": "zhengmen.main-gate",
@@ -9,6 +9,14 @@
       "yaw": 0,
       "tag": "正门",
       "basis": "zhengmen.main-gate 的 construction.status 是 frame-ready（P3 分件/楼层几何未完），garden-building 按约定拒绝生成，暂用通用门构件顶替。P3 完成后删掉这条，让规则 2 接管。"
+    },
+    {
+      "object": "zhengmen.forecourt-terrace",
+      "part": "forecourt-terrace",
+      "variant": "default",
+      "yaw": 0,
+      "tag": "白石台矶",
+      "basis": "07-01「下面白石台磯，鑿成西番草花樣」。此前顶替它的是 menSpec() 的 platformMarginM:0.9（台基外扩 0.9m，读不出台矶），且门前一段裸地在 playtest 脚下序列里是 dirt（用户反馈第 6/8 条）。这里绑到独立的 forecourt-terrace 构件，宽度按门脸 13.76m 取，见构件自身 provenance.art。"
     }
   ],
   "placements": [

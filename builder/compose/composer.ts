@@ -22,6 +22,7 @@ import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
 import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
 import type { Frame } from '@builder/derive/index';
 import { BAOGUSHI_BASE_W_M } from '@builder/parts/shishan/baogushi';
+import { FORECOURT_TERRACE_SPEC } from '@builder/parts/qiangyuan/forecourt-terrace';
 
 /**
  * 装配器:把构件按 scene 表放进园子,并把每类构件的落脚(平台)与阻挡登记
@@ -460,6 +461,28 @@ function hashString(s: string): number {
 
 export function buildGarden(ctx: GameContext): void {  const ground = ctx.collision.terrainHeight;
   const pond = pondEllipse();
+
+  // 白石台矶(单子 AI)自己的落脚材质:地形层的 surfaceAt 只按 plan.paths
+  // 铺装,不知道有一块独立的台矶构件盖在它上面——台矶宽 13.76m 远宽于
+  // 4.4m 的近门大路,路只盖住台矶中段一条窄带,台矶自己压住的地面(尤其
+  // 两侧和拼接处)在脚下序列里仍会读成台矶下面原来的 dirt/grass。给
+  // surfaceAt 包一层:落在台矶足迹内就报 stone,不改 terrain-from-plan.ts
+  // (该文件本单不许碰)。
+  //
+  // 南、北各多留一截(zSouth/zNorth 比台矶几何本身宽):量过 playtest 脚下
+  // 序列,台矶边缘到"近门大路"路面之间、以及台矶边缘到正门自身台基之间
+  // 各有一圈约 1m 的沙化过渡带(A1 单子记的同一种路缘沙带处理,不是本单
+  // 引入的新缺陷)——这圈沙带本身留着(它是路缘的正常处理,不是黄土荒
+  // 地),只是把"脚下走感"接续上，不在两条真实铺装之间露一小截空当。
+  {
+    const [tx, tz] = findAnchor(findRegion('zhengmen'), 'zhengmen.forecourt-terrace');
+    const { halfX } = FORECOURT_TERRACE_SPEC;
+    const zNorth = tz - 4.1; // 接正门自身台基南缘
+    const zSouth = tz + 5.2; // 接"近门大路"路面(起点在 z=246)
+    const base = ctx.collision.surfaceAt;
+    ctx.collision.surfaceAt = (x, z) =>
+      Math.abs(x - tx) <= halfX && z >= zNorth && z <= zSouth ? 'stone' : base(x, z);
+  }
 
   // 沁芳亭桥一带的驳石(taihu peak/peak3):沿「从池心朝某个方向」找刚露出水面
   // 的岸边落位——这是算出来的，不是摆出来的，所以不进 scenes(那里只放人写的
