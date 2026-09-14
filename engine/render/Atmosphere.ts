@@ -103,6 +103,8 @@ export function buildAtmosphere(ctx: GameContext): void {
     hazeColor: hazeColor.clone().multiplyScalar(SKY_INTENSITY * 0.95),
     exposure: SKY_INTENSITY * 1.06,
     sunDir: toSun.clone(),
+    // W3 档 2 对照:?cloudvol=1 给球团云加体积感(仅烘图参数,运行时零代价)。
+    volume: new URLSearchParams(location.search).has('cloudvol') ? 1 : 0,
   });
   scene.add(clouds.group);
 

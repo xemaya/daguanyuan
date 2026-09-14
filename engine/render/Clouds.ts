@@ -162,8 +162,12 @@ function fitToBox(blobs: Blob[], box: [number, number, number, number]): number 
 /**
  * Bakes the 2x2 cloud atlas. Returns an sRGB RGBA texture; alpha carries the
  * silhouette, rgb carries pre-shaded volume.
+ *
+ * `volume` (单子 W3 档 2 的对照开关,默认 0 = 现状逐像素不变)deepens the
+ * baked-in self-shadowing and pushes the translucent rim, giving the puffs
+ * more internal depth without touching the silhouette or the runtime shader.
  */
-export function bakeCloudAtlas(seed: number): THREE.Texture {
+export function bakeCloudAtlas(seed: number, volume = 0): THREE.Texture {
   const canvas = document.createElement('canvas');
   canvas.width = ATLAS;
   canvas.height = ATLAS;
@@ -278,7 +282,9 @@ export function bakeCloudAtlas(seed: number): THREE.Texture {
         // Wrapped diffuse — clouds scatter light around the terminator rather
         // than falling to black, which is exactly the soft look we want.
         const wrapped = clamp((ndl + 0.38) / 1.38, 0, 1);
-        const shaped = smoothstep(0.10, 0.93, wrapped);
+        // 档 2: a tighter ramp leaves more of each puff in shade, so the domes
+        // read as overlapping volumes rather than one fused mound.
+        const shaped = smoothstep(0.10 + volume * 0.05, 0.93 - volume * 0.07, wrapped);
 
         let r = lerp(SHADE[0], LIT[0], shaped);
         let g = lerp(SHADE[1], LIT[1], shaped);
@@ -287,7 +293,9 @@ export function bakeCloudAtlas(seed: number): THREE.Texture {
         // Self-shadowing from the puffs above, confined to the lower third so
         // the body of the cloud stays bright, then sky bounce back into the
         // base so the underside is blue rather than dirty.
-        const hRel = smoothstep(base - 0.01, base + (rec.box[3] - rec.box[2]) * 0.42, w0);
+        // 档 2: pow < 1 widens the shadowed band upward, so stacked puffs cast
+        // onto their neighbours instead of only darkening the base chord.
+        const hRel = Math.pow(smoothstep(base - 0.01, base + (rec.box[3] - rec.box[2]) * 0.42, w0), 1 - volume * 0.40);
         r = lerp(DEEP[0], r, hRel);
         g = lerp(DEEP[1], g, hRel);
         b = lerp(DEEP[2], b, hRel);
@@ -308,7 +316,8 @@ export function bakeCloudAtlas(seed: number): THREE.Texture {
         const rimBand = smoothstep(0.03, 0.22, dC) * (1 - smoothstep(0.24, 0.85, dC));
         // Weighted by coverage so the warm tint never paints into the
         // near-transparent fringe, where it would read as a pink outline.
-        const rimAmt = rimBand * (0.16 + (1 - shaped) * 0.42) * smoothstep(0.02, 0.30, dC);
+        // 档 2: a stronger rim sells light travelling *through* the shell.
+        const rimAmt = rimBand * (0.16 + (1 - shaped) * 0.42) * smoothstep(0.02, 0.30, dC) * (1 + volume * 0.55);
         r = lerp(r, RIM[0], rimAmt);
         g = lerp(g, RIM[1], rimAmt);
         b = lerp(b, RIM[2], rimAmt);
@@ -475,6 +484,8 @@ export interface CloudLayerOptions {
   exposure: number;
   /** Direction from the world origin *toward* the sun; used to project the shadow map. */
   sunDir: THREE.Vector3;
+  /** 单子 W3 档 2 对照开关:0 = 现状(默认),1 = 球团加体积感(自阴影加深、透光边加强)。 */
+  volume?: number;
 }
 
 export interface CloudLayer {
@@ -490,7 +501,7 @@ export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
   const { seed, count, hazeColor, exposure, sunDir } = opts;
   const rng = makeRng(seed ^ 0x5c10d);
 
-  const atlas = bakeCloudAtlas(seed);
+  const atlas = bakeCloudAtlas(seed, opts.volume ?? 0);
 
   const clock = uniform(0);
   const material = new THREE.MeshBasicNodeMaterial({
