@@ -48,7 +48,8 @@ export class PostFX {
     // than as a lens. Aberration should be findable only if you look for it.
     chromatic: 0.0005,
     // First-person comfort: far-only blur begins at 180 m instead of 99 m.
-    // ?dof=legacy restores 220/1 for review; ?dof=off removes DOF from graph.
+    // ?dof=legacy restores 220/1 for review; ?dof=off removes DOF from graph;
+    // ?dof=<far>[,<strength>] pins explicit values (comparison captures).
     dofFar: 400,
     dofStrength: 0.35,
   };  constructor(engine: Engine) {
@@ -59,7 +60,9 @@ export class PostFX {
     this.composer.outputColorTransform=false;
     const dofMode=new URLSearchParams(location.search).get('dof');
     if(dofMode==='legacy'){this.settings.dofFar=220;this.settings.dofStrength=1;}
-    if(dofMode==='off')this.settings.dofStrength=0;
+    else if(dofMode==='off')this.settings.dofStrength=0;
+    // ?dof=<far>[,<strength>] pins explicit values for comparison captures.
+    else if(dofMode){const[far,strength]=dofMode.split(',').map(Number);if(far>0)this.settings.dofFar=far;if(strength>0)this.settings.dofStrength=strength;}
     this.applyQuality(engine.quality);
   }
   applyQuality(q: QualityTier): void {
