@@ -1589,7 +1589,22 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
 
   /* ---- 匾额 ------------------------------------------------------- */
   if (opts.plaque) {
-    const pw = Math.min(2.0, Math.max(1.0, opts.plaque.length * 0.45));
+    // 匾宽按当心间净宽算(单子 AG4 返工),不是字数的函数——旧公式
+    // opts.plaque.length*0.45 让「大观园」与「潇湘馆」(都三字)都算出 1.35m,
+    // 与开间大小无关,用户看得分毫不差。当心间净宽用 centerBay/centerBay+1
+    // 这对跨零的柱缝(门屋分心造那段已算过的同一对索引);比例 0.62 落在
+    // 常规 0.6~0.75 区间(取证见 shots/zhengmen-closeup),记 provenance.art。
+    const bayW = colXs[centerBay + 1] - colXs[centerBay];
+    const pw = bayW * 0.62;
+    fr.provenance.art.push({
+      id: 'project:plaque-width-bay',
+      name: '匾额宽度按开间',
+      method: 'artistic_choice',
+      note: `旧公式 pw=字数×0.45,「大观园」「潇湘馆」都三字→都是 1.35m,不随开间变;` +
+        `改成当心间净宽 ${bayW.toFixed(3)}m × 0.62 = ${pw.toFixed(3)}m,0.62 落在常规` +
+        `0.6~0.75 区间(实测:当心间 3.276m 时旧值 1.35m ÷ 3.276 = 0.41,明显偏窄)。` +
+        `字数只决定字有多大,不决定板有多宽(makePlaque(text,width) 签名不变)。`,
+    });
     const pl = makePlaque(opts.plaque, pw);
     // 挂在铺作外皮之前、橑檐枋之下,人从院子里一眼看到;略向前俯 8°。
     const ph = pw * 0.36;

@@ -799,7 +799,11 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
     // 第二十六回「舉目望門上一看,只見匾上寫著『瀟湘館』三字」(07-61):匾在院门上。
     const plaqueText = parts[1] ? plaqueFromPlan(parts[1]) : undefined;
     if (plaqueText) {
-      const plaque = makePlaque(plaqueText, 0.95);
+      // 匾宽按「开间」算(单子 AG4):月洞门没有面阔柱缝,「开间」就是门洞净宽
+      // (2×clearRadius)。别让这块匾还写死 0.95——大木作那块已经改成当心间
+      // 净宽的函数,两处口径要一致,比例同取 0.62。
+      const doorW = WALL_STYLE.gate.clearRadius * 2;
+      const plaque = makePlaque(plaqueText, doorW * 0.62);
       // 拱顶之上没有整段空墙(券脸顶 2.37,墙身上沿 2.44),门额骑跨券脸
       // 上段、突出墙面,如苏园月洞门题的装法;微俯让人在洞前仰头可读。
       plaque.position.set(0, 2.26, 0.24);
