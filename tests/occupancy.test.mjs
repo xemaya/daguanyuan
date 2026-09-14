@@ -67,3 +67,63 @@ test('未建区不占位：占位场只圈已建成的区',()=>{
  assert.ok(!f.occupants().some(o=>o.id.startsWith('daoxiangcun')));
  assert.equal(f.free(-202,-52),1,'稻香村没建，它的地不该被圈');
 });
+
+/* ---- 单子 AF：墙体进占位场，但走另一条通道 ---------------------------- */
+
+import {WALL_BAND_HALF,SOLID_RADIUS,solidRadiusOf} from '@builder/compose/occupancy.ts';
+
+test('墙厚取的是 wall.ts 三层里最厚的那层,不是拍的数',()=>{
+ // wall.ts 的 THICK/BASE_T/PLINTH_T 是模块私有常量,import 不到,所以直接读源码,
+ // 把「PLINTH_T 仍是最厚的那层」这个前提焊住:哪天有人把墙身改厚过墙基,
+ // 这条会红,提醒 WALL_BAND_HALF 的推导要跟着改。
+ const src=readFileSync('builder/parts/qiangyuan/wall.ts','utf8');
+ const grab=re=>{const m=src.match(re);return m?Number(m[1]):null;};
+ const THICK=grab(/const THICK = ([0-9.]+)/), BASE_T=grab(/const BASE_T = ([0-9.]+)/);
+ assert.ok(THICK!==null&&BASE_T!==null,'wall.ts 里找不到 THICK / BASE_T 了');
+ assert.ok(src.includes('const PLINTH_T = WALL_STYLE.footHalf * 2'),
+  'PLINTH_T 不再是 WALL_STYLE.footHalf*2 —— WALL_BAND_HALF 的推导失效了');
+ const PLINTH_T=WALL_BAND_HALF*2;
+ assert.ok(PLINTH_T>BASE_T&&BASE_T>THICK,`最厚的该是墙基:THICK ${THICK} < BASE_T ${BASE_T} < PLINTH_T ${PLINTH_T}`);
+});
+
+test('墙体带只占墙体本身:带厚等于墙基厚,不外扩',()=>{
+ const f=buildOccupancy(plan,built,scenes);
+ const east=f.wallBands().find(w=>w.id==='xiaoxiangguan.courtyard-wall#1');
+ assert.ok(east,'潇湘馆东院墙那一段没进场');
+ const xs=east.polygon.map(p=>p[0]);
+ assert.ok(Math.abs((Math.max(...xs)-Math.min(...xs))-WALL_BAND_HALF*2)<1e-9,
+  '东院墙沿 x=-91,带宽必须正好是墙基厚,多一点都是给墙加了净空');
+});
+
+test('⚠️ 墙不许影响 free()/distance()——那是植被散布器在读的',()=>{
+ const withWalls=buildOccupancy(plan,built,scenes);
+ // 同一份 plan,但把所有墙体数据拿掉:free()/distance() 必须逐点一模一样。
+ const noWalls=structuredClone(plan);
+ delete noWalls.wall;
+ for(const r of noWalls.regions) r.linears=(r.linears??[]).filter(l=>l.kind!=='wall');
+ const bare=buildOccupancy(noWalls,built,scenes);
+ for(let x=-135;x<=-85;x+=2.5) for(let z=60;z<=125;z+=2.5){
+  assert.equal(withWalls.free(x,z),bare.free(x,z),`free 在 (${x},${z}) 被墙改了`);
+  assert.equal(withWalls.distance(x,z),bare.distance(x,z),`distance 在 (${x},${z}) 被墙改了`);
+ }
+ // 站在墙芯上,free 仍是 1:墙就是不进这条通道。
+ assert.equal(withWalls.free(-91,100),1);
+});
+
+test('未建区的院墙不入场,与「未建区不占位」同口径',()=>{
+ const f=buildOccupancy(plan,built,scenes);
+ assert.ok(!f.wallBands().some(w=>w.id.startsWith('longcuian')));
+ assert.ok(f.wallBands().some(w=>w.id.startsWith('xiaoxiangguan.courtyard-wall')));
+ assert.ok(f.wallBands().some(w=>w.id.startsWith('plan.wall')),'园墙外环不属于任何区,建没建成都该在');
+});
+
+test('实体半径不是包围盒:枝叶不算,竿才算',()=>{
+ // 名册里 bamboo:grove 的包围盒是 7.80×5.90×7.22(半展 3.9),里面包含枝叶。
+ assert.equal(solidRadiusOf('bamboo','grove',[7.80,5.90,7.22]),2.95);
+ assert.ok(2.95<7.80/2,'实体半径必须小于包围盒半展,否则「竹梢探出墙头」会被误报');
+ // 石头从里到外都是实心的,包围盒就是实体。
+ assert.equal(solidRadiusOf('taihu','peak4',[1.40,2.65,1.16]),0.7);
+ // 表里没有的返回 null——跳过,但要被数出来,不许静默略过。
+ assert.equal(solidRadiusOf('wall','plain',[6.16,2.68,0.61]),null);
+ assert.ok(!('wall' in SOLID_RADIUS),'墙自己不该有实体半径,否则会拿墙去撞墙');
+});
