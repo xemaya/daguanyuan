@@ -330,22 +330,36 @@ export function whiteStoneMaterial(repeat = 1): THREE.MeshStandardMaterial {
  * 颜色就地取青石/白石两组既有色按石块分派,不新引颜色(一园一色)。
  *
  * P-07 教训:石块尺度要先按屏幕像素算,不能凭感觉调。这里沿用全园"石类贴图
- * 1.4m 一个周期"的既有换算(见 stoneMaterial/whiteStoneMaterial 的 projectUV
- * 调用同样传 1.4);CELLS=7 意味着一个周期里约 7 块石头,单块约 0.2m——
- * 与已经在用、经受过验收的凿痕(stoneMaps)、瓦垄(tileMaps)同一数量级,
- * 不会被 mipmap 拍成灰板。
+ * 1.4m 一个周期"的既有换算的**两倍**(2.8m,wall.ts 的 projectUV 同步传 2.8);
+ * CELLS=14 意味着单块石头仍约 0.2m,不会被 mipmap 拍成灰板。
+ *
+ * A2(2026-09-14):远处读成规则锯齿带,根因不是"看不见"(25m 处石块仍有 ~4px),
+ * 是"太规则"——①worley 的 cell id 相邻相关,w.id%4 分色在 53m 墙上同相位重复;
+ * ②整周期 mip 平均后底色处处相同,读成"一条带"。对症:CELLS 翻倍把周期拉大一倍、
+ * 分色走 hash 打散相邻相关、再叠一层跨周期的低频明度斑块让远看的底色不均匀。
  */
 export function tigerSkinMaps(size = 1024): MaterialMaps {
-  const CELLS = 7;
+  const CELLS = 14;
   const cell = (u: number, v: number) => worley(u, v, CELLS, 4109);
   const jointT = (w: { f1: number; f2: number }) => smoothstep(0, 0.05, w.f2 - w.f1);
   // 乱砌:大小不一、形状不规则、颜色深浅斑驳——"虎皮"二字的来处。
   const PALETTE = [CN.stone, CN.stoneDark, CN.whiteStone, CN.whiteStoneDark];
   const mortar = CN.plasterStain; // 灰浆的浅色网,比石块本身更亮更暖
+  // cell id 是相邻相关的,直接取模分色会在大墙上读成同相位的重复带。
+  const hash = (id: number): number => {
+    let x = (id * 2654435761) >>> 0;
+    x ^= x >>> 15;
+    x = (x * 2246822519) >>> 0;
+    x ^= x >>> 13;
+    return x >>> 0;
+  };
+  // 跨周期的低频明度斑块(约 2.6 个循环/周期):mip 把细节平均掉之后,
+  // 底色本身不再均匀,远处就 read 不出"一条规则的带"。
+  const blotch = (u: number, v: number) => tileableFbm(NOISE.stone, u * 2.6 + 7.3, v * 2.6, 31, 2);
   const h = (u: number, v: number) => {
     const w = cell(u, v);
-    const bulge = tileableFbm(NOISE.stone, u * CELLS * 1.6 + (w.id % 977) * 0.01, v * CELLS * 1.6, 40, 3);
-    return clamp(0.42 + jointT(w) * 0.34 + bulge * 0.14, 0, 1);
+    const bulge = tileableFbm(NOISE.stone, u * CELLS * 1.6 + (hash(w.id) % 977) * 0.01, v * CELLS * 1.6, 40, 3);
+    return clamp(0.42 + jointT(w) * 0.34 + bulge * 0.14 + (blotch(u, v) - 0.5) * 0.1, 0, 1);
   };
   return {
     map: cached('cn.tigerSkin.albedo', () =>
@@ -354,9 +368,13 @@ export function tigerSkinMaps(size = 1024): MaterialMaps {
         color: (u, v) => {
           const w = cell(u, v);
           const joint = jointT(w);
-          const base = PALETTE[w.id % PALETTE.length];
+          const idHash = hash(w.id);
+          const base = PALETTE[idHash % PALETTE.length];
           const shade = tileableFbm(NOISE.stone, u * CELLS * 1.1, v * CELLS * 1.1, 22, 3) * 0.5 + 0.5;
-          const stoneC = mixHex(base, shade > 0.5 ? 0xffffff : 0x000000, Math.abs(shade - 0.5) * 0.2);
+          // 每块石头再按 hash 抖一点明度,同色的两块也不重样。
+          const jitter = ((idHash >>> 8) % 1000) / 1000 - 0.5;
+          const stoneC = mixHex(base, shade + jitter * 0.6 > 0.5 ? 0xffffff : 0x000000,
+            clamp(Math.abs(shade + jitter * 0.6 - 0.5) * 0.2 + (blotch(u, v) - 0.5) * 0.16, 0, 0.3));
           const mc = hexToRgb(mortar);
           return [
             lerp(stoneC[0], mc[0], 1 - joint),

@@ -722,10 +722,11 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
   // 新增一条跨文件的"墙类别"参数。
   const courtyard = !!options.flushEnds;
   // 同一颗噪声(借用云墙那颗、换一段不相关的取样区)按墙的本地 x 给基脚
-  // 沉深——只沉不浮,见 WALL_STYLE.baseSink 的注释。每约 1.5m 给一个起伏,
-  // 太密会读成锯齿,太疏又摊不开"随势"的感觉。院墙没有这段沉深,
-  // groundSteps 退回默认的 1(墙脚是平的一条直线,与沉深前的几何一致)。
-  const groundSteps = courtyard ? 1 : Math.max(1, Math.round(L / 1.5));
+  // 沉深——只沉不浮,见 WALL_STYLE.baseSink 的注释。A2:折点从每 ~1.5m 加密到
+  // 每 ~0.4m——fbm 本身是平滑的,1.5m 的分段线性在远处读成规则锯齿(振幅
+  // 0.08m、间距 45px 的低幅 zigzag),加密后插值贴着噪声走,锯齿消失。
+  // 院墙没有这段沉深,groundSteps 退回默认的 1(墙脚是平的一条直线)。
+  const groundSteps = courtyard ? 1 : Math.max(1, Math.round(L / 0.4));
   const groundDip = courtyard
     ? () => 0
     : (x: number) => -WALL_STYLE.baseSink * (0.5 - 0.5 * fbm2(simplex, x * 0.14 + 41.7, 5.2, 3));
@@ -767,14 +768,14 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
       ? notchedRect(-hl - baseEnd + baseBevel, baseBevel, hl + baseEnd - baseBevel, BASE_H - baseBevel, 0.02, MOON_CY, MOON_R + 0.006 + baseBevel, groundSteps)
       : roundedRect(-hl - baseEnd + baseBevel, baseBevel, hl + baseEnd - baseBevel, BASE_H - baseBevel, 0.02, 4, groundSteps);
   const baseGeo = extrudeSolid(baseOutline, [], BASE_T, baseBevel, 3);
-  projectUV(baseGeo, 0, 1.4, 1.4);
+  projectUV(baseGeo, 0, 2.8, 2.8);
   sinkIntoGround(baseGeo, BASE_H, groundDip);
   group.add(shadowed(new THREE.Mesh(baseGeo, footMaterial)));
 
   const plinthBevel = 0.014;
   const plinthOutline = roundedRect(-hl - plinthEnd + plinthBevel, plinthBevel, hl + plinthEnd - plinthBevel, PLINTH_H - plinthBevel, 0.01, 3, groundSteps);
   const plinthGeo = extrudeSolid(plinthOutline, [], PLINTH_T, plinthBevel, 2);
-  projectUV(plinthGeo, 0, 1.4, 1.4);
+  projectUV(plinthGeo, 0, 2.8, 2.8);
   sinkIntoGround(plinthGeo, PLINTH_H, groundDip);
   group.add(shadowed(new THREE.Mesh(plinthGeo, footMaterial)));
 
