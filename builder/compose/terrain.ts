@@ -79,8 +79,11 @@ export function getPlan(): GardenPlan {
 /* Sampling window — the MVP route's four regions, padded.             */
 /* ------------------------------------------------------------------ */
 
-/** The four regions the 一期 route actually passes through. */
-const MVP_REGIONS = ['zhengmen', 'cuizhang', 'qinfang_ting_qiao', 'xiaoxiangguan'] as const;
+/** The four regions the 一期 route actually passes through.
+ *  这是「哪几个区已经建出来了」的**唯一真源**：地形采样窗口按它取，
+ *  对账门的分母也按它取(经 composer 自报进 manifest.builtRegions)。
+ *  单子 AD：任何工具都不许再抄一份区名。 */
+export const MVP_REGIONS = ['zhengmen', 'cuizhang', 'qinfang_ting_qiao', 'xiaoxiangguan'] as const;
 
 /**
  * Metres of margin outside the MVP regions' combined bounding box. Knob #2

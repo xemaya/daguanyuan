@@ -10,7 +10,7 @@ import {offsetStation} from '@builder/plan/polyline';
 import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
-import { getPlan } from './terrain';
+import { getPlan, MVP_REGIONS } from './terrain';
 import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
 import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
 
@@ -441,6 +441,8 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
   // and provenance separately so a batched scene is still reviewable.
   const constructionRecords: Record<string, unknown>[] = [];
   group.userData.constructions = constructionRecords;
+  // 单子 AD · 第一档对账：世界要自报「我建了哪几个区」,工具不许再抄一份区名。
+  group.userData.builtRegions = [...MVP_REGIONS];
   const linearRecords:Record<string,unknown>[]=[];
   group.userData.linears=linearRecords;
   ctx.scene.add(group);
@@ -483,13 +485,32 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     obj.position.set(wx, y, wz);
     obj.rotation.y = yaw;
     obj.name = p.tag ?? key;
-    if (part.kind === 'building') constructionRecords.push({ id: p.anchor ?? key,
-      name: obj.name, position: [wx, y, wz], yaw,
-      ...obj.userData.construction, planObject: obj.userData.planObject });
-    // 铺地构件不是 building,但 provenance 同样要留在可审的记录里(静态合并会丢 root)。
-    if (p.part === 'luya' && fresh) constructionRecords.push({ id: 'pudi.luya',
-      name: obj.name, position: [wx, y, wz], yaw,
-      provenance: part.root.userData.provenance });
+    // 单子 AD · 第一档对账：**每个** placement 都要登记。
+    // 以前只有 kind==='building' 登记,所以六段墙、竹丛、太湖石、桥、游廊、院墙、
+    // 灯笼在世界的自报清单里一条都没有——「台矶没造」这类缺陷从定义上就在所有门
+    // 的视野之外(spec §1.5 ①②)。静态合并会丢掉 root,清单是合并后唯一的可审身份。
+    //
+    // planId 与 id 分开:planId 能对上 plan 对象才有值,对不上就是 null。
+    // 正门那六段墙正是 planId=null 的野生件(它们该是 zhengmen.flanking-wall),
+    // 对账门靠这个字段把「世界有、数据没有」单列出来,不与缺项混为一谈。
+    const planId =
+      p.anchor ??
+      (linear ? linear.spec.id : undefined) ??
+      ((obj.userData.planObject as { id?: string } | undefined)?.id) ??
+      (p.variant && p.variant.includes('.') ? p.variant : undefined) ??
+      null;
+    constructionRecords.push({
+      id: p.anchor ?? planId ?? key,
+      name: obj.name,
+      part: p.part,
+      variant: p.variant ?? 'default',
+      position: [wx, y, wz],
+      yaw,
+      planId,
+      ...(part.kind === 'building' ? obj.userData.construction : null),
+      ...(obj.userData.planObject ? { planObject: obj.userData.planObject } : null),
+      ...(part.root.userData.provenance ? { provenance: part.root.userData.provenance } : null),
+    });
     if(linear)linearRecords.push({...linear.root.userData.linear,position:[wx,y,wz]});
     if (part.update) group.add(obj);
     else staticGroup.add(obj);
@@ -531,6 +552,9 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
         l.position.set(s.x, s.y, s.z);
         l.name = '灯笼';
         staticGroup.add(l);
+        constructionRecords.push({ id: 'zhengmen.lantern', name: '灯笼',
+          part: 'lantern', variant: 'gong', position: [s.x, s.y, s.z], yaw: 0, planId: null,
+          provenance: lantern.root.userData.provenance });
       }
     }
   }
@@ -548,8 +572,11 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
         constructionRecords.push({
           id: 'zhengmen.baogushi',
           name: '抱鼓石(门当)',
+          part: 'baogushi',
+          variant: 'default',
           position: [s.x, gy, s.z],
           yaw: 0,
+          planId: null,
           provenance: baogushi.root.userData.provenance,
         });
       }
