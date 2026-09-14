@@ -52,6 +52,11 @@ const ALLOW = [
     path: 'builder/parts/damu/dougong.ts',
     why: '单子 V 的 V2 产物,落地前不存在',
   },
+  ...['engine/core/look.ts', 'looks/default.json', 'scenes/daoxiangcun.json'].map((p) => ({
+    file: 'docs/superpowers/specs/2026-09-14-scale-architecture-design.md',
+    path: p,
+    why: '面向扩展的架构设计稿里提议的落点(观感参数表 / 区清单),由单子 Y 与 AB 落地,现在不存在',
+  })),
   {
     file: 'docs/superpowers/plans/2026-09-14-u-clear-before-p4.md',
     path: 'docs/reviews/2026-09-14-choices.md',
