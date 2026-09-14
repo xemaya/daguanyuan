@@ -433,6 +433,8 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
   ];
 
   const cache = new Map<string, PartBuild>();
+  /** key → 构件本地包围盒 [sx, sy, sz]，见下面 fresh 分支里量它的理由。 */
+  const partSize = new Map<string, [number, number, number]>();
   const updaters: ((dt: number, t: number) => void)[] = [];
   const stone = stoneMaterial(1);
   const group = new THREE.Group();
@@ -474,6 +476,11 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
       });
       console.info(`[garden] ${key} ${(tris / 1000).toFixed(1)}k tris`);
       if (part.update) updaters.push(part.update);
+      // 单子 AD · 第三档：构件的本地包围盒尺寸,登记进世界清单。
+      // 接缝门要判「两段墙之间有没有缝」,光有落位没有尺寸算不出端点。
+      // 只在 fresh(原型第一次建出来)时量一次,之后从 cache 拿。
+      const box = new THREE.Box3().setFromObject(part.root);
+      partSize.set(key, box.isEmpty() ? [0, 0, 0] : [box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z]);
     }
     calls++;
     const linear=part.kind==='wall-path'||part.kind==='corridor-path'||part.kind==='bridge-path'?part as WallPathResult|CorridorResult|BridgePathResult:null;
@@ -507,6 +514,7 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
       position: [wx, y, wz],
       yaw,
       planId,
+      size: partSize.get(key) ?? null,
       ...(part.kind === 'building' ? obj.userData.construction : null),
       ...(obj.userData.planObject ? { planObject: obj.userData.planObject } : null),
       ...(part.root.userData.provenance ? { provenance: part.root.userData.provenance } : null),

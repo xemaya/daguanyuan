@@ -44,3 +44,80 @@ export function auditConnections(plan) {
  }catch(e){fails.push(`${spec.id}：${e.message}`);}
  return {fails,connections};
 }
+
+/**
+ * 单子 AD · 第三档「接缝连续性」。
+ *
+ * 任何「一段段拼起来」的东西(墙、廊、桥)，在每个内部折点沿路径切向 x±ε
+ * 采样，比较墙脚高程与两侧地面材质；两条线性构件端点相接处再比标高。
+ * 这一类缺陷人眼极难抓——得正好走到那个接缝才看得见；机器把全园接缝
+ * 一次扫完。
+ *
+ * 四个量都取自 plan 与地形场，没有一个是从几何代码倒推的：
+ *   - 墙脚高程跳变 > 0.12m 报：一块城砖厚，人眼在墙脚看得出的最小台阶；
+ *   - 两侧地面材质不同即报：同一段墙脚下面换了料；
+ *   - 标高与地面差 > 1.0m 报：整段墙悬空或埋进土里；
+ *   - 相接处标高差 > 0.05m 报：压顶是一条连续线，肉眼对直线折断极敏感。
+ * plan 的墙不带 height_m(墙高来自规则表)，所以比的是标高这个基准面，
+ * 不是顶面——顶面在数据里根本不存在，拿代码里的数去比就成了复读。
+ *
+ * ⚠️ 阈值不许为了让它绿而调松(spec §2⑥ 第三档:「这道门写出来会立刻是
+ * 红的，那正是它是门的证明」)。
+ */
+const SEAM_EPS = 0.25;
+const SEAM_GROUND_TOL = 0.12;
+const SEAM_ELEV_TOL = 0.05;
+const SEAM_FLOAT_TOL = 1.0;
+
+/** 墙脚跟着地面走的那几类。桥是跨空构件——桥面本来就该架在水上，
+ *  拿「墙脚悬空」「两侧地面材质不同」去判它是判据错，不是世界错
+ *  (桥自己的验收在 auditConnections：净宽、越界、桥面切入建筑)。 */
+const GROUND_FOLLOWING = new Set(['wall', 'corridor', 'fence', 'railing', 'path', 'steps']);
+
+function seamNorm(x, z) { const d = Math.hypot(x, z) || 1; return [x / d, z / d]; }
+
+export function auditSeams(plan, field) {
+ const seams = [], fails = [];
+ const specs = allPlanLinears(plan).filter((s) => Array.isArray(s.points) && s.points.length >= 2);
+ for (const spec of specs) {
+  const pts = spec.points;
+  if (!GROUND_FOLLOWING.has(spec.kind)) continue; // 跨空构件跳过墙脚类断言，仍参与下面的相接标高比对
+  for (let i = 1; i < pts.length - 1; i++) {
+   const [px, pz] = pts[i - 1], [cx, cz] = pts[i], [nx, nz] = pts[i + 1];
+   const inDir = seamNorm(cx - px, cz - pz), outDir = seamNorm(nx - cx, nz - cz);
+   const a = [cx - inDir[0] * SEAM_EPS, cz - inDir[1] * SEAM_EPS];
+   const b = [cx + outDir[0] * SEAM_EPS, cz + outDir[1] * SEAM_EPS];
+   const ga = field.height(a[0], a[1]), gb = field.height(b[0], b[1]);
+   const sa = field.surface ? field.surface(a[0], a[1]) : null;
+   const sb = field.surface ? field.surface(b[0], b[1]) : null;
+   const rec = { id: spec.id, station: i, kind: spec.kind, deltaGround: Math.abs(ga - gb), surfaceA: sa, surfaceB: sb };
+   seams.push(rec);
+   if (rec.deltaGround > SEAM_GROUND_TOL)
+    fails.push(`${spec.id} 第${i}个折点墙脚高程跳 ${rec.deltaGround.toFixed(3)}m（>${SEAM_GROUND_TOL}m）`);
+   if (sa && sb && sa !== sb)
+    fails.push(`${spec.id} 第${i}个折点两侧地面材质不同：${sa} / ${sb}`);
+  }
+  // 整段的标高与实际地面的落差：一段被抬走时，每一站的墙脚都悬空。
+  for (let i = 0; i < pts.length; i++) {
+   const g = field.height(pts[i][0], pts[i][1]);
+   const drop = Math.abs((spec.elevation_m ?? g) - g);
+   if (drop > SEAM_FLOAT_TOL) {
+    fails.push(`${spec.id} 第${i}站标高 ${spec.elevation_m}m 与地面 ${g.toFixed(2)}m 差 ${drop.toFixed(2)}m（墙脚悬空或埋入）`);
+    break;
+   }
+  }
+ }
+ // 两条不同线性构件端点相接处：压顶线在这种地方折断最扎眼。
+ for (let i = 0; i < specs.length; i++) for (let j = i + 1; j < specs.length; j++) {
+  const A = specs[i], B = specs[j];
+  for (const pa of [A.points[0], A.points[A.points.length - 1]])
+   for (const pb of [B.points[0], B.points[B.points.length - 1]]) {
+    if (Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) > 0.6) continue;
+    const d = Math.abs((A.elevation_m ?? 0) - (B.elevation_m ?? 0));
+    seams.push({ id: `${A.id}|${B.id}`, station: -1, kind: 'junction', deltaGround: d, surfaceA: null, surfaceB: null });
+    if (d > SEAM_ELEV_TOL)
+     fails.push(`${A.id} 与 ${B.id} 相接处标高差 ${d.toFixed(3)}m（>${SEAM_ELEV_TOL}m）`);
+   }
+ }
+ return { seams, fails };
+}

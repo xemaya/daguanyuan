@@ -77,6 +77,68 @@ export function coverage(plan, manifest) {
   return { builtRegions, built: { total, covered: total - missing.length, missing }, feral, knownGaps };
 }
 
+/**
+ * 单子 AD · 第三档「接缝连续性」的世界名册那一侧。
+ *
+ * connection-audit.mjs 的 auditSeams 只看 plan 的线性构件——而正门那六段粉墙
+ * 根本不在 plan 里(它们是对账门报出的野生件)，所以纯 plan 的扫描从定义上
+ * 看不见 spec §2⑥ 第三档点名的那个案例。这是同一个病的另一面：门只查数据，
+ * 查不到世界里真正摆出来的东西。
+ *
+ * 这里补上：把名册里同一类、同朝向、同标高的构件按轴向排成链，量相邻两件
+ * 的端到端间距。size 是构件本地包围盒(composer 量的)，yaw 给出它的走向。
+ *
+ * 判据与出处：
+ *   - 间距 > 0.15m 报「缝」：一块城砖长边的一半，站在墙前看得见的漏光；
+ *   - 间距 < -0.15m 报「叠」：两段互相插进去 15cm 以上，不是收分是穿模；
+ *   - 标高差 > 0.05m 报：压顶是一条连续线。
+ * 不做「该不该连成一条」的判断——只对已经排成一列的相邻件发问。
+ */
+const CHAIN_GAP_TOL = 0.15;
+const CHAIN_ELEV_TOL = 0.05;
+/** 只有细长件才谈得上「一段段拼起来」。实测各构件长厚比：
+ *    wall 10.1~13.6 | bridge:zigzag 3.2 | bamboo 1.1 | taihu 0.9~1.4
+ *  5:1 把墙与散置件分干净，也排掉 z 形曲桥——它相邻两折本来就按设计重叠，
+ *  桥自己的验收在 auditConnections(净宽、越界、切入建筑)，不归这道门。
+ *  ⚠️ 这个数是用来分类的，不是阈值。不许为了让门变绿去调它。 */
+const CHAIN_MIN_ASPECT = 5;
+
+export function auditRosterSeams(roster) {
+  const chains = new Map();
+  for (const r of roster ?? []) {
+    if (!r.size || !r.position) continue;
+    if (r.size[0] / Math.max(1e-3, r.size[2]) < CHAIN_MIN_ASPECT) continue;
+    const yaw = Number(r.yaw ?? 0);
+    // 同一类、同朝向(16 分之一圈为一档)的构件归一条链。
+    const key = `${r.part}|${Math.round(yaw / (Math.PI / 8))}`;
+    if (!chains.has(key)) chains.set(key, []);
+    chains.get(key).push({ ...r, yaw });
+  }
+  const seams = [], fails = [];
+  for (const [key, items] of chains) {
+    if (items.length < 2) continue;
+    const yaw = items[0].yaw;
+    // 构件的长边在本地 X 上；世界里它的走向是 (cos yaw, -sin yaw)。
+    const ux = Math.cos(yaw), uz = -Math.sin(yaw);
+    const along = (p) => p.position[0] * ux + p.position[2] * uz;
+    const sorted = [...items].sort((a, b) => along(a) - along(b));
+    for (let i = 1; i < sorted.length; i++) {
+      const a = sorted[i - 1], b = sorted[i];
+      const gap = (along(b) - b.size[0] / 2) - (along(a) + a.size[0] / 2);
+      // 只对「排在一条线上」的相邻件发问：横向偏移超过半个身位的不是同一道墙。
+      const lateral = Math.abs((b.position[0] - a.position[0]) * -uz + (b.position[2] - a.position[2]) * ux);
+      if (lateral > 0.5) continue;
+      if (gap > 6) continue; // 隔了半条街，不是一道墙上的两段
+      const dElev = Math.abs(a.position[1] - b.position[1]);
+      seams.push({ chain: key, a: a.id, b: b.id, gap, dElev, lateral });
+      if (gap > CHAIN_GAP_TOL) fails.push(`${a.part} ${a.variant}→${b.variant} 之间有 ${gap.toFixed(2)}m 的缝（@ x≈${a.position[0].toFixed(1)}, z≈${a.position[2].toFixed(1)}）`);
+      else if (gap < -CHAIN_GAP_TOL) fails.push(`${a.part} ${a.variant}→${b.variant} 互相插入 ${(-gap).toFixed(2)}m（@ x≈${a.position[0].toFixed(1)}, z≈${a.position[2].toFixed(1)}）`);
+      if (dElev > CHAIN_ELEV_TOL) fails.push(`${a.part} ${a.variant}→${b.variant} 标高差 ${dElev.toFixed(3)}m（@ x≈${a.position[0].toFixed(1)}）`);
+    }
+  }
+  return { seams, fails };
+}
+
 const loadManifest = (d) => JSON.parse(readFileSync(join(resolve(d), 'manifest.json'), 'utf8'));
 
 /* 下面是 CLI。用 import.meta.url 守住，好让测试只 import coverage 而不触发退出。 */
@@ -100,6 +162,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`\n野生件(有实物、无 plan 出处)  ${c.feral.length}`);
     for (const f of c.feral) console.log(`  野  ${`${f.part}:${f.variant}`.padEnd(26)} @ ${(f.position ?? []).map((v) => Number(v).toFixed(1)).join(', ')}`);
     console.log(`\nknown-gap(未建区的 plan 对象)  ${c.knownGaps}`);
+
+    const rs = auditRosterSeams(loadManifest(dir).constructions);
+    console.log(`\n接缝(名册侧，成链构件 ${rs.seams.length} 对)  ${rs.fails.length} 处`);
+    for (const f of rs.fails) console.log(`  缝  ${f}`);
 
     let bad = 0;
     if (c.built.missing.length) { console.log(`\nFAIL 已建成区内有 ${c.built.missing.length} 个 plan 对象在世界里没有对应物体`); bad++; }

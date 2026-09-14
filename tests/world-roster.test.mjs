@@ -70,3 +70,36 @@ test('身份传递不许过度吸收：线性构件没建时，它的 insert 与
  assert.ok(c.built.missing.includes('xiaoxiangguan.corridor'));
  assert.ok(c.built.missing.includes('xiaoxiangguan.courtyard-wall'));
 });
+
+import {auditRosterSeams} from '../tools/manifest-diff.mjs';
+
+/** 正门六段粉墙的真实落位(composer 的 D_ZHENGMEN 平移结果)，宽度按 6m 算：
+ *  65/71 首尾相接(缝 0)，71/78 之间空 1m。 */
+const wallRoster=[
+ {id:'wall:plain',part:'wall',variant:'plain',planId:null,position:[65,0.8,236],yaw:0,size:[6,2.7,0.4]},
+ {id:'wall:lattice',part:'wall',variant:'lattice',planId:null,position:[71,0.8,236],yaw:0,size:[6,2.7,0.4]},
+ {id:'wall:cloud',part:'wall',variant:'cloud',planId:null,position:[78,0.8,236],yaw:0,size:[6,2.7,0.4]},
+];
+
+test('名册侧接缝门：同一道墙上相邻两段之间的缝要报出来',()=>{
+ const a=auditRosterSeams(wallRoster);
+ assert.equal(a.seams.length,2,'三段墙应排成两对相邻');
+ assert.ok(a.fails.some(f=>f.includes('1.00m 的缝')),`1 米的缝没报出来：${JSON.stringify(a.fails)}`);
+ assert.ok(!a.fails.some(f=>f.includes('plain→lattice')&&f.includes('缝')),'首尾相接的一对不该报缝');
+});
+
+test('名册侧接缝门：标高差与互相插入都要报',()=>{
+ const stepped=structuredClone(wallRoster);
+ stepped[1].position[1]=1.0;                 // 抬 0.2m
+ stepped[2].position[0]=76;                  // 往回挪 2m，与前一段插进去 1m
+ const a=auditRosterSeams(stepped);
+ assert.ok(a.fails.some(f=>f.includes('标高差')),'0.2m 标高差没报');
+ assert.ok(a.fails.some(f=>f.includes('互相插入')),'互插没报');
+});
+
+test('名册侧接缝门不越界：横向岔开半个身位以上的不算同一道墙',()=>{
+ const apart=structuredClone(wallRoster);
+ apart[2].position[2]=246;                   // 挪到另一条线上
+ const a=auditRosterSeams(apart);
+ assert.equal(a.seams.length,1);
+});

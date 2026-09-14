@@ -60,3 +60,21 @@ test('beveled deck endpoints have a real top within 0.1mm of the nominal Float32
   geo.dispose();mat.dispose();
  }
 });
+
+import {auditSeams} from '../tools/connection-audit.mjs';
+
+test('接缝连续性门：全园线性构件的接缝都被扫到',()=>{
+ const field=makeTerrainField(plan,{seed:17910000});
+ const a=auditSeams(plan,field);
+ assert.ok(a.seams.length>0,'一个接缝都没扫到说明门写歪了');
+ for(const s of a.seams)assert.ok(Number.isFinite(s.deltaGround));
+});
+
+test('接缝门对标高跳变敏感：把一段墙抬 1m，门必须红',()=>{
+ const field=makeTerrainField(plan,{seed:17910000});
+ const bumped=structuredClone(plan);
+ const wall=bumped.regions.find(r=>r.id==='xiaoxiangguan').linears.find(l=>l.kind==='wall');
+ wall.elevation_m+=1;
+ const a=auditSeams(bumped,field);
+ assert.ok(a.fails.some(f=>f.includes(wall.id)),'抬高一整段墙，接缝门没红');
+});

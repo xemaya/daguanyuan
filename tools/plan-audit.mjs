@@ -7,7 +7,9 @@ import {compileCorridor} from '../builder/plan/corridor-path.ts';
 import {compileBridgePath} from '../builder/plan/bridge-path.ts';
 import {auditConstructions} from './construction-audit.mjs';
 import {auditNarrative} from './narrative-audit.mjs';
-import {auditConnections} from './connection-audit.mjs';
+import {auditConnections,auditSeams} from './connection-audit.mjs';
+import {makeTerrainField} from '../builder/compose/terrain-from-plan.ts';
+import {SEED} from '../builder/compose/config.ts';
 import {auditLinearLayouts} from './linear-layout-audit.mjs';
 
 /** Passing implemented assertions is not proof of all seven source constraints. */
@@ -138,6 +140,14 @@ export function auditPlan(plan) {
   fails.push(...narrative.fails);
   try {
     const connections=auditConnections(plan);fails.push(...connections.fails);
+    /* 单子 AD · 第三档接缝门。⚠️ 现在**只报不拦**(进 pending，不进 fails)：
+     * 正门六段墙有四处成因、正门精修还没合入，此刻把它接进 fails 等于逼着
+     * 下一个人去调松阈值，或者把当前这个错的形态当成期望值焊死——项目自己
+     * 立过的规矩是「观感迭代期不要加门」。单子 AE(正门精修合入之后)负责把
+     * 这一段从 pending 搬进 fails。 */
+    const seams=auditSeams(plan,makeTerrainField(plan,{seed:SEED}));
+    for(const f of seams.fails)pending.push(`接缝：${f}`);
+    diagnostics.seams={scanned:seams.seams.length,flagged:seams.fails.length};
     diagnostics.connections=connections.connections.map(c=>({id:c.spec.id,length:c.compiled.length,clearWidth:c.compiled.clearWidth,
       routeLegs:c.spec.routeLegs,runtimeVerified:false}));
   }catch(error){fails.push(`公共连接：${error.message}`);}
