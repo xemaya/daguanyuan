@@ -3170,6 +3170,42 @@
           "plaque": "潇湘馆",
           "id": "xiaoxiangguan.moon-gate",
           "kind": "opening"
+        },
+        {
+          "name": "甬路西侧花池",
+          "type": "花池",
+          "bays": 0,
+          "roof": "无",
+          "facing": "south",
+          "x": -106.25,
+          "z": 109,
+          "plaque": null,
+          "id": "xiaoxiangguan.path-bed-west",
+          "kind": "planting",
+          "bed": {
+            "polygon": [[-106.6, 101], [-105.9, 101], [-105.9, 117], [-106.6, 117], [-106.6, 101]],
+            "tints": ["#f5f0ea", "#eec9d2", "#f2e3b3"],
+            "density": 0.85
+          },
+          "basis": "PQ-4:参照图的花全在路边花池,是人种的。潇湘馆原文无花(翠竹/梨花/芭蕉/苍苔),此处为艺术取值留痕 provenance.art;花色取素(白/淡粉/淡黄),不夺竹与苔;范围沿院内甬路西侧,避开路心铺装与羽化带。"
+        },
+        {
+          "name": "甬路东侧花池",
+          "type": "花池",
+          "bays": 0,
+          "roof": "无",
+          "facing": "south",
+          "x": -103.75,
+          "z": 109,
+          "plaque": null,
+          "id": "xiaoxiangguan.path-bed-east",
+          "kind": "planting",
+          "bed": {
+            "polygon": [[-104.1, 101], [-103.4, 101], [-103.4, 117], [-104.1, 117], [-104.1, 101]],
+            "tints": ["#f5f0ea", "#eec9d2", "#f2e3b3"],
+            "density": 0.85
+          },
+          "basis": "同 xiaoxiangguan.path-bed-west:PQ-4 花池,艺术取值留痕 provenance.art。"
         }
       ],
       "plants": [
@@ -8702,7 +8738,13 @@
           "z": -162,
           "plaque": null,
           "id": "huajia_huapu.rose-garden",
-          "kind": "planting"
+          "kind": "planting",
+          "bed": {
+            "radius": 4,
+            "tints": ["#d45f6e", "#e8b7bf", "#f5f0ea"],
+            "density": 0.9
+          },
+          "basis": "第17回「蔷薇院」名目;花池范围(半径4m)与花色为艺术取值,留痕 provenance.art。本区在 MVP 地形窗口外,散布器暂跳过,PE 建到本区自然生效。"
         },
         {
           "name": "芭蕉坞",
@@ -8927,7 +8969,12 @@
         -148
       ],
       "region": "huajia_huapu",
-      "basis": "第17回度芍药圃；与第62回红香圃芍药栏同址为未证实指认，仅作本项目L4落位。"
+      "bed": {
+        "radius": 5,
+        "tints": ["#e2556f", "#f2a0b5", "#f7efe6"],
+        "density": 0.9
+      },
+      "basis": "第17回度芍药圃；与第62回红香圃芍药栏同址为未证实指认，仅作本项目L4落位。花池范围(半径5m)与花色为艺术取值,留痕 provenance.art;本区在 MVP 地形窗口外,PE 建到本区自然生效。"
     },
     {
       "id": "ch17.cave-passage",

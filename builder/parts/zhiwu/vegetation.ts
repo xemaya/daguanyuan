@@ -6,6 +6,7 @@ import { BoundsIndex } from '@engine/scatter/cluster';
 import {compileCorridor} from '@builder/plan/corridor-path';
 import {compileBridgePath} from '@builder/plan/bridge-path';
 import {locatePoint,type Point2} from '@builder/plan/geometry';
+import {bedsFromPlan} from '@builder/plan/objects';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { poissonScatter, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter/index';
@@ -2841,6 +2842,86 @@ export function buildVegetation(ctx: GameContext): void {
           mesh.castShadow = false;
           mesh.receiveShadow = true;
           mesh.name = `Flowers_bank_${ti}`;
+          mesh.computeBoundingSphere();
+          group.add(mesh);
+          culler.add([mesh], { maxDist: VEG.drawDist.flowers });
+        });
+      }
+    }
+
+    // —— 种植带(PQ-4):plan.json 里 kind:'planting' 且带 bed 的条目是人种的花——
+    // 花池里不看草皮掩码(铺装的院子也长),只验脚下站得住、不在建筑里。
+    // 范围与花色全在数据里(bedsFromPlan):regions[].plants 记名目、planting
+    // 条目记位置,与 PE 的种植数据同一套真源,不另造体系。整条在地形窗口外
+    // 的(如蔷薇院/芍药圃)现在跳过,等 PE 建到那区自然长出来。——
+    {
+      for (const bed of bedsFromPlan()) {
+        const radius = bed.radius ?? 1.5;
+        const ring: Point2[] = bed.polygon
+          ? bed.polygon.map(([px, pz]) => [px, pz] as Point2)
+          : Array.from({ length: 12 }, (_, i) => {
+              const a = (i / 12) * Math.PI * 2;
+              return [bed.x + Math.cos(a) * radius, bed.z + Math.sin(a) * radius] as Point2;
+            });
+        const bxs = ring.map((p) => p[0]);
+        const bzs = ring.map((p) => p[1]);
+        const minX = Math.max(Math.min(...bxs), VEG.scatterMinX);
+        const maxX = Math.min(Math.max(...bxs), VEG.scatterMaxX);
+        const minZ = Math.max(Math.min(...bzs), VEG.scatterMinZ);
+        const maxZ = Math.min(Math.max(...bzs), VEG.scatterMaxZ);
+        if (minX >= maxX || minZ >= maxZ) continue;
+        const bedDensity = bed.density ?? 1;
+        const spots = poissonScatter({
+          minX, maxX, minZ, maxZ,
+          radius: 0.34, tries: 400,
+          density: (x, z) => {
+            // 花池不问地表是不是草——这是它与自然散布的唯一区别。
+            if (locatePoint(ring, [x, z]) === 'outside') return 0;
+            if (ground(x, z) < VEG.minPlantY) return 0;
+            return bedDensity * outsideBuildings(x, z, 0.1);
+          },
+          rng: fRng,
+        });
+        if (!spots.length) continue;
+        const tints = (bed.tints?.length ? bed.tints : ['#f5f0ea']).map((t) => new THREE.Color(t).getHex());
+        const bedBuckets: { x: number; z: number }[][] = tints.map(() => []);
+        for (const s of spots) bedBuckets[Math.floor(fRng() * tints.length) % tints.length].push(s);
+        bedBuckets.forEach((list, ti) => {
+          if (!list.length) return;
+          const mesh = makeInstanced(
+            flowerGeometry((ctx.seed ^ 0xbed0) + ti * 389, new THREE.Color(tints[ti])),
+            createFoliageMaterial(ctx.env, {
+              color: 0xffffff,
+              map: petal.map,
+              normalMap: petal.normalMap,
+              normalScale: 0.5,
+              roughness: 0.72,
+              windScale: 1.35,
+              wrap: 0.6,
+              transColor: tints[ti],
+              transStrength: 1.6,
+              haloStrength: 0.12,
+              side: THREE.DoubleSide,
+            }),
+            list.length, fRng, 1,
+          );
+          for (let i = 0; i < list.length; i++) {
+            const s = list[i];
+            const sc = rangeOf(fRng, 0.8, 1.45);
+            euler.set(rangeOf(fRng, -0.16, 0.16), fRng() * Math.PI * 2, rangeOf(fRng, -0.16, 0.16), 'ZYX');
+            q.setFromEuler(euler);
+            pos3.set(s.x, ground(s.x, s.z) - 0.01, s.z);
+            scl.set(sc, sc * rangeOf(fRng, 0.85, 1.25), sc);
+            m4.compose(pos3, q, scl);
+            mesh.setMatrixAt(i, m4);
+            col.setRGB(rangeOf(fRng, 0.9, 1.08), rangeOf(fRng, 0.9, 1.08), rangeOf(fRng, 0.9, 1.08));
+            mesh.setColorAt(i, col);
+          }
+          mesh.instanceMatrix.needsUpdate = true;
+          if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+          mesh.castShadow = false;
+          mesh.receiveShadow = true;
+          mesh.name = `FlowerBed_${bed.id}_${ti}`;
           mesh.computeBoundingSphere();
           group.add(mesh);
           culler.add([mesh], { maxDist: VEG.drawDist.flowers });

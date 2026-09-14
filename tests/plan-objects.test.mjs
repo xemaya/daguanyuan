@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 import { requirePlanAnchor, validatePlanObjects } from '@builder/plan/objects.ts';
 const plan = JSON.parse(readFileSync('projects/daguanyuan/plan.json', 'utf8'));
 
-test('all 73 plan objects and landscape rocks have unique region-scoped identities', () => {
+test('all 75 plan objects and landscape rocks have unique region-scoped identities', () => {
   assert.deepEqual(validatePlanObjects(plan.regions), []);
   const objects = plan.regions.flatMap(r => r.buildings);
-  assert.equal(objects.length, 73);
+  assert.equal(objects.length, 75);
   assert.equal(objects.filter(b => b.kind === 'building').length, 32);
   const byId = new Map(objects.map(b => [b.id, b]));
   assert.equal(byId.get('qinfang_ting_qiao.three-opening-bridge').kind, 'bridge');
@@ -15,6 +15,25 @@ test('all 73 plan objects and landscape rocks have unique region-scoped identiti
   assert.equal(byId.get('xiaoxiangguan.moon-gate').kind, 'opening');
   assert.equal(byId.get('zilingzhou.boathouse').kind, 'building');
   assert.equal(byId.get('huajia_huapu.banana-grove').kind, 'planting');
+});
+
+test('planting beds (PQ-4): closed rings, tints and density, one truth in plan.json', () => {
+  const beds = [...plan.regions.flatMap(r => r.buildings), ...plan.routeFeatures]
+    .filter(e => e.kind === 'planting' && e.bed);
+  // 潇湘馆甬路两池 + 蔷薇院 + 芍药圃;芭蕉坞是叶木不是花,无 bed。
+  assert.equal(beds.length, 4);
+  for (const b of beds) {
+    assert.ok(b.basis, `${b.id} 缺 basis 留痕`);
+    assert.ok(Array.isArray(b.bed.tints) && b.bed.tints.length > 0, `${b.id} 缺花色`);
+    if (b.bed.polygon) {
+      const ring = b.bed.polygon;
+      const [x0, z0] = ring[0];
+      const [x1, z1] = ring[ring.length - 1];
+      assert.ok(ring.length >= 4 && x0 === x1 && z0 === z1, `${b.id} 的 bed.polygon 不是闭合环`);
+    } else {
+      assert.ok(b.bed.radius > 0, `${b.id} 缺范围(polygon 或 radius)`);
+    }
+  }
 });
 
 test('MVP anchor migration preserves actual P1 world positions', () => {
