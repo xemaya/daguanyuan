@@ -109,6 +109,25 @@
 
 ---
 
+## 2026-09-14 晚 · 已派的三张优化单（文件不重叠，可并行）
+
+| 单子 | 收哪几条 | 文件域 |
+|---|---|---|
+| **AG** 正门大木作四件 | `C2` 檐口瓦当滴水（基建）、`C3` 格心纹样（基建）、`A2` 垂带端面、`A4` 匾宽按开间 | `builder/parts/damu/building.ts`、`builder/parts/xiaomu/plaque.ts`、`builder/parts/qiangyuan/wall.ts` 的格心生成器 |
+| **AH** 引泉沟两件 | `A1` 沙带按 `inradius` 收放、`C7` 石压边（`PQ-3`） | `builder/compose/terrain-from-plan.ts`、`builder/parts/pudi/` |
+| **AI** 正门门前四件 | `B1` 白石台矶、`B2`+`C1` 侧墙连续生成、`A3` 抱鼓石归位、引泉沟 `basis` 补痕 | `plan.json` 的 `zhengmen`/`paths` 段、`projects/daguanyuan/scenes/zhengmen.json`、`wall-path.ts`、`composer.ts` 的 `baogushiSpotsFor` |
+
+**三张的共同硬要求：三角数预算。** 开工前实测 `gate_approach` **4160k**、
+`grass_close` **4226k**——**已经超过 400 万，而且没有任何一道门管绝对上限**
+（`manifest-diff` 只做 A/B 相对回归）。历史：V3 收口时回到 400 万内，
+之后单子 Z 的选料规则加了 17 件散石把它顶回去，**没人发现，因为没人看守**。
+三张单子各自写了前后对照的要求。
+
+**AI 有可机器验证的成功判据**：对账门 `17/23 → 19/23`、接缝门 4 处归零、
+脚下序列第一段 `stone` 直接接上铺装。
+
+---
+
 ## 建议的做法顺序
 
 ```
