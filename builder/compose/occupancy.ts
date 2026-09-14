@@ -353,6 +353,45 @@ export function buildOccupancy(
   };
 }
 
+/**
+ * 门：**实体不许落在墙体内**（单子 AF，架构稿 §2 接缝 ③ 与 ⑥）。
+ *
+ * 拿世界名册里每条记录的**实体范围**（不是包围盒）去和墙体带求交。
+ * 判据分得很清：
+ *
+ *   - **枝叶越墙 → 允许，而且是想要的**（`07-07`「千百竿翠竹遮映」）。
+ *     所以用 `SOLID_RADIUS`（竿/干的展开半径），不用名册里的 `size` 包围盒。
+ *   - **茎干/实体落在墙体之内 → 缺陷。**
+ *
+ * 表里没有实体半径的构件（墙自己、铺地、计划驱动的房子桥廊）**跳过并计数**——
+ * 门会把跳过的条数打印出来，不许静默略过。
+ */
+export function auditSolidVsWall(
+  roster: readonly Record<string, unknown>[],
+  field: OccupancyField,
+): {
+  hits: { id: string; part: string; variant: string; depth: number; wall: string; position: number[] }[];
+  checked: number;
+  skipped: number;
+} {
+  const hits = [];
+  let checked = 0;
+  let skipped = 0;
+  for (const r of roster) {
+    const position = r.position as number[] | undefined;
+    if (!position || position.length < 3) continue;
+    const part = String(r.part ?? '');
+    const variant = String(r.variant ?? 'default');
+    const radius = solidRadiusOf(part, variant, r.size as number[] | null | undefined);
+    if (radius === null) { skipped++; continue; }
+    checked++;
+    const hit = field.wallIntrusion(position[0], position[2], radius, position[1]);
+    if (hit) hits.push({ id: String(r.id ?? `${part}:${variant}`), part, variant, depth: hit.depth, wall: hit.wall, position });
+  }
+  hits.sort((a, b) => b.depth - a.depth);
+  return { hits, checked, skipped };
+}
+
 /* ---- 注入口：与 setPlan/setScenes 同路数 ------------------------------- */
 
 let injected: OccupancyField | undefined;

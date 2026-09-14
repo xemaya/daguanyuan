@@ -194,6 +194,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     for (const f of c.feral) console.log(`  野  ${`${f.part}:${f.variant}`.padEnd(26)} @ ${(f.position ?? []).map((v) => Number(v).toFixed(1)).join(', ')}`);
     console.log(`\nknown-gap(未建区的 plan 对象)  ${c.knownGaps}`);
 
+    /* 单子 AF · 实体不许落在墙体内。
+     * 判断在 builder/compose/occupancy.ts(实体半径表与墙体带都在那儿),
+     * 这里只负责打印。它是 .ts,所以按 check-scenes.mjs 的老路子先挂上解析钩子。 */
+    await import('../tests/ts-resolver.mjs');
+    const { buildOccupancy, auditSolidVsWall } = await import('../builder/compose/occupancy.ts');
+    const solid = auditSolidVsWall(loadManifest(dir).constructions ?? [], buildOccupancy(plan, c.builtRegions, scenes));
+    console.log(`\n实体插进墙体  ${solid.hits.length} 处（查了 ${solid.checked} 件，${solid.skipped} 件没有实体半径、跳过）`);
+    for (const h of solid.hits)
+      console.log(`  插  ${`${h.part}:${h.variant}`.padEnd(22)} 陷进 ${h.wall} ${h.depth.toFixed(2)}m（@ ${h.position[0].toFixed(1)}, ${h.position[2].toFixed(1)}）`);
+
     const rs = auditRosterSeams(loadManifest(dir).constructions);
     console.log(`\n接缝(名册侧，成链构件 ${rs.seams.length} 对)  ${rs.fails.length} 处`);
     for (const f of rs.fails) console.log(`  缝  ${f}`);
@@ -215,6 +225,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (t.cmPerTexel > baseline.terrain.cmPerTexel + 0.1)
         { console.log(`\nFAIL splat 从 ${baseline.terrain.cmPerTexel} 掉到 ${t.cmPerTexel.toFixed(1)} cm/texel`); bad++; }
     }
+    if (solid.hits.length) { console.log(`\nFAIL ${solid.hits.length} 件实体落在墙体内——枝叶越墙是想要的景，茎干插进墙不是`); bad++; }
     if (c.built.missing.length) { console.log(`\nFAIL 已建成区内有 ${c.built.missing.length} 个 plan 对象在世界里没有对应物体`); bad++; }
     if (baseline && c.knownGaps > baseline.knownGaps) { console.log(`FAIL known-gap 从 ${baseline.knownGaps} 涨到 ${c.knownGaps}——未建区对象数只许降不许升`); bad++; }
     if (baseline && c.feral.length > baseline.feral) { console.log(`FAIL 野生件从 ${baseline.feral} 涨到 ${c.feral.length}`); bad++; }

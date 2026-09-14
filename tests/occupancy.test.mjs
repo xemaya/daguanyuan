@@ -127,3 +127,44 @@ test('实体半径不是包围盒:枝叶不算,竿才算',()=>{
  assert.equal(solidRadiusOf('wall','plain',[6.16,2.68,0.61]),null);
  assert.ok(!('wall' in SOLID_RADIUS),'墙自己不该有实体半径,否则会拿墙去撞墙');
 });
+
+import {auditSolidVsWall} from '@builder/compose/occupancy.ts';
+
+/** 潇湘馆东院墙沿 x=-91（折线 [-91,120]→[-91,66]），墙基半厚 0.23 → 近侧墙面 x=-91.23。 */
+const rec=(part,variant,x,z,size,y=1)=>({id:part+':'+variant,part,variant,position:[x,y,z],size,planId:null});
+
+test('⚠️ 枝叶越墙不许报——那是 07-07「翠竹遮映」要的景',()=>{
+ const f=buildOccupancy(plan,built,scenes);
+ // 一丛 clump：实体半径 1.1，但包围盒 3.41×3.22（半展 1.7）明显越过墙面。
+ // 放在离墙面 1.3m 处：竿(1.1)清得出来，叶(1.7)越了墙。**必须是绿的。**
+ const leafyButClear=rec('bamboo','clump',-92.53,100,[3.41,6.34,3.22]);
+ assert.ok(1.7>1.3,'样例没构造对:包围盒必须越墙');
+ assert.equal(auditSolidVsWall([leafyButClear],f).hits.length,0,
+  '拿包围盒当实体范围了——竹梢探出墙头被误报成缺陷');
+ // 同一丛再往墙里推 0.4m，竿也进墙了 → 必须报。
+ const culmInWall=rec('bamboo','clump',-92.13,100,[3.41,6.34,3.22]);
+ assert.equal(auditSolidVsWall([culmInWall],f).hits.length,1);
+});
+
+test('没有实体半径的构件跳过并计数,不许静默略过',()=>{
+ const f=buildOccupancy(plan,built,scenes);
+ const r=auditSolidVsWall([
+  rec('wall','plain',-91,100,[6.16,2.68,0.61]),      // 墙自己,不拿墙去撞墙
+  rec('luya','default',0,0,[213,0.62,149]),           // 世界空间铺地
+  rec('bamboo','clump',-92.13,100,[3.41,6.34,3.22]),  // 有实体半径,要查
+ ],f);
+ assert.equal(r.skipped,2);
+ assert.equal(r.checked,1);
+ assert.equal(r.hits.length,1);
+});
+
+test('挂在檐下的灯在墙顶之上,不算插进墙里',()=>{
+ const f=buildOccupancy(plan,built,scenes);
+ const band=f.wallBands().find(w=>w.id==='xiaoxiangguan.courtyard-wall#1');
+ // y 取墙顶之上；即便平面上正落在墙芯,也不该报。
+ const aloft={id:'x',part:'taihu',variant:'peak4',position:[-91,band.topY+1,100],size:[1.4,2.65,1.16],planId:null};
+ assert.equal(auditSolidVsWall([aloft],f).hits.length,0);
+ // 同一个东西落到墙高之内就要报,证明上面那条不是因为别的原因绿的。
+ const grounded={...aloft,position:[-91,1,100]};
+ assert.equal(auditSolidVsWall([grounded],f).hits.length,1);
+});
