@@ -15,6 +15,9 @@ export interface WallPathSpec {
   foundationDepth_m: number;
   inserts: WallInsert[];
   basis: string;
+  /** 真(园墙):虎皮石墙脚随路径弧长起伏("隨勢砌去"),即便 flushEnds
+   * 恒为真也不退回院墙的平脚青石。缺省/假:院墙做法不变(潇湘馆/栊翠庵)。 */
+  gardenFoot?: boolean;
 }
 export interface WallPanel {
   center: Point2;
@@ -24,6 +27,9 @@ export interface WallPanel {
   startMiter: number;
   endMiter: number;
   insert?: WallInsert;
+  /** 这一段在整条折线上的起点里程(局部 x=-length/2 处的弧长)，供
+   * gardenFoot 墙按路径弧长连续取样墙脚沉深，见 wall.ts 的 groundStation。 */
+  startStation: number;
 }
 export interface WallBox { cx:number; cz:number; hx:number; hz:number; rot:number; minY:number; maxY:number }
 export interface WallPlatform { cx:number; cz:number; hx:number; hz:number; rot:number; y:number }
@@ -62,6 +68,8 @@ export function compileWallPath(spec: WallPathSpec): CompiledWallPath {
     if(length<.65)throw new Error('墙折线段不得短于0.65m');
     return {a,b,length,dx:(b[0]-a[0])/length,dz:(b[1]-a[1])/length};
   });
+  const legStart:number[]=[];
+  { let acc=0; for(const l of legs) { legStart.push(acc); acc+=l.length; } }
   for(let i=0;i<n;i++)for(let j=i+1;j<n;j++) {
     const relation=segmentRelation(pts[i],pts[i+1],pts[j],pts[j+1]);
     if(j===i+1||(closed&&i===0&&j===n-1)) { if(relation!=='touch')throw new Error('墙路径回折重叠'); }
@@ -107,7 +115,8 @@ export function compileWallPath(spec: WallPathSpec): CompiledWallPath {
         panels.push({center:[l.a[0]+l.dx*s-origin[0],l.a[1]+l.dz*s-origin[1]],yaw:Math.atan2(-l.dz,l.dx),
           length:b-a,variant:part.insert?.variant??'plain',insert:part.insert,
           startMiter:a<1e-7&&(closed||i>0)?miter(legs[(i+n-1)%n],l):0,
-          endMiter:b>l.length-1e-7&&(closed||i<n-1)?-miter(l,legs[(i+1)%n]):0});
+          endMiter:b>l.length-1e-7&&(closed||i<n-1)?-miter(l,legs[(i+1)%n]):0,
+          startStation:legStart[i]+a});
       }
     }
   }

@@ -690,7 +690,7 @@ function shadowed<T extends THREE.Mesh>(m: T): T {
   return m;
 }
 
-export function buildWall(variant: string, options: { length?:number; flushEnds?:boolean } = {}): PartBuild {
+export function buildWall(variant: string, options: { length?:number; flushEnds?:boolean; groundStation?:number } = {}): PartBuild {
   // 保留纹样一级别名；路径与棚拍也可完整传入 lattice:wan 这类变体。
   // moon 可带对象 id(moon:xiaoxiangguan.moon-gate):门额文字按 id 从 plan.json 读。
   const parts = variant.split(':');
@@ -715,21 +715,36 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
       : () => 0;
   // 虎皮石墙基"隨勢砌去"只吃 07-02「左右一望」那段园墙——院墙(潇湘馆
   // 一类的粉垣,07-07 只说"一带粉垣",没说虎皮石)退回原来的做法:实心
-  // 青石、墙脚不沉。园墙都是 registry 直接摆的独立直墙段(flushEnds 缺省
-  // false);院墙都经 wall-path.ts 沿 plan 折线连续拼接首尾相接
-  // (flushEnds 恒为 true,见 buildWallPath)——目前全园仅 xiaoxiangguan/
-  // longcuian 两条 courtyard-wall 走这条路径,借这个已有信号分墙种,不再
-  // 新增一条跨文件的"墙类别"参数。
-  const courtyard = !!options.flushEnds;
-  // 同一颗噪声(借用云墙那颗、换一段不相关的取样区)按墙的本地 x 给基脚
-  // 沉深——只沉不浮,见 WALL_STYLE.baseSink 的注释。A2:折点从每 ~1.5m 加密到
-  // 每 ~0.4m——fbm 本身是平滑的,1.5m 的分段线性在远处读成规则锯齿(振幅
+  // 青石、墙脚不沉。园墙以前都是 registry 直接摆的独立直墙段(flushEnds
+  // 缺省 false);院墙都经 wall-path.ts 沿 plan 折线连续拼接首尾相接
+  // (flushEnds 恒为 true,见 buildWallPath)。
+  //
+  // 单子 AI(2026-09-14)把 zhengmen.flanking-wall 也搬上 wall-path 之后,
+  // "flushEnds 是否为真"就不能再直接当"是不是院墙"的信号了——正门这段
+  // 墙既要 flushEnds:true(连续拼接、没有接缝),又要虎皮石随势起伏
+  // (07-02「隨勢砌去」不能因为改了拼接方式就丢)。调用方(wall-path.ts
+  // 的"园墙"分支)显式传 groundStation 来打破这个耦合:传了就说明"这段
+  // 墙要虎皮石+起伏",不看 flushEnds;不传的路径(旧的独立摆放 wall、
+  // 以及 xiaoxiangguan/longcuian 的 courtyard-wall)行为完全不变。
+  const gardenFoot = options.groundStation !== undefined;
+  const courtyard = !!options.flushEnds && !gardenFoot;
+  // 同一颗噪声(借用云墙那颗、换一段不相关的取样区)按基脚位置给沉深——
+  // 只沉不浮,见 WALL_STYLE.baseSink 的注释。A2:折点从每 ~1.5m 加密到每
+  // ~0.4m——fbm 本身是平滑的,1.5m 的分段线性在远处读成规则锯齿(振幅
   // 0.08m、间距 45px 的低幅 zigzag),加密后插值贴着噪声走,锯齿消失。
-  // 院墙没有这段沉深,groundSteps 退回默认的 1(墙脚是平的一条直线)。
+  // 院墙(courtyard)没有这段沉深,groundSteps 退回默认的 1(墙脚是平的
+  // 一条直线)。
   const groundSteps = courtyard ? 1 : Math.max(1, Math.round(L / 0.4));
+  // gardenFoot 的墙取样坐标是"路径弧长"而不是本段局部 x:wall-path.ts
+  // 传入的 groundStation 是这一段在整条折线上的起点里程(局部 x=-hl 处
+  // 对应的里程),stationBase+x 就是该点在整条路径上的真实里程——相邻两
+  // 段在拼接处的里程连续,同一条 fbm 曲线在同一里程取同一个值,墙脚沉深
+  // 自然对得上,不用再对齐相位。独立摆放的墙(gardenFoot=false)仍按自己
+  // 的本地 x 取样,行为不变。
+  const stationBase = (options.groundStation ?? 0) + hl;
   const groundDip = courtyard
     ? () => 0
-    : (x: number) => -WALL_STYLE.baseSink * (0.5 - 0.5 * fbm2(simplex, x * 0.14 + 41.7, 5.2, 3));
+    : (x: number) => -WALL_STYLE.baseSink * (0.5 - 0.5 * fbm2(simplex, (gardenFoot ? stationBase + x : x) * 0.14 + 41.7, 5.2, 3));
 
   const plaster = plasterMaterial(1,true);
   const stone = stoneMaterial(1);

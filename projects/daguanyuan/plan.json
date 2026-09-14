@@ -2265,62 +2265,15 @@
           "bays": 0,
           "roof": "小青瓦压顶",
           "facing": "south",
-          "x": 20,
-          "z": 240,
+          "x": 38,
+          "z": 236,
           "plaque": null,
           "id": "zhengmen.flanking-wall",
           "kind": "wall",
           "layout": {
-            "stage": "layout-ready",
-            "basis": "P2艺术施工图：粉墙虎皮石分列正门两翼，中央门屋留空；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。",
-            "scope": "region",
-            "runs": [
-              {
-                "points": [
-                  [
-                    18,
-                    240
-                  ],
-                  [
-                    20,
-                    240
-                  ],
-                  [
-                    40,
-                    240
-                  ]
-                ],
-                "widthM": 0.62,
-                "heightM": 2.8,
-                "elevationsM": [
-                  0.8,
-                  0.8,
-                  0.8
-                ],
-                "material": "white-plaster/tiger-stone",
-                "sectionRole": "envelope"
-              },
-              {
-                "points": [
-                  [
-                    70,
-                    240
-                  ],
-                  [
-                    92,
-                    240
-                  ]
-                ],
-                "widthM": 0.62,
-                "heightM": 2.8,
-                "elevationsM": [
-                  0.8,
-                  0.8
-                ],
-                "material": "white-plaster/tiger-stone",
-                "sectionRole": "envelope"
-              }
-            ]
+            "stage": "model-reference",
+            "linearIds": ["zhengmen.flanking-wall.west", "zhengmen.flanking-wall.east"],
+            "basis": "单子 AI(2026-09-14)：P2 施工图阶段的 layout-ready 包络(z=240)已被 P3 实际生成的两条 wall-path 取代——真折线改在正门中脊线 z=236 上(见 region.linears)，不再是独立的施工包络。x/z 锚点挪到 west 段中点(38,236)，落在该折线上，满足 auditLinearLayouts 的模型参照点校验。"
           }
         }
       ],
@@ -2337,6 +2290,34 @@
           "z": 241,
           "note": "随势砌,不取平直",
           "id": "zhengmen.rock-01"
+        }
+      ],
+      "linears": [
+        {
+          "id": "zhengmen.flanking-wall.west",
+          "kind": "wall",
+          "points": [
+            [48, 236],
+            [28, 236]
+          ],
+          "elevation_m": 0.8,
+          "foundationDepth_m": 0.4,
+          "inserts": [],
+          "gardenFoot": true,
+          "basis": "单子 AI(2026-09-14)：用户反馈第 3 条(墙接缝错位)与 B2/C1(docs/reviews/2026-09-14-mvp-four-regions.md)。六段独立 wall(plain@dx-10/lattice@dx-16/cloud@dx-23，flushEnds:false)覆盖的正是这同一段(dx -7~-27，即 x 48~28)——折线覆盖同一段，不新划一条；z=236 与正门中脊线(zhengmen.main-gate)同线，从门西侧山墙面向西延展。改沿单一折线连续生成(wall-path，flushEnds 恒真)后不再有六段各自的端头外伸互撞，但 07-02「隨勢砌去」要求的虎皮石墙脚起伏不能因此丢——gardenFoot:true 让 wall.ts 保留虎皮石材质，沉深噪声按路径弧长(而非本段局部 x)连续取样，相邻段在拼接处的取样点是同一条弧长曲线上的同一个值，起伏与无缝两者都要。云墙(cloud)silhouette 未保留：wall-path 目前只能生成 plain 墙身(cloud/lattice 只是 insert 或独立 variant，wall-path 的 panel.variant 恒为 plain 或 insert 变体)，给它加一种新 panel 变体超出本单范围；07-02 原文本就只说「雪白粉墙，下面虎皮石」，没提云墙形制，改素面墙不算丢史料依据。"
+        },
+        {
+          "id": "zhengmen.flanking-wall.east",
+          "kind": "wall",
+          "points": [
+            [62, 236],
+            [82, 236]
+          ],
+          "elevation_m": 0.8,
+          "foundationDepth_m": 0.4,
+          "inserts": [],
+          "gardenFoot": true,
+          "basis": "同 zhengmen.flanking-wall.west，门东侧对称段，覆盖原六段中 plain@dx10/lattice@dx16/cloud@dx23 的同一段(dx 7~27，即 x 62~82)。"
         }
       ],
       "sources": [

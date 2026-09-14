@@ -1,6 +1,6 @@
 {
   "region": "zhengmen",
-  "$comment": "正门。点名件由 plan 生成，这里只写 plan 里没有锚点的东西。六段粉墙是历史遗留：plan 里其实有 zhengmen.flanking-wall 这个对象，但它没有 layout 折线，所以现在由六段独立 wall 顶替——AD 的对账门把它报成缺项、接缝门报出四处互插 0.16~0.22m，两者都是这件事的症状。给 flanking-wall 补折线之后，这六条 placements 应当整段删掉。zhengmen.forecourt-terrace 同一单（AI，2026-09-14）补了 construction：plan 里只给了锚点，这里绑 forecourt-terrace 构件。",
+  "$comment": "正门。点名件由 plan 生成，这里只写 plan 里没有锚点的东西。单子 AI（2026-09-14）收尾：六段独立 wall 顶替 zhengmen.flanking-wall 的历史遗留已解——flanking-wall 补了 layout 折线（plan.json 的 zhengmen.linears，model-reference 指向两条 garden-wall），六条 placements 整段删掉，改由 region.linears 自动生成。zhengmen.forecourt-terrace 同一单补了 construction：plan 里只给了锚点，这里绑 forecourt-terrace 构件。",
   "named": [
     {
       "object": "zhengmen.main-gate",
@@ -19,62 +19,7 @@
       "basis": "07-01「下面白石台磯，鑿成西番草花樣」。此前顶替它的是 menSpec() 的 platformMarginM:0.9（台基外扩 0.9m，读不出台矶），且门前一段裸地在 playtest 脚下序列里是 dirt（用户反馈第 6/8 条）。这里绑到独立的 forecourt-terrace 构件，宽度按门脸 13.76m 取，见构件自身 provenance.art。"
     }
   ],
-  "placements": [
-    {
-      "part": "wall",
-      "variant": "plain",
-      "anchor": "zhengmen.main-gate",
-      "dx": 10,
-      "dz": 0,
-      "yaw": 0,
-      "basis": "07-02「左右一望，皆雪白粉牆…隨勢砌去」。粉墙要真的接上正门，门才读成墙上的开口（单子 M · PQ-7）。墙线与门洞同在中脊线上。"
-    },
-    {
-      "part": "wall",
-      "variant": "lattice",
-      "anchor": "zhengmen.main-gate",
-      "dx": 16,
-      "dz": 0,
-      "yaw": 0,
-      "basis": "同上。漏窗段，07-02 粉墙的变化。"
-    },
-    {
-      "part": "wall",
-      "variant": "cloud",
-      "anchor": "zhengmen.main-gate",
-      "dx": 23,
-      "dz": 0,
-      "yaw": 0,
-      "basis": "同上。云墙收头，墙线的外端。"
-    },
-    {
-      "part": "wall",
-      "variant": "plain",
-      "anchor": "zhengmen.main-gate",
-      "dx": -10,
-      "dz": 0,
-      "yaw": 0,
-      "basis": "同上，西侧对称段。"
-    },
-    {
-      "part": "wall",
-      "variant": "lattice",
-      "anchor": "zhengmen.main-gate",
-      "dx": -16,
-      "dz": 0,
-      "yaw": 0,
-      "basis": "同上，西侧对称段。"
-    },
-    {
-      "part": "wall",
-      "variant": "cloud",
-      "anchor": "zhengmen.main-gate",
-      "dx": -23,
-      "dz": 0,
-      "yaw": 0,
-      "basis": "同上，西侧对称段。"
-    }
-  ],
+  "placements": [],
   "clearances": [
     {
       "anchor": "zhengmen.main-gate",
@@ -92,14 +37,14 @@
       "hx": 28.5,
       "hz": 0.7,
       "tag": "南粉墙墙线",
-      "basis": "六段粉墙现在是无 plan 出处的野生件(见本文件 placements 的说明),占位推不出来,先按墙线显式留出。给 zhengmen.flanking-wall 补上 layout 折线之后,占位由线性构件自己给,这条要删。"
+      "basis": "单子 AI（2026-09-14）已给 zhengmen.flanking-wall 补上 layout 折线（两条 garden-wall，见 plan.json），墙不再是野生件，但 occupancy.ts 仍不认线性墙体的占地（F1，`docs/reviews/2026-09-14-mvp-four-regions.md`，归单子 AF）——散石/灯笼那类规则生成仍会撞进墙体，这条手写净空还得留着，等 AF 把线性墙体接进占位场之后再删。"
     }
   ],
   "accountedFor": [
     {
       "object": "zhengmen.rock-01",
-      "by": "六段粉墙构件自带的虎皮石基座",
-      "basis": "plan 给它的名字就是「虎皮石墙基」——它不是一块要摆的石头,是墙的做法。07-02「雪白粉墙,下面虎皮石」。复验:tools/shoot-part.mjs 拍 wall:plain/lattice/cloud 三件,三张图里墙脚都有虎皮石乱石基座。摆一块太湖石在这里是伪造覆盖率。"
+      "by": "沿 zhengmen.flanking-wall 折线连续生成的 garden-wall 构件自带的虎皮石基座",
+      "basis": "plan 给它的名字就是「虎皮石墙基」——它不是一块要摆的石头,是墙的做法。07-02「雪白粉墙,下面虎皮石,隨勢砌去」。单子 AI（2026-09-14）把六段独立 wall 改成沿路径连续生成后，虎皮石材质与随势起伏的墙脚沉深都保留（wall.ts 的 gardenFoot 分支）。复验:tools/shoot-part.mjs 拍 wall:plain 一件,或直接贴脸看 gate_approach 沿线,墙脚都有虎皮石乱石基座。摆一块太湖石在这里是伪造覆盖率。"
     }
   ],
   "scatters": []

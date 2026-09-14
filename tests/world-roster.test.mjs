@@ -41,7 +41,10 @@ const fakeManifest={
 test('对账门把 zhengmen.forecourt-terrace 当成缺项报出来',()=>{
  const c=coverage(plan,fakeManifest);
  assert.deepEqual(c.builtRegions,['zhengmen']);
- assert.equal(c.built.total,4);              // main-gate + forecourt-terrace + flanking-wall + rock-01
+ // main-gate + forecourt-terrace + flanking-wall(model-reference) + 其两条
+ // 真实 linears(west/east) + rock-01——单子 AI 把 flanking-wall 从
+ // layout-ready 包络换成两条 region.linears 之后分母从 4 涨到 6。
+ assert.equal(c.built.total,6);
  assert.equal(c.built.covered,1);
  assert.ok(c.built.missing.includes('zhengmen.forecourt-terrace'),'台矶必须被报为缺项');
  assert.ok(c.built.missing.includes('zhengmen.flanking-wall'));

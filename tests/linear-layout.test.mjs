@@ -6,7 +6,9 @@ const p=JSON.parse(readFileSync('projects/daguanyuan/plan.json','utf8'));
 const object=(plan,id)=>plan.regions.flatMap(r=>r.buildings).find(b=>b.id===id);
 test('all named linear objects and three supplementary enclosures/banks have real strips or live references',()=>{
  const a=auditLinearLayouts(p);assert.deepEqual(a.fails,[]);assert.equal(a.total,32);assert.equal(a.objects.length,32);
- assert.equal(a.objects.filter(o=>o.stage==='model-reference').length,4);
+ // 单子 AI(2026-09-14)把 zhengmen.flanking-wall 从 layout-ready 包络换成
+ // model-reference(指向两条真实 wall-path linears)，多了一个 model-reference 对象。
+ assert.equal(a.objects.filter(o=>o.stage==='model-reference').length,5);
  const fences=a.objects.find(o=>o.id==='daoxiangcun.fence');assert.equal(fences.runs.length,2);
  assert.ok(fences.runs.every(r=>r.footprint.length>4));
 });
