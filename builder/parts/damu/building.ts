@@ -1002,20 +1002,88 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     mesh.castShadow = true;
     root.add(mesh);
   };
-  if (isYingshan) {
-    const hw = () => m.width / 2 + (opts.chuji ?? 0.35);
-    eaveEdge(hw, tipZ, 0);
-    eaveEdge(hw, tipZ, Math.PI);
-  } else if (isXieshan) {
-    eaveEdge((s) => tipX - Math.min(s, sTurn), tipZ, 0);
-    eaveEdge((s) => tipX - Math.min(s, sTurn), tipZ, Math.PI);
-    eaveEdge((s) => tipZ - Math.min(s, sTurn), tipX, Math.PI / 2);
-    eaveEdge((s) => tipZ - Math.min(s, sTurn), tipX, -Math.PI / 2);
-  } else {
-    eaveEdge(() => tipX, tipZ, 0);
-    eaveEdge(() => tipX, tipZ, Math.PI);
-    eaveEdge(() => tipZ, tipX, Math.PI / 2);
-    eaveEdge(() => tipZ, tipX, -Math.PI / 2);
+  // 四条檐口线的数据(halfWidth/zTip/rotY):连檐与瓦当滴水(单子 AG1)共用同一份,
+  // 不另起一套——见下方 eaveDrip。
+  const eaveLines: { halfWidth: (s: number) => number; zTip: number; rotY: number }[] = isYingshan
+    ? (() => {
+        const hw = () => m.width / 2 + (opts.chuji ?? 0.35);
+        return [
+          { halfWidth: hw, zTip: tipZ, rotY: 0 },
+          { halfWidth: hw, zTip: tipZ, rotY: Math.PI },
+        ];
+      })()
+    : isXieshan
+      ? [
+          { halfWidth: (s: number) => tipX - Math.min(s, sTurn), zTip: tipZ, rotY: 0 },
+          { halfWidth: (s: number) => tipX - Math.min(s, sTurn), zTip: tipZ, rotY: Math.PI },
+          { halfWidth: (s: number) => tipZ - Math.min(s, sTurn), zTip: tipX, rotY: Math.PI / 2 },
+          { halfWidth: (s: number) => tipZ - Math.min(s, sTurn), zTip: tipX, rotY: -Math.PI / 2 },
+        ]
+      : [
+          { halfWidth: () => tipX, zTip: tipZ, rotY: 0 },
+          { halfWidth: () => tipX, zTip: tipZ, rotY: Math.PI },
+          { halfWidth: () => tipZ, zTip: tipX, rotY: Math.PI / 2 },
+          { halfWidth: () => tipZ, zTip: tipX, rotY: -Math.PI / 2 },
+        ];
+  for (const e of eaveLines) eaveEdge(e.halfWidth, e.zTip, e.rotY);
+
+  /* ---- 瓦当 + 滴水(檐口收头,单子 AG1) ------------------------------- */
+  // 分层明显与没有瓦当滴水是同一条缝的两面:筒瓦垄头(圆瓦当)与板瓦垄间
+  // (尖滴水)沿檐口相间,盖住"屋面板压在连檐/椽上"那条缝。落位复用
+  // eaveLines(同一份 halfWidth/zTip/rotY),垄距用 m.rafterPitch(推导值,
+  // 不新拍间距)。纹样从简(ART_DIRECTION §10):只做圆形的形 + 一圈唇,
+  // 不刻兽面。全部烘焙进一份合并几何,整栋楼只加 1 个 draw call。
+  {
+    const dripGeos: THREE.BufferGeometry[] = [];
+    const wadangR = Math.min(0.09, m.rafterPitch * 0.4);
+    const wadangT = 0.05;
+    const lipT = wadangT * 0.4;
+    const dripR = wadangR * 0.72;
+    const dripH = wadangR * 1.5;
+    for (const e of eaveLines) {
+      const hw = e.halfWidth(0);
+      const n = Math.max(2, Math.round((hw * 2) / m.rafterPitch));
+      if (n < 2) continue;
+      for (let i = 0; i <= n; i++) {
+        const t = i / n;
+        let x = lerp(-hw + wadangR, hw - wadangR, t);
+        x += push(x, 0, hw);
+        const y = pts[0].y + lift(x, 0, hw);
+        const z = e.zTip + 0.015;
+        let geo: THREE.BufferGeometry;
+        if (i % 2 === 0) {
+          // 瓦当:筒瓦垄头,圆饼 + 略大的唇(一圈边)。
+          const drum = new THREE.CylinderGeometry(wadangR * 0.82, wadangR * 0.82, wadangT, 8, 1, true);
+          drum.rotateX(Math.PI / 2);
+          drum.translate(0, 0, -wadangT * 0.3);
+          const lip = new THREE.CylinderGeometry(wadangR, wadangR, lipT, 8, 1);
+          lip.rotateX(Math.PI / 2);
+          lip.translate(0, 0, lipT * 0.5);
+          const merged = mergeGeometries([drum.toNonIndexed(), lip.toNonIndexed()], false);
+          geo = merged ?? lip;
+        } else {
+          // 滴水:板瓦垄间,尖头下垂的舌片(四棱锥压扁)。
+          geo = new THREE.ConeGeometry(dripR, dripH, 4, 1);
+          geo.rotateX(Math.PI / 2);
+          geo.rotateZ(Math.PI);
+          geo.scale(1, 1, 0.55);
+          geo.translate(0, -dripH * 0.32, wadangT * 0.15);
+        }
+        geo.translate(x, y, z);
+        geo.rotateY(e.rotY);
+        dripGeos.push(geo.toNonIndexed());
+      }
+    }
+    if (dripGeos.length) {
+      const merged = mergeGeometries(dripGeos, false);
+      if (merged) {
+        merged.computeVertexNormals();
+        const drip = new THREE.Mesh(merged, tile);
+        drip.castShadow = true;
+        drip.receiveShadow = true;
+        roofGroup.add(drip);
+      }
+    }
   }
 
   /* ---- 椽(望板下那排) ---------------------------------------------- */
