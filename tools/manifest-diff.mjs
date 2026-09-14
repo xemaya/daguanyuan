@@ -198,7 +198,23 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`\n接缝(名册侧，成链构件 ${rs.seams.length} 对)  ${rs.fails.length} 处`);
     for (const f of rs.fails) console.log(`  缝  ${f}`);
 
+    /* 单子 AA 的判据(spec §3)：**区从 4 开到 19，splat cm/texel 与地形 CELL 不许变差。**
+     * 基线里记着这两个数;区数涨了它们还得一样,不然就是拿精度换面积——
+     * §1.3 那次精度掉一半(26.4 → 50.2 cm/texel)整整一年没人发现,因为没人自报、
+     * 也没人去比。 */
+    const t = loadManifest(dir).terrain;
+    if (t) {
+      console.log(`\n地面精度  CELL ${t.cell} m   splat ${t.cmPerTexel.toFixed(1)} cm/texel (${t.splatSize}²)`);
+      console.log(`          窗口 ${t.window.map((v) => v.toFixed(0)).join(' × ')} m   顶点 ${(t.vertices / 1e6).toFixed(2)}M   ${t.chunks} 块`);
+    }
+
     let bad = 0;
+    if (t && baseline?.terrain) {
+      if (t.cell > baseline.terrain.cell)
+        { console.log(`\nFAIL 地形 CELL 从 ${baseline.terrain.cell} 变粗到 ${t.cell}——那是拿精度换面积`); bad++; }
+      if (t.cmPerTexel > baseline.terrain.cmPerTexel + 0.1)
+        { console.log(`\nFAIL splat 从 ${baseline.terrain.cmPerTexel} 掉到 ${t.cmPerTexel.toFixed(1)} cm/texel`); bad++; }
+    }
     if (c.built.missing.length) { console.log(`\nFAIL 已建成区内有 ${c.built.missing.length} 个 plan 对象在世界里没有对应物体`); bad++; }
     if (baseline && c.knownGaps > baseline.knownGaps) { console.log(`FAIL known-gap 从 ${baseline.knownGaps} 涨到 ${c.knownGaps}——未建区对象数只许降不许升`); bad++; }
     if (baseline && c.feral.length > baseline.feral) { console.log(`FAIL 野生件从 ${baseline.feral} 涨到 ${c.feral.length}`); bad++; }

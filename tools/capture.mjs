@@ -363,6 +363,9 @@ const constructions = await page.evaluate(() =>
 // 单子 AD · 第一档对账：世界自报建成了哪几个区，对账门拿它当分母，不另抄一份区名。
 const builtRegions = await page.evaluate(() =>
   window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.builtRegions ?? []);
+// 单子 AA:地面精度(CELL / cm per texel / 窗口 / 顶点数)由世界自报,门拿它比。
+const terrain = await page.evaluate(() =>
+  window.__GAME__.engine.scene.getObjectByName('Terrain')?.userData.resolution ?? null);
 const rendering = await page.evaluate(() => {
   const e = window.__GAME__.engine;
   return { backend: e.backend ?? 'webgl-legacy', statisticsVersion: e.statisticsVersion ?? 1,
@@ -394,7 +397,7 @@ const geometry=await page.evaluate(async()=>{
  const encoded=new TextEncoder().encode(JSON.stringify({geometries,transforms}));
  return{meshes,uniqueGeometries:geometries.length,instanceCapacity:instances,geometryAndTransformsSha256:await hash(encoded)};
 });
-writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ source, shots: manifest, consoleErrors, constructions, builtRegions, linears, buildMs, rendering, geometry }, null, 2));
+writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ source, shots: manifest, consoleErrors, constructions, builtRegions, terrain, linears, buildMs, rendering, geometry }, null, 2));
 if(rendering.statisticsVersion>=2){const expected=new URL(args.url).searchParams.get('backend')==='webgl2'?'webgl2':'webgpu';if(rendering.backend!==expected){console.error(`Expected ${expected}, received ${rendering.backend}`);process.exitCode=1}}
 
 

@@ -112,8 +112,35 @@ export function getPlan(): GardenPlan {
 const PAD = 15;
 
 /** Fine geometry restored after F's indexed sampling and worker texture preparation.
- * The sampling window is derived from the injected regions at this spacing. */
+ * The sampling window is derived from the injected regions at this spacing.
+ * **单子 AA:这个数不许随区数变。** 它是「地面网格精度」本身,窗口一大就调粗
+ * 它等于用精度换面积——spec §1.3 的目标 3(b) 就是冲着这件事来的。 */
 const CELL = 0.48;
+
+/**
+ * splat 每个纹素多少米——**单子 AA 的核心判据**。
+ *
+ * 以前 splat 是写死的 1024²「一张盖全场」。窗口一大,纹素密度就跟着摊薄:
+ * 实测 MVP 四区(270×218m)是 26.4 cm/texel,全 19 区(500×514m)掉到 50.2——
+ * **地面纹理精度直接掉一半**,而且是必然的。渲染做得再好,区一多就被摊薄,
+ * 「优化渲染引擎样式就好看」这条目标在结构上不可能达成。
+ *
+ * 改成固定米/纹素之后,图的边长跟着窗口走,**精度与区数无关**。
+ * 0.25 m 略优于今天的 26.4 cm,所以这一改不会让现状变糊。
+ */
+const METRES_PER_TEXEL = 0.25;
+
+/**
+ * splat 边长:按窗口与固定纹素密度算,向上取到 64 的倍数,夹在 GPU 扛得住的范围里。
+ *
+ * **不取 2 的幂**:第一版取了,270m 的窗口要 1080 个纹素却给到 2048,精度白白
+ * 翻倍、烘焙时间从 19.4s 涨到 29.5s——判据是「不下降」,不是「翻倍」。
+ * 64 的倍数已经够对齐,NPOT 纹理在 WebGPU / WebGL2 上带 mipmap 也没问题。
+ */
+export function splatSizeFor(win: { width: number; depth: number }): number {
+  const want = Math.max(win.width, win.depth) / METRES_PER_TEXEL;
+  return Math.min(4096, Math.max(1024, Math.ceil(want / 64) * 64));
+}
 
 /** Filled by setPlan before world creation; consumers share this object. */
 export const TERRAIN = {
@@ -190,8 +217,10 @@ export function buildTerrain(ctx: GameContext): void {
   const dirt = timed('dirt maps', () => sharpen(trackEarthMaps()));
   const cobble = timed('cobble maps', () => sharpen(cobbleMaps()));
   const sand = timed('sand maps', () => sharpen(sandMaps()));
-  const splat = timed('splat', () => splatTexture(bakeSplatMainData(field, TERRAIN)));
-  const splatExt = timed('splat ext', () => splatTexture(bakeSplatExtData(field, TERRAIN)));
+  // 单子 AA:图的边长按窗口算,不再写死 1024——精度与区数解耦(见 METRES_PER_TEXEL)。
+  const splatSize = splatSizeFor(TERRAIN);
+  const splat = timed('splat', () => splatTexture(bakeSplatMainData(field, TERRAIN, splatSize), splatSize));
+  const splatExt = timed('splat ext', () => splatTexture(bakeSplatExtData(field, TERRAIN, splatSize), splatSize));
   const warp = timed('warp', () => terrainWarpTexture());
   const nrmTD = packNormalPair('turf-dirt', turf.normalMap, dirt.normalMap);
   const nrmCS = packNormalPair('cobble-sand', cobble.normalMap, sand.normalMap);
@@ -243,6 +272,17 @@ export function buildTerrain(ctx: GameContext): void {
   ctx.scene.add(terrain);
   terrain.userData.chunkCount = chunks.length;
   terrain.userData.buildTimings = timings;
+  /* 单子 AA:把「地面精度」自报出来,好让门去比。
+   * manifest-diff 的 --coverage 会断言:区数涨了,这两个数不许变差。
+   * 不自报就只能靠人记得去量,而 §1.3 那次精度掉一半,一年都没人发现。 */
+  terrain.userData.resolution = {
+    cell: CELL,
+    cmPerTexel: (Math.max(TERRAIN.width, TERRAIN.depth) / splatSize) * 100,
+    splatSize,
+    window: [TERRAIN.width, TERRAIN.depth],
+    vertices: TERRAIN.segX * TERRAIN.segZ,
+    chunks: chunks.length,
+  };
 
   // ---- perimeter blockers ---------------------------------------------
   // Tall enough that a jump cannot clear them, deep enough that walking down
