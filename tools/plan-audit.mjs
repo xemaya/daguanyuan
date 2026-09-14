@@ -1,5 +1,6 @@
 import { isClosedRing, isSimpleRing, signedArea, locatePoint, containsRing,
-  interiorsOverlap, segmentLocations, pointOnSegment } from '../builder/plan/geometry.ts';
+  interiorsOverlap, pointOnSegment } from '../builder/plan/geometry.ts';
+import { rayBlocked } from './experience-audit.mjs';
 
 import { validatePlanObjects } from '../builder/plan/objects.ts';
 import { compileWallPath, wallLocalPoint, wallMiterX } from '../builder/plan/wall-path.ts';
@@ -127,8 +128,7 @@ export function auditPlan(plan) {
   const targets = plan.regions.filter(r => r.id !== 'cuizhang' && r.id !== 'zhengmen')
     .flatMap(r => (r.buildings ?? []).map(b => ({ region: r.id, name: b.name, point: xy(b) })));
   if (gate && hill && isSimpleRing(hill.polygon)) {
-    const clear = targets.filter(t => !segmentLocations(xy(gate), t.point, hill.polygon)
-      .some(s => s.location === 'inside'));
+    const clear = targets.filter(t => !rayBlocked(xy(gate), t.point, hill.polygon));
     diagnostics.gateSightlines = { basis: 'hill polygon, building anchors; plan view only',
       tested: targets.length, intersected: targets.length - clear.length, clear };
     // Plan-view intersections say nothing about actual terrain/roof heights.
