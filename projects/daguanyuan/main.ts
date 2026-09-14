@@ -3,6 +3,7 @@ import { Engine } from '@engine/core/Engine';
 import { EVENTS } from '@engine/core/Context';
 import { World } from '@builder/compose/world';
 import { setPlan, type GardenPlan } from '@builder/compose/terrain';
+import { setScenes, validateScenes, type RegionScene } from '@builder/compose/scenes';
 import { PlayerController } from '@engine/player/PlayerController';
 import { HUD } from '@engine/ui/HUD';
 import { AudioDirector } from '@engine/audio/Audio';
@@ -11,6 +12,14 @@ import { buildMapPlaces } from './map-places';
 import { VisitedRegions } from './visited';
 import planFile from '@project/plan.json' with { type: 'json' };
 import './construction';
+
+/**
+ * 单子 Y · 接缝 ①:一个区一份落位清单。glob 是 eager 的,所以「加一个区」
+ * 只要往 scenes/ 里丢一个 .json,这里一行都不用改——目标 1 的那条判据
+ * (「加一个区,diff 里不许出现 .ts」)就落在这个 glob 上。
+ */
+const sceneFiles = import.meta.glob<{ default: RegionScene }>('./scenes/*.json', { eager: true });
+const scenes: RegionScene[] = Object.values(sceneFiles).map((m) => m.default);
 
 /**
  * Player spawn: just outside the 正门 gate, facing north into the garden.
@@ -28,6 +37,11 @@ async function boot(): Promise<void> {
   // (`check:layers`), so the project layer injects it once, before
   // `world.build()` walks its steps and reaches `buildTerrain`/`buildGarden`.
   setPlan(planFile as unknown as GardenPlan);
+  // 契约错误要在建园之前当场炸,别等到构件静默丢失才发现(check:scenes 跑的是
+  // 同一个 validateScenes,所以命令行与运行时判据只有一份)。
+  const sceneFails = validateScenes(scenes, planFile);
+  if (sceneFails.length) throw new Error(`[scenes] 落位清单不合契约:\n${sceneFails.join('\n')}`);
+  setScenes(scenes);
 
   const container = document.getElementById('app')!;
   const engine = new Engine(container);

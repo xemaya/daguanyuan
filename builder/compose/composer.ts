@@ -11,6 +11,7 @@ import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
 import { getPlan, MVP_REGIONS } from './terrain';
+import { sceneFor, type ScenePlacement, type SceneNamed } from './scenes';
 import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
 import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
 
@@ -35,8 +36,12 @@ interface PlanRegionFull {
   name?: string;
   elevation_m: number;
   polygon: [number, number][];
-  buildings?: NamedPlanAnchor[];
+  /** 单子 Y:plan 遍历要读 kind 与 construction 来推构件,所以这里不能只收
+   *  NamedPlanAnchor(它只有 id/name/x/z)。字段按需声明,不重复 plan 的全量类型。 */
+  buildings?: (NamedPlanAnchor & { kind?: string; construction?: { spec?: unknown; status?: string } })[];
   rocks?: NamedPlanAnchor[];
+  /** 线性构件(墙/廊/桥)的施工折线。几何自带世界位置。 */
+  linears?: { id: string; kind: string }[];
   entrances?: [number, number][];
 }
 interface PlanWaterFull {
@@ -91,6 +96,10 @@ interface Placement {
   region?: string;
   /** plan.json 里该区 buildings[].id 或 rocks[].id，按其 x/z 落位。 */
   anchor?: string;
+  /** 这个 placement **就是** plan 的哪个对象。
+   *  ⚠️ 不能从 `anchor` 推：竹丛相对正房摆，不等于竹丛就是正房。
+   *  只有 plan 遍历生成的点名件才有值；散置件一律没有，对账门把它们列为野生件。 */
+  planId?: string;
   /** 有 region 无 anchor 时,x/z 是相对该区质心的局部偏移;都没有时是世界坐标。
    *  有 anchor 时,x/z 是相对锚点的局部微调(通常是 0,0)。 */
   x: number;
@@ -118,22 +127,6 @@ function resolvePosition(p: Placement): [number, number] {
   }
   return [p.x, p.z];
 }
-
-/**
- * 平移量:旧 64×72m 园子里每簇构件相对该簇参照点的偏移,平移到新 plan
- * 锚点之后原样保留——两套坐标系的轴向与朝向一致(旧世界"+z 朝正门",
- * 新 plan"+z 向南"且正门就在南墙,进园都是从大 z 走向小 z),纯平移不需要
- * 旋转。推导过程见 Task 6 提交信息。
- */
-const D_ZHENGMEN: [number, number] = [55, 211.6]; // 旧正门(0,24.4) → 新锚点(55,236)
-const D_CUIZHANG: [number, number] = [8, 189]; // 旧假山(0,13.0) → 新锚点(8,202)
-const D_QINFANG: [number, number] = [-0.9, 150.4]; // 旧亭(0.9,-2.4) → 新锚点(0,148)
-const D_XIAOXIANG: [number, number] = [-114.4, 118.6]; // 旧正房(9.4,-20.6) → 新锚点(-105,98)
-
-const shift = ([x, z]: [number, number], [dx, dz]: [number, number]): [number, number] => [
-  x + dx,
-  z + dz,
-];
 
 /**
  * 9m 一折的曲桥,沿折线首尾相接铺一串,过整段开阔水面。bridge.ts 的
@@ -182,112 +175,6 @@ const CAUSEWAY: Placement[] = [
     [-40, 128],
   ]),
 ];
-
-/** 十七回游线:正门 → 翠嶂 → 沁芳亭桥 → 潇湘馆。 */
-const SCENE: Placement[] = [
-  // ---- 正门与南墙(锚点 + 平移簇) ----------------------------------
-  { part: 'building', variant: 'men', region: 'zhengmen', anchor: 'zhengmen.main-gate', x: 0, z: 0, yaw: 0, tag: '正门' },
-  // 只留南墙(六段,紧贴正门的粉墙——plan.json 的 zhengmen.buildings 里确实有
-  // 「雪白粉墙·下面虎皮石」这一项)。旧场景里另有六段东西墙,那是旧 64×72m
-  // 小镇自己的外边界标记("东西墙(只做南段,北段由林岗围合)"——只框住
-  // 门前一小片院子,北边立刻交给地形围合),按簇平移只保留相对位置,新游线
-  // 却要从这里一路向西走进几百米外的翠嶂/潇湘馆——机械平移会把"旧世界的
-  // 边"焊死在新游线正中间,变成走不过去的墙(键盘试玩当场卡死)。TERRAIN 的
-  // 窗口阻挡体已经接管"别让人走出网格"这件事,这六段东西墙没有对应物可留,
-  // 直接不放。
-  // PQ-7(单子 M):「左右一望,皆雪白粉牆…隨勢砌去」(07-02)——粉墙要真的
-  // 接上正门,门才读成墙上的开口。所以这段墙不再是旧坐标的纯平移:墙线北移
-  // 到正门中脊线(z 236,与门洞同线),内端推进到咬住山墙面(局部 x ±7.0),
-  // 三段首尾相接不变。
-  ...(
-    [
-      ['plain', 10.0, 24.4, 0],
-      ['lattice', 16.0, 24.4, 0],
-      ['cloud', 23.0, 24.4, 0],
-      ['plain', -10.0, 24.4, 0],
-      ['lattice', -16.0, 24.4, 0],
-      ['cloud', -23.0, 24.4, 0],
-    ] as [string, number, number, number][]
-  ).map(([variant, x, z, yaw]) => {
-    const [wx, wz] = shift([x, z], D_ZHENGMEN);
-    return { part: 'wall', variant, x: wx, z: wz, yaw } as Placement;
-  }),
-
-  // ---- 翠嶂假山:进门迎面,缝从南入北出(锚点 + 平移簇) ------------
-  { part: 'taihu', variant: 'mound', region: 'cuizhang', anchor: 'cuizhang.screen-rocks', x: 0, z: 0, yaw: 0, tag: '翠嶂' },
-  {part:'garden-bridge',variant:'cuizhang.creek-crossing',x:0,z:0,tag:'翠嶂西口石栈桥'},
-  { part: 'taihu', variant: 'peak2', ...pt(shift([-6.2, 15.5], D_CUIZHANG)), yaw: 0.6 },
-  { part: 'taihu', variant: 'edge3', ...pt(shift([4.4, 10.2], D_CUIZHANG)), yaw: 1.2 },
-
-  // ---- 沁芳亭桥:锚点驱动的亭与桥,曲桥链补足开阔水面 ----------------
-  {
-    part: 'bridge',
-    variant: 'zigzag',
-    region: 'qinfang_ting_qiao',
-    anchor: 'qinfang_ting_qiao.three-opening-bridge',
-    x: 0,
-    z: 0,
-    yaw: Math.PI / 2,
-    y: 0,
-    tag: '沁芳桥',
-  },
-  {
-    part: 'garden-building',
-    variant: 'qinfang_ting_qiao.pavilion',
-    region: 'qinfang_ting_qiao',
-    anchor: 'qinfang_ting_qiao.pavilion',
-    x: 0,
-    z: 0,
-    // 亭子预设 railingSides:['e','w'],开口在 n/s(局部 +Z 世界方向 =
-    // (sin yaw, cos yaw),yaw=0 时是 (0,1) 即正南)——桥就在正南方,
-    // 零旋转天然对齐桥轴,不是巧合(P-09 教训:阻挡体带旋转、开口对着桥)。
-    yaw: 0,
-    y: 0,
-    pier: true,
-    tag: '沁芳亭',
-  },
-  ...CAUSEWAY,
-
-  // ---- 潇湘馆:院墙 + 月洞门 + 漏窗 + 正房 + 廊 + 竹(锚点 + 平移簇) --
-  // P2：正房地基显式固定在1.0m，引泉沟绕到基础西侧，建筑台基再从此起算。
-  // 院墙已读取plan折线，月洞门按真实锚点接入；西廊也已用法原剖面沿plan路径生成。
-  { part: 'garden-building', variant: 'xiaoxiangguan.main-house', region: 'xiaoxiangguan', anchor: 'xiaoxiangguan.main-house', x: 0, z: 0, yaw: 0, tag: '潇湘馆' },
-  ...(
-    [
-      ['taihu', 'peak4', 5.0, -17.0, 0.4, undefined],
-    ] as [string, string, number, number, number, string | undefined][]
-  ).map(([part, variant, x, z, yaw, tag]) => {
-    const [wx, wz] = shift([x, z], D_XIAOXIANG);
-    return { part, variant, x: wx, z: wz, yaw, tag } as Placement;
-  }),
-  {part:'garden-wall',variant:'xiaoxiangguan.courtyard-wall',x:0,z:0,tag:'潇湘馆院墙'},
-  {part:'garden-corridor',variant:'xiaoxiangguan.west-corridor-path',x:0,z:0,tag:'潇湘馆曲折游廊'},
-  // 三丛的原坐标落进(或恰好压线)正房 footprint(cx:-105,cz:99,hx:6.8,hz:4.8,
-  // 见 vegetation.ts 的 FOOTPRINTS):这批坐标是按旧正房整体平移过来的
-  // (D_XIAOXIANG 按旧正房 (9.4,-20.6) 标定),房子后来被单子 M/P 改过,平移量
-  // 没跟着更新——是 missing 的 99-25(footprint 两份真源,composer 摆的构件
-  // 不过 FOOTPRINTS 检查)应验。这里只按当前几何短期重摆这三丛,不做
-  // occupancy prepass(那是 99-25 的真修法,归 P4)。
-  ...(
-    [
-      ['grove', 14.2, -28.9], // 原 (14.2,-17.6) → 世界 (-100.2,101.0),整丛在正房里;南移让开
-      ['clump', -0.4, -15.6], // 原 (4.6,-15.6) → 世界 (-109.8,103.0),整丛在正房里;西移让开
-      ['clump', 9.4, -27.1], // 原 (12.6,-24.4) → 世界 (-101.8,94.2),恰好压在正房南墙脚线上;南移+东移让开
-      ['grove', 20.5, -20.0],
-      ['clump', -3.4, -15.2],
-      ['clump', -6.0, -12.0],
-      ['clump', 11.8, -9.6],
-    ] as [string, number, number][]
-  ).map(([variant, x, z]) => {
-    const [wx, wz] = shift([x, z], D_XIAOXIANG);
-    return { part: 'bamboo', variant, x: wx, z: wz } as Placement;
-  }),
-];
-
-/** 世界坐标 helper,给 spread 用。 */
-function pt([x, z]: [number, number]): { x: number; z: number } {
-  return { x, z };
-}
 
 /**
  * 池岸驳石:「白石为栏环抱池沿」——从南池水域轮廓的 bbox 近似一个椭圆,
@@ -403,15 +290,87 @@ function baogushiSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: num
   ];
 }
 
+/**
+ * 单子 Y · 接缝 ①：落位不再来自一张手写的 `SCENE` 常量，而是两处——
+ *
+ *   ① **点名件由 plan 遍历生成**。plan 里带 `construction.spec` 的房子、
+ *      `linears[]` 里的墙/廊/桥，`variant` 就是对象的稳定 id，尺寸从 spec 读、
+ *      坐标从锚点读——这类条目**不携带任何 plan 里没有的信息**，本来就是
+ *      能生成的（spec §1.2）。19 区 75 个建筑条目里有 32 个带 spec，
+ *      一个都不需要人手写落位。
+ *   ② **plan 里没有锚点的东西**写在 `scenes/<region>.json`，坐标一律相对锚点。
+ *
+ * 推导顺序，先命中先算：
+ *   1. `scenes[region].named[]` 绑定了构件的 → 用它，位置读 plan 对象的 x/z；
+ *   2. `kind==='building'` 且有 `construction.spec` 且不是 `frame-ready`
+ *      → `garden-building`，variant = 对象 id；
+ *   3. `region.linears[]` 的 wall/corridor/bridge → `garden-wall`/`garden-corridor`
+ *      /`garden-bridge`，variant = linear id；
+ *   4. 其余不生成——对账门会把它报成缺项，**那是对的**，不是漏。
+ */
+function plannedPlacements(): Placement[] {
+  const out: Placement[] = [];
+  for (const regionId of MVP_REGIONS) {
+    const region = findRegion(regionId);
+    const scene = sceneFor(regionId);
+    const bound = new Map<string, SceneNamed>();
+    for (const n of scene.named ?? []) bound.set(n.object, n);
+
+    const emit = (id: string, fallback: { part: string; variant?: string } | null): void => {
+      const n = bound.get(id);
+      if (n) {
+        out.push({ part: n.part, variant: n.variant, region: regionId, anchor: id, planId: id, x: 0, z: 0,
+          yaw: n.yaw, dy: n.dy, y: n.y, pier: n.pier, tag: n.tag });
+        bound.delete(id);
+        return;
+      }
+      if (fallback) out.push({ part: fallback.part, variant: fallback.variant, region: regionId, anchor: id, planId: id, x: 0, z: 0 });
+    };
+
+    for (const b of region.buildings ?? []) {
+      const c = b.construction;
+      const buildable = b.kind === 'building' && !!c?.spec && c.status !== 'frame-ready';
+      emit(b.id, buildable ? { part: 'garden-building', variant: b.id } : null);
+    }
+    for (const r of region.rocks ?? []) emit(r.id, null);
+    for (const l of region.linears ?? []) {
+      const part = l.kind === 'wall' ? 'garden-wall' : l.kind === 'corridor' ? 'garden-corridor'
+        : l.kind === 'bridge' ? 'garden-bridge' : null;
+      // 线性构件的几何自带世界位置，不能再叠 Placement 变换(见主循环的断言)，
+      // 所以它不走 anchor，x/z 留 0 让 resolvePosition 走绝对分支。
+      if (part) out.push({ part, variant: l.id, planId: l.id, x: 0, z: 0, tag: l.id });
+    }
+    // named 里绑了、但 plan 遍历没走到的对象是契约错误，宁可当场炸，别静默丢件。
+    for (const id of bound.keys())
+      throw new Error(`[garden] scenes/${regionId}.json 的 named 绑定了 ${id}，但 plan 的该区对象里没有它`);
+  }
+  return out;
+}
+
+/** `scenes/<region>.json` 的 `placements[]`：plan 里没有锚点的散置件。 */
+function scenePlacements(): Placement[] {
+  const out: Placement[] = [];
+  for (const regionId of MVP_REGIONS) {
+    for (const pl of sceneFor(regionId).placements ?? []) {
+      out.push({ part: pl.part, variant: pl.variant, region: regionId, anchor: pl.anchor,
+        x: pl.dx, z: pl.dz, yaw: pl.yaw, dy: pl.dy, tag: pl.tag });
+    }
+  }
+  return out;
+}
+
 export function buildGarden(ctx: GameContext): void {  const ground = ctx.collision.terrainHeight;
   const pond = pondEllipse();
 
-  // 沁芳亭桥一带的驳石(taihu peak/peak3),按旧簇平移后落进了新南池的开阔
-  // 水面(旧池半径~9m,新池半径~30余m,平移不会自动落岸)——沿它们原来
-  // 相对池心的方向,重新钉到刚露出水面的岸边,而不是任由它们沉在水底。
-  const qinfangCenter = shift([0.6, -1.6], D_QINFANG); // 旧 POND.cx/cz 平移后的参照点
-  const peakRaw = shift([8.4, 1.6], D_QINFANG);
-  const peak3Raw = shift([-8.2, -6.4], D_QINFANG);
+  // 沁芳亭桥一带的驳石(taihu peak/peak3):沿「从池心朝某个方向」找刚露出水面
+  // 的岸边落位——这是算出来的，不是摆出来的，所以不进 scenes(那里只放人写的
+  // 落位)。单子 Y:三个参照点原来是旧世界平移常量 D_QINFANG 的派生量，现在
+  // 改挂 plan 的亭锚点，把最后一个 D_* 也清掉；数值与平移写法逐位相同。
+  const tingAnchor = findAnchor(findRegion('qinfang_ting_qiao'), 'qinfang_ting_qiao.pavilion');
+  const fromTing = ([dx, dz]: [number, number]): [number, number] => [tingAnchor[0] + dx, tingAnchor[1] + dz];
+  const qinfangCenter = fromTing([-0.3, 0.8]); // 旧 POND.cx/cz 的等价点
+  const peakRaw = fromTing([7.5, 4.0]);
+  const peak3Raw = fromTing([-9.1, -4.0]);
   const [peakX, peakZ] = shoreTowards(qinfangCenter, peakRaw, ground, 60);
   const [peak3X, peak3Z] = shoreTowards(qinfangCenter, peak3Raw, ground, 60);
 
@@ -423,7 +382,12 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
   ];
 
   const all: Placement[] = [
-    ...SCENE,
+    ...plannedPlacements(),
+    ...scenePlacements(),
+    // 曲桥链与池岸驳石是**算出来的**(沿折线铺桥段、沿池边找刚露出水的位置)，
+    // 不是人摆的，所以不进 scenes——scenes 的 placements 只放人写的落位。
+    // 它们是接缝 ② 的活(写条件不写坐标)，归单子 Z。
+    ...CAUSEWAY,
     { part: 'taihu', variant: 'peak', x: peakX, z: peakZ, yaw: 2.4 },
     { part: 'taihu', variant: 'peak3', x: peak3X, z: peak3Z, yaw: -1.1 },
     // 铺地收边:路牙沿 plan.paths 里带 paving 的路在 world 空间直接挤出
@@ -501,13 +465,13 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     // 正门那六段墙正是 planId=null 的野生件(它们该是 zhengmen.flanking-wall),
     // 对账门靠这个字段把「世界有、数据没有」单列出来,不与缺项混为一谈。
     const planId =
-      p.anchor ??
+      p.planId ??
       (linear ? linear.spec.id : undefined) ??
       ((obj.userData.planObject as { id?: string } | undefined)?.id) ??
       (p.variant && p.variant.includes('.') ? p.variant : undefined) ??
       null;
     constructionRecords.push({
-      id: p.anchor ?? planId ?? key,
+      id: planId ?? key,
       name: obj.name,
       part: p.part,
       variant: p.variant ?? 'default',

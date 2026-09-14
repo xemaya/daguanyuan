@@ -1,0 +1,23 @@
+{
+  "region": "zhengmen",
+  "$comment": "正门。点名件由 plan 生成，这里只写 plan 里没有锚点的东西。六段粉墙是历史遗留：plan 里其实有 zhengmen.flanking-wall 这个对象，但它没有 layout 折线，所以现在由六段独立 wall 顶替——AD 的对账门把它报成缺项、接缝门报出四处互插 0.16~0.22m，两者都是这件事的症状。给 flanking-wall 补折线之后，这六条 placements 应当整段删掉。",
+  "named": [
+    {
+      "object": "zhengmen.main-gate",
+      "part": "building",
+      "variant": "men",
+      "yaw": 0,
+      "tag": "正门",
+      "basis": "zhengmen.main-gate 的 construction.status 是 frame-ready（P3 分件/楼层几何未完），garden-building 按约定拒绝生成，暂用通用门构件顶替。P3 完成后删掉这条，让规则 2 接管。"
+    }
+  ],
+  "placements": [
+    { "part": "wall", "variant": "plain",   "anchor": "zhengmen.main-gate", "dx":  10, "dz": 0, "yaw": 0, "basis": "07-02「左右一望，皆雪白粉牆…隨勢砌去」。粉墙要真的接上正门，门才读成墙上的开口（单子 M · PQ-7）。墙线与门洞同在中脊线上。" },
+    { "part": "wall", "variant": "lattice", "anchor": "zhengmen.main-gate", "dx":  16, "dz": 0, "yaw": 0, "basis": "同上。漏窗段，07-02 粉墙的变化。" },
+    { "part": "wall", "variant": "cloud",   "anchor": "zhengmen.main-gate", "dx":  23, "dz": 0, "yaw": 0, "basis": "同上。云墙收头，墙线的外端。" },
+    { "part": "wall", "variant": "plain",   "anchor": "zhengmen.main-gate", "dx": -10, "dz": 0, "yaw": 0, "basis": "同上，西侧对称段。" },
+    { "part": "wall", "variant": "lattice", "anchor": "zhengmen.main-gate", "dx": -16, "dz": 0, "yaw": 0, "basis": "同上，西侧对称段。" },
+    { "part": "wall", "variant": "cloud",   "anchor": "zhengmen.main-gate", "dx": -23, "dz": 0, "yaw": 0, "basis": "同上，西侧对称段。" }
+  ],
+  "scatters": []
+}

@@ -1,0 +1,19 @@
+{
+  "region": "cuizhang",
+  "$comment": "翠嶂。进门迎面挡视线的假山（07-03「白石崚嶒…縱橫拱立」）。石栈桥是 plan 线性构件，由规则 3 生成。",
+  "named": [
+    {
+      "object": "cuizhang.screen-rocks",
+      "part": "taihu",
+      "variant": "mound",
+      "yaw": 0,
+      "tag": "翠嶂",
+      "basis": "plan 把整座翠嶂登记成一个 rocks 对象（cuizhang.screen-rocks），世界里用 taihu:mound 这一件顶替整座山。07-03 说它是「縱橫拱立」的一群白石，用户走完提的第 11 条说现在做成了横岭——重做时换的是这条绑定的构件，不是坐标。"
+    }
+  ],
+  "placements": [
+    { "part": "taihu", "variant": "peak2", "anchor": "cuizhang.screen-rocks", "dx": -6.2, "dz":  2.5, "yaw": 0.6, "basis": "翠嶂西侧的伴石，让山口不是一条直缝。位置为艺术选择，无原文出处。" },
+    { "part": "taihu", "variant": "edge3", "anchor": "cuizhang.screen-rocks", "dx":  4.4, "dz": -2.8, "yaw": 1.2, "basis": "翠嶂东南脚的散石，压住山体与草地的接边。位置为艺术选择，无原文出处。" }
+  ],
+  "scatters": []
+}
