@@ -32,9 +32,10 @@ import missingFile from '@knowledge/rules/missing.rules.json' with { type: 'json
 import componentsFile from '@knowledge/rules/components.rules.json' with { type: 'json' };
 import '@engine/ui/tokens.css';
 import './fashi.css';
+import { BUILT_REGIONS } from './scenes';
 
 // 构件的匾额文字从 plan.json 读(99-26),图解页渲染构件前同样注入真源。
-setPlan(planFile as unknown as GardenPlan);
+setPlan(planFile as unknown as GardenPlan, BUILT_REGIONS);
 
 /* ------------------------------------------------------------------ */
 /* 规则表与构件本体的只读索引                                            */

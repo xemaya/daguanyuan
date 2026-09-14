@@ -8,9 +8,10 @@ import '@builder/parts/index';
 import { setPlan, type GardenPlan } from '@builder/compose/terrain';
 import planFile from './plan.json' with { type: 'json' };
 import './construction';
+import { BUILT_REGIONS } from './scenes';
 
 // 构件的匾额文字从 plan.json 读(99-26),棚拍台也要注入真源,否则门额/檐下匾不挂。
-setPlan(planFile as unknown as GardenPlan);
+setPlan(planFile as unknown as GardenPlan, BUILT_REGIONS);
 
 /**
  * 构件棚拍台。

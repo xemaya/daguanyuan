@@ -1,16 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {MVP_REGIONS} from '@builder/compose/terrain.ts';
+import {readFileSync,readdirSync} from 'node:fs';
 
 const plan=JSON.parse(readFileSync('projects/daguanyuan/plan.json','utf8'));
+/** 单子 Y：「哪些区已经建出来了」的真源是 scenes 目录的内容——有落位清单 = 建成。
+ *  运行时由 projects/daguanyuan/scenes.ts 的 eager glob 装载；这里按同一条规则读盘。 */
+const MVP_REGIONS=readdirSync('projects/daguanyuan/scenes').filter(f=>f.endsWith('.json')).sort()
+ .map(f=>JSON.parse(readFileSync('projects/daguanyuan/scenes/'+f,'utf8')).region);
 
 test('建成区名单是唯一真源，且都是 plan 里真实存在的区',()=>{
  assert.ok(MVP_REGIONS.length>0);
  for(const id of MVP_REGIONS)assert.ok(plan.regions.some(r=>r.id===id),`plan 里没有区 ${id}`);
 });
 
-test('建成四区的 plan 对象全集是 23 个——对账门的分母',()=>{
+test('建成区的 plan 对象全集——对账门的分母',()=>{
  const objs=[];
  for(const id of MVP_REGIONS){
   const r=plan.regions.find(x=>x.id===id);
@@ -19,7 +22,9 @@ test('建成四区的 plan 对象全集是 23 个——对账门的分母',()=>{
   for(const l of r.linears??[])objs.push(l.id);
  }
  assert.equal(new Set(objs).size,objs.length,'plan 对象 id 在建成区内重复');
- assert.equal(objs.length,23);
+ // 数会随着 scenes/ 里新增清单而变；这里只焊住「分母必须从 scenes 目录导出，
+ // 且每个区都能在 plan 里找到对象」。具体覆盖率由 manifest-diff --coverage 报。
+ assert.ok(objs.length>=23,`分母只应随新增区上升，现在是 ${objs.length}`);
 });
 
 import {coverage} from '../tools/manifest-diff.mjs';
@@ -102,4 +107,15 @@ test('名册侧接缝门不越界：横向岔开半个身位以上的不算同�
  apart[2].position[2]=246;                   // 挪到另一条线上
  const a=auditRosterSeams(apart);
  assert.equal(a.seams.length,1);
+});
+
+test('planId 不许从 anchor 推：散置件相对谁摆，不等于它就是谁',()=>{
+ // 竹丛相对正房落位(scenes 的 placements)，它的 planId 必须是 null——
+ // 否则对账门会把正房算成「已建成」两次，六段粉墙也会冒充正门。
+ const m={builtRegions:['xiaoxiangguan'],constructions:[
+  {id:'bamboo:clump',part:'bamboo',variant:'clump',planId:null,position:[-114.8,1,103],yaw:0},
+ ]};
+ const c=coverage(plan,m);
+ assert.ok(c.built.missing.includes('xiaoxiangguan.main-house'),'正房没建，不许被相对它落位的竹丛顶掉');
+ assert.equal(c.feral.length,1);
 });

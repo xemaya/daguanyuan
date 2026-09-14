@@ -10,7 +10,7 @@ import {offsetStation} from '@builder/plan/polyline';
 import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
-import { getPlan, MVP_REGIONS } from './terrain';
+import { getPlan, builtRegions } from './terrain';
 import { sceneFor, type ScenePlacement, type SceneNamed } from './scenes';
 import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
 import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
@@ -310,7 +310,7 @@ function baogushiSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: num
  */
 function plannedPlacements(): Placement[] {
   const out: Placement[] = [];
-  for (const regionId of MVP_REGIONS) {
+  for (const regionId of builtRegions()) {
     const region = findRegion(regionId);
     const scene = sceneFor(regionId);
     const bound = new Map<string, SceneNamed>();
@@ -350,7 +350,7 @@ function plannedPlacements(): Placement[] {
 /** `scenes/<region>.json` 的 `placements[]`：plan 里没有锚点的散置件。 */
 function scenePlacements(): Placement[] {
   const out: Placement[] = [];
-  for (const regionId of MVP_REGIONS) {
+  for (const regionId of builtRegions()) {
     for (const pl of sceneFor(regionId).placements ?? []) {
       out.push({ part: pl.part, variant: pl.variant, region: regionId, anchor: pl.anchor,
         x: pl.dx, z: pl.dz, yaw: pl.yaw, dy: pl.dy, tag: pl.tag });
@@ -408,7 +408,7 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
   const constructionRecords: Record<string, unknown>[] = [];
   group.userData.constructions = constructionRecords;
   // 单子 AD · 第一档对账：世界要自报「我建了哪几个区」,工具不许再抄一份区名。
-  group.userData.builtRegions = [...MVP_REGIONS];
+  group.userData.builtRegions = [...builtRegions()];
   const linearRecords:Record<string,unknown>[]=[];
   group.userData.linears=linearRecords;
   ctx.scene.add(group);

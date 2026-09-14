@@ -31,9 +31,26 @@ export type { GardenPlan };
  * `getPlan()` below rather than injecting its own copy.
  */
 let injectedPlan: GardenPlan | undefined;
-export function setPlan(p: GardenPlan): void {
-  Object.assign(TERRAIN,terrainWindow(p,MVP_REGIONS,PAD,CELL));
+let injectedBuilt: readonly string[] = [];
+/**
+ * 单子 Y:第二个参数是**已建成区名单**,由项目层给。
+ *
+ * 它以前是本文件里的 `MVP_REGIONS` 常量,于是「加一个区」除了写 plan 与
+ * scenes 之外还要回来改一行 `.ts`——目标 1 的判据(「加一个区,diff 里不许
+ * 出现 .ts」)当场就不成立。现在真源是 `projects/daguanyuan/scenes/` 目录:
+ * **一个区有落位清单,就算建成**。往那个目录里丢一个 .json,地形窗口、
+ * plan 遍历、对账门的分母同时跟着走。
+ */
+export function setPlan(p: GardenPlan, builtRegions: readonly string[]): void {
+  if (!builtRegions.length) throw new Error('[terrain] 已建成区名单为空:projects/daguanyuan/scenes/ 里一份落位清单都没有?');
+  injectedBuilt = [...builtRegions];
+  Object.assign(TERRAIN,terrainWindow(p,injectedBuilt,PAD,CELL));
   injectedPlan = p;
+}
+/** 已建成区名单(地形窗口、plan 遍历、对账门的分母都读它)。 */
+export function builtRegions(): readonly string[] {
+  if (!injectedBuilt.length) throw new Error('[terrain] 已建成区名单未注入:main.ts 必须先调用 setPlan(plan, regions)');
+  return injectedBuilt;
 }
 export function getPlan(): GardenPlan {
   if (!injectedPlan) {
@@ -79,11 +96,9 @@ export function getPlan(): GardenPlan {
 /* Sampling window — the MVP route's four regions, padded.             */
 /* ------------------------------------------------------------------ */
 
-/** The four regions the 一期 route actually passes through.
- *  这是「哪几个区已经建出来了」的**唯一真源**：地形采样窗口按它取，
- *  对账门的分母也按它取(经 composer 自报进 manifest.builtRegions)。
- *  单子 AD：任何工具都不许再抄一份区名。 */
-export const MVP_REGIONS = ['zhengmen', 'cuizhang', 'qinfang_ting_qiao', 'xiaoxiangguan'] as const;
+/* 单子 AD 曾把「已建成区名单」这份真源收进本文件的 MVP_REGIONS 常量;
+ * 单子 Y 把它整个搬进数据(projects/daguanyuan/scenes/ 的目录内容),
+ * 见上面 setPlan 的注释。这里不再留常量——留着就会有人去抄第二份。 */
 
 /**
  * Metres of margin outside the MVP regions' combined bounding box. Knob #2

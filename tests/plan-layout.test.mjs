@@ -37,14 +37,14 @@ test('terrain/water/scatter window follows live plan injection instead of stale 
   const w=terrainWindow(plan,ids);
   assert.deepEqual([w.minX,w.maxX,w.minZ,w.maxZ],[-160,110,43,261]);
   assert.ok(w.segX*w.segZ*2<600000);
-  setPlan(plan);
+  setPlan(plan, ids);
   assert.deepEqual(TERRAIN,w);
   const p=structuredClone(plan);
   for(const point of p.regions.find(r=>r.id==='zhengmen').polygon)point[1]+=10;
-  setPlan(p);
+  setPlan(p, ids);
   assert.equal(TERRAIN.maxZ,271);
   assert.equal(TERRAIN.playMaxZ,269);
-  setPlan(plan);
+  setPlan(plan, ids);
   assert.throws(()=>terrainWindow(plan,['missing']),/缺区域/);
 });
 
