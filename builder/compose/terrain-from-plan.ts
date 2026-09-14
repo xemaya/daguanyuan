@@ -35,6 +35,12 @@ export interface PlanWater {
   name: string;
   depth_m: number;
   polygon: [number, number][];
+  /** Optional identifier for cross-referencing a water body from another module (e.g. a stone edge). */
+  id?: string;
+  /** Optional centerline for a narrow channel — the line a bank-edging construct would follow. */
+  centerline?: [number, number][];
+  /** Optional full width (m) of a narrow channel, consumed by centerline-following constructs. */
+  width_m?: number;
 }
 
 export interface PlanHill {
@@ -356,7 +362,11 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     return { ...poly, h: h.height_m, inradius: inradiusOf(poly) };
   });
 
-  interface Water extends Poly2 { depth: number; feather: number; warpA: number; warpB: number }
+  interface Water extends Poly2 {
+    depth: number; feather: number; warpA: number; warpB: number;
+    sandOuter: number; sandOuterMid: number; sandInnerFar: number; sandInnerNear: number;
+    wetOuter: number; wetInner: number;
+  }
   const waters: Water[] = plan.water.map((w) => {
     const poly = makePoly(w.polygon);
     const inradius = inradiusOf(poly);
@@ -367,6 +377,16 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       // warp 振幅随水面宽度收放：尺许宽的引泉沟经不起米级的扭动。
       warpA: Math.min(1.1, inradius * 0.2),
       warpB: Math.min(0.35, inradius * 0.06),
+      // 沙带/湿痕的米制常数同一模式收放（单子 AH）：原常数按池岸标定，
+      // 直接套给尺许宽的引泉沟会是一条 4.8m 宽的沙疤。阈值在 inradius≈5.5m
+      // 打满——南池等大水体的 inradius 远超此值，六个常数都会精确顶到
+      // 与改动前相同的 cap，池岸沙带因此逐比特不变。
+      sandOuter: Math.min(2.0, inradius * (2.0 / 5.5)),
+      sandOuterMid: Math.min(0.2, inradius * (0.2 / 5.5)),
+      sandInnerFar: Math.max(-2.8, -inradius * (2.8 / 5.5)),
+      sandInnerNear: Math.max(-0.6, -inradius * (0.6 / 5.5)),
+      wetOuter: Math.min(1.2, inradius * (1.2 / 5.5)),
+      wetInner: Math.min(0.35, inradius * (0.35 / 5.5)),
     };
   });
 
@@ -767,9 +787,9 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       if (!inBBox(x, z, w, 3.5)) continue;
       const [wx, wz] = warp2(x, z, w.warpA, 0.06, w.warpB, 0.24);
       const sd = signedDist(wx, wz, w);
-      const band = smoothstep(2.0, 0.2, sd) * smoothstep(-2.8, -0.6, sd);
+      const band = smoothstep(w.sandOuter, w.sandOuterMid, sd) * smoothstep(w.sandInnerFar, w.sandInnerNear, sd);
       if (band > sand) sand = band * 0.85;
-      const wb = smoothstep(1.2, 0.35, Math.abs(sd));
+      const wb = smoothstep(w.wetOuter, w.wetInner, Math.abs(sd));
       if (wb > wetBand) wetBand = wb;
     }
 
