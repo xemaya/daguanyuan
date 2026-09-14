@@ -21,9 +21,14 @@
  * 段改按距离给预算。
  */
 import { chromium } from 'playwright';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-const args = { url: 'http://127.0.0.1:4801/garden.html' };
-for (let i = 2; i < process.argv.length; i++) if (process.argv[i] === '--url') args.url = process.argv[++i];
+const args = { url: 'http://127.0.0.1:4801/garden.html', surfaces: false };
+for (let i = 2; i < process.argv.length; i++) {
+  if (process.argv[i] === '--url') args.url = process.argv[++i];
+  else if (process.argv[i] === '--surfaces') args.surfaces = true;
+}
 
 /** 通行验收航点（主通路+曲廊支线），不用于计算29节点叙事里程。 */
 const ROUTE = [
@@ -128,6 +133,29 @@ await page.evaluate(() => {
 const pos = () => page.evaluate(() => { const p = window.__GAME__.player.state.position; return [p.x, p.y, p.z]; });
 const setYaw = (yaw) => page.evaluate((y) => { const g = window.__GAME__; const p = g.player.state.position; g.player.teleport(new g.THREE.Vector3(p.x, p.y, p.z), y); }, yaw);
 
+/* 单子 AD · 第二档「脚下序列」：沿游线记录每一步脚下的材质，按里程做游程
+ * 压缩。走一趟不多花一秒，抓的是「路走一半变土」「桥面材质不对」「院内该
+ * 石子漫却是土」这一类人眼要正好走到那一步才看得见的缺陷。
+ * 里程只累加走出来的距离；卡住后的 teleport 不计(那不是走过去的)。 */
+const surfaceRuns = [];
+let mileage = 0;
+let lastXZ = null;
+const sampleSurface = async () => {
+  if (!args.surfaces) return;
+  const [x, z, s] = await page.evaluate(() => {
+    const g = window.__GAME__;
+    const p = g.player.state.position;
+    return [p.x, p.z, g.world.ctx.collision.surfaceAt(p.x, p.z)];
+  });
+  const step = lastXZ ? Math.hypot(x - lastXZ[0], z - lastXZ[1]) : 0;
+  lastXZ = [x, z];
+  if (step > 3) return; // teleport，不是走过去的,断开这一段
+  mileage += step;
+  const tail = surfaceRuns[surfaceRuns.length - 1];
+  if (tail && tail.surface === s) tail.to = mileage;
+  else surfaceRuns.push({ from: mileage, to: mileage, surface: s });
+};
+
 /** 走向一个航点,到 0.9m 内算到达。回放里量过好几段:同一份构建、同一批
  *  桥面航点,哪一站卡住会随机换(headless 按键节流的抖动,不是几何真卡
  *  死——沿途 y 全程停在结构上,没有一次掉到水下),所以卡住先重试一次再
@@ -150,6 +178,7 @@ async function walkTo(tx, tz, arrival = 0.9) {
     await page.keyboard.down('KeyW');
     await page.waitForTimeout(120);
     await page.keyboard.up('KeyW');
+    await sampleSurface();
   }
   return { reached: false, x, y, z };
 }
@@ -183,6 +212,16 @@ await page.evaluate(() => { const g = window.__GAME__; g.player.teleport(new g.T
   const wet = y < -0.3;
   console.log(`${wet ? 'FAIL' : 'ok  '} 落水禁行 停在 (${x.toFixed(1)}, ${y.toFixed(2)}, ${z.toFixed(1)})`);
   if (wet) ok = false;
+}
+if (args.surfaces) {
+  console.log('\n脚下序列（里程 / 材质）');
+  for (const r of surfaceRuns) {
+    if (r.to - r.from < 0.3) continue; // 采样抖动,不到 0.3m 的游程不报
+    console.log(`  ${r.from.toFixed(1)}-${r.to.toFixed(1)} m`.padEnd(22) + r.surface);
+  }
+  mkdirSync(resolve('shots'), { recursive: true });
+  writeFileSync(resolve('shots/playtest-surfaces.json'), JSON.stringify(surfaceRuns, null, 2));
+  console.log(`  → shots/playtest-surfaces.json（${surfaceRuns.length} 段）`);
 }
 await browser.close();
 console.log(ok ? '\nPLAYTEST PASS' : '\nPLAYTEST FAIL');
