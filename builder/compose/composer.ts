@@ -262,11 +262,17 @@ const SCENE: Placement[] = [
   }),
   {part:'garden-wall',variant:'xiaoxiangguan.courtyard-wall',x:0,z:0,tag:'潇湘馆院墙'},
   {part:'garden-corridor',variant:'xiaoxiangguan.west-corridor-path',x:0,z:0,tag:'潇湘馆曲折游廊'},
+  // 三丛的原坐标落进(或恰好压线)正房 footprint(cx:-105,cz:99,hx:6.8,hz:4.8,
+  // 见 vegetation.ts 的 FOOTPRINTS):这批坐标是按旧正房整体平移过来的
+  // (D_XIAOXIANG 按旧正房 (9.4,-20.6) 标定),房子后来被单子 M/P 改过,平移量
+  // 没跟着更新——是 missing 的 99-25(footprint 两份真源,composer 摆的构件
+  // 不过 FOOTPRINTS 检查)应验。这里只按当前几何短期重摆这三丛,不做
+  // occupancy prepass(那是 99-25 的真修法,归 P4)。
   ...(
     [
-      ['grove', 14.2, -17.6],
-      ['clump', 4.6, -15.6],
-      ['clump', 12.6, -24.4],
+      ['grove', 14.2, -28.9], // 原 (14.2,-17.6) → 世界 (-100.2,101.0),整丛在正房里;南移让开
+      ['clump', -0.4, -15.6], // 原 (4.6,-15.6) → 世界 (-109.8,103.0),整丛在正房里;西移让开
+      ['clump', 9.4, -27.1], // 原 (12.6,-24.4) → 世界 (-101.8,94.2),恰好压在正房南墙脚线上;南移+东移让开
       ['grove', 20.5, -20.0],
       ['clump', -3.4, -15.2],
       ['clump', -6.0, -12.0],

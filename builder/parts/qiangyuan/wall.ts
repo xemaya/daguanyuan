@@ -713,16 +713,26 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
     kind === 'cloud'
       ? (x: number) => 0.4 * (0.72 * Math.sin((x / 3.2) * Math.PI * 2 + 0.9) + 0.4 * fbm2(simplex, x * 0.45 + 3.1, 0.37, 3))
       : () => 0;
-  // 虎皮石墙基"隨勢砌去":全园每一段粉墙都吃到,不分 kind。同一颗噪声
-  // (借用云墙那颗、换一段不相关的取样区)按墙的本地 x 给基脚沉深——
-  // 只沉不浮,见 WALL_STYLE.baseSink 的注释。每约 1.5m 给一个起伏,
-  // 太密会读成锯齿,太疏又摊不开"随势"的感觉。
-  const groundSteps = Math.max(1, Math.round(L / 1.5));
-  const groundDip = (x: number) => -WALL_STYLE.baseSink * (0.5 - 0.5 * fbm2(simplex, x * 0.14 + 41.7, 5.2, 3));
+  // 虎皮石墙基"隨勢砌去"只吃 07-02「左右一望」那段园墙——院墙(潇湘馆
+  // 一类的粉垣,07-07 只说"一带粉垣",没说虎皮石)退回原来的做法:实心
+  // 青石、墙脚不沉。园墙都是 registry 直接摆的独立直墙段(flushEnds 缺省
+  // false);院墙都经 wall-path.ts 沿 plan 折线连续拼接首尾相接
+  // (flushEnds 恒为 true,见 buildWallPath)——目前全园仅 xiaoxiangguan/
+  // longcuian 两条 courtyard-wall 走这条路径,借这个已有信号分墙种,不再
+  // 新增一条跨文件的"墙类别"参数。
+  const courtyard = !!options.flushEnds;
+  // 同一颗噪声(借用云墙那颗、换一段不相关的取样区)按墙的本地 x 给基脚
+  // 沉深——只沉不浮,见 WALL_STYLE.baseSink 的注释。每约 1.5m 给一个起伏,
+  // 太密会读成锯齿,太疏又摊不开"随势"的感觉。院墙没有这段沉深,
+  // groundSteps 退回默认的 1(墙脚是平的一条直线,与沉深前的几何一致)。
+  const groundSteps = courtyard ? 1 : Math.max(1, Math.round(L / 1.5));
+  const groundDip = courtyard
+    ? () => 0
+    : (x: number) => -WALL_STYLE.baseSink * (0.5 - 0.5 * fbm2(simplex, x * 0.14 + 41.7, 5.2, 3));
 
   const plaster = plasterMaterial(1,true);
   const stone = stoneMaterial(1);
-  const tigerSkin = tigerSkinMaterial(1);
+  const footMaterial = courtyard ? stone : tigerSkinMaterial(1);
 
   /* --- 墙体 --- */
   const bodyHoles: P2[][] = [];
@@ -759,14 +769,14 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
   const baseGeo = extrudeSolid(baseOutline, [], BASE_T, baseBevel, 3);
   projectUV(baseGeo, 0, 1.4, 1.4);
   sinkIntoGround(baseGeo, BASE_H, groundDip);
-  group.add(shadowed(new THREE.Mesh(baseGeo, tigerSkin)));
+  group.add(shadowed(new THREE.Mesh(baseGeo, footMaterial)));
 
   const plinthBevel = 0.014;
   const plinthOutline = roundedRect(-hl - plinthEnd + plinthBevel, plinthBevel, hl + plinthEnd - plinthBevel, PLINTH_H - plinthBevel, 0.01, 3, groundSteps);
   const plinthGeo = extrudeSolid(plinthOutline, [], PLINTH_T, plinthBevel, 2);
   projectUV(plinthGeo, 0, 1.4, 1.4);
   sinkIntoGround(plinthGeo, PLINTH_H, groundDip);
-  group.add(shadowed(new THREE.Mesh(plinthGeo, tigerSkin)));
+  group.add(shadowed(new THREE.Mesh(plinthGeo, footMaterial)));
 
   /* --- 压顶 --- */
   for (const m of buildCoping(hl, wave, options.flushEnds)) group.add(shadowed(m));

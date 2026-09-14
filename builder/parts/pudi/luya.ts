@@ -5,6 +5,7 @@ import { resamplePath, makeTerrainField } from '@builder/compose/terrain-from-pl
 import { SEED } from '@builder/compose/config';
 import { pathStations, offsetStation } from '@builder/plan/polyline';
 import type { Point2 } from '@builder/plan/geometry';
+import { smoothstep } from '@engine/core/Noise';
 import { stoneMaterial } from '../materials';
 import { mergeByMaterial } from '../merge';
 import type { Provenance } from '@builder/derive/provenance';
@@ -31,6 +32,13 @@ const CURB_UP = 0.07;
 const CURB_DOWN = 0.09;
 /** 侧石中线离路心的偏移 = 路半宽 + 路面到侧石的浮土肩。 */
 const CURB_SHOULDER = 0.10;
+/**
+ * 边缘淡出宽度(m):距(缩进后的)地形窗口边界这段内,出露高度按 smoothstep
+ * 降到 0——到边界正好与地面齐平,不会硬切成"半空里被削平"(和伸到天边
+ * 一样出戏,③)。取值要明显大于 curbGeometry 里算的 inset(近门大路
+ * halfWidth=2.2m 时 inset≈2.43m),否则裁窗口就把淡出区吃掉了,又变回硬切。
+ */
+const CURB_FEATHER = 5;
 
 export interface CurbRun {
   name: string;
@@ -49,22 +57,74 @@ function pavedRuns(): CurbRun[] {
 }
 
 /**
+ * 点到地形窗口边界的距离,窗口内为正、窗口外为负;`inset` 把窗口整体缩小
+ * (四边各收进这么多米)再量。路牙的顶点不在折线中线上,而是side-offset
+ * 出去最多 `run.halfWidth + CURB_SHOULDER + CURB_W`(见 curbGeometry 的
+ * outer/inner 计算)——只按中线量距离,offset 出去的顶点仍可能戳出窗口
+ * 一小截(实测 near-门大路 那条最多戳出 0.34m)。传入这个偏移量当 inset,
+ * 中线在"缩小后的窗口"内就保证所有 offset 顶点都在"真窗口"内。
+ */
+function marginToWindow(x: number, z: number, inset = 0): number {
+  return Math.min(x - TERRAIN.minX, TERRAIN.maxX - x, z - TERRAIN.minZ, TERRAIN.maxZ - z) - inset;
+}
+
+/**
+ * 把密采样折线按(缩进 inset 后的)地形窗口裁成落在窗口内的子段(可能不止
+ * 一段);每段两端插值到边界(margin=0)上。窗口外的部分整段丢弃——地形网格
+ * 本身到窗口边缘为止,侧石挤到窗口外面纯属浪费三角,也正是③里"飘在空里
+ * 一路伸到天边"的根因。相邻采样点距离小于 2cm 时丢弃较新的一个,避免插值
+ * 出的边界点与既有采样点重合导致 pathStations 的"零长段"断言炸掉。
+ */
+function clipToWindow(xs: Float64Array, zs: Float64Array, inset: number): [number, number][][] {
+  const MIN_LEG = 0.02;
+  const segs: [number, number][][] = [];
+  let cur: [number, number][] = [];
+  const push = (p: [number, number]) => {
+    const last = cur[cur.length - 1];
+    if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) >= MIN_LEG) cur.push(p);
+  };
+  let prevM = marginToWindow(xs[0], zs[0], inset);
+  if (prevM >= 0) push([xs[0], zs[0]]);
+  for (let i = 1; i < xs.length; i++) {
+    const m = marginToWindow(xs[i], zs[i], inset);
+    if (prevM >= 0 !== m >= 0) {
+      const t = prevM / (prevM - m);
+      const boundary: [number, number] = [xs[i - 1] + (xs[i] - xs[i - 1]) * t, zs[i - 1] + (zs[i] - zs[i - 1]) * t];
+      if (prevM >= 0) {
+        push(boundary);
+        if (cur.length >= 2) segs.push(cur);
+        cur = [];
+      } else {
+        cur = [boundary];
+      }
+    }
+    if (m >= 0) push([xs[i], zs[i]]);
+    prevM = m;
+  }
+  if (cur.length >= 2) segs.push(cur);
+  return segs;
+}
+
+/**
  * 沿一条折线在两侧各挤出一条侧石带,合并为一段几何。
  * 断面四角(外下/外上/内上/内下),顶面+两侧面成带,端头封口。
- * 顶面随地形:逐站取 curb 中线处的地面高,整条抬高 CURB_UP。
- * 导出给检查脚本/测试用(几何是纯数学,不依赖 canvas 材质)。
+ * 顶面随地形:逐站取 curb 中线处的地面高,整条抬高 CURB_UP,并按到窗口边界
+ * 的距离淡出(见 CURB_FEATHER)。导出给检查脚本/测试用(几何是纯数学,不依赖
+ * canvas 材质)。
  */
 export function curbGeometry(run: CurbRun, ground: (x: number, z: number) => number): THREE.BufferGeometry {
-  // 与路面遮罩同一条密采样线(resamplePath 16/段),边才贴得住遮罩的弯。
+  const hw = CURB_W / 2;
+  // 中线到侧石最外沿的最大距离——裁窗口与淡出都按这个量 inset,否则中线量
+  // 着"在窗口内"了,side-offset 出去的顶点仍可能戳出窗口一截。
+  const inset = run.halfWidth + CURB_SHOULDER + CURB_W;
+  // 与路面遮罩同一条密采样线(resamplePath 16/段),边才贴得住遮罩的弯;
+  // 再按(缩进后的)地形窗口裁段(③)。
   const dense = resamplePath(run.points, 16);
-  const pts: [number, number][] = [];
-  for (let i = 0; i < dense.xs.length; i++) pts.push([dense.xs[i], dense.zs[i]]);
-  const stations = pathStations(pts);
+  const segs = clipToWindow(dense.xs, dense.zs, inset);
 
   const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
-  const hw = CURB_W / 2;
 
   /*
    * 断面不同朝向的面不共享顶点——共享会被 computeVertexNormals 平滑成
@@ -91,32 +151,36 @@ export function curbGeometry(run: CurbRun, ground: (x: number, z: number) => num
     else indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   };
 
-  for (const side of [1, -1]) {
-    const flip = side < 0;
-    const off = (run.halfWidth + CURB_SHOULDER + hw) * side;
-    const outer: Point2[] = [];
-    const inner: Point2[] = [];
-    const gy: number[] = [];
-    for (const s of stations) {
-      outer.push(offsetStation(s, off + hw * side));
-      inner.push(offsetStation(s, off - hw * side));
-      gy.push(ground(...offsetStation(s, off)));
+  for (const pts of segs) {
+    const stations = pathStations(pts);
+    const fade = stations.map((s) => smoothstep(0, CURB_FEATHER, marginToWindow(s.point[0], s.point[1], inset)));
+    for (const side of [1, -1]) {
+      const flip = side < 0;
+      const off = (run.halfWidth + CURB_SHOULDER + hw) * side;
+      const outer: Point2[] = [];
+      const inner: Point2[] = [];
+      const gy: number[] = [];
+      for (const s of stations) {
+        outer.push(offsetStation(s, off + hw * side));
+        inner.push(offsetStation(s, off - hw * side));
+        gy.push(ground(...offsetStation(s, off)));
+      }
+      const top = gy.map((y, i) => y + CURB_UP * fade[i]);
+      const bot = gy.map((y, i) => y - CURB_DOWN * fade[i]);
+      // 外侧面、顶面、内侧面三条带——从路上看对面那一条时看到的就是内侧面。
+      addStrip(outer, outer, bot.map((b, i) => [b, top[i]] as [number, number]), flip);
+      addStrip(outer, inner, top.map((t) => [t, t] as [number, number]), flip);
+      addStrip(inner, inner, top.map((t, i) => [t, bot[i]] as [number, number]), flip);
+      // 端头封口(外下/外上/内上/内下四角的四边形),朝路的两端外。
+      const cap = (i: number): [number, number, number][] => [
+        [outer[i][0], bot[i], outer[i][1]],
+        [outer[i][0], top[i], outer[i][1]],
+        [inner[i][0], top[i], inner[i][1]],
+        [inner[i][0], bot[i], inner[i][1]],
+      ];
+      addCap(cap(0), !flip);
+      addCap(cap(stations.length - 1), flip);
     }
-    const top = gy.map((y) => y + CURB_UP);
-    const bot = gy.map((y) => y - CURB_DOWN);
-    // 外侧面、顶面、内侧面三条带——从路上看对面那一条时看到的就是内侧面。
-    addStrip(outer, outer, bot.map((b, i) => [b, top[i]] as [number, number]), flip);
-    addStrip(outer, inner, top.map((t) => [t, t] as [number, number]), flip);
-    addStrip(inner, inner, top.map((t, i) => [t, bot[i]] as [number, number]), flip);
-    // 端头封口(外下/外上/内上/内下四角的四边形),朝路的两端外。
-    const cap = (i: number): [number, number, number][] => [
-      [outer[i][0], bot[i], outer[i][1]],
-      [outer[i][0], top[i], outer[i][1]],
-      [inner[i][0], top[i], inner[i][1]],
-      [inner[i][0], bot[i], inner[i][1]],
-    ];
-    addCap(cap(0), !flip);
-    addCap(cap(stations.length - 1), flip);
   }
 
   const geo = new THREE.BufferGeometry();
@@ -142,7 +206,9 @@ export function buildLuya(context?: PartContext): PartBuild {
   const stone = stoneMaterial(1);
   const runs = pavedRuns();
   for (const run of runs) {
-    const mesh = new THREE.Mesh(curbGeometry(run, ground), stone);
+    const geo = curbGeometry(run, ground);
+    if (!geo.attributes.position || geo.attributes.position.count === 0) continue; // 整条路都在地形窗口外
+    const mesh = new THREE.Mesh(geo, stone);
     mesh.castShadow = false; // 7cm 高的侧石投影只会在路肩上拉脏线,不投
     mesh.receiveShadow = true;
     mesh.name = `路牙:${run.name}`;

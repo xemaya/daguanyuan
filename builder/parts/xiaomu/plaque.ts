@@ -24,7 +24,8 @@ function plaqueTexture(text: string, w = 512, h = 192): THREE.CanvasTexture {
   g.font = `bold ${size}px "STKaiti","KaiTi","Kaiti SC","Noto Serif SC","Songti SC",serif`;
   const gap = size * 1.06;
   const x0 = w / 2 - ((n - 1) * gap) / 2;
-  for (let i = 0; i < n; i++) g.fillText(text[i], x0 + i * gap, h / 2 + size * 0.04);
+  // 古代横额从右到左读——第 i 个字画在从右数第 i 个位置上。
+  for (let i = 0; i < n; i++) g.fillText(text[i], x0 + (n - 1 - i) * gap, h / 2 + size * 0.04);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
