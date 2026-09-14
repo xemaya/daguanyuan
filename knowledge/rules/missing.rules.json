@@ -494,8 +494,9 @@
       "formula": "missing",
       "whereToLook": {
         "books": [
+          "builder/compose/occupancy.ts",
           "builder/compose/world.ts",
-          "docs/ROADMAP.md §P4"
+          "docs/superpowers/plans/2026-09-14-z-occupancy-and-scatter.md"
         ],
         "keywords": [
           "occupancy mask prepass",
@@ -505,7 +506,7 @@
       },
       "needs": [],
       "paramSet": "none",
-      "notes": "2026-09-10 仓库卫生 review 发现;落点 P4——occupancy prepass 要等 scenes/*.json 分区数据落地才有真源可读。"
+      "notes": "2026-09-10 仓库卫生 review 发现;落点 P4——occupancy prepass 要等 scenes/*.json 分区数据落地才有真源可读。【2026-09-14 已销账·单子 Z】scenes/*.json 由单子 Y 落地后,本条按 statement 里写的修法做了:builder/compose/occupancy.ts 是占位的唯一真源,从 plan 的 construction.spec 编译檐口外包络 + scenes 的 clearances[],world.ts 在「植树」之前插了一步「圈地」,vegetation.ts 的手抄 FOOTPRINTS 表已删除。顺带查实手抄的那份还漏算了出檐与铺作出跳:正门真实占地 h=(10.0,6.1),手抄写的是 (7.4,3.2),树本来能长进檐下。突变测试见 tests/occupancy.test.mjs:把房子挪 3m,占位跟着走,不改任何表。条目保留不删,因为 status 字段现在只有 missing 一个取值,改它会让 check:rules 的 md/json 交叉核对失配。"
     },
     {
       "id": "99-26",

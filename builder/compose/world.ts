@@ -5,7 +5,9 @@ import { CollisionWorld } from '@engine/player/Collision';
 import { InteractionSystem } from '@engine/player/Interaction';
 
 import { buildAtmosphere } from '@engine/render/Atmosphere';
-import { buildTerrain, getPlan } from './terrain';
+import { buildTerrain, getPlan, builtRegions } from './terrain';
+import { buildOccupancy, setOccupancy } from './occupancy';
+import { getScenes } from './scenes';
 import { buildWater, setWaterFlows } from '@engine/render/Water';
 import { buildVegetation } from '@builder/parts/zhiwu/vegetation';
 import { buildGarden } from './composer';
@@ -18,16 +20,17 @@ import {SEED} from './config';
  * Order matters: terrain publishes the heightfield that everything else
  * samples to sit on the ground.
  *
- * The actual order is vegetation BEFORE buildings (植树 → 起屋叠石). Trees
- * don't grow through porches only because vegetation.ts keeps a hand-copied
- * FOOTPRINTS table duplicating the building footprints — two sources of
- * truth for the same fact. Known debt, tracked as missing rule 99-25: the
- * real fix is a single occupancy prepass derived from plan + scenes that
- * terrain, vegetation and buildings all read (lands with P4).
- * New P2 wall, corridor and bridge paths supply planting clearance from plan;
- * building occupancy is still the P4 debt above. Do not fix
- * this by reordering the steps now — that would leave the hand-copied copy
- * as the only source of truth and dig the debt deeper.
+ * The actual order is still vegetation BEFORE buildings (植树 → 起屋叠石),
+ * and that is fine now: 单子 Z 在两者之前插了一步「圈地」(occupancy prepass,
+ * `occupancy.ts`)。占位不再来自建出来的几何，而是从 `plan.json` 的
+ * `construction.spec` 编译出檐口外包络、加上 `scenes/*.json` 的 `clearances[]`
+ * ——**一份真源，房子一挪占位跟着挪**。`vegetation.ts` 那份手抄的 `FOOTPRINTS`
+ * 副本已经删掉（missing 99-25 就此销账）。
+ *
+ * 原来那条警告仍然成立、也仍然重要：**不要靠调换建筑与植被的顺序来修**，
+ * 那会让手抄的那份变成唯一真源。正解是把占位从「建出来的几何」里解耦出来，
+ * 也就是现在这一步。
+ * P2 的墙/廊/桥路径本来就从 plan 供给种植净空，那部分不变。
  */
 export {SEED} from './config';
 
@@ -81,6 +84,12 @@ export class World {
       ['调色', async () => { this.root.userData.textureWarmup = await prewarmTextures(); }],
       ['开天', buildAtmosphere],
       ['理地', buildTerrain],
+      // 单子 Z · 接缝 ③:占位预计算。必须排在「植树」之前——植被读它来避让。
+      // 它从 plan 的 construction.spec 编译檐口外包络,加上 scenes 的 clearances,
+      // 是占位的**唯一真源**;vegetation.ts 那份手抄的 FOOTPRINTS 副本已经删掉
+      // (missing 99-25)。注意 world.ts 原来的警告仍然成立:修法**不是**调换
+      // 建筑与植被的顺序,而是把占位从「建出来的几何」里解耦成一次预计算。
+      ['圈地', () => setOccupancy(buildOccupancy(getPlan(), builtRegions(), getScenes()))],
       ['引水', (ctx) => { setWaterFlows(getPlan().water); buildWater(ctx); }],
       ['植树', buildVegetation],
       ['起屋叠石', buildGarden],

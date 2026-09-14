@@ -12,8 +12,35 @@
     }
   ],
   "placements": [
-    { "part": "taihu", "variant": "peak2", "anchor": "cuizhang.screen-rocks", "dx": -6.2, "dz":  2.5, "yaw": 0.6, "basis": "翠嶂西侧的伴石，让山口不是一条直缝。位置为艺术选择，无原文出处。" },
-    { "part": "taihu", "variant": "edge3", "anchor": "cuizhang.screen-rocks", "dx":  4.4, "dz": -2.8, "yaw": 1.2, "basis": "翠嶂东南脚的散石，压住山体与草地的接边。位置为艺术选择，无原文出处。" }
+    {
+      "part": "taihu",
+      "variant": "peak2",
+      "anchor": "cuizhang.screen-rocks",
+      "dx": -6.2,
+      "dz": 2.5,
+      "yaw": 0.6,
+      "basis": "翠嶂西侧的伴石，让山口不是一条直缝。位置为艺术选择，无原文出处。"
+    },
+    {
+      "part": "taihu",
+      "variant": "edge3",
+      "anchor": "cuizhang.screen-rocks",
+      "dx": 4.4,
+      "dz": -2.8,
+      "yaw": 1.2,
+      "basis": "翠嶂东南脚的散石，压住山体与草地的接边。位置为艺术选择，无原文出处。"
+    }
+  ],
+  "clearances": [
+    {
+      "anchor": "cuizhang.screen-rocks",
+      "dx": 0,
+      "dz": 0,
+      "hx": 3.6,
+      "hz": 2.6,
+      "tag": "翠嶂山体占地",
+      "basis": "plan 把整座翠嶂登记成一个 rocks 对象,rocks 不带尺寸,占位推不出来。半宽半深取自 taihu:mound 这件构件的实际包络。换构件重做翠嶂时(07-03「縱橫拱立」)要同步改这两个数。"
+    }
   ],
   "scatters": []
 }

@@ -12,12 +12,80 @@
     }
   ],
   "placements": [
-    { "part": "wall", "variant": "plain",   "anchor": "zhengmen.main-gate", "dx":  10, "dz": 0, "yaw": 0, "basis": "07-02「左右一望，皆雪白粉牆…隨勢砌去」。粉墙要真的接上正门，门才读成墙上的开口（单子 M · PQ-7）。墙线与门洞同在中脊线上。" },
-    { "part": "wall", "variant": "lattice", "anchor": "zhengmen.main-gate", "dx":  16, "dz": 0, "yaw": 0, "basis": "同上。漏窗段，07-02 粉墙的变化。" },
-    { "part": "wall", "variant": "cloud",   "anchor": "zhengmen.main-gate", "dx":  23, "dz": 0, "yaw": 0, "basis": "同上。云墙收头，墙线的外端。" },
-    { "part": "wall", "variant": "plain",   "anchor": "zhengmen.main-gate", "dx": -10, "dz": 0, "yaw": 0, "basis": "同上，西侧对称段。" },
-    { "part": "wall", "variant": "lattice", "anchor": "zhengmen.main-gate", "dx": -16, "dz": 0, "yaw": 0, "basis": "同上，西侧对称段。" },
-    { "part": "wall", "variant": "cloud",   "anchor": "zhengmen.main-gate", "dx": -23, "dz": 0, "yaw": 0, "basis": "同上，西侧对称段。" }
+    {
+      "part": "wall",
+      "variant": "plain",
+      "anchor": "zhengmen.main-gate",
+      "dx": 10,
+      "dz": 0,
+      "yaw": 0,
+      "basis": "07-02「左右一望，皆雪白粉牆…隨勢砌去」。粉墙要真的接上正门，门才读成墙上的开口（单子 M · PQ-7）。墙线与门洞同在中脊线上。"
+    },
+    {
+      "part": "wall",
+      "variant": "lattice",
+      "anchor": "zhengmen.main-gate",
+      "dx": 16,
+      "dz": 0,
+      "yaw": 0,
+      "basis": "同上。漏窗段，07-02 粉墙的变化。"
+    },
+    {
+      "part": "wall",
+      "variant": "cloud",
+      "anchor": "zhengmen.main-gate",
+      "dx": 23,
+      "dz": 0,
+      "yaw": 0,
+      "basis": "同上。云墙收头，墙线的外端。"
+    },
+    {
+      "part": "wall",
+      "variant": "plain",
+      "anchor": "zhengmen.main-gate",
+      "dx": -10,
+      "dz": 0,
+      "yaw": 0,
+      "basis": "同上，西侧对称段。"
+    },
+    {
+      "part": "wall",
+      "variant": "lattice",
+      "anchor": "zhengmen.main-gate",
+      "dx": -16,
+      "dz": 0,
+      "yaw": 0,
+      "basis": "同上，西侧对称段。"
+    },
+    {
+      "part": "wall",
+      "variant": "cloud",
+      "anchor": "zhengmen.main-gate",
+      "dx": -23,
+      "dz": 0,
+      "yaw": 0,
+      "basis": "同上，西侧对称段。"
+    }
+  ],
+  "clearances": [
+    {
+      "anchor": "zhengmen.main-gate",
+      "dx": 0,
+      "dz": 6.1,
+      "hx": 4.5,
+      "hz": 5.0,
+      "tag": "门外甬道净空",
+      "basis": "plan 的 zhengmen.plants 写着「门外净空,不作密植」(用户走完提的第 9 条「门前树乱」正是这块地没被尊重)。建筑檐口外包络只管到屋檐,甬道这段净空是 plan 说不出来的取舍,所以显式写在这里。"
+    },
+    {
+      "anchor": "zhengmen.main-gate",
+      "dx": 0,
+      "dz": 0.8,
+      "hx": 28.5,
+      "hz": 0.7,
+      "tag": "南粉墙墙线",
+      "basis": "六段粉墙现在是无 plan 出处的野生件(见本文件 placements 的说明),占位推不出来,先按墙线显式留出。给 zhengmen.flanking-wall 补上 layout 折线之后,占位由线性构件自己给,这条要删。"
+    }
   ],
   "scatters": []
 }

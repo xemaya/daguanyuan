@@ -53,6 +53,25 @@ export interface SceneNamed {
   tag?: string;
 }
 
+/**
+ * 不种东西的地（单子 Z，接缝 ③）。
+ *
+ * 建筑的占地是**推导**出来的（`occupancy.ts` 从 `construction.spec` 编译檐口
+ * 外包络），不需要写在这里。这里写的是 plan 说不出来的那类取舍：门外甬道
+ * 要留净空、院内这块地留给点名竹、假山占多大。**同样相对锚点**——房子一挪，
+ * 它跟着挪，这正是 99-25 那笔债的修法。
+ */
+export interface SceneClearance {
+  anchor: string;
+  dx: number;
+  dz: number;
+  /** 半宽 / 半深（米），轴对齐。 */
+  hx: number;
+  hz: number;
+  basis: string;
+  tag?: string;
+}
+
 /** 单子 Z 的入口。Y 只让它通过校验、不消费。 */
 export interface SceneScatter {
   part: string;
@@ -65,6 +84,7 @@ export interface RegionScene {
   $comment?: string;
   named?: SceneNamed[];
   placements?: ScenePlacement[];
+  clearances?: SceneClearance[];
   scatters?: SceneScatter[];
 }
 
@@ -151,6 +171,19 @@ export function validateScenes(scenes: RegionScene[], plan: unknown): string[] {
       if (!pl.basis) fails.push(`${tag}：缺 basis——摆一块石头是艺术选择也行，写出来就行，不写不许进`);
       for (const f of ABSOLUTE_FIELDS)
         if (f in (pl as unknown as Record<string, unknown>))
+          fails.push(`${tag}：写了 ${f}——不许写世界绝对坐标，只许 anchor + dx/dz`);
+    }
+
+    for (const [i, c] of (scene.clearances ?? []).entries()) {
+      const tag = `${where} clearances[${i}]`;
+      if (!c.anchor) fails.push(`${tag}：缺 anchor——净空一律相对锚点，房子挪了它才会跟着挪`);
+      else if (!anchors.has(c.anchor)) fails.push(`${tag}：锚点 ${c.anchor} 不在本区的 plan 对象里`);
+      for (const f of ['dx', 'dz', 'hx', 'hz'] as const)
+        if (!Number.isFinite(c[f])) fails.push(`${tag}：${f} 必须是有限数`);
+      if (c.hx <= 0 || c.hz <= 0) fails.push(`${tag}：hx/hz 是半宽半深，必须为正`);
+      if (!c.basis) fails.push(`${tag}：缺 basis——「这块地不种」是一次取舍，写出来就行，不写不许进`);
+      for (const f of ABSOLUTE_FIELDS)
+        if (f in (c as unknown as Record<string, unknown>))
           fails.push(`${tag}：写了 ${f}——不许写世界绝对坐标，只许 anchor + dx/dz`);
     }
 

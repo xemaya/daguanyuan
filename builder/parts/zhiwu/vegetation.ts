@@ -28,6 +28,7 @@ import {
   setFlex,
   bakeCanopyShading,
 } from './foliage-materials';
+import { occupancyFree, occupancyDistance } from '@builder/compose/occupancy';
 import { TERRAIN, getPlan } from '@builder/compose/terrain';
 import { makeGrassCoverField } from '@builder/compose/grass-cover';
 import {
@@ -131,15 +132,10 @@ const VEG = {
  * constants, kept in sync there because that's where the SCENE placements
  * that these footprints have to match actually live).
  */
-const FOOTPRINTS: { cx: number; cz: number; hx: number; hz: number }[] = [
-  { cx: -105, cz: 99.0, hx: 6.8, hz: 4.8 }, // 潇湘馆
-  { cx: -105.8, cz: 98.6, hx: 9.4, hz: 6.8 }, // 潇湘馆院墙内(竹由装配器种)
-  { cx: 55, cz: 236, hx: 7.4, hz: 3.2 }, // 正门(五间)
-  { cx: 55, cz: 242.1, hx: 4.5, hz: 5.0 }, // 门外甬道净空
-  { cx: 55, cz: 236.8, hx: 28.5, hz: 0.7 }, // 南墙
-  { cx: 8, cz: 202, hx: 3.6, hz: 2.6 }, // 翠嶂假山
-  { cx: -0.3, cz: 148.8, hx: 1.6, hz: 1.6 }, // 沁芳亭
-];
+/* 单子 Z:手抄的 FOOTPRINTS 表已删(missing 99-25)。占位改读 occupancy.ts
+ * 那一份真源——它从 plan 的 construction.spec 编译檐口外包络,所以**房子一挪,
+ * 树自己让开**,不需要回来改任何表。实测手抄的那份还漏算了出檐与铺作出跳:
+ * 正门的真实占地是 h=(10.0,6.1),手抄写的是 (7.4,3.2),树本来能长进檐下。 */
 
 /**
  * Hand-placed hero trees, keyed by species. P1 Task 6: repositioned by the same
@@ -440,16 +436,12 @@ function makePlantMask(ctx: GameContext): DensityMask {
   );
 }
 
-/** 1 outside every building footprint, 0 inside, with a short feather. */
+/** 1 outside every building footprint, 0 inside, with a short feather.
+ *  单子 Z:数据来自 `occupancy.ts` 的占位场(plan 的檐口外包络 + scenes 的
+ *  clearances),不再是本文件里的手抄副本。函数名与签名保持不变——16 处调用
+ *  点一个都不用改,换的是真源不是用法。 */
 function outsideBuildings(x: number, z: number, pad = 0): number {
-  let m = 1;
-  for (const f of FOOTPRINTS) {
-    const dx = Math.abs(x - f.cx) - (f.hx + pad);
-    const dz = Math.abs(z - f.cz) - (f.hz + pad);
-    const d = Math.max(dx, dz);
-    m = Math.min(m, smoothstep(-0.35, 0.35, d));
-  }
-  return m;
+  return occupancyFree(x, z, pad);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1952,13 +1944,10 @@ export function buildVegetation(ctx: GameContext): void {
     // Bushes hug things: the skirt of the wood, and the corners of buildings.
     const nearWood = smoothstep(11.5, 15.0, Math.abs(x)) * smoothstep(21.0, 16.5, Math.abs(x));
     const nearSouth = smoothstep(18.5, 22.5, z) * smoothstep(28, 24.5, z);
-    let corner = 0;
-    for (const f of FOOTPRINTS) {
-      const dx = Math.abs(x - f.cx) - f.hx;
-      const dz = Math.abs(z - f.cz) - f.hz;
-      const d = Math.hypot(Math.max(dx, 0), Math.max(dz, 0));
-      corner = Math.max(corner, smoothstep(1.9, 0.25, d) * (Math.min(dx, dz) > -0.4 ? 1 : 0));
-    }
+    // 单子 Z:距离从 occupancy 场读(plan 推导的檐口外包络),不再遍历手抄表。
+    // `>= -0.4` 保留原来的语义:只贴边,不往建筑深处长。
+    const cornerD = occupancyDistance(x, z);
+    const corner = cornerD >= -0.4 ? smoothstep(1.9, 0.25, cornerD) : 0;
     // Free scatter is deliberately tiny and gated behind a low-frequency mask:
     // a bush every few metres across an open green reads as procedural litter,
     // a thicket in one corner reads as landscaping.
@@ -2959,13 +2948,8 @@ export function buildVegetation(ctx: GameContext): void {
         // and the shady side of the houses.
         const wood = smoothstep(9.5, 14.5, Math.abs(x));
         const south = smoothstep(16.5, 22, z);
-        let wall = 0;
-        for (const f of FOOTPRINTS) {
-          const dx = Math.abs(x - f.cx) - f.hx;
-          const dz = Math.abs(z - f.cz) - f.hz;
-          const d = Math.hypot(Math.max(dx, 0), Math.max(dz, 0));
-          wall = Math.max(wall, smoothstep(1.6, 0.2, d));
-        }
+        // 单子 Z:同上,距离读 occupancy 场。
+        const wall = smoothstep(1.6, 0.2, occupancyDistance(x, z));
         const n = fbm2(clump, x * 0.22 + 41, z * 0.22, 3) * 0.5 + 0.5;
         return clamp((Math.max(wood, south) * 0.75 + wall * 0.7) * (0.3 + n), 0, 1) *
           outsideBuildings(x, z, 0.1);
