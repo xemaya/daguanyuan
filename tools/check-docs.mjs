@@ -44,6 +44,11 @@ const ALLOW = [
     why: '实施计划描述的待建文件(门厅、图解页、缩略图烘焙脚本),由单子 H 与 I 落地',
   },
   {
+    file: 'docs/superpowers/plans/2026-09-14-u-clear-before-p4.md',
+    path: 'docs/reviews/2026-09-14-choices.md',
+    why: '单子 U 的 B 组交付物,做完才存在',
+  },
+  {
     file: 'docs/tellux-borrowing.md',
     why: '外部调研笔记:src/Viewer.ts、hism/pipeline/ 等路径指向 tellux 项目的源码树,不是本仓文件',
   },
