@@ -206,43 +206,68 @@ function ridgeTube(points: THREE.Vector3[], r: number, mat: THREE.Material): THR
   return mesh;
 }
 
-/** 灯笼锦格心:方格骨架(整根,不错位)+ 每格内接一个菱花,是"灯笼"读法的来处。
+/** 灯笼锦格心(单子 AG2 返工):大格(灯笼框,粗棂条起线)与小格(棋盘格一半
+ *  嵌一个斜插小方框,细棂条不起线)相间,内部节点缀卡子花——这才是"灯笼"的
+ *  大小相间读法,不是方格纸上每格打一个叉(旧实现,加密解决不了,要改构成)。
  *  与 wan(万字不到头)、ice(冰裂)同层但另起一支——qiangyuan/wall.ts 的
  *  gexinGeometry 不认这个纹样名(未知 sub 会被它当 ice 处理),所以另写,不复用。 */
 function lanternLatticeGeometry(w: number, h: number, bar: number): THREE.BufferGeometry {
-  const cell = 0.3;
+  const cell = 0.38;
   const nx = Math.max(2, Math.round(w / cell));
   const ny = Math.max(2, Math.round(h / cell));
   const cw = w / nx;
   const ch = h / ny;
   const depth = bar * 0.9;
+  // 灯笼框棂条比小格插框粗一档,起线才看得出(细于 4cm 倒角看不见——makeGeshan
+  // 的规则仍然成立,这里是给这一层单独破例加粗,不是给全部棂条都起线)。
+  const frameBar = Math.max(bar * 1.6, 0.032);
   const geos: THREE.BufferGeometry[] = [];
-  const addSeg = (x0: number, y0: number, x1: number, y1: number) => {
+  const addBar = (x0: number, y0: number, x1: number, y1: number, thick: number, chamfer: boolean) => {
     const len = Math.hypot(x1 - x0, y1 - y0);
     if (len < 1e-4) return;
-    const geo = new THREE.BoxGeometry(len, bar, depth);
+    const geo = chamfer
+      ? roundedBox(len, thick, depth, Math.min(0.006, (Math.min(thick, depth) - 1e-3) / 2), 1)
+      : new THREE.BoxGeometry(len, thick, depth);
     geo.rotateZ(Math.atan2(y1 - y0, x1 - x0));
     geo.translate((x0 + x1) / 2, (y0 + y1) / 2, 0);
     geos.push(geo);
   };
+  // 灯笼框:整根方格骨架(粗棂条 + 起线),不错位——"灯笼"的外框来自这一层。
   for (let i = 0; i <= nx; i++) {
     const x = -w / 2 + i * cw;
-    addSeg(x, -h / 2, x, h / 2);
+    addBar(x, -h / 2, x, h / 2, frameBar, true);
   }
   for (let j = 0; j <= ny; j++) {
     const y = -h / 2 + j * ch;
-    addSeg(-w / 2, y, w / 2, y);
+    addBar(-w / 2, y, w / 2, y, frameBar, true);
   }
+  // 卡子花:内部节点(框的交叉点)钉一颗小菱花(压扁八面体,略凸出画面),
+  // 节点上有装饰是灯笼锦区别于素方格的第二个标志。
+  const kaziR = Math.min(cw, ch) * 0.1;
+  for (let i = 1; i < nx; i++) {
+    for (let j = 1; j < ny; j++) {
+      const x = -w / 2 + i * cw;
+      const y = -h / 2 + j * ch;
+      const geo = new THREE.OctahedronGeometry(kaziR, 0);
+      geo.scale(1, 1, 0.45);
+      geo.rotateZ(Math.PI / 4);
+      geo.translate(x, y, depth * 0.5 + kaziR * 0.22);
+      geos.push(geo);
+    }
+  }
+  // 大小格相间:棋盘格取一半的大格,格心斜插一个更小的方框(细棂条,不起线)——
+  // 另一半大格留空,大小相邻并置才读成"灯笼",不是把所有格子一起加密。
   for (let i = 0; i < nx; i++) {
     for (let j = 0; j < ny; j++) {
+      if ((i + j) % 2 !== 0) continue;
       const cx = -w / 2 + (i + 0.5) * cw;
       const cy = -h / 2 + (j + 0.5) * ch;
-      const hx = cw / 2 - bar * 0.6;
-      const hy = ch / 2 - bar * 0.6;
-      addSeg(cx - hx, cy, cx, cy - hy);
-      addSeg(cx, cy - hy, cx + hx, cy);
-      addSeg(cx + hx, cy, cx, cy + hy);
-      addSeg(cx, cy + hy, cx - hx, cy);
+      const hx = cw * 0.3;
+      const hy = ch * 0.3;
+      addBar(cx - hx, cy, cx, cy - hy, bar, false);
+      addBar(cx, cy - hy, cx + hx, cy, bar, false);
+      addBar(cx + hx, cy, cx, cy + hy, bar, false);
+      addBar(cx, cy + hy, cx - hx, cy, bar, false);
     }
   }
   const merged = mergeGeometries(geos.map((g) => g.toNonIndexed()), false);
