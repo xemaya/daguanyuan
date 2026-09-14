@@ -80,5 +80,12 @@
       "basis": "17 回「千百竿翠竹遮映」——院内的竹是点名种的(见本文件 placements 的七丛),不许散布器再往里塞树。这块地不种是一次取舍,plan 说不出来。锚在正房上:房子一挪,这块地跟着挪。"
     }
   ],
+  "accountedFor": [
+    {
+      "object": "xiaoxiangguan.rock-01",
+      "by": "plan.paths 里潇湘馆甬路的铺装(石子漫)",
+      "basis": "plan 给它的名字是「石子漫成甬路(羊肠一条)」,是路面做法不是石头。复验:沿 x=-105 从 z=104 采到 z=118,地表逐点都是 stone(makeTerrainField 的 surface),铺装确实已经建出来了。"
+    }
+  ],
   "scatters": []
 }

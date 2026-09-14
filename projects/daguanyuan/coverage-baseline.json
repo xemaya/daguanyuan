@@ -1,8 +1,14 @@
 {
-  "$comment": "单子 AD 第一档对账的基线。knownGaps 与 feral 只许降不许升；built.missing 不设基线——已建成区必须 100%，缺一个就是红的。数字是 2026-09-14 跑 `node tools/manifest-diff.mjs --coverage` 当场量的，不是估的。",
+  "$comment": "单子 AD 第一档对账的基线。knownGaps 与 feral 只许降不许升；built.missing 不设基线——已建成区必须 100%，缺一个就是红的。数字是跑 `node tools/manifest-diff.mjs --coverage` 当场量的，不是估的。单子 Z 之后名册三分：covered / byRule(有选料规则做出处) / feral(既无 plan 出处也无规则)；byRule 不设上限——那是「加一条规则，全园吃到」的正常产物，压它等于压目标 2。",
   "measuredAt": "2026-09-14",
-  "builtRegions": ["zhengmen", "cuizhang", "qinfang_ting_qiao", "xiaoxiangguan"],
-  "builtCoverage": "10/23",
+  "builtRegions": [
+    "zhengmen",
+    "cuizhang",
+    "qinfang_ting_qiao",
+    "xiaoxiangguan"
+  ],
+  "builtCoverage": "17/23",
   "knownGaps": 80,
-  "feral": 44
+  "feral": 40,
+  "note": "AD 首测 10/23、feral 44；单子 Y 接管点名件后 12/23；单子 Z 让植被自报(+2 花池)、并把三条「实体在别处」显式记账后 17/23，feral 降到 40(四盏灯改由规则生成)。"
 }

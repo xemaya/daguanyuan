@@ -11,7 +11,13 @@ import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
 import { getPlan, builtRegions } from './terrain';
-import { sceneFor, type ScenePlacement, type SceneNamed } from './scenes';
+import { sceneFor, type SceneNamed } from './scenes';
+import { getRoster, registerObject } from './roster';
+import { rulesForRegion, type StyledRegion } from './scatter-rules';
+import { occupancyDistance } from './occupancy';
+import { locatePoint } from '@builder/plan/geometry';
+import { makeRng } from '@engine/core/Noise';
+import { SEED } from './config';
 import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
 import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
 
@@ -96,6 +102,8 @@ interface Placement {
   region?: string;
   /** plan.json 里该区 buildings[].id 或 rocks[].id，按其 x/z 落位。 */
   anchor?: string;
+  /** 由哪条选料规则生成。规则生成的件不是「野生件」——它有出处，出处是规则。 */
+  ruleId?: string;
   /** 这个 placement **就是** plan 的哪个对象。
    *  ⚠️ 不能从 `anchor` 推：竹丛相对正房摆，不等于竹丛就是正房。
    *  只有 plan 遍历生成的点名件才有值；散置件一律没有，对账门把它们列为野生件。 */
@@ -252,28 +260,42 @@ function shoreStones(
  */
 function lanternSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: number; hangY: number }[] | null {
   if (built.kind !== 'building') return null;
+  // 单子 Z · 接缝 ②:挂不挂灯由规则按区的 style 决定,不再是写死的 variant
+  // 白名单。以前这里列着 'men' / 'qinfang_ting_qiao.pavilion' /
+  // 'xiaoxiangguan.main-house' 三个名字——**加一个区,灯就得回来改这一行**,
+  // 正是 spec §2 ② 要拆掉的那个东西。现在:53 回「各處皆有路燈」是全园口径,
+  // 规则「灯笼-檐下」按 ornament 挑区,新区不点名也吃得到。
+  if (!p.region) return null;
+  const region = plan().regions.find((r) => r.id === p.region) as unknown as StyledRegion | undefined;
+  if (!region) return null;
+  const rule = rulesForRegion(region).find((r) => r.part === 'lantern');
+  if (!rule) return null;
+
   const b = built as BuildingResult;
   const m = b.frame.m;
   const front = m.depthHalf + 0.3; // 阑额外皮一线,吊在檐下
   // 悬挂点贴在阑额下皮;灯底低于台面 2.05m 就不挂(通行净空)。
   const hangY = b.platform.y + m.columnH + m.puzuoH - 0.03;
   if (hangY - LANTERN_DROP < b.platform.y + 2.05) return null;
-  if (p.part === 'building' && p.variant === 'men') {
-    const x = m.columnX;
+
+  // 几盏、挂哪儿由开间数定,不由「这栋叫什么」定:
+  //   五间及以上 → 两盏,挂在两侧次间(门屋的老做法,07-70「两溜高照」);
+  //   三、四间   → 两盏,挂在当心间左右 1/4 处;
+  //   一、两间   → 一盏,当心。
+  const x = m.columnX;
+  const bays = x.length - 1;
+  if (bays <= 2) return [{ lx: 0, lz: front, hangY }];
+  if (bays >= 5) {
     return [
       { lx: (x[1] + x[2]) / 2, lz: front, hangY },
       { lx: (x[x.length - 3] + x[x.length - 2]) / 2, lz: front, hangY },
     ];
   }
-  if (p.variant === 'qinfang_ting_qiao.pavilion') return [{ lx: 0, lz: front, hangY }];
-  if (p.variant === 'xiaoxiangguan.main-house') {
-    const mid = (m.columnX[0] + m.columnX[m.columnX.length - 1]) / 2;
-    return [
-      { lx: mid - m.width / 4, lz: front, hangY },
-      { lx: mid + m.width / 4, lz: front, hangY },
-    ];
-  }
-  return null;
+  const mid = (x[0] + x[x.length - 1]) / 2;
+  return [
+    { lx: mid - m.width / 4, lz: front, hangY },
+    { lx: mid + m.width / 4, lz: front, hangY },
+  ];
 }
 
 /**
@@ -359,6 +381,66 @@ function scenePlacements(): Placement[] {
   return out;
 }
 
+/**
+ * 单子 Z · 接缝 ②:地面散置——规则挑区，散布器算位置，**没有人写坐标**。
+ *
+ * 这是「新做一个构件 = 加一条规则，所有匹配的区当场吃到」里「吃到」那一半。
+ * 灯笼那条规则挂在建筑上（`lanternSpotsFor`），这一条落在地上。
+ *
+ * 刻意做得很笨：区多边形的 bbox 里按格子撒点，每格抖动一次，逐点问三件事
+ * ——在不在区里、地表对不对、离占位多远。**不做通用约束求解器**
+ * （spec §4；`D-18`「别让 compiler 吞掉大观园」）。
+ * 种子只取自 SEED 与区 id，所以结果是确定的：同一份数据必然给出同一批石头。
+ */
+function scatterPlacements(ctx: GameContext, ground: (x: number, z: number) => number): Placement[] {
+  const out: Placement[] = [];
+  const surfaceAt = ctx.collision.surfaceAt;
+  for (const regionId of builtRegions()) {
+    const region = findRegion(regionId);
+    const rules = rulesForRegion(region as unknown as StyledRegion).filter((r) => r.where?.surface);
+    if (!rules.length) continue;
+    const xs = region.polygon.map((p) => p[0]);
+    const zs = region.polygon.map((p) => p[1]);
+    const [minX, maxX] = [Math.min(...xs), Math.max(...xs)];
+    const [minZ, maxZ] = [Math.min(...zs), Math.max(...zs)];
+    for (const rule of rules) {
+      // 固定细格 + 概率接受,不按 amount 反推步长。
+      // 第一版按 amount 反推(0.012/m² → 9.1m 格),而「墙根」这类条件的合格带
+      // 只有两三米宽,9 米的格子根本打不中——全区只落了 4 块石头。
+      // 细格保证条件带被采到,密度交给概率。
+      const STEP = 1.2;
+      const step = STEP;
+      const accept = (rule.amount ?? 0.01) * STEP * STEP;
+      const rng = makeRng(SEED ^ hashString(`${regionId}|${rule.id}`));
+      const near = rule.where?.nearOccupancy as [number, number] | undefined;
+      let i = 0;
+      for (let gx = minX; gx <= maxX; gx += step) for (let gz = minZ; gz <= maxZ; gz += step) {
+        const x = gx + (rng() - 0.5) * step;
+        const z = gz + (rng() - 0.5) * step;
+        const yaw = rng() * Math.PI * 2;
+        if (rng() > accept) continue;
+        if (locatePoint(region.polygon, [x, z]) === 'outside') continue;
+        if (surfaceAt(x, z) !== rule.where?.surface) continue;
+        const d = occupancyDistance(x, z);
+        if (near && (d < near[0] || d > near[1])) continue;
+        if (!near && d < 0.8) continue;
+        // variant 由位置轮换,规则不指定具体哪一块(edge1..edge5)。
+        const variant = rule.variant ?? `edge${(i % 5) + 1}`;
+        out.push({ part: rule.part, variant, x, z, yaw, dy: -0.06, ruleId: rule.id, tag: `${rule.id}#${i}` });
+        i++;
+      }
+    }
+  }
+  return out;
+}
+
+/** 稳定的字符串散列,给每条「区×规则」一个确定的种子。 */
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
 export function buildGarden(ctx: GameContext): void {  const ground = ctx.collision.terrainHeight;
   const pond = pondEllipse();
 
@@ -388,6 +470,7 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     // 不是人摆的，所以不进 scenes——scenes 的 placements 只放人写的落位。
     // 它们是接缝 ② 的活(写条件不写坐标)，归单子 Z。
     ...CAUSEWAY,
+    ...scatterPlacements(ctx, ground),
     { part: 'taihu', variant: 'peak', x: peakX, z: peakZ, yaw: 2.4 },
     { part: 'taihu', variant: 'peak3', x: peak3X, z: peak3Z, yaw: -1.1 },
     // 铺地收边:路牙沿 plan.paths 里带 paving 的路在 world 空间直接挤出
@@ -405,7 +488,9 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
   group.name = 'Garden';
   // Static merging discards individual roots. Keep their construction identity
   // and provenance separately so a batched scene is still reviewable.
-  const constructionRecords: Record<string, unknown>[] = [];
+  // 单子 Z:清单搬进 roster.ts 共享——「植树」比这一步早,它也要能登记
+  // (按 plan 长出来的花池以前整步隐形,被对账门误报成缺项)。
+  const constructionRecords = getRoster();
   group.userData.constructions = constructionRecords;
   // 单子 AD · 第一档对账：世界要自报「我建了哪几个区」,工具不许再抄一份区名。
   group.userData.builtRegions = [...builtRegions()];
@@ -470,7 +555,7 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
       ((obj.userData.planObject as { id?: string } | undefined)?.id) ??
       (p.variant && p.variant.includes('.') ? p.variant : undefined) ??
       null;
-    constructionRecords.push({
+    registerObject({
       id: planId ?? key,
       name: obj.name,
       part: p.part,
@@ -478,6 +563,7 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
       position: [wx, y, wz],
       yaw,
       planId,
+      ruleId: p.ruleId ?? null,
       size: partSize.get(key) ?? null,
       ...(part.kind === 'building' ? obj.userData.construction : null),
       ...(obj.userData.planObject ? { planObject: obj.userData.planObject } : null),
@@ -524,8 +610,9 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
         l.position.set(s.x, s.y, s.z);
         l.name = '灯笼';
         staticGroup.add(l);
-        constructionRecords.push({ id: 'zhengmen.lantern', name: '灯笼',
+        registerObject({ id: 'lantern:gong', name: '灯笼',
           part: 'lantern', variant: 'gong', position: [s.x, s.y, s.z], yaw: 0, planId: null,
+          ruleId: '灯笼-檐下',
           provenance: lantern.root.userData.provenance });
       }
     }
@@ -541,7 +628,7 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
         staticGroup.add(st);
         // 挡人不挡路:两颗石在踏跺两侧,门轴中线(x=55)畅通。
         ctx.collision.addCircle(s.x, s.z, 0.34, gy, gy + 0.95, '抱鼓石');
-        constructionRecords.push({
+        registerObject({
           id: 'zhengmen.baogushi',
           name: '抱鼓石(门当)',
           part: 'baogushi',

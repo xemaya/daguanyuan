@@ -42,5 +42,12 @@
       "basis": "plan 把整座翠嶂登记成一个 rocks 对象,rocks 不带尺寸,占位推不出来。半宽半深取自 taihu:mound 这件构件的实际包络。换构件重做翠嶂时(07-03「縱橫拱立」)要同步改这两个数。"
     }
   ],
+  "accountedFor": [
+    {
+      "object": "cuizhang.rock-03",
+      "by": "cuizhang.creek-crossing 石栈桥(plan 线性构件,规则 3 已生成)",
+      "basis": "plan 给它的名字是「西山口·羊肠小径(入园口)」,是一个通过点不是一块石头。复验:它的锚点 (-37,202) 与 tools/playtest.mjs 的航点「翠嶂西口石栈桥中」是同一个坐标,该点地形标高 -1.00m(溪床),人能走过去靠的正是那座石栈桥。"
+    }
+  ],
   "scatters": []
 }

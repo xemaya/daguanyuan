@@ -7,6 +7,7 @@ import { InteractionSystem } from '@engine/player/Interaction';
 import { buildAtmosphere } from '@engine/render/Atmosphere';
 import { buildTerrain, getPlan, builtRegions } from './terrain';
 import { buildOccupancy, setOccupancy } from './occupancy';
+import { resetRoster } from './roster';
 import { getScenes } from './scenes';
 import { buildWater, setWaterFlows } from '@engine/render/Water';
 import { buildVegetation } from '@builder/parts/zhiwu/vegetation';
@@ -83,7 +84,8 @@ export class World {
     const steps: [string, (ctx: GameContext) => void | Promise<void>][] = [
       ['调色', async () => { this.root.userData.textureWarmup = await prewarmTextures(); }],
       ['开天', buildAtmosphere],
-      ['理地', buildTerrain],
+      // 清单每次重建清空一次,免得热重载时越攒越多(它是模块级的共享数组)。
+      ['理地', (ctx) => { resetRoster(); buildTerrain(ctx); }],
       // 单子 Z · 接缝 ③:占位预计算。必须排在「植树」之前——植被读它来避让。
       // 它从 plan 的 construction.spec 编译檐口外包络,加上 scenes 的 clearances,
       // 是占位的**唯一真源**;vegetation.ts 那份手抄的 FOOTPRINTS 副本已经删掉

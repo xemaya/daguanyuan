@@ -72,6 +72,27 @@ export interface SceneClearance {
   tag?: string;
 }
 
+/**
+ * 「这个 plan 对象的实体在别处」（单子 Z）。
+ *
+ * plan 的 `rocks[]` 里有一半根本不是要摆的石头，是对别处实现的标注：
+ * `zhengmen.rock-01` 是「虎皮石墙基」（墙构件自带的基座）、
+ * `xiaoxiangguan.rock-01` 是「石子漫成甬路」（铺装）、
+ * `cuizhang.rock-03` 是「西山口·羊肠小径」（石栈桥）。
+ * 拿太湖石去把它们摆出来是**伪造覆盖率**——地上会多出三块本不该有的石头。
+ *
+ * 但也不能让对账门静默豁免它们。所以做成一条**写出来、可复核的声明**：
+ * `by` 说实体是什么，`basis` 说凭什么这么认（最好是能复验的观测，
+ * 不是「我觉得」）。对账门把它们单列一栏打印，永远看得见。
+ */
+export interface SceneAccountedFor {
+  /** plan 对象的稳定 id。 */
+  object: string;
+  /** 它的实体实际上是什么。 */
+  by: string;
+  basis: string;
+}
+
 /** 单子 Z 的入口。Y 只让它通过校验、不消费。 */
 export interface SceneScatter {
   part: string;
@@ -85,6 +106,7 @@ export interface RegionScene {
   named?: SceneNamed[];
   placements?: ScenePlacement[];
   clearances?: SceneClearance[];
+  accountedFor?: SceneAccountedFor[];
   scatters?: SceneScatter[];
 }
 
@@ -185,6 +207,16 @@ export function validateScenes(scenes: RegionScene[], plan: unknown): string[] {
       for (const f of ABSOLUTE_FIELDS)
         if (f in (c as unknown as Record<string, unknown>))
           fails.push(`${tag}：写了 ${f}——不许写世界绝对坐标，只许 anchor + dx/dz`);
+    }
+
+    for (const [i, a] of (scene.accountedFor ?? []).entries()) {
+      const tag = `${where} accountedFor[${i}]`;
+      if (!a.object) { fails.push(`${tag}：缺 object`); continue; }
+      if (!anchors.has(a.object)) fails.push(`${tag}：${a.object} 不在本区的 plan 对象里`);
+      if (!a.by) fails.push(`${tag}：缺 by——必须说清实体到底是什么，不能只说「在别处」`);
+      if (!a.basis) fails.push(`${tag}：缺 basis——凭什么这么认，最好是能复验的观测`);
+      if ((scene.named ?? []).some((n) => n.object === a.object))
+        fails.push(`${tag}：${a.object} 同时出现在 named 里——要么有实体要么在别处，不能两头占`);
     }
 
     for (const [i, sc] of (scene.scatters ?? []).entries()) {

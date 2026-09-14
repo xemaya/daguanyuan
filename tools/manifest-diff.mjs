@@ -18,7 +18,7 @@
  * 用法: node tools/manifest-diff.mjs <dirA> <dirB> [--tolerance 0]
  *       node tools/manifest-diff.mjs --coverage <dir>
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -34,7 +34,7 @@ import { pathToFileURL } from 'node:url';
  *
  * 纯函数，不碰 IO，好让 tests/world-roster.test.mjs 直接喂假 manifest。
  */
-export function coverage(plan, manifest) {
+export function coverage(plan, manifest, scenes = []) {
   const builtRegions = manifest.builtRegions ?? [];
   const objectsOf = (r) => [...(r.buildings ?? []), ...(r.rocks ?? []), ...(r.linears ?? [])].map((o) => o.id);
   const built = new Set(builtRegions);
@@ -71,10 +71,30 @@ export function coverage(plan, manifest) {
     total += ids.length;
     for (const id of ids) if (!claimed.has(id)) missing.push(id);
   }
+  // 「实体在别处」的显式记账：算覆盖，但**单列一栏**，永远看得见。
+  // 静默豁免和这个的区别是:这一栏里每一条都写着 by 与 basis,可以被复核。
+  const elsewhere = [];
+  for (const scene of scenes) {
+    if (!built.has(scene.region)) continue;
+    for (const a of scene.accountedFor ?? []) {
+      elsewhere.push({ object: a.object, by: a.by, basis: a.basis });
+      const i = missing.indexOf(a.object);
+      if (i > -1) missing.splice(i, 1);
+    }
+  }
+
+  // 三分,不是二分：
+  //   covered  —— 对得上 plan 对象；
+  //   byRule   —— 没有 plan 出处，但由某条选料规则生成（出处是规则 + 它的 basis）；
+  //   feral    —— 既没有 plan 出处也没有规则，是真正「有实物、没人说得清为什么」的。
+  // 把 byRule 混进 feral 会让这个数失去判别力：加一条规则就多几十个「野生件」，
+  // 基线一涨再涨，最后没人看它。
+  const byRule = roster.filter((r) => !r.planId && r.ruleId)
+    .map((r) => ({ id: r.id, part: r.part, variant: r.variant, ruleId: r.ruleId }));
   const feral = roster
-    .filter((r) => !r.planId)
+    .filter((r) => !r.planId && !r.ruleId)
     .map((r) => ({ id: r.id, part: r.part, variant: r.variant, position: r.position }));
-  return { builtRegions, built: { total, covered: total - missing.length, missing }, feral, knownGaps };
+  return { builtRegions, built: { total, covered: total - missing.length, missing }, elsewhere, byRule, feral, knownGaps };
 }
 
 /**
@@ -152,14 +172,25 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const dir = positional[0];
     if (!dir) { console.error('用法: node tools/manifest-diff.mjs --coverage <dir>'); process.exit(2); }
     const plan = JSON.parse(readFileSync(resolve('projects/daguanyuan/plan.json'), 'utf8'));
-    const c = coverage(plan, loadManifest(dir));
+    const sceneDir = resolve('projects/daguanyuan/scenes');
+    const scenes = existsSync(sceneDir)
+      ? readdirSync(sceneDir).filter((f) => f.endsWith('.json')).sort()
+          .map((f) => JSON.parse(readFileSync(join(sceneDir, f), 'utf8')))
+      : [];
+    const c = coverage(plan, loadManifest(dir), scenes);
     const baselinePath = resolve('projects/daguanyuan/coverage-baseline.json');
     const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : null;
 
     console.log(`建成区 ${c.builtRegions.join(', ') || '(世界没报，manifest 是旧的？)'}`);
     console.log(`\n已建成区覆盖率  ${c.built.covered}/${c.built.total}`);
     for (const id of c.built.missing) console.log(`  缺  ${id}`);
-    console.log(`\n野生件(有实物、无 plan 出处)  ${c.feral.length}`);
+    console.log(`\n实体在别处(scenes 的 accountedFor，写明由什么实现)  ${c.elsewhere.length}`);
+    for (const e of c.elsewhere) console.log(`  别  ${e.object.padEnd(30)} ← ${e.by}`);
+    const ruleCounts = new Map();
+    for (const r of c.byRule) ruleCounts.set(r.ruleId, (ruleCounts.get(r.ruleId) ?? 0) + 1);
+    console.log(`\n规则生成(出处是选料规则,不是野生)  ${c.byRule.length}`);
+    for (const [id, n] of ruleCounts) console.log(`  规  ${String(id).padEnd(14)} ${n} 件`);
+    console.log(`\n野生件(有实物、既无 plan 出处也无规则)  ${c.feral.length}`);
     for (const f of c.feral) console.log(`  野  ${`${f.part}:${f.variant}`.padEnd(26)} @ ${(f.position ?? []).map((v) => Number(v).toFixed(1)).join(', ')}`);
     console.log(`\nknown-gap(未建区的 plan 对象)  ${c.knownGaps}`);
 

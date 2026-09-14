@@ -87,5 +87,12 @@
       "basis": "六段粉墙现在是无 plan 出处的野生件(见本文件 placements 的说明),占位推不出来,先按墙线显式留出。给 zhengmen.flanking-wall 补上 layout 折线之后,占位由线性构件自己给,这条要删。"
     }
   ],
+  "accountedFor": [
+    {
+      "object": "zhengmen.rock-01",
+      "by": "六段粉墙构件自带的虎皮石基座",
+      "basis": "plan 给它的名字就是「虎皮石墙基」——它不是一块要摆的石头,是墙的做法。07-02「雪白粉墙,下面虎皮石」。复验:tools/shoot-part.mjs 拍 wall:plain/lattice/cloud 三件,三张图里墙脚都有虎皮石乱石基座。摆一块太湖石在这里是伪造覆盖率。"
+    }
+  ],
   "scatters": []
 }

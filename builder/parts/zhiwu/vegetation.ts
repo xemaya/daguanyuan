@@ -29,6 +29,7 @@ import {
   bakeCanopyShading,
 } from './foliage-materials';
 import { occupancyFree, occupancyDistance } from '@builder/compose/occupancy';
+import { registerObject } from '@builder/compose/roster';
 import { TERRAIN, getPlan } from '@builder/compose/terrain';
 import { makeGrassCoverField } from '@builder/compose/grass-cover';
 import {
@@ -2872,6 +2873,14 @@ export function buildVegetation(ctx: GameContext): void {
           rng: fRng,
         });
         if (!spots.length) continue;
+        // 单子 Z:「植树」这一步也要自报。以前整步不登记,于是对账门把这两条
+        // 好好长在那儿的花池(xiaoxiangguan.path-bed-west/east)报成「数据说有、
+        // 世界没有」——spec §1.5 ②「世界自报的清单是残缺的」在另一层复发。
+        registerObject({
+          id: bed.id, name: bed.name, part: 'flower-bed', variant: bed.id,
+          position: [bed.x, ground(bed.x, bed.z), bed.z], yaw: 0,
+          planId: bed.id, size: null, flowers: spots.length, basis: bed.basis,
+        });
         const tints = (bed.tints?.length ? bed.tints : ['#f5f0ea']).map((t) => new THREE.Color(t).getHex());
         const bedBuckets: { x: number; z: number }[][] = tints.map(() => []);
         for (const s of spots) bedBuckets[Math.floor(fRng() * tints.length) % tints.length].push(s);
