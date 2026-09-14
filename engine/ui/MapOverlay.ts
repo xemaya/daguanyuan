@@ -5,14 +5,11 @@
  * 回调，自己只管画图与命中。园子的知识由 `projects/` 组装后传进来——`engine/`
  * 不许 import `builder/`(分层门)。
  *
- * **这是临时的调试便利,发布前必须收口**(`missing` 的 `99-27`,加入时用户即声明
- * 「debug 完之后去掉」)。二选一:整个摘掉,或收口成"只开放已经走到过的地方"。
- *
- * **与「移步换景」的张力要认**：园林的精髓是走过去，传送是反的。所以这里的定位是
- * **迭代与回访的便利**，不是首次游园的替代：
+ * **已收口(99-27 销案)**：不再是全开传送台。图是**游历的记录**——走到过的地方
+ * 才解锁(`setUnlocked`),没走到的画灰、不可点,首次抵达只能靠腿。
+ * 与「移步换景」的张力由此化解:传送只做**回访**,不做首游的替代。
  *   - 只列**已建成**的地方，没建的灰着并注明原因,不许假装能去;
- *   - 将来真要给玩家用，应当只开放**已经走到过**的地方(去过才上图),
- *     首次抵达仍然只能靠腿。见 ART_DIRECTION §5.5 与 docs/ROADMAP.md §PE。
+ *   - 已建成的也要**走到过**才亮——见 ART_DIRECTION §5.5。
  */
 
 export interface MapPlace {
@@ -29,6 +26,8 @@ export interface MapPlace {
   reachable: boolean;
   /** 不可去时显示的原因；可去时作为副标题。 */
   note?: string;
+  /** 已建成但还没走到过时显示的原因(解锁靠 `setUnlocked`)。 */
+  lockedNote?: string;
 }
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -48,6 +47,9 @@ export class MapOverlay {
   private caption: HTMLElement;
   private open = false;
   private toWorld: { minX: number; minZ: number; span: number };
+  /** 走到过才解锁的区(99-27 收口)。集合外的已建成区画灰、不可点。 */
+  private readonly unlocked = new Set<string>();
+  private readonly groups = new Map<string, SVGGElement>();
 
   constructor(
     private readonly places: readonly MapPlace[],
@@ -82,7 +84,7 @@ export class MapOverlay {
     head.appendChild(h);
     const hint = document.createElement('span');
     hint.className = 'dgy-map__hint';
-    hint.textContent = 'M 或 Esc 收起 · 点一处走过去';
+    hint.textContent = 'M 或 Esc 收起 · 点一处走回去(去过才解锁)';
     head.appendChild(hint);
     card.appendChild(head);
 
@@ -112,7 +114,8 @@ export class MapOverlay {
 
   private drawPlace(p: MapPlace): void {
     const pts = p.polygon.map(([x, z]) => this.project(x, z).join(',')).join(' ');
-    const g = svgEl('g', { class: `dgy-map__place${p.reachable ? '' : ' is-locked'}` });
+    const g = svgEl('g', { class: `dgy-map__place${p.reachable && this.unlocked.has(p.id) ? '' : ' is-locked'}` });
+    this.groups.set(p.id, g);
 
     const poly = svgEl('polygon', { points: pts });
     g.appendChild(poly);
@@ -122,20 +125,31 @@ export class MapOverlay {
     label.textContent = p.name;
     g.appendChild(label);
 
-    if (p.reachable) {
-      g.addEventListener('click', () => {
-        this.close();
-        this.onGo(p);
-      });
-    }
+    // 点击始终挂着,内部查解锁集合——锁定的地方点了不动作,而不是"没挂监听"。
+    g.addEventListener('click', () => {
+      if (!p.reachable || !this.unlocked.has(p.id)) return;
+      this.close();
+      this.onGo(p);
+    });
     g.addEventListener('mouseenter', () => {
-      this.caption.textContent = p.note ?? p.name;
+      this.caption.textContent = p.reachable && !this.unlocked.has(p.id)
+        ? p.lockedNote ?? p.note ?? p.name
+        : p.note ?? p.name;
     });
     g.addEventListener('mouseleave', () => {
       this.caption.textContent = '';
     });
 
     this.svg.appendChild(g);
+  }
+
+  /** 解锁一处已建成的地方(走到过才调用)。重复调用无害。 */
+  setUnlocked(id: string): void {
+    if (this.unlocked.has(id)) return;
+    this.unlocked.add(id);
+    const p = this.places.find((pl) => pl.id === id);
+    const g = this.groups.get(id);
+    if (p?.reachable && g) g.classList.remove('is-locked');
   }
 
   setHere(x: number, z: number): void {

@@ -7,8 +7,10 @@
  * 质心不在陆地上（潇湘馆的引泉沟就从质心旁 0.1 m 过），拿质心当落点会把人放进水里。
  * 所以取数顺序是 **入口 → 建筑锚点 → 质心兜底**，且落点一律回采地形高程。
  *
- * **只列建成的地方能去。** 地形网格只覆盖 MVP 四区的窗口（`TERRAIN`），
- * 窗口外没有地形网格，走过去会掉进空的地方。没建成的区在图上灰着并注明原因。
+ * **`reachable` 只答"建没建成"。** 地形网格只覆盖 MVP 四区的窗口（`TERRAIN`），
+ * 窗口外没有地形网格，走过去会掉进空的地方——没建成的区在图上灰着并注明原因。
+ * 建成了但**还没走到过**的区由 `MapOverlay.setUnlocked` 解锁（99-27 收口：
+ * 去过才上图，首次抵达只能靠腿），锁定时的说明写在 `lockedNote`。
  */
 import type { MapPlace } from '@engine/ui/MapOverlay';
 import { TERRAIN } from '@builder/compose/terrain';
@@ -75,6 +77,9 @@ export function buildMapPlaces(regions: readonly PlanRegionLike[]): MapPlace[] {
       note: reachable
         ? `${r.name ?? r.id} · 落点取${from} (${at[0].toFixed(0)}, ${at[1].toFixed(0)})`
         : `${r.name ?? r.id} · 尚未建成——地形网格只覆盖 MVP 四区，此处没有可站的地面`,
+      lockedNote: reachable
+        ? `${r.name ?? r.id} · 尚未走到——图只记足迹，首次抵达要靠腿走过去`
+        : undefined,
     };
   });
 }

@@ -8,6 +8,7 @@ import { HUD } from '@engine/ui/HUD';
 import { AudioDirector } from '@engine/audio/Audio';
 import { MapOverlay } from '@engine/ui/MapOverlay';
 import { buildMapPlaces } from './map-places';
+import { VisitedRegions } from './visited';
 import planFile from '@project/plan.json' with { type: 'json' };
 import './construction';
 
@@ -55,14 +56,21 @@ async function boot(): Promise<void> {
   engine.add({ name: 'audio-sys', update: (dt) => audio.update(dt) });
 
   // ---- 游园图 --------------------------------------------------------
-  // 按 M 开，点一处走过去。只列建成的地方；落点与朝向的取法见 map-places.ts。
-  // 传送与「移步换景」有张力，定位是迭代与回访的便利——见 MapOverlay 的头注释。
-  const gardenMap = new MapOverlay(buildMapPlaces((planFile as unknown as GardenPlan).regions as never), (place) => {
+  // 按 M 开,点一处**走回去**。99-27 已收口:图是游历的记录——走到过的区才解锁,
+  // 首次抵达只能靠腿(见 MapOverlay 与 visited.ts 的头注释)。
+  const planRegions = (planFile as unknown as GardenPlan).regions;
+  const visited = new VisitedRegions(planRegions as never);
+  visited.update(SPAWN.x, SPAWN.z);
+  const mapPlaces = buildMapPlaces(planRegions as never);
+  const gardenMap = new MapOverlay(mapPlaces, (place) => {
     const y = world.ctx.collision.terrainHeight(place.target.x, place.target.z);
     player.teleport(new THREE.Vector3(place.target.x, y, place.target.z), place.yaw);
     // 收图之后把控制权还回去:指针锁要玩家自己点一下才能再拿(浏览器的手势要求)。
     engine.input.suspended = false;
   });
+  for (const place of mapPlaces) {
+    if (visited.has(place.id)) gardenMap.setUnlocked(place.id);
+  }
   hud.root.appendChild(gardenMap.el);
   gardenMap.el.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -80,9 +88,11 @@ async function boot(): Promise<void> {
         engine.input.suspended = true;
         if (document.pointerLockElement) document.exitPointerLock();
       }
+      // 足迹:走到哪 unlock 哪——传送落地同样算到(位置是唯一真源)。
+      const feet = player.state.position;
+      for (const id of visited.update(feet.x, feet.z)) gardenMap.setUnlocked(id);
       if (gardenMap.visible) {
-        const p = player.state.position;
-        gardenMap.setHere(p.x, p.z);
+        gardenMap.setHere(feet.x, feet.z);
       }
     },
   });
