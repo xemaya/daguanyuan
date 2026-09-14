@@ -11711,6 +11711,49 @@
       ]
     }
   ],
+  "experience": [
+    {
+      "id": "X-01",
+      "type": "occlusion",
+      "subject": "hill.cuizhang",
+      "targets": [
+        "qinfang_ting_qiao.pavilion",
+        "qinfang_ting_qiao.dicui-pavilion",
+        "xiaoxiangguan.main-house"
+      ],
+      "from": [
+        [55, 250]
+      ],
+      "source": {
+        "chapter": 17,
+        "ref": "07-03",
+        "quote": "遂命開門,只見迎面一帶翠嶂擋在前面。……非此一山,一進來園中所有之景悉入目中,則有何趣。"
+      },
+      "assert": "ray",
+      "status": "ok",
+      "note": "障景。验法与 check-plan 约束5同源:自正门视点向各目标锚点的水平射线必须穿过翠嶂实际山体多边形。平面验证,山脊高程与建筑顶部的三维遮挡另由约束5遗留项跟。"
+    },
+    {
+      "id": "X-02",
+      "type": "reveal",
+      "subject": "hill.cuizhang",
+      "targets": [
+        "qinfang_ting_qiao.pavilion"
+      ],
+      "samples": [
+        { "at": [-37, 202], "expect": "occluded", "label": "石洞·羊肠小径(ch17.n04,山体多边形内)" },
+        { "at": [-24, 186], "expect": "visible", "label": "绕出山口(playtest 实测航点「绕出豁然开朗」)" }
+      ],
+      "source": {
+        "chapter": 17,
+        "ref": "07-05/07-06",
+        "quote": "說著,進入石洞來……再進數步,漸向北邊,平坦寬豁‖俯而視之,則清溪瀉雪,石磴穿云……石橋三港……橋上有亭。"
+      },
+      "assert": "visibility-flip",
+      "status": "ok",
+      "note": "豁然。前一采样点视线被山体挡住、后一采样点不被挡,两点间出现「先不见、转出即见」。采样点取自已核验的十七回游线节点与 playtest 实测航点。"
+    }
+  ],
   "legacy": {
     "route_ch17_regions": [
       "zhengmen",
