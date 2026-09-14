@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import type { GameContext } from '@engine/core/Context';
 import { createSkyMaterial, createSkyUniforms, SKY_PALETTE } from './SkyShader';
-import { buildCloudLayer } from './Clouds';
+import { buildCloudLayer, CLOUD_DRIFT_RATE } from './Clouds';
 import { RollingShadow } from './RollingShadow';
 
 /**
@@ -102,8 +102,26 @@ export function buildAtmosphere(ctx: GameContext): void {
     // the two layers share one horizon line.
     hazeColor: hazeColor.clone().multiplyScalar(SKY_INTENSITY * 0.95),
     exposure: SKY_INTENSITY * 1.06,
+    sunDir: toSun.clone(),
   });
   scene.add(clouds.group);
+
+  /* ---------------------------------------------------------------- */
+  /* 天光挂钩:云影(W1)进后期链                                          */
+  /* ---------------------------------------------------------------- */
+
+  // The post chain owns the effect because it needs scene depth: a cloud
+  // shadow must land on every material at once, which no per-material hook
+  // can do without touching PQ's calibrated shaders.
+  engine.postfx.setSkyHook({
+    shadowTex: clouds.shadow.texture,
+    shadowExtent: clouds.shadow.extent,
+    // A passing cumulus drops global horizontal illuminance by roughly a
+    // quarter; stronger than that reads as weather, softer reads as nothing.
+    shadowStrength: 0.30,
+    shadowRate: CLOUD_DRIFT_RATE,
+    windTime: env.windTime,
+  });
 
   /* ---------------------------------------------------------------- */
   /* Light rig                                                         */

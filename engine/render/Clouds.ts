@@ -32,6 +32,13 @@ import { NOISE, hexToRgb } from '@engine/core/TextureLab';
 const TILE = 512;
 const ATLAS = TILE * 2;
 
+/**
+ * Angular drift of the whole cloud shell (rad/s of yaw). The ground shadow
+ * map counter-rotates by the same angle, so shade patches track the clouds
+ * exactly — the one thing a scrolling noise texture can never do.
+ */
+export const CLOUD_DRIFT_RATE = 0.0016;
+
 interface Blob {
   x: number;
   y: number;
@@ -337,6 +344,126 @@ export function bakeCloudAtlas(seed: number): THREE.Texture {
 }
 
 /* ------------------------------------------------------------------ */
+/* Cloud shadows (W1)                                                  */
+/* ------------------------------------------------------------------ */
+
+interface PlacedCloud {
+  pos: THREE.Vector3;
+  size: number;
+  variant: number;
+  bright: number;
+  phase: number;
+  flip: number;
+  squash: number;
+  d: number;
+}
+
+export interface CloudShadowMap {
+  texture: THREE.Texture;
+  /** Half-size (m) of the world XZ square the texture covers, centred on the origin. */
+  extent: number;
+}
+
+/**
+ * Bakes a low-frequency occlusion map of the cloud layer projected onto the
+ * ground plane. Clouds ride a shell 70–370 m up, far beyond the shadow
+ * camera's useful range, so a real shadow map would shatter; a baked blob per
+ * cloud, displaced along the sun ray and softened to two tiers (a dense core
+ * inside a wide faint skirt), is all the eye can verify from the ground.
+ *
+ * The map is baked for shell yaw 0; the consumer counter-rotates world XZ by
+ * `windTime * CLOUD_DRIFT_RATE` before sampling, which keeps every patch
+ * glued to its cloud. Texel = ~3.4 m at 384² over ±660 m — deliberately
+ * coarse: this is a light-level modulation, not an occluder.
+ */
+export function bakeCloudShadow(placed: readonly PlacedCloud[], toSun: THREE.Vector3): CloudShadowMap {
+  const SIZE = 384;
+  const EXTENT = 660;
+  const acc = new Float32Array(SIZE * SIZE);
+
+  const worldFromPixel = (px: number) => ((px + 0.5) / SIZE) * 2 * EXTENT - EXTENT;
+
+  for (const p of placed) {
+    // Slide the cloud centre down the sun ray to y = 0.
+    const t = p.pos.y / toSun.y;
+    const gx = p.pos.x - toSun.x * t;
+    const gz = p.pos.z - toSun.z * t;
+
+    // Two tiers: a tight core that carries most of the darkening, inside a
+    // wide faint skirt that reads as the soft outer penumbra. Higher clouds
+    // get a slightly broader skirt (longer light path, more scatter).
+    const coreR = p.size * 0.40;
+    const skirtR = p.size * 0.50 + p.pos.y * 0.04;
+    // Bigger, taller masses block more light; small scatter puffs barely shade.
+    const peak = clamp(0.42 + p.size / 420, 0.42, 0.85);
+
+    const x0 = Math.max(0, Math.floor(((gx - skirtR) + EXTENT) / (2 * EXTENT) * SIZE));
+    const x1 = Math.min(SIZE - 1, Math.ceil(((gx + skirtR) + EXTENT) / (2 * EXTENT) * SIZE));
+    const z0 = Math.max(0, Math.floor(((gz - skirtR) + EXTENT) / (2 * EXTENT) * SIZE));
+    const z1 = Math.min(SIZE - 1, Math.ceil(((gz + skirtR) + EXTENT) / (2 * EXTENT) * SIZE));
+    for (let pz = z0; pz <= z1; pz++) {
+      const wz = worldFromPixel(pz);
+      for (let px = x0; px <= x1; px++) {
+        const wx = worldFromPixel(px);
+        const dd = Math.hypot(wx - gx, wz - gz);
+        const skirt = smoothstep(skirtR, skirtR * 0.45, dd) * 0.25;
+        const core = smoothstep(coreR, coreR * 0.30, dd) * 0.75;
+        const a = peak * (skirt + core);
+        const idx = pz * SIZE + px;
+        if (a > acc[idx]) acc[idx] = Math.min(a, 1); // max-composite: overlaps never double-darken
+      }
+    }
+  }
+
+  // Two box-blur passes kill texel quantisation; the map is meant to be felt
+  // as a slow change in daylight, never as a shape with an edge.
+  const blur = new Float32Array(acc.length);
+  for (let passN = 0; passN < 2; passN++) {
+    const src = passN === 0 ? acc : blur;
+    const dst = passN === 0 ? blur : acc;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        let sum = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = clamp(y + dy, 0, SIZE - 1);
+          for (let dx = -1; dx <= 1; dx++) sum += src[yy * SIZE + clamp(x + dx, 0, SIZE - 1)];
+        }
+        dst[y * SIZE + x] = sum / 9;
+      }
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx2d = canvas.getContext('2d')!;
+  const img = ctx2d.createImageData(SIZE, SIZE);
+  for (let py = 0; py < SIZE; py++) {
+    // Canvas row 0 is the top of the image; with flipY that is v = 1, which
+    // the shader maps to z = +extent — so row 0 bakes the +Z edge.
+    const pz = SIZE - 1 - py;
+    for (let px = 0; px < SIZE; px++) {
+      const v = acc[pz * SIZE + px] * 255;
+      const i = (py * SIZE + px) * 4;
+      img.data[i] = v;
+      img.data[i + 1] = v;
+      img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx2d.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.NoColorSpace; // data map, not imagery
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  return { texture: tex, extent: EXTENT };
+}
+
+/* ------------------------------------------------------------------ */
 /* Cloud layer                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -346,17 +473,21 @@ export interface CloudLayerOptions {
   hazeColor: THREE.Color;
   /** Linear-space multiplier; clouds sit slightly hot so they bloom at the rim. */
   exposure: number;
+  /** Direction from the world origin *toward* the sun; used to project the shadow map. */
+  sunDir: THREE.Vector3;
 }
 
 export interface CloudLayer {
   group: THREE.Group;
   mesh: THREE.InstancedMesh;
   material: THREE.MeshBasicNodeMaterial;
+  /** Baked ground occlusion for this exact arrangement (W1). */
+  shadow: CloudShadowMap;
   update: (windTime: number) => void;
 }
 
 export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
-  const { seed, count, hazeColor, exposure } = opts;
+  const { seed, count, hazeColor, exposure, sunDir } = opts;
   const rng = makeRng(seed ^ 0x5c10d);
 
   const atlas = bakeCloudAtlas(seed);
@@ -398,18 +529,7 @@ export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
 
   const geo = new THREE.PlaneGeometry(1, 1, 1, 1);
 
-  interface Placed {
-    pos: THREE.Vector3;
-    size: number;
-    variant: number;
-    bright: number;
-    phase: number;
-    flip: number;
-    squash: number;
-    d: number;
-  }
-
-  const placed: Placed[] = [];
+  const placed: PlacedCloud[] = [];
 
   /** Azimuth is measured from due north (-Z), turning east. */
   const push = (az: number, el: number, r: number, size: number, variant: number) => {
@@ -516,11 +636,12 @@ export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
     group,
     mesh,
     material,
+    shadow: bakeCloudShadow(placed, sunDir),
     update: (windTime: number) => {
       clock.value = windTime;
       // Whole-shell yaw. At 200-400 m this reads as slow lateral drift with no
       // wrap-around pop, and costs one matrix update per frame.
-      group.rotation.y = windTime * 0.0016;
+      group.rotation.y = windTime * CLOUD_DRIFT_RATE;
     },
   };
 }

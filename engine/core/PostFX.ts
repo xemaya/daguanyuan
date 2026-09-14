@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { pass, mrt, output, normalViewGeometry, frontFacing, negateOnBackSide, vec4, vec3, vec2, mix, convertToTexture, uniform, Fn, float, If, uv, smoothstep, screenSize } from 'three/tsl';
+import { pass, mrt, output, normalViewGeometry, frontFacing, negateOnBackSide, vec4, vec3, vec2, mix, convertToTexture, uniform, Fn, float, If, uv, smoothstep, screenSize, exp, cos, sin, pow, clamp, dot, normalize, max, texture } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { denoise } from 'three/addons/tsl/display/DenoiseNode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
@@ -23,6 +23,30 @@ export interface GradeSettings {
   dofStrength: number;
 }
 
+/**
+ * SkyHook — the atmosphere system's slot in the post chain (单子 W1).
+ *
+ * Cloud shadows: a baked low-frequency occlusion map (Clouds.ts) sampled in
+ * world XZ, counter-rotated by the cloud shell's yaw so shade patches stay
+ * glued to their clouds. Multiplicative, capped low: a slow change in
+ * daylight, never a cast shadow.
+ *
+ * The effect gates on real geometry depth so the sky dome and the clouds
+ * themselves (no depth write) are never tinted by their own shadow.
+ */
+export interface SkyHook {
+  /** R = occlusion 0..1 over a world XZ square centred on the origin. */
+  shadowTex: THREE.Texture;
+  /** Half-size (m) of that square. */
+  shadowExtent: number;
+  /** Peak darkening under a cloud core. */
+  shadowStrength: number;
+  /** Cloud shell yaw rate (rad/s); must equal Clouds.CLOUD_DRIFT_RATE. */
+  shadowRate: number;
+  /** Shared environment clock; drives the shadow map's counter-rotation. */
+  windTime: { value: number };
+}
+
 export class PostFX {
   readonly composer: THREE.RenderPipeline;
   readonly sceneStats = { calls: 0, triangles: 0 };
@@ -34,6 +58,20 @@ export class PostFX {
   private engine: Engine;
   private time = uniform(0);
   private resources: {dispose(): void}[] = [];
+  private skyHook: SkyHook | null = null;
+  /** ?skyfx=off builds the pre-W graph exactly, for same-server A/B captures. */
+  private skyFxOn = new URLSearchParams(location.search).get('skyfx') !== 'off';
+  private fogCells = { density: { value: 0 }, color: { value: new THREE.Vector3(1, 1, 1) } };
+  // Camera state frozen into cells every frame: live camera accessor nodes
+  // (cameraWorldMatrix & co.) follow whichever camera the renderer is
+  // currently drawing with — inside a composer quad pass that is the quad's
+  // own camera, not the scene camera, so the world-ray reconstruction must
+  // not read them.
+  private camCells = {
+    pos: { value: new THREE.Vector3() },
+    world: { value: new THREE.Matrix4() },
+    projInv: { value: new THREE.Matrix4() },
+  };
   settings: GradeSettings = {
     exposure: 1.0,
     contrast: 1.06,
@@ -90,7 +128,8 @@ export class PostFX {
       return result;
     };
     const color=scenePass.getTextureNode('output');
-    this.views={color,depth:vec4(vec3(scenePass.getViewZNode().negate().div(600)),1)};
+    const viewDistance=scenePass.getViewZNode().negate();
+    this.views={color,depth:vec4(vec3(viewDistance.div(600)),1)};
     if(q.ssao||q.dof){
       this.views.normal=vec4(scenePass.getTextureNode('normal').xyz.mul(0.5).add(0.5),1);
       this.views.aoMask=vec4(vec3(scenePass.getTextureNode('aoMask').r),1);
@@ -109,6 +148,42 @@ export class PostFX {
       this.resources.push(smoothAO);
       hdr=hdr.mul(vec4(vec3(mix(1,(smoothAO as unknown as Node<'vec4'>).r,scenePass.getTextureNode('aoMask').r.mul(0.9))),1));
     }
+    const hook=this.skyHook;
+    if(hook&&this.skyFxOn){
+      // Live cells: fog is owned by Atmosphere and set after this graph is built.
+      const fogDensity=uniform(0).onFrameUpdate(()=>this.fogCells.density.value);
+      const wind=uniform(0).onFrameUpdate(()=>hook.windTime.value);
+      const camPosU=uniform(this.camCells.pos.value).onFrameUpdate(()=>this.camCells.pos.value);
+      const camWorldU=uniform(this.camCells.world.value).onFrameUpdate(()=>this.camCells.world.value);
+      const projInvU=uniform(this.camCells.projInv.value).onFrameUpdate(()=>this.camCells.projInv.value);
+      const adjust=Fn(([colIn]:[Node<'vec3'>])=>{
+        // World position from depth: unproject a far-plane ray, scale by radial distance.
+        const clip=vec4(uv().mul(2).sub(1),1,1);
+        const v4=projInvU.mul(clip);
+        const vDir=v4.xyz.div(v4.w).normalize();
+        const radial=viewDistance.div(vDir.z.negate().max(0.0001));
+        const worldDir=camWorldU.mul(vec4(vDir,0)).xyz;
+        const worldPos=camPosU.add(worldDir.mul(radial));
+        // Sky dome and cloud billboards write no depth; only shade real geometry.
+        const sceneGate=smoothstep(585,598,viewDistance).oneMinus();
+        const fogF=exp(fogDensity.mul(fogDensity).mul(radial).mul(radial).negate()).oneMinus();
+
+        // Counter-rotate world XZ by the shell yaw so patches track the clouds.
+        const th=wind.mul(hook.shadowRate);
+        const cth=cos(th),sth=sin(th);
+        const rx=worldPos.x.mul(cth).sub(worldPos.z.mul(sth));
+        const rz=worldPos.x.mul(sth).add(worldPos.z.mul(cth));
+        const occ=texture(hook.shadowTex,vec2(rx,rz).div(hook.shadowExtent*2).add(0.5)).r;
+        // Fogged distance already carries the light loss; taper the shadow
+        // there instead of darkening the haze twice.
+        const occEff=occ.mul(fogF.oneMinus().mul(0.75).add(0.25));
+        const shadowMul=occEff.mul(hook.shadowStrength).mul(sceneGate).oneMinus();
+
+        return colIn.mul(shadowMul);
+      })(hdr.rgb);
+      hdr=vec4(adjust,hdr.a);
+      this.activeEffects.push('skyfx');
+    }
     if(q.bloom){
       const lit=convertToTexture(hdr);if(lit!==color)this.resources.push(lit);hdr=lit;
       const glow=bloom(lit,0.24,0.85,1.35);this.resources.push(glow);
@@ -120,7 +195,6 @@ export class PostFX {
     const far=uniform(this.settings.dofFar).onFrameUpdate(()=>this.settings.dofFar);
     const strength=uniform(this.settings.dofStrength).onFrameUpdate(()=>this.settings.dofStrength);
     const chromatic=uniform(this.settings.chromatic).onFrameUpdate(()=>this.settings.chromatic);
-    const viewDistance=scenePass.getViewZNode().negate();
     if(q.dof&&this.settings.dofStrength>0)this.activeEffects.push('dof');
     const useDof=q.dof&&this.settings.dofStrength>0;
     const lens=Fn(()=>{
@@ -156,6 +230,8 @@ export class PostFX {
     this.composer.needsUpdate=true;
   }
   async compileAsync(): Promise<void> { await this.scenePass.compileAsync(this.engine.renderer); }
+  /** Installs the atmosphere hook and rebuilds the graph once (pre-first-render). */
+  setSkyHook(hook: SkyHook): void { this.skyHook=hook; this.applyQuality(this.engine.quality); }
   inspectBuffer(name: string | null): void {
     this.composer.outputNode=name ? this.views[name]??this.beauty : this.beauty;
     this.composer.needsUpdate=true;
@@ -164,6 +240,13 @@ export class PostFX {
   setSize(_w:number,_h:number): void {} // Pass nodes derive physical size from renderer on every frame.
   render(dt:number): void {
     this.time.value=this.engine.fixedTime??(this.time.value+dt);
+    const fog=this.engine.scene.fog as THREE.FogExp2 | null;
+    if(fog){this.fogCells.density.value=fog.density;this.fogCells.color.value.set(fog.color.r,fog.color.g,fog.color.b);}
+    const cam=this.engine.camera;
+    cam.updateMatrixWorld();
+    this.camCells.pos.value.setFromMatrixPosition(cam.matrixWorld);
+    this.camCells.world.value.copy(cam.matrixWorld);
+    this.camCells.projInv.value.copy(cam.projectionMatrixInverse);
     const info=this.engine.renderer.info;info.autoReset=false;info.reset();
     this.composer.render();
     this.frameStats.calls=info.render.drawCalls;this.frameStats.triangles=info.render.triangles;
