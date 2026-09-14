@@ -206,6 +206,43 @@ function ridgeTube(points: THREE.Vector3[], r: number, mat: THREE.Material): THR
   return mesh;
 }
 
+/** 垂带石(单子 AG3):两端竖直切的梯形棱柱,不是整体绕 X 轴旋转的方盒——
+ *  旧做法端面跟着转斜,上端翘出台基面成一个三角形楔子,下端悬空。顶面(可见
+ *  坡面)精确贴合 (topZ,topY)→(botZ,botY) 两点,不加余量;底面沿厚度方向
+ *  往下收(vshift = thick/cos(ang)),两端各自在世界 Z 上竖直切断——台基端
+ *  与台基边缘齐平,地面端天然埋入地下,不留悬空的三角形空隙("象眼填实",
+ *  见 shots/zhengmen-closeup 的复算)。hw 为半宽(沿局部 X,与旧方盒的
+ *  0.24m 宽一致);flip 在 side==='back' 时整体翻绕向,front/back 互为镜像。 */
+function chuidaiGeometry(hw: number, topY: number, botY: number, topZ: number, botZ: number, vshift: number, flip: boolean): THREE.BufferGeometry {
+  const T0 = new THREE.Vector3(-hw, topY, topZ);
+  const T1 = new THREE.Vector3(hw, topY, topZ);
+  const T2 = new THREE.Vector3(hw, botY, botZ);
+  const T3 = new THREE.Vector3(-hw, botY, botZ);
+  const B0 = new THREE.Vector3(-hw, topY - vshift, topZ);
+  const B1 = new THREE.Vector3(hw, topY - vshift, topZ);
+  const B2 = new THREE.Vector3(hw, botY - vshift, botZ);
+  const B3 = new THREE.Vector3(-hw, botY - vshift, botZ);
+  const pos: number[] = [];
+  const pushTri = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => {
+    const t = flip ? [a, c, b] : [a, b, c];
+    pos.push(t[0].x, t[0].y, t[0].z, t[1].x, t[1].y, t[1].z, t[2].x, t[2].y, t[2].z);
+  };
+  const quad = (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3, d: THREE.Vector3) => {
+    pushTri(a, b, c);
+    pushTri(a, c, d);
+  };
+  quad(T0, T3, T2, T1); // 顶面:可见坡面,贴合踏跺鼻线。
+  quad(B0, B1, B2, B3); // 底面:厚度下方,多埋进台基/地面。
+  quad(T0, B0, B3, T3); // 左侧(-hw)。
+  quad(T1, T2, B2, B1); // 右侧(+hw)。
+  quad(T0, T1, B1, B0); // 台基端:竖直切,与台基边缘齐平。
+  quad(T3, B3, B2, T2); // 地面端:竖直切,埋入地下——象眼在此填实。
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
 /** 灯笼锦格心(单子 AG2 返工):大格(灯笼框,粗棂条起线)与小格(棋盘格一半
  *  嵌一个斜插小方框,细棂条不起线)相间,内部节点缀卡子花——这才是"灯笼"的
  *  大小相间读法,不是方格纸上每格打一个叉(旧实现,加密解决不了,要改构成)。
@@ -621,16 +658,19 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     }
     walkSurfaces.push(...surfaces);
     if(opts.gatehouse) {
-      // 踏跺垂带:踏跺两侧各一条顺坡而下的条石。规则表无门屋踏跺垂带条目,
-      // 带宽 0.24m 为观感取值。
+      // 踏跺垂带(单子 AG3 返工,见上方 chuidaiGeometry):踏跺两侧各一条顺坡
+      // 而下的条石。规则表无门屋踏跺垂带条目,带宽 0.24m 为观感取值——
+      // slope+0.12 的余量已去掉,顶面直接贴合台基边到地面两点,不再多留。
       const sign=side==='front'?1:-1;
       const run=surfaces.length*spec.treadM;
-      const slope=Math.hypot(platH,run);
       const ang=Math.atan2(platH,run);
+      const thick=0.14;
+      const vshift=thick/Math.cos(ang);
+      const topZ=sign*platHZ,topY=platH,botZ=sign*(platHZ+run),botY=0;
       for(const sx of [-1,1]) {
-        const cd=new THREE.Mesh(roundedBox(0.24,0.14,slope+0.12,0.02,2),plinth);
-        cd.position.set(sx*(spec.widthM/2+0.10),platH/2+0.04,sign*(platHZ+run/2));
-        cd.rotation.x=sign*ang;
+        const geo=chuidaiGeometry(0.12,topY,botY,topZ,botZ,vshift,sign<0);
+        const cd=new THREE.Mesh(geo,plinth);
+        cd.position.x=sx*(spec.widthM/2+0.10);
         cd.castShadow=true;cd.receiveShadow=true;root.add(cd);
       }
     }
