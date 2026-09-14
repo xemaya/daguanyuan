@@ -283,15 +283,16 @@ function shuatouGeometryDk(p: { L: number; W: number; H: number; headLen: number
   return geo;
 }
 
-/** 桁碗:顶面中间弧槽承桁;槽深=桁径/3 是规则 [04-08],槽弧线插值为艺术选择。 */
-function hengwanGeometryDk(p: { L: number; W: number; H: number; seatW: number; seatDepth: number }): THREE.BufferGeometry {
+/** 桁碗:顶面弧槽承桁;槽深=桁径/3 是规则 [04-08],槽弧线插值为艺术选择。seatX=槽心沿长向的位置(装配时对准挑檐桁中)。 */
+function hengwanGeometryDk(p: { L: number; W: number; H: number; seatW: number; seatDepth: number; seatX?: number }): THREE.BufferGeometry {
   const half = p.L / 2;
+  const seatX = Math.min(p.seatX ?? 0, half - p.seatW / 2);
   const s = new THREE.Shape();
   s.moveTo(-half, 0);
   s.lineTo(half, 0);
   s.lineTo(half, p.H);
-  s.lineTo(p.seatW / 2, p.H);
-  s.quadraticCurveTo(0, p.H - 2 * p.seatDepth, -p.seatW / 2, p.H);
+  s.lineTo(seatX + p.seatW / 2, p.H);
+  s.quadraticCurveTo(seatX, p.H - 2 * p.seatDepth, seatX - p.seatW / 2, p.H);
   s.lineTo(-half, p.H);
   s.closePath();
   const geo = new THREE.ExtrudeGeometry(s, { depth: p.W, bevelEnabled: false, curveSegments: 12 });
@@ -368,14 +369,22 @@ function smallDouProfile(book: RuleBook, L: number, W: number, H: number): Omit<
   );
 }
 
-/**
- * 清式叶件几何。dkM 为斗口(米);返回几何原点在各件底心、长沿 X。
- * 昂/耍头/撑头木/桁碗的长度随踩数(cai,缺省五踩=Tier A 正门档);长度原文
- * 未给(missing 99-27),按装配包络推:里外各 (cai−1)/2 拽架 × 3 斗口 [01-07]。
- */
-export function qingLeafGeometry(book: RuleBook, leaf: QingLeafId, dkM: number, cai = 5): THREE.BufferGeometry {
+interface LeafCtx {
+  cai: number;
+  /** 斗口(米),桁碗高要折「−2 寸」绝对尺寸时用 [04-08][01-19]。 */
+  dkM: number;
+  /** 昂专用:该昂第几拽架(头昂=2、二昂=3);缺省取本踩制最外一根。 */
+  jump?: number;
+  /** 通长枋(正心枋/挑檐枋/拽枋/平板枋)的本段长(斗口),缺省取攒当 [01-04]。 */
+  beamLen?: number;
+  /** 桁碗槽心沿长向位置(斗口),缺省居中;装配时对准挑檐桁中。 */
+  hengwanSeatX?: number;
+}
+
+/** 清式叶件几何(斗口单位,原点在各件底心,长沿 X)。 */
+function leafGeometryDk(book: RuleBook, leaf: QingLeafId, ctx: LeafCtx): THREE.BufferGeometry {
   const d = qingDougongDims(book);
-  const jumps = (cai - 1) / 2; // 单侧拽架数 [04-02]
+  const jumps = (ctx.cai - 1) / 2; // 单侧拽架数 [04-02]
   const span = jumps * book.num('01-07', 'perZhaijiaDk'); // 单侧出跳(斗口)
   let g: THREE.BufferGeometry;
   switch (leaf) {
@@ -424,12 +433,14 @@ export function qingLeafGeometry(book: RuleBook, leaf: QingLeafId, dkM: number, 
       break;
     }
     case 'ang': {
-      // 长度原文未给(missing 99-27):正心→外端 = 单侧出跳 span,后尾同跨度里伸,
-      // 昂嘴另出。嘴形(嘴长、嘴尖高)为艺术选择。
+      // 长度原文未给(missing 99-27):正心→外端 = 该昂所管拽架 × 3 斗口 [01-07],
+      // 后尾同跨度里伸,昂嘴另出。嘴形(嘴长、嘴尖高)为艺术选择。
+      const j = ctx.jump ?? jumps;
+      const reach = j * book.num('01-07', 'perZhaijiaDk');
       const len = book.artChoice(
         '99-27',
-        `昂长原文未给;按${cai}踩装配包络推:正心向里外各 ${jumps} 拽架 × 3 斗口 [01-07],嘴尖再出 1.2(观感)`,
-        { headL: span, tailL: span, beakLen: 1.2, beakTipH: 0.5 },
+        `昂长原文未给;按装配包络推:第 ${j} 拽架的昂自正心向里外各 ${j} 拽架 × 3 斗口 [01-07],嘴尖再出 1.2(观感)`,
+        { headL: reach, tailL: reach, beakLen: 1.2, beakTipH: 0.5 },
       );
       g = angGeometryDk({ ...len, W: d.gongW, midH: d.angZhongGao, frontH: d.angQianGao });
       break;
@@ -437,7 +448,7 @@ export function qingLeafGeometry(book: RuleBook, leaf: QingLeafId, dkM: number, 
     case 'shua': {
       const len = book.artChoice(
         '99-27',
-        `蚂蚱头长原文未给;按${cai}踩装配包络推:里外各 ${jumps} 拽架 × 3 斗口,头再出 1.5(观感)`,
+        `蚂蚱头长原文未给;按${ctx.cai}踩装配包络推:里外各 ${jumps} 拽架 × 3 斗口,头再出 1.5(观感)`,
         { L: span * 2 + 1.5, headLen: 1.5 },
       );
       g = shuatouGeometryDk({ ...len, W: d.gongW, H: d.mazhatouH });
@@ -446,65 +457,226 @@ export function qingLeafGeometry(book: RuleBook, leaf: QingLeafId, dkM: number, 
     case 'cheng': {
       const L = book.artChoice(
         '99-27',
-        `撑头木长原文未给;按${cai}踩装配包络取里外拽架全跨 ${span * 2} 斗口`,
+        `撑头木长原文未给;按${ctx.cai}踩装配包络取里外拽架全跨 ${span * 2} 斗口`,
         span * 2,
       );
       g = boxDk(L, d.chengshantouH, d.gongW, 0, d.chengshantouH / 2, 0);
       break;
     }
     case 'hengwan': {
-      const L = d.hengwanLByCai[String(cai)];
-      if (!L) throw new Error(`01-18 桁椀 lengthByCai 没有 ${cai} 踩档`);
-      const diaDk = tiaoyanHengDiaDk(book, d, dkM);
+      const L = d.hengwanLByCai[String(ctx.cai)];
+      if (!L) throw new Error(`01-18 桁椀 lengthByCai 没有 ${ctx.cai} 踩档`);
+      const diaDk = tiaoyanHengDiaDk(book, d, ctx.dkM);
       const H = diaDk / d.hengwanDiv; // 桁碗高=桁径/3 [04-08]
       g = hengwanGeometryDk(book.artChoice(
         '04-08',
         '桁碗槽:原文只给高=桁径/3,槽口宽取桁径、弧线按抛物线插值(艺术选择)',
-        { L, W: d.gongW, H, seatW: diaDk, seatDepth: H },
+        { L, W: d.gongW, H, seatW: diaDk, seatDepth: H, seatX: ctx.hengwanSeatX },
       ));
       break;
     }
-    case 'zxf':
-      g = boxDk(d.cuanDang, d.zhengxinFangH, d.zhengxinFangT, 0, d.zhengxinFangH / 2, 0);
+    case 'zxf': {
+      const L = ctx.beamLen ?? d.cuanDang;
+      g = boxDk(L, d.zhengxinFangH, d.zhengxinFangT, 0, d.zhengxinFangH / 2, 0);
       break;
-    case 'tyf':
-      g = boxDk(d.cuanDang, d.tiaoyanFangH, d.tiaoyanFangT, 0, d.tiaoyanFangH / 2, 0);
+    }
+    case 'tyf': {
+      const L = ctx.beamLen ?? d.cuanDang;
+      g = boxDk(L, d.tiaoyanFangH, d.tiaoyanFangT, 0, d.tiaoyanFangH / 2, 0);
       break;
-    case 'zf':
+    }
+    case 'zf': {
       // 里外拽枋高厚同挑檐枋 [01-10 statement],不重复落数。
-      g = boxDk(d.cuanDang, d.tiaoyanFangH, d.tiaoyanFangT, 0, d.tiaoyanFangH / 2, 0);
+      const L = ctx.beamLen ?? d.cuanDang;
+      g = boxDk(L, d.tiaoyanFangH, d.tiaoyanFangT, 0, d.tiaoyanFangH / 2, 0);
       break;
-    case 'pbf':
-      g = boxDk(d.cuanDang, d.pingbanH, d.pingbanW, 0, d.pingbanH / 2, 0);
+    }
+    case 'pbf': {
+      const L = ctx.beamLen ?? d.cuanDang;
+      g = boxDk(L, d.pingbanH, d.pingbanW, 0, d.pingbanH / 2, 0);
       break;
+    }
     default:
       throw new Error(`未知清式斗拱叶件 ${leaf}`);
   }
+  return g;
+}
+
+/**
+ * 清式叶件几何(米)。dkM 为斗口(米);返回几何原点在各件底心、长沿 X。
+ * 昂/耍头/撑头木/桁碗的长度随踩数(cai,缺省五踩=Tier A 正门档);长度原文
+ * 未给(missing 99-27),按装配包络推:里外各 (cai−1)/2 拽架 × 3 斗口 [01-07]。
+ */
+export function qingLeafGeometry(book: RuleBook, leaf: QingLeafId, dkM: number, cai = 5): THREE.BufferGeometry {
+  const g = leafGeometryDk(book, leaf, { cai, dkM });
   g.scale(dkM, dkM, dkM);
   return g;
+}
+
+/* ------------------------------------------------------------------ */
+/* 装配:平身科一攒(组合件 C-dg-05 五踩 / C-dg-07 七踩)                  */
+/* ------------------------------------------------------------------ */
+
+export interface PingshengKeResult {
+  /** 整攒合并后的几何(米):原点在大斗底心(正心中线上),+Z 朝外(出跳方向)。 */
+  geometry: THREE.BufferGeometry;
+  /** 攒顶高(斗口/米):挑檐枋顶,自大斗底。 */
+  topDk: number;
+  topM: number;
+  /** 正心至挑檐桁中(斗口/米)= 3 × 单侧拽架数 [01-07]。 */
+  outDk: number;
+  outM: number;
+  pieces: number;
+  tris: number;
+}
+
+/**
+ * 按组合件的 parts 与 attachTo 装一攒平身科(清式五踩单翘单昂 / 七踩单翘重昂)。
+ *
+ * 装配尺寸链:顺跳构件(翘/昂/耍头/撑头木)层位按「大斗高 2、翘坐入大斗口 0.8、
+ * 每踩高 2 斗口」[04-03][04-04];跳头横栱 stack 的坐入深取承接斗/升的耳高
+ * (大斗 0.8 是原文 [04-03],小斗耳 0.4 是 99-30 那笔按比例缩的艺术选择,
+ * 坐入深度本身原文未给,一并记入该条 art)。横栱端头升位:瓜栱两端三才升承万栱、
+ * 万栱/厢栱两端三才升承枋——与 C-dg-05/07 的分件计数(三才升 12/20、十八斗 4/6)
+ * 逐件对得上。转角铺作(列栱)与柱头科本期不做(ROADMAP §P3 下一轮)。
+ */
+export function assemblePingshengKe(book: RuleBook, cai: 5 | 7, dkM: number, beamLenDk?: number): PingshengKeResult {
+  const d = qingDougongDims(book);
+  const jumps = (cai - 1) / 2; // 单侧拽架数 [04-02]
+  const perJump = book.num('01-07', 'perZhaijiaDk'); // 3 斗口/拽架
+  const seatDou = d.dadou.kouH; // 翘坐入大斗口 0.8 [04-04/04-03]
+  const earSmall = d.sbd.H * 0.4; // 小斗/升耳高(99-30 比例缩的 art 值),横栱坐入深度取它
+  const layer = d.zuCaiH; // 每踩高 2 斗口 [04-03]
+  const beam = beamLenDk ?? d.cuanDang;
+
+  const geos: THREE.BufferGeometry[] = [];
+  const add = (leaf: QingLeafId, x: number, y: number, z: number, radial = false, ctx: Partial<LeafCtx> = {}) => {
+    const g = leafGeometryDk(book, leaf, { cai, dkM, beamLen: beam, ...ctx });
+    if (radial) g.rotateY(-Math.PI / 2); // 长轴 x → +z(出跳方向),昂嘴/头朝外
+    g.translate(x, y, z);
+    geos.push(g);
+  };
+
+  // 顺跳第 j 拽架层底:大斗顶 − 坐入 + (j−1) 踩 [04-04 的 0.8 坐入就出自这里]
+  const yBase = (j: number) => d.dadou.H - seatDou + layer * (j - 1);
+  const zJump = (j: number) => j * perJump;
+  /** 昂背(顶面)在 z 处的高:正心中高 2,斜升至外端前高 3 [04-03];里尾平。 */
+  const angTop = (j: number, z: number) =>
+    yBase(j) + (z > 0 ? d.angZhongGao + (d.angQianGao - d.angZhongGao) * Math.min(z / zJump(j), 1) : d.angZhongGao);
+
+  // 大斗
+  add('lu', 0, 0, 0);
+  // 顺跳构件:翘(第一拽架)、昂(第二起,七踩有头昂/二昂)、耍头、撑头木、桁碗。
+  add('qiao', 0, yBase(1), 0, true);
+  for (let j = 2; j <= jumps; j++) add('ang', 0, yBase(j), 0, true, { jump: j });
+  add('shua', 0, yBase(jumps + 1), 0, true);
+  add('cheng', 0, yBase(jumps + 2), 0, true);
+  const hengwanBase = yBase(jumps + 2) + d.chengshantouH;
+  add('hengwan', 0, hengwanBase, 0, true, { hengwanSeatX: zJump(jumps) });
+
+  // 正心线横栱与正心枋 [C-dg-05/07 attachTo]
+  add('zxg', 0, yBase(1), 0);
+  add('zxw', 0, yBase(2), 0);
+  const csOff1 = d.gongL.zxg / 2 - d.cs.L / 2;
+  const csOff2 = d.gongL.zxw / 2 - d.cs.L / 2;
+  const sheng1Top = yBase(1) + d.zuCaiH + d.cs.H;
+  const sheng2Top = yBase(2) + d.zuCaiH + d.cs.H;
+  for (const sx of [-1, 1]) {
+    add('cs', sx * csOff1, yBase(1) + d.zuCaiH, 0);
+    add('cs', sx * csOff2, yBase(2) + d.zuCaiH, 0);
+  }
+  add('zxf', 0, sheng2Top - earSmall, 0);
+
+  // 跳头横栱 stack:非最外跳 瓜栱→瓜端升→万栱→万端升→拽枋;最外/最里跳 厢栱→厢端升(外跳再承挑檐枋)。
+  for (let j = 1; j <= jumps; j++) {
+    for (const sz of [-1, 1]) {
+      const z = sz * zJump(j);
+      const douBase = j === 1 ? yBase(1) + d.zuCaiH : angTop(j, z);
+      add('sbd', 0, douBase, z);
+      const gongBase = douBase + d.sbd.H - earSmall;
+      const outermost = j === jumps;
+      if (!outermost) {
+        add('dcg', 0, gongBase, z);
+        const s1Top = gongBase + d.danCaiGongH + d.scs.H;
+        const off1 = d.gongL.dcg / 2 - d.scs.L / 2;
+        for (const sx of [-1, 1]) add('scs', sx * off1, gongBase + d.danCaiGongH, z);
+        const wanBase = s1Top - earSmall;
+        add('dcw', 0, wanBase, z);
+        const s2Top = wanBase + d.danCaiGongH + d.scs.H;
+        const off2 = d.gongL.dcw / 2 - d.scs.L / 2;
+        for (const sx of [-1, 1]) add('scs', sx * off2, wanBase + d.danCaiGongH, z);
+        add('zf', 0, s2Top - earSmall, z);
+      } else {
+        add('xiang', 0, gongBase, z);
+        const sTop = gongBase + d.danCaiGongH + d.scs.H;
+        const off = d.gongL.xiang / 2 - d.scs.L / 2;
+        for (const sx of [-1, 1]) add('scs', sx * off, gongBase + d.danCaiGongH, z);
+        if (sz > 0) add('tyf', 0, sTop - earSmall, z);
+      }
+    }
+  }
+
+  const merged = mergeGeos(geos);
+  merged.scale(dkM, dkM, dkM);
+  merged.computeBoundingBox();
+  const bb = merged.boundingBox!;
+  const topDk = bb.max.y / dkM;
+  const outDk = zJump(jumps);
+  const tris = (merged.index ? merged.index.count : merged.attributes.position.count) / 3;
+  return {
+    geometry: merged,
+    topDk,
+    topM: bb.max.y,
+    outDk,
+    outM: outDk * dkM,
+    pieces: geos.length,
+    tris,
+  };
 }
 
 /* ------------------------------------------------------------------ */
 /* 棚拍登记                                                            */
 /* ------------------------------------------------------------------ */
 
-/** 棚拍显示档斗口(米):单件出库的展示尺度,不是营造数;真实斗口由建筑 spec 给。 */
+/** 棚拍显示档斗口(米):单件/单攒出库的展示尺度,不是营造数;真实斗口由建筑 spec 给。 */
 const STUDIO_DK_M = 0.1;
+const STUDIO_SET_DK_M = 0.08;
+
+const SET_VARIANTS: Record<string, { cai: 5 | 7; name: string; component: string }> = {
+  set5: { cai: 5, name: '五踩单翘单昂平身科(一攒)', component: 'C-dg-05' },
+  set7: { cai: 7, name: '七踩单翘重昂平身科(一攒)', component: 'C-dg-07' },
+  'C-dg-05': { cai: 5, name: '五踩单翘单昂平身科(一攒)', component: 'C-dg-05' },
+  'C-dg-07': { cai: 7, name: '七踩单翘重昂平身科(一攒)', component: 'C-dg-07' },
+};
 
 function buildDougongPart(variant: string): PartBuild {
+  const book = qingDougongBook();
+  const setV = SET_VARIANTS[variant];
+  const root = new THREE.Group();
+  if (setV) {
+    const set = assemblePingshengKe(book, setV.cai, STUDIO_SET_DK_M);
+    const mesh = new THREE.Mesh(set.geometry, woodMaterial());
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    root.add(mesh);
+    root.name = `dougong:${variant}`;
+    root.userData.component = setV.component;
+    root.userData.name = setV.name;
+    root.userData.set = { pieces: set.pieces, tris: set.tris, topDk: set.topDk, outDk: set.outDk };
+    root.userData.provenance = book.provenance();
+    return { root };
+  }
   const key = variant.replace(/^C-dg-/, '') as QingLeafId;
   if (!(QING_LEAF_IDS as readonly string[]).includes(key)) {
     throw new Error(
       `未做的斗拱分件 "${variant}"。清式叶件: ${QING_LEAF_IDS.join(', ')}(可带 C-dg- 前缀);` +
-        `宋式 C-pz-* 本期不做(单子 V:先证明清式一支能从数据走到几何)`,
+        `整攒: set5 / set7;宋式 C-pz-* 本期不做(单子 V:先证明清式一支能从数据走到几何)`,
     );
   }
-  const book = qingDougongBook();
   const geo = qingLeafGeometry(book, key, STUDIO_DK_M);
   const mesh = new THREE.Mesh(geo, woodMaterial());
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  const root = new THREE.Group();
   root.name = `dougong:${key}`;
   root.add(mesh);
   root.userData.component = LEAF_COMPONENT[key];

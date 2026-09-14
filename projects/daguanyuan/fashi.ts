@@ -86,6 +86,17 @@ for (const [set, file] of RULE_FILES) {
 
 const COMPONENTS = (componentsFile as unknown as { components: ComponentRec[] }).components;
 
+/**
+ * 已有真几何的斗拱构件 → dougong 构件库的变体名(单子 V:清式 18 叶 + 两攒
+ * 组合件)。宋式 C-pz-* 与未做的仍标「尚无几何」,不许假装。
+ */
+function dougongVariant(id: string): string | null {
+  if (id === 'C-dg-05') return 'set5';
+  if (id === 'C-dg-07') return 'set7';
+  if (/^C-dg-/.test(id)) return id; // 清式 18 叶,builder 接受 C-dg- 前缀
+  return null;
+}
+
 const RULE_INDEX = new Map<string, RuleRec[]>();
 for (const r of ALL_RULES) {
   const list = RULE_INDEX.get(r.id) ?? [];
@@ -272,8 +283,9 @@ function partCard(item: GalleryItem): HTMLElement {
 function componentCard(c: ComponentRec): HTMLElement {
   const card = el('button', 'fashi-card');
   card.type = 'button';
+  const hasGeom = dougongVariant(c.id) !== null;
   const ph = el('div', 'no-thumb');
-  ph.appendChild(el('span', '', `${c.category}\n尚无几何`));
+  ph.appendChild(el('span', '', hasGeom ? `${c.category}\n有几何,点开看转盘` : `${c.category}\n尚无几何`));
   ph.style.whiteSpace = 'pre-line';
   card.appendChild(ph);
   const meta = el('div', 'meta');
@@ -281,7 +293,7 @@ function componentCard(c: ComponentRec): HTMLElement {
   meta.appendChild(el('div', 'sub2', `${c.id} · ${c.paramSet === 'qing' ? '清式' : '宋式'}`));
   const badges = el('div', 'badges');
   badges.appendChild(statusBadge(c.status));
-  badges.appendChild(el('span', 'badge', '尚无几何'));
+  badges.appendChild(el('span', 'badge', hasGeom ? '有几何' : '尚无几何'));
   meta.appendChild(badges);
   card.appendChild(meta);
   card.addEventListener('click', () => openDetail(c.id));
@@ -310,7 +322,7 @@ function renderGallery(): void {
 
   const s2 = el('section', 'fashi-section');
   s2.appendChild(el('h2', '', '斗拱本体 · 数据卡'));
-  s2.appendChild(el('p', 'note', '只存"由什么组成、怎么装",尺寸一律引规则 id;几何 P3 才做,故标注"尚无几何"'));
+  s2.appendChild(el('p', 'note', '只存"由什么组成、怎么装",尺寸一律引规则 id;清式 18 叶与五踩/七踩两攒已有真几何(单子 V,点开看转盘),宋式仍标"尚无几何"'));
   const g2 = el('div', 'fashi-grid');
   for (const c of COMPONENTS) g2.appendChild(componentCard(c));
   s2.appendChild(g2);
@@ -590,15 +602,43 @@ function openPartDetail(item: GalleryItem): void {
 
 function openComponentDetail(c: ComponentRec): void {
   const { side, stage } = detailShell(c.name);
-  const empty = el('div', 'stage-empty');
-  empty.appendChild(el('div', 'zh', '斗拱'));
-  empty.appendChild(el('div', '', '尚无几何——本体先存构成与尺寸出处,几何 P3 再做'));
-  stage.appendChild(empty);
+  const variant = dougongVariant(c.id);
+  let hasGeom = false;
+  if (variant) {
+    // 有几何的升真转盘;buildPart 抛错就原样显示错误,不吞(铁律一)。
+    let part: PartBuild | null = null;
+    let thrown: unknown = null;
+    try {
+      part = buildPart('dougong', variant);
+    } catch (err) {
+      thrown = err;
+    }
+    if (part) {
+      hasGeom = true;
+      disposeStage = startTurntable(stage, part);
+      stage.appendChild(el('div', 'stage-note', '自动转盘 · 换角度与定格请用棚拍台 /viewer.html'));
+      const prov = (part.root.userData.provenance ?? null) as Provenance | null;
+      if (prov && prov.art.length) {
+        side.appendChild(el('h3', 'block', '几何端的艺术选择(原文只给分段尺寸的地方)'));
+        provenancePanel(side, { evidence: [], inference: [], art: prov.art });
+      }
+    } else {
+      const msg = thrown instanceof Error ? thrown.message : String(thrown);
+      side.appendChild(el('div', 'detail-error', `构件几何生成失败,原样显示:\n\n${msg}`));
+      stage.appendChild(el('div', 'stage-empty', '几何生成失败——见右侧错误'));
+    }
+  }
+  if (!hasGeom && !variant) {
+    const empty = el('div', 'stage-empty');
+    empty.appendChild(el('div', 'zh', '斗拱'));
+    empty.appendChild(el('div', '', '尚无几何——本体先存构成与尺寸出处;宋式 C-pz-* 等清式一支验完再铺(单子 V)'));
+    stage.appendChild(empty);
+  }
 
   const head = el('div', 'badges');
   head.appendChild(statusBadge(c.status));
   head.appendChild(el('span', 'badge', c.paramSet === 'qing' ? '清式 ·《工程做法》' : '宋式 ·《营造法式》'));
-  head.appendChild(el('span', 'badge st-missing', '尚无几何'));
+  head.appendChild(el('span', hasGeom ? 'badge pv-evidence' : 'badge st-missing', hasGeom ? '有几何' : '尚无几何'));
   side.appendChild(head);
   side.appendChild(el('div', 'kv', `${c.id} · ${c.category}`));
 

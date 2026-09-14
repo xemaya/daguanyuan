@@ -14,6 +14,7 @@ import {
   paperMaterial,
 } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
+import { assemblePingshengKe, qingDougongBook } from '@builder/parts/damu/dougong';
 import { makeRng, smoothstep, lerp, clamp } from '@engine/core/Noise';
 import { mergeByMaterial } from '@builder/parts/merge';
 import { makePlaque } from '@builder/parts/xiaomu/plaque';
@@ -60,6 +61,9 @@ export interface BuildingOptions {
   /** 门屋(中柱造):门装在中柱缝而不在檐柱缝,前后檐到中柱是两段门道;
    *  前檐当心间敞开,中柱缝当心间装板门、其余间砌墙,后檐只留当心间通行。 */
   gatehouse?: boolean;
+  /** Tier A 清式斗拱:装真分件平身科攒(五踩/七踩),替换三箱占位(单子 V-V3)。
+   *  缺省保留占位箱体;Tier B/C 江南建筑本来就少斗拱或不用(tiers.md),不设此字段。 */
+  bracketSet?: { cai: 5 | 7 };
   /** 台基石作:青石(缺省)/白石(07-01「白石台磯」)。 */
   plinthMaterial?: 'stone' | 'whiteStone';
   /** 格扇/槛窗的格心纹样:ice/wan/haitang 走墙垣的格心生成器(PQ-2),
@@ -776,9 +780,53 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     });
   }
 
-  /* ---- 铺作(简化) -------------------------------------------------- */
+  /* ---- 铺作 ---------------------------------------------------------- */
   const puzuoTop = lanTop + pupai + m.puzuoH;
-  if (legacy?.puzuo) {
+  if (legacy?.puzuo && opts.bracketSet) {
+    /* Tier A 真分件攒(单子 V-V3):清式平身科整攒,替换下面的三箱占位。
+     * 接在 derivePuzuo() 之后——铺作总高与出跳距离用它的结果,不另起一套:
+     * 攒的挑檐桁中(3 斗口/拽架 × 拽架数 [01-07])对齐 puzuoOut,攒顶抵 puzuoH。 */
+    const dbook = qingDougongBook();
+    const f = legacy.cai.fenM;
+    const outM = legacy.puzuo.outFen * f;
+    const heightM = legacy.puzuo.heightFen * f;
+    const cai = opts.bracketSet.cai;
+    const jumps = (cai - 1) / 2;
+    const dkM = outM / (3 * jumps);
+    const set = assemblePingshengKe(dbook, cai, dkM);
+    // 攒当 11 斗口 [01-04] 均布;实物 10.0~11.4(04-05 乙注:攒当是开间除出来的余数,
+    // 不是模数),这里按开间取整反摊。柱头科未分件(与转角铺作同属下一轮),
+    // 柱头位空出不装——不拿平身科冒充柱头科。
+    const cuanDangM = dbook.num('01-04', 'cuanDangDk') * dkM;
+    const positions: { x: number; z: number; rot: number }[] = [];
+    for (const z of rowsZ) {
+      const rot = z > 0 ? 0 : Math.PI;
+      for (let i = 1; i < colXs.length; i++) {
+        const bayLen = colXs[i] - colXs[i - 1];
+        const n = Math.max(1, Math.round(bayLen / cuanDangM));
+        for (let k = 1; k <= n; k++) {
+          positions.push({ x: colXs[i - 1] + (bayLen * k) / (n + 1), z, rot });
+        }
+      }
+    }
+    for (const p of positions) {
+      const mesh = new THREE.Mesh(set.geometry, wood);
+      mesh.position.set(p.x, lanTop + pupai, p.z);
+      mesh.rotation.y = p.rot;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      root.add(mesh);
+    }
+    fr.provenance.art.push({
+      id: 'project:bracket-set-fit',
+      name: '清式平身科攒装上法式包络',
+      method: 'artistic_choice',
+      note:
+        `${cai} 踩平身科 ${positions.length} 攒:斗口 ${(dkM * 1000).toFixed(1)}mm 由 puzuoOut ${outM.toFixed(3)}m ÷ ${3 * jumps} 斗口定(出跳用 derivePuzuo 结果);` +
+        `攒顶 ${set.topM.toFixed(3)}m 对铺作总高 ${heightM.toFixed(3)}m 差 ${((set.topM / heightM - 1) * 100).toFixed(1)}%(由 spec 跳距配比吸收);` +
+        `攒当 11 斗口 [01-04] 立法值均布,实物区间 10.0~11.4(04-05 乙注);柱头科/转角铺作未分件,柱头位空出不装。`,
+    });
+  } else if (legacy?.puzuo) {
     const f = legacy.cai.fenM;
     const ludou = new THREE.Mesh(roundedBox(32 * f, 20 * f, 32 * f, 0.01, 1), wood);
     const gong = new THREE.Mesh(roundedBox(72 * f, 21 * f, 10 * f, 0.01, 1), wood);
@@ -1533,7 +1581,12 @@ export function menSpec(): BuildingOptions {
       // 椽架数是 spec 输入不走规则表;此值是"门屋"的艺术判断,记 provenance.art。
       rafters: 2,
       jiaFen: 110,
-      puzuo: { puzuo: 4, jumpFen: 26 },
+      // 单子 V-V3:正门走清式五踩单翘单昂平身科(tiers.md:正门/牌坊五踩)。
+      // 攒的高宽比由规则链定死(攒顶=挑檐枋顶 10.8 斗口 / 挑檐桁中 6 斗口=1.8),
+      // 跳距配合它取 20.8 分,使 derivePuzuo 的包络(75/2j)与攒同比例——
+      // 装配端按 puzuoOut 定斗口,高度即自动吻合(留痕见 provenance 的
+      // project:bracket-set-fit)。跳距本身是 spec 输入,不走规则表。
+      puzuo: { puzuo: 5, jumpFen: 20.8 },
       roofType: '硬山',
       roofClass: '筒瓦厅堂',
       columnHeightFen: 300,
@@ -1550,6 +1603,7 @@ export function menSpec(): BuildingOptions {
     back: 'door',
     sides: 'wall',
     gatehouse: true,
+    bracketSet: { cai: 5 }, // Tier A 真斗拱(单子 V);五踩单翘单昂平身科
     // 07-76③:「细雕新鲜花样」原著没写死具体纹样;万字不到头是最标准的那个,
     // 与「新鲜」相反,换成灯笼锦(artChoice,见 buildBuilding 的 provenance.art)。
     lattice: 'lantern',
