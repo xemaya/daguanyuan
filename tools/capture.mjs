@@ -75,8 +75,10 @@ const SHOTS = [
   { id: 'cu_terrace',      pos: [58.5, 0, 246.8], yaw: 0.28,  pitch: -0.38, group: 'closeup', desc: '贴脸·白石台矶:石作分层(土衬/陡板/阶条/面层)与砌缝(用户反馈「大白平台质感差」;单子 AJ1)。' },
   { id: 'cu_lattice',      pos: [62.0, 0, 238.4], yaw: 1.35,  pitch: 0.06,  group: 'closeup', desc: '贴脸·格心:灯笼锦的纹样构成(用户反馈2「窗花粗糙」)。' },
   // 单子 AP:灯笼锦工艺样板的三视补位——正面看纹样收头与主辅比例,背光看框边对纸面的遮光。
-  { id: 'cu_lattice_front',  pos: [62.0, 0, 240.6], yaw: 0.0,   pitch: 0.05,  group: 'closeup', desc: '贴脸·格心正面:正对次间窗,看灯笼锦完整纹样、边界收头与留白(单子 AP)。' },
-  { id: 'cu_lattice_inside', pos: [62.0, 0, 236.0], yaw: 3.14,  pitch: 0.05,  group: 'closeup', desc: '贴脸·格心背光:门内朝南看同一扇窗,纸面退后后框边对纸面的遮光(单子 AP;不许给窗加私灯)。' },
+  // 机位校正(2026-09-15):单子原文给 x=62,但东梢间窗中线在 x≈60.65(与 cu_lattice
+  // 同一扇),x=62 会把窗甩到画面左缘;背光位 z=236 正卡在中柱缝墙里,前移至 236.5 的门道浅间。
+  { id: 'cu_lattice_front',  pos: [60.6, 0, 240.6], yaw: 0.0,   pitch: 0.28,  group: 'closeup', desc: '贴脸·格心正面:正对东梢间窗,看灯笼锦完整纹样、边界收头与留白(单子 AP)。' },
+  { id: 'cu_lattice_inside', pos: [60.6, 0, 236.5], yaw: 3.14,  pitch: 0.85,  group: 'closeup', desc: '贴脸·格心背光:门内朝南看同一扇窗,纸面退后后框边对纸面的遮光(单子 AP;不许给窗加私灯)。' },
 ];
 
 /**
