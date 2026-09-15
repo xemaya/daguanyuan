@@ -83,3 +83,30 @@ test('实例化不会把缺少顶点色的共用材质几何渲成黑色',()=>{
  assert.equal(geometry.getAttribute('color'),undefined);
  mesh.geometry.dispose();geometry.dispose();material.dispose();
 });
+
+/*
+ * 单子 AQ-c:残余按簇分桶,跨簇不合。
+ *
+ * AQ-b1 之前 `mergeByMaterial` 是对全部残余一锅端——同材质全园一个 mesh,
+ * 包围球罩住整座园子,视锥与阴影窗剔不掉。分桶之后,相距一个簇边长以上的
+ * 残余不该被合进同一个 mesh。
+ */
+test('残余按簇分桶，跨簇不合',()=>{
+ const root=new THREE.Group(),geometry=new THREE.BoxGeometry(1,1,1),material=new THREE.MeshStandardMaterial();
+ // 每簇 3 件,不够阈值 8,全部退回残余;两簇相距 300 m,跨过 128 m 的簇边。
+ for(const cx of [0,300])for(let i=0;i<3;i++){const m=new THREE.Mesh(geometry,material);m.position.set(cx+i,0,0);root.add(m);}
+ root.updateMatrixWorld(true);
+ const box=new THREE.Box3().setFromObject(root);
+ const result=assembleStatic(root,8,64);
+ const merged=result.children.filter(m=>m.isMesh&&!m.isInstancedMesh);
+ assert.ok(merged.length>=2,`残余应按簇分成至少两个 mesh,实际 ${merged.length}`);
+ for(const mesh of merged){
+  mesh.geometry.computeBoundingBox();const b=mesh.geometry.boundingBox;
+  assert.ok(b.max.x-b.min.x<128&&b.max.z-b.min.z<128,`单个残余 mesh 跨簇了:x ${b.min.x}..${b.max.x}`);
+ }
+ // 分桶合并不许把东西弄丢或挪位——同名册 LOST=0 的同一件事。
+ const after=new THREE.Box3().setFromObject(result);
+ for(const k of ['x','y','z'])assert.ok(Math.abs(box.min[k]-after.min[k])<1e-5&&Math.abs(box.max[k]-after.max[k])<1e-5,
+  `残余分桶合并挪了位:${k} ${box.min[k]}..${box.max[k]} vs ${after.min[k]}..${after.max[k]}`);
+ geometry.dispose();material.dispose();
+});

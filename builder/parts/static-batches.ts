@@ -18,7 +18,8 @@ export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 6
     const key=[mesh.geometry.uuid,mesh.material.uuid,mesh.castShadow,mesh.receiveShadow,mesh.renderOrder,mesh.layers.mask].join(':');
     let list=buckets.get(key);if(!list){list=[];buckets.set(key,list);}list.push(entry);
   });
-  const out=new THREE.Group(),residual=new THREE.Group();
+  const out=new THREE.Group();
+  const residualEntries:Entry[]=[];
   out.name=root.name;
   let instances=0,prototypes=0;
   const flatten=(entry:Entry)=>{
@@ -27,7 +28,7 @@ export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 6
     return copy;
   };
   for(const entries of buckets.values()){
-    if(entries.length<threshold){for(const entry of entries)residual.add(flatten(entry));continue;}
+    if(entries.length<threshold){residualEntries.push(...entries);continue;}
     const source=entries[0].mesh,material=source.material as THREE.Material;
     let geometry=source.geometry;
     if((material as THREE.MeshStandardMaterial).vertexColors&&!geometry.getAttribute('color')){
@@ -63,7 +64,7 @@ export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 6
        * 改成"这个原型**在这一簇里**有几件"。够不够本的判断本来就该在
        * 一次提交的粒度上做。不够的簇退回 `residual`,照常按材质合并。
        */
-      if(cell.items.length<threshold){for(const entry of cell.items)residual.add(flatten(entry));continue;}
+      if(cell.items.length<threshold){residualEntries.push(...cell.items);continue;}
       instancedAnyCell=true;
       // Every cell references the same BufferGeometry, so the prototype's
       // vertex/index buffers are uploaded once, not copied for each placement.
@@ -81,15 +82,29 @@ export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 6
     if(instancedAnyCell)prototypes++;
   }
   /*
-   * 残余按材质合并——这一步 AQ-b1 之前就是这样,没有改。
+   * 单子 AQ-c:残余先按簇分桶,簇内再按材质合并。
    *
-   * ⚠️ 它有一个**本单没有动**的已知缺陷:合出来的是全园一种材质一个 mesh,
-   * 包围球罩住 280×226m,视锥剔除对它无效。按簇分开合能把四镜三角压下去
-   * 7%~11%,代价是 draw call +4~+8——那越过了本单"draw call 不升"的判据,
-   * 所以量完交验收人裁,数在 docs/reviews/2026-09-15-aqb-findings.md §5。
+   * AQ-b1 之前这里是 `mergeByMaterial(residual)` 一锅端——同材质全园一个 mesh,
+   * 包围球罩住 280×226 m,视锥与阴影窗剔不掉,19 区时是 7.7M 三角的直接来源
+   * (docs/reviews/2026-09-15-aqb-findings.md §5)。分桶用的还是本文件已有的
+   * `ClusterGrid`,边长**与上面实例化用的 `cellSize` 无关**——128 m 是验收人
+   * 就残余单独裁的(三档实测见单子文档),不许因为"复用同一个网格"就把两个
+   * 边长焊成一个参数。跨簇不合并,同簇同材质仍然合。
    */
-  const merged=mergeByMaterial(residual);
-  for(const child of [...merged.children])out.add(child);
+  const RESIDUAL_CLUSTER_SIZE=128;
+  const residualGrid=new ClusterGrid<Entry>(RESIDUAL_CLUSTER_SIZE);
+  for(const entry of residualEntries){
+    const geometry=entry.mesh.geometry;
+    if(!geometry.boundingSphere)geometry.computeBoundingSphere();
+    const sphere=geometry.boundingSphere!.clone().applyMatrix4(entry.matrix);
+    residualGrid.add(sphere.center.x,sphere.center.z,entry,sphere.center.y,sphere.radius);
+  }
+  for(const cell of residualGrid.cells()){
+    const bucket=new THREE.Group();
+    for(const entry of cell.items)bucket.add(flatten(entry));
+    const merged=mergeByMaterial(bucket);
+    for(const child of [...merged.children])out.add(child);
+  }
   for(const entry of keep)out.add(flatten(entry));
   out.userData.staticBatches={instances,prototypes};
   return out;
