@@ -4,12 +4,53 @@
   "tolerance": 0.03,
   "fpsTarget": 45,
   "shots": {
-    "gate_approach": { "drawCalls": 269, "triangles": 4208871, "fps": 36 },
-    "mound_block":   { "drawCalls": 255, "triangles": 4191277, "fps": 48 },
-    "grass_close":   { "drawCalls": 292, "triangles": 4344847, "fps": 46 },
-    "xiaoxiang":     { "drawCalls": 250, "triangles": 3250633, "fps": 48 }
+    "gate_approach": {
+      "drawCalls": 271,
+      "triangles": 4282759,
+      "fps": 36
+    },
+    "mound_block": {
+      "drawCalls": 256,
+      "triangles": 4259581,
+      "fps": 47
+    },
+    "grass_close": {
+      "drawCalls": 293,
+      "triangles": 4413151,
+      "fps": 47
+    },
+    "xiaoxiang": {
+      "drawCalls": 250,
+      "triangles": 3313353,
+      "fps": 46
+    }
   },
   "measuredAt": "2026-09-15",
-  "commit": "cb6c6ae0080b6a80a2dbe642ef6bc678b3894209",
-  "history": []
+  "commit": "3a3e86cb64825ca22e9140f96b7527ae1efec074",
+  "history": [
+    {
+      "date": "2026-09-15",
+      "order": "AJ",
+      "shots": "gate_approach 4208871→4232k, mound_block 4191277→4209k, grass_close 4344847→4363k, xiaoxiang 3250633→3263k",
+      "bought": "AJ1 台矶石作分层、AJ2 抱鼓石三段形制、AJ3 瓦当放大盖缝(作用于全部建筑)",
+      "by": "验收人(Claude)",
+      "note": "+0.4~0.55%,未超容差;与 AN2/AP 一并抬"
+    },
+    {
+      "date": "2026-09-15",
+      "order": "AN2",
+      "shots": "draw call gate_approach 269→271, mound_block 255→256, grass_close 292→293",
+      "bought": "白石两档各占一个材质桶(fine/rough)",
+      "by": "验收人(Claude)",
+      "note": "三角几乎不变"
+    },
+    {
+      "date": "2026-09-15",
+      "order": "AP",
+      "shots": "gate_approach 4232k→4282759, xiaoxiang 3263k→3313353 (+50k/镜)",
+      "bought": "灯笼锦棂条 8 顶点截面挤出 + 节点方块 + 纸面退后(作用于全部格扇)",
+      "by": "验收人(Claude)",
+      "note": "三单累计 +1.6~1.9%,抬基线给 AO 一个干净的 ±3%;新基线 commit 3a3e86cb"
+    }
+  ]
 }

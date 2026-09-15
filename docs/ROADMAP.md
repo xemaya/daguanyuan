@@ -24,7 +24,7 @@ MVP(2026-09-10)验证了三件事:程序化的表现力、《营造法式》推�
 核验与执行顺序见 `docs/reviews/2026-09-15-detail-review-response.md`——一句话：**先让已有细节被看见（AN1 后期对照、AQ-a 管线小修），
 AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP 灯笼锦窗花），样件过了再做 AQ-b（原型+实例化+三档 LOD），
 然后才是 AL / AM**（AM 的白石峰要吃 AN2 的白石配方）。**AK / AN1 / AQ-a / AJ 全部合回并经验收人独立复核**（`docs/reviews/2026-09-15-detail-review-response.md` §6–§7）。
-**现在可派**：**AN2**（材质加工尺度）‖ **AP**（灯笼锦窗花样件），文件域不重叠；**AO**（西番草浮雕样件）等 AN2 合回再派。
+**AN2 / AP 已合回并验收**（§9）。**现在可派：AO**（西番草浮雕样件）。AO 合回后写 AQ-b（原型 + 实例化 + 三档 LOD + `gate_approach` 35 fps）。
 **已裁**：AJ2 素鼓（用户）；AN1 后期档位 `D-26`（用户授权验收人定：AO r1.0 / s0.7、颗粒 0.008）。
 `gate_approach` 35 fps 归 AQ-b 追。AL / AM 排在 AO / AP 之后。
 
@@ -38,9 +38,9 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | — | **AK** `docs/superpowers/plans/2026-09-15-ak-perf-baseline.md` | 工具 | 已写、待派 | 只有 `manifest-diff.mjs` + 新基线文件，零重叠 |
 | — | **AN** `docs/superpowers/plans/2026-09-15-an-see-detail-first.md` | 后期/材质 | AN1 可派；AN2 等 AJ | AN1 只有 `PostFX.ts` / `grade.ts`；AN2 是 `materials.ts` / `wall.ts` |
 | — | **AQ-a** `docs/superpowers/plans/2026-09-15-aq-pipeline-small-fixes.md` | 管线 | ✅ 合回 | — |
-| — | **AN2** `docs/superpowers/plans/2026-09-15-an2-material-workmanship.md` | 材质 | **可派** | `materials.ts` / `wall.ts` / `baogushi.ts` / `forecourt-terrace.ts`，不碰 `building.ts` |
-| — | **AP** `docs/superpowers/plans/2026-09-15-ap-lantern-lattice-sample.md` | 窗花 | **可派，与 AN2 并行** | 只在 `building.ts` |
-| — | **AO** `docs/superpowers/plans/2026-09-15-ao-scroll-relief-sample.md` | 雕饰 | 等 AN2 合回 | 新 `builder/parts/ornament/` + `forecourt-terrace.ts` 西番草段 |
+| — | **AN2** `docs/superpowers/plans/2026-09-15-an2-material-workmanship.md` | 材质 | ✅ 合回 | `materials.ts` / `wall.ts` / `baogushi.ts` / `forecourt-terrace.ts`，不碰 `building.ts` |
+| — | **AP** `docs/superpowers/plans/2026-09-15-ap-lantern-lattice-sample.md` | 窗花 | ✅ 合回 | 只在 `building.ts` |
+| — | **AO** `docs/superpowers/plans/2026-09-15-ao-scroll-relief-sample.md` | 雕饰 | **可派** | 新 `builder/parts/ornament/` + `forecourt-terrace.ts` 西番草段 |
 
 三条都改 `plan.json`，**合回时各自只 `git add -p` 自己那个 hunk**。AL 里 E1（石子漫）E2（曲路）用户已拍板；
 AM 里 **`X-04` 会因形心西移而红，是判断题，agent 做到那一步会停下来问**（单子里给了甲乙两档，建议甲）。
