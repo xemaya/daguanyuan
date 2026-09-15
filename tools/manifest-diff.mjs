@@ -18,9 +18,10 @@
  * 用法: node tools/manifest-diff.mjs <dirA> <dirB> [--tolerance 0]
  *       node tools/manifest-diff.mjs --coverage <dir>
  */
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 /**
  * 单子 AD · 第一档对账：plan 的对象全集 − 世界自报的清单。
@@ -162,6 +163,60 @@ export function auditRosterSeams(roster) {
   return { seams, fails, candidates };
 }
 
+/**
+ * 单子 AK · D-25 落地：对已落盘基线的相对回归，与两目录 A/B 模式并列的第三种比对。
+ *
+ * 纯函数，不碰 IO，好让 tests/perf-baseline.test.mjs 直接喂假 baseline/manifest。
+ * 容差与 fps 目标一律从 baseline 文件读——CLI 不接受覆盖，D-25 说了容差改动要回 DECISIONS。
+ *
+ * baseline: perf-baseline.json 的内容 { tolerance, fpsTarget, shots: { id: {drawCalls, triangles, fps} } }
+ * manifest: <dir>/manifest.json 的内容 { shots: [{ id, stats: {drawCalls, triangles, fps} }] }
+ */
+export function diffAgainstBaseline(baseline, manifest) {
+  const tol = baseline.tolerance;
+  const shotsById = new Map((manifest.shots ?? []).map((s) => [s.id, s]));
+  const rows = [];
+  for (const [id, base] of Object.entries(baseline.shots ?? {})) {
+    const got = shotsById.get(id);
+    if (!got) { rows.push({ id, status: 'MISSING' }); continue; }
+    const diffs = [];
+    for (const field of ['drawCalls', 'triangles']) {
+      const from = base[field];
+      const to = got.stats[field];
+      const pct = (to - from) / Math.max(1, from);
+      if (Math.abs(pct) > tol) diffs.push({ field, from, to, pct });
+    }
+    const fps = got.stats.fps;
+    const fpsWarn = typeof fps === 'number' && fps < baseline.fpsTarget;
+    rows.push({ id, status: diffs.length ? 'DIFF' : 'ok', diffs, fps, fpsWarn });
+  }
+  return { ok: rows.every((r) => r.status === 'ok'), rows };
+}
+
+/** 三个数取中位数（排序后取中间一个；本项目只喂奇数长度的三次读数，不做偶数长度的平均）。 */
+const median = (nums) => [...nums].sort((a, b) => a - b)[(nums.length - 1) >> 1];
+
+/**
+ * 单子 AK · `--write-baseline` 的核心：N 份 manifest 按镜取中位数。
+ * 纯函数：喂 shots 数组的数组，不碰 IO。跳过任一份里缺了的镜（CLI 侧另行报错）。
+ */
+export function medianShots(manifestShotsList, shotIds) {
+  const out = {};
+  for (const id of shotIds) {
+    const stats = manifestShotsList.map((shots) => shots.find((s) => s.id === id)?.stats).filter(Boolean);
+    if (stats.length !== manifestShotsList.length) continue;
+    out[id] = {
+      drawCalls: median(stats.map((s) => s.drawCalls)),
+      triangles: median(stats.map((s) => s.triangles)),
+      fps: median(stats.map((s) => s.fps)),
+    };
+  }
+  return out;
+}
+
+/** 单子 AK 落基线用的四镜——见 `docs/DECISIONS.md` D-25，与 AJ 用的镜一致。改这个集合要回 DECISIONS。 */
+export const PERF_SHOTS = ['gate_approach', 'mound_block', 'grass_close', 'xiaoxiang'];
+
 const loadManifest = (d) => JSON.parse(readFileSync(join(resolve(d), 'manifest.json'), 'utf8'));
 
 /* 下面是 CLI。用 import.meta.url 守住，好让测试只 import coverage 而不触发退出。 */
@@ -239,6 +294,70 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (baseline && c.knownGaps > baseline.knownGaps) { console.log(`FAIL known-gap 从 ${baseline.knownGaps} 涨到 ${c.knownGaps}——未建区对象数只许降不许升`); bad++; }
     if (baseline && c.feral.length > baseline.feral) { console.log(`FAIL 野生件从 ${baseline.feral} 涨到 ${c.feral.length}`); bad++; }
     process.exit(bad ? 1 : 0);
+  }
+
+  /* 单子 AK · D-25：对落盘基线的相对回归。容差与 fps 目标只从
+   * perf-baseline.json 读，CLI 不接受 --tolerance 覆盖——D-25 定的判据，改它要回 DECISIONS。 */
+  const baselineIdx = process.argv.indexOf('--baseline');
+  if (baselineIdx > -1) {
+    const dir = positional[0];
+    if (!dir) { console.error('用法: node tools/manifest-diff.mjs --baseline <dir>'); process.exit(2); }
+    const baseline = JSON.parse(readFileSync(resolve('projects/daguanyuan/perf-baseline.json'), 'utf8'));
+    const { rows } = diffAgainstBaseline(baseline, loadManifest(dir));
+    let bad = 0;
+    for (const row of rows) {
+      const fpsNote = typeof row.fps === 'number'
+        ? `  ${row.fps} fps${row.fpsWarn ? `（低于目标 ${baseline.fpsTarget}，仅警告，不置红）` : `, 目标 ${baseline.fpsTarget}`}`
+        : '';
+      if (row.status === 'MISSING') {
+        console.log(`MISSING ${row.id}（${dir} 里没有这一镜，基线有）`);
+        bad++;
+      } else if (row.status === 'DIFF') {
+        bad++;
+        console.log(`DIFF ${row.id}${fpsNote}`);
+        for (const d of row.diffs) {
+          const sign = d.pct >= 0 ? '+' : '';
+          console.log(`       ${d.field}: ${d.from} → ${d.to}  (${sign}${(d.pct * 100).toFixed(1)}%)`);
+        }
+      } else {
+        console.log(`ok   ${row.id.padEnd(16)}${fpsNote}`);
+      }
+    }
+    console.log(`\n${rows.length} 镜（容差 ±${(baseline.tolerance * 100).toFixed(0)}%），${bad} 处超出基线`);
+    process.exit(bad ? 1 : 0);
+  }
+
+  /* 单子 AK · `--write-baseline`：三份连拍取中位数，重写 perf-baseline.json，
+   * 保留已有 history。必须给三个目录——一个目录当基线等于拿单次读数当基线，D-25 明确不许。 */
+  const writeBaselineIdx = process.argv.indexOf('--write-baseline');
+  if (writeBaselineIdx > -1) {
+    if (positional.length !== 3) {
+      console.error(`用法: node tools/manifest-diff.mjs --write-baseline <dirA> <dirB> <dirC>（必须给三个目录，给了 ${positional.length} 个）`);
+      process.exit(2);
+    }
+    const baselinePath = resolve('projects/daguanyuan/perf-baseline.json');
+    const existing = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : null;
+    const manifests = positional.map(loadManifest);
+    console.log('三次原始读数：');
+    for (const id of PERF_SHOTS) {
+      const reads = manifests.map((m) => m.shots.find((s) => s.id === id)?.stats);
+      console.log(`  ${id.padEnd(16)} ${reads.map((r) => r ? `${r.drawCalls} calls / ${r.triangles} tris / ${r.fps} fps` : '(缺)').join('   |   ')}`);
+    }
+    const shots = medianShots(manifests.map((m) => m.shots), PERF_SHOTS);
+    for (const id of PERF_SHOTS) if (!shots[id]) console.error(`  ⚠ ${id} 三份里至少一份缺失，未写入基线`);
+    const next = {
+      $comment: existing?.$comment ?? '照 coverage-baseline.json 的做法——数字是量的不是估的。',
+      decision: 'D-25',
+      tolerance: existing?.tolerance ?? 0.03,
+      fpsTarget: existing?.fpsTarget ?? 45,
+      shots,
+      measuredAt: new Date().toISOString().slice(0, 10),
+      commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+      history: existing?.history ?? [],
+    };
+    writeFileSync(baselinePath, JSON.stringify(next, null, 2) + '\n');
+    console.log(`\n已写入 ${baselinePath}（history 保留 ${next.history.length} 行）`);
+    process.exit(0);
   }
 
   const [dirA, dirB] = positional;
