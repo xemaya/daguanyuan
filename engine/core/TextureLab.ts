@@ -203,6 +203,27 @@ export function cached(key: string, build: () => THREE.Texture): THREE.Texture {
   return tex;
 }
 
+/**
+ * Bump this whenever a height/color/noise recipe changes in a way that
+ * changes pixels for an *unchanged* key. `cached()` only ever compares
+ * strings — it has no way to know the function behind a key baked
+ * differently yesterday. Folding the version into every key (via
+ * `recipeKey`) means a bump busts the whole cache instead of silently
+ * serving yesterday's bitmap next to today's.
+ */
+export const TEXTURE_RECIPE_VERSION = 1;
+
+/**
+ * Builds a `cached()` key that carries every pixel-affecting input, not just
+ * a human name. AQ-a1: `turfMaps(512)` and `turfMaps(1024)` used to share the
+ * key `'turf.albedo'` and silently collide — first caller wins, everyone
+ * after it gets the wrong resolution. `size` (and any other baked-pixel
+ * parameter, e.g. `bakeNormalMap`'s `strength`) must be part of `extra`.
+ */
+export function recipeKey(name: string, size: number, ...extra: (string | number)[]): string {
+  return [name, `${size}px`, ...extra, `v${TEXTURE_RECIPE_VERSION}`].join('@');
+}
+
 /* ------------------------------------------------------------------ */
 /* Shared noise bases                                                  */
 /* ------------------------------------------------------------------ */
@@ -334,7 +355,7 @@ function bladeField(u: number, v: number, freq: number, octaves: number): number
 
 export function grassTurfMaps(size = 1024): MaterialMaps {
   return {
-    map: cached('turf.albedo', () =>
+    map: cached(recipeKey('turf.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -361,7 +382,7 @@ export function grassTurfMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('turf.normal', () =>
+    normalMap: cached(recipeKey('turf.normal', size, 2.2), () =>
       bakeNormalMap(
         {
           size,
@@ -374,7 +395,7 @@ export function grassTurfMaps(size = 1024): MaterialMaps {
         2.2,
       ),
     ),
-    roughnessMap: cached('turf.rough', () =>
+    roughnessMap: cached(recipeKey('turf.rough', 512), () =>
       bakeScalarMap(512, (u, v) => 0.78 + tileableFbm(NOISE.grass, u, v, 40, 3) * 0.12),
     ),
   };
@@ -387,7 +408,7 @@ export function dirtPathMaps(size = 1024): MaterialMaps {
     return smoothstep(0.34, 0.02, w.f1);
   };
   return {
-    map: cached('dirt.albedo', () =>
+    map: cached(recipeKey('dirt.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -405,7 +426,7 @@ export function dirtPathMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('dirt.normal', () =>
+    normalMap: cached(recipeKey('dirt.normal', size, 1.9), () =>
       bakeNormalMap(
         {
           size,
@@ -417,7 +438,7 @@ export function dirtPathMaps(size = 1024): MaterialMaps {
         1.9,
       ),
     ),
-    roughnessMap: cached('dirt.rough', () =>
+    roughnessMap: cached(recipeKey('dirt.rough', 512), () =>
       bakeScalarMap(512, (u, v) => clamp(0.88 - pebble(u, v) * 0.22, 0, 1)),
     ),
   };
@@ -436,7 +457,7 @@ export function paintedWoodMaps(
     return smoothstep(0.86, 1.0, f);
   };
   return {
-    map: cached(`wood.${key}.albedo`, () =>
+    map: cached(recipeKey(`wood.${key}.albedo`, size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -449,7 +470,7 @@ export function paintedWoodMaps(
         },
       }),
     ),
-    normalMap: cached(`wood.${key}.normal`, () =>
+    normalMap: cached(recipeKey(`wood.${key}.normal`, size, 1.5), () =>
       bakeNormalMap(
         {
           size,
@@ -461,7 +482,7 @@ export function paintedWoodMaps(
         1.5,
       ),
     ),
-    roughnessMap: cached(`wood.${key}.rough`, () =>
+    roughnessMap: cached(recipeKey(`wood.${key}.rough`, 512), () =>
       bakeScalarMap(512, (u, v) => {
         const wear = tileableFbm(NOISE.paint, u, v, 12, 3) * 0.5 + 0.5;
         return clamp(0.52 + wear * 0.24 + seam(v) * 0.18, 0, 1);
@@ -483,7 +504,7 @@ export function roofTileMaps(key: string, tint: number, rows = 14, size = 1024):
     return { arch, side, ri, ci: Math.floor(u * rows + offset) };
   };
   return {
-    map: cached(`roof.${key}.albedo`, () =>
+    map: cached(recipeKey(`roof.${key}.albedo`, size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -496,7 +517,7 @@ export function roofTileMaps(key: string, tint: number, rows = 14, size = 1024):
         },
       }),
     ),
-    normalMap: cached(`roof.${key}.normal`, () =>
+    normalMap: cached(recipeKey(`roof.${key}.normal`, size, 2.6), () =>
       bakeNormalMap(
         {
           size,
@@ -508,7 +529,7 @@ export function roofTileMaps(key: string, tint: number, rows = 14, size = 1024):
         2.6,
       ),
     ),
-    roughnessMap: cached(`roof.${key}.rough`, () =>
+    roughnessMap: cached(recipeKey(`roof.${key}.rough`, 512), () =>
       bakeScalarMap(512, (u, v) => 0.66 + (tileableFbm(NOISE.stone, u, v, 30, 3) * 0.5 + 0.5) * 0.2),
     ),
   };
@@ -523,7 +544,7 @@ export function cobbleMaps(size = 1024): MaterialMaps {
     return { edge, jitter };
   };
   return {
-    map: cached('cobble.albedo', () =>
+    map: cached(recipeKey('cobble.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -539,7 +560,7 @@ export function cobbleMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('cobble.normal', () =>
+    normalMap: cached(recipeKey('cobble.normal', size, 2.4), () =>
       bakeNormalMap(
         {
           size,
@@ -552,7 +573,7 @@ export function cobbleMaps(size = 1024): MaterialMaps {
         2.4,
       ),
     ),
-    roughnessMap: cached('cobble.rough', () =>
+    roughnessMap: cached(recipeKey('cobble.rough', 512), () =>
       bakeScalarMap(512, (u, v) => {
         const { edge } = stone(u, v);
         return clamp(0.62 + (1 - edge) * 0.28, 0, 1);
@@ -569,7 +590,7 @@ export function barkMaps(size = 1024): MaterialMaps {
     return clamp(0.55 + stretch * 0.3 - fissure * 0.55, 0, 1);
   };
   return {
-    map: cached('bark.albedo', () =>
+    map: cached(recipeKey('bark.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -581,8 +602,8 @@ export function barkMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('bark.normal', () => bakeNormalMap({ size, height: h }, 2.8)),
-    roughnessMap: cached('bark.rough', () => bakeScalarMap(512, (u, v) => clamp(0.94 - h(u, v) * 0.12, 0, 1))),
+    normalMap: cached(recipeKey('bark.normal', size, 2.8), () => bakeNormalMap({ size, height: h }, 2.8)),
+    roughnessMap: cached(recipeKey('bark.rough', 512), () => bakeScalarMap(512, (u, v) => clamp(0.94 - h(u, v) * 0.12, 0, 1))),
   };
 }
 

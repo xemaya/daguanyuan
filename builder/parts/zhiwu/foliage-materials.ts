@@ -9,7 +9,7 @@ import { FoliageNodeMaterial, foliagePosition } from '@engine/render/nodes/folia
 import * as THREE from 'three/webgpu';
 import type { EnvironmentState } from '@engine/core/Context';
 import { Simplex, tileableFbm, worley, clamp, smoothstep, lerp, makeRng } from '@engine/core/Noise';
-import { bakeColorMap, bakeNormalMap, bakeScalarMap, cached, mixHex, hexToRgb } from '@engine/core/TextureLab';
+import { bakeColorMap, bakeNormalMap, bakeScalarMap, cached, recipeKey, mixHex, hexToRgb } from '@engine/core/TextureLab';
 
 /**
  * Foliage shading — the part of the vegetation system that decides whether the
@@ -326,7 +326,7 @@ export interface LeafMaps {
  */
 export function leafMaps(key: string, dark: number, light: number, size = 1024): LeafMaps {
   return {
-    map: cached(`leaf.${key}.albedo`, () =>
+    map: cached(recipeKey(`leaf.${key}.albedo`, size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -352,10 +352,10 @@ export function leafMaps(key: string, dark: number, light: number, size = 1024):
         },
       }),
     ),
-    normalMap: cached(`leaf.${key}.normal`, () =>
+    normalMap: cached(recipeKey(`leaf.${key}.normal`, Math.min(size, 512), 2.4), () =>
       bakeNormalMap({ size: Math.min(size, 512), height: leafHeight }, 2.4),
     ),
-    roughnessMap: cached('leaf.rough', () =>
+    roughnessMap: cached(recipeKey('leaf.rough', 256), () =>
       bakeScalarMap(256, (u, v) => clamp(0.90 - leafHeight(u, v) * 0.22, 0, 1)),
     ),
   };
@@ -392,7 +392,7 @@ export function leafMaps(key: string, dark: number, light: number, size = 1024):
  * smaller than ~20 cm is below the VSM blur radius and would smear back to grey.
  */
 export function canopyPerforationMap(size = 256): THREE.Texture {
-  return cached('canopy.perforation', () => {
+  return cached(recipeKey('canopy.perforation', size), () => {
     const tex = bakeScalarMap(size, (u, v) => {
       const big = worley(u, v, 5, 401);
       const mid = worley(u + 0.37, v + 0.19, 9, 613);
@@ -511,7 +511,7 @@ export function barkSet(
 ): BarkMaps {
   const h = (u: number, v: number) => barkHeight(u, v, roughShare);
   return {
-    map: cached(`bark2.${key}.albedo`, () =>
+    map: cached(recipeKey(`bark2.${key}.albedo`, size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -539,8 +539,8 @@ export function barkSet(
     // coarse, unequal plates with a per-plate height offset — and cranking the
     // normal on top of a fine field was the other half of the embossed-scales
     // read: every cell got a hard rim light of its own.
-    normalMap: cached(`bark2.${key}.normal`, () => bakeNormalMap({ size, height: h }, 3.2)),
-    roughnessMap: cached(`bark2.${key}.rough`, () =>
+    normalMap: cached(recipeKey(`bark2.${key}.normal`, size, 3.2), () => bakeNormalMap({ size, height: h }, 3.2)),
+    roughnessMap: cached(recipeKey(`bark2.${key}.rough`, 256), () =>
       bakeScalarMap(256, (u, v) => clamp(0.96 - h(u, v) * 0.20, 0, 1)),
     ),
   };
@@ -560,8 +560,8 @@ export function barkSet(
  * coloured from the dirt palette so it also breaks up the turf's hue.
  */
 export function litterTexture(key: string, seed: number, twigs = 2): THREE.Texture {
-  return cached(`litter.${key}`, () => {
-    const size = 256;
+  const size = 256;
+  return cached(recipeKey(`litter.${key}`, size), () => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -651,8 +651,8 @@ export function litterTexture(key: string, seed: number, twigs = 2): THREE.Textu
  * gives ragged edges that alpha-test turns into visible crawling fringe.
  */
 export function grassCardTexture(key: string, seed: number, blades = 11): THREE.Texture {
-  return cached(`grasscard.${key}`, () => {
-    const size = 512;
+  const size = 512;
+  return cached(recipeKey(`grasscard.${key}`, size), () => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -764,8 +764,8 @@ export function leafClusterTexture(
   leaves = 15,
   scale = 1,
 ): THREE.Texture {
-  return cached(`leafcluster.${key}`, () => {
-    const size = 512;
+  const size = 512;
+  return cached(recipeKey(`leafcluster.${key}`, size), () => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -883,8 +883,8 @@ export function leafClusterTexture(
 
 /** A single broad leaf with a visible midrib, alpha-cut. */
 export function leafCardTexture(key: string, seed: number): THREE.Texture {
-  return cached(`leafcard.${key}`, () => {
-    const size = 256;
+  const size = 256;
+  return cached(recipeKey(`leafcard.${key}`, size), () => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -960,7 +960,7 @@ export function petalMaps(size = 256): { map: THREE.Texture; normalMap: THREE.Te
     return clamp(1 - r * 0.7 + veins * (1 - r) + tileableFbm(BLADE, u, v, 12, 3) * 0.1, 0, 1);
   };
   return {
-    map: cached('petal.albedo', () =>
+    map: cached(recipeKey('petal.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -972,7 +972,7 @@ export function petalMaps(size = 256): { map: THREE.Texture; normalMap: THREE.Te
         },
       }),
     ),
-    normalMap: cached('petal.normal', () => bakeNormalMap({ size: 128, height: h }, 1.1)),
+    normalMap: cached(recipeKey('petal.normal', 128, 1.1), () => bakeNormalMap({ size: 128, height: h }, 1.1)),
   };
 }
 
