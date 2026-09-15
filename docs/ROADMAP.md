@@ -20,7 +20,12 @@ MVP(2026-09-10)验证了三件事:程序化的表现力、《营造法式》推�
 | 踩过的坑 | `docs/PITFALLS.md`（`P-1` … `P-21`） |
 | 拍过的板 | `docs/DECISIONS.md`（`D-01` … `D-24`） |
 
-**下一步**（2026-09-15 下午更新）：**三轨并行，按区域切文件域**，沁芳与正门第三轮排在 AJ 之后。
+**下一步**（2026-09-15 晚更新）：用户交来 codex 的《程序化细节深化评审》并定调**优先于 AL / AM**。
+核验与执行顺序见 `docs/reviews/2026-09-15-detail-review-response.md`——一句话：**先让已有细节被看见（AN1 后期对照、AQ-a 管线小修），
+AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP 灯笼锦窗花），样件过了再做 AQ-b（原型+实例化+三档 LOD），
+然后才是 AL / AM**（AM 的白石峰要吃 AN2 的白石配方）。**现在可派、不撞 AJ 的**：AK、AN1、AQ-a；AJ2 已补一条鼓面 UV 的补充。
+
+下面这张三轨表**仍然成立，只是 AL / AM 的位次往后挪**：
 
 | 轨 | 单子 | 区 | 状态 | 与别轨的文件重叠 |
 |---|---|---|---|---|
@@ -28,6 +33,8 @@ MVP(2026-09-10)验证了三件事:程序化的表现力、《营造法式》推�
 | 2 | **AL** `docs/superpowers/plans/2026-09-15-al-xiaoxiang-bamboo-path.md` | 潇湘馆 | 已写、待派 | `plan.json paths[]` 一条、`projects/daguanyuan/scenes/xiaoxiangguan.json`、`bamboo.ts`、`vegetation.ts` 野花段、`cobbleMaps` |
 | 3 | **AM** `docs/superpowers/plans/2026-09-15-am-cuizhang-rebuild.md` | 翠嶂 | 已写、待派 | `plan.json hills[]` 一条、`projects/daguanyuan/scenes/cuizhang.json`、`shishan/`、规则表追加 07-77/78 |
 | — | **AK** `docs/superpowers/plans/2026-09-15-ak-perf-baseline.md` | 工具 | 已写、待派 | 只有 `manifest-diff.mjs` + 新基线文件，零重叠 |
+| — | **AN** `docs/superpowers/plans/2026-09-15-an-see-detail-first.md` | 后期/材质 | AN1 可派；AN2 等 AJ | AN1 只有 `PostFX.ts` / `grade.ts`；AN2 是 `materials.ts` / `wall.ts` |
+| — | **AQ-a** `docs/superpowers/plans/2026-09-15-aq-pipeline-small-fixes.md` | 管线 | 已写、待派 | `TextureLab.ts` / `merge.ts` 与测试，零重叠 |
 
 三条都改 `plan.json`，**合回时各自只 `git add -p` 自己那个 hunk**。AL 里 E1（石子漫）E2（曲路）用户已拍板；
 AM 里 **`X-04` 会因形心西移而红，是判断题，agent 做到那一步会停下来问**（单子里给了甲乙两档，建议甲）。
