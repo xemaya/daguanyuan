@@ -1092,47 +1092,65 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
         ];
   for (const e of eaveLines) eaveEdge(e.halfWidth, e.zTip, e.rotY);
 
-  /* ---- 瓦当 + 滴水(檐口收头,单子 AG1) ------------------------------- */
+  /* ---- 瓦当 + 滴水(檐口收头,单子 AG1;AJ3 放大盖缝) ------------------- */
   // 分层明显与没有瓦当滴水是同一条缝的两面:筒瓦垄头(圆瓦当)与板瓦垄间
   // (尖滴水)沿檐口相间,盖住"屋面板压在连檐/椽上"那条缝。落位复用
-  // eaveLines(同一份 halfWidth/zTip/rotY),垄距用 m.rafterPitch(推导值,
-  // 不新拍间距)。纹样从简(ART_DIRECTION §10):只做圆形的形 + 一圈唇,
-  // 不刻兽面。全部烘焙进一份合并几何,整栋楼只加 1 个 draw call。
+  // eaveLines(同一份 halfWidth/zTip/rotY)。
+  //
+  // 单子 AJ3(用户 2026-09-15 反馈第 2 条「瓦当太小,挡不住瓦这层和木格
+  // 中间的缝,正面看差」),两处改:
+  //  ① 尺寸跟着垄距走:垄距 = 屋面贴图一个周期的 12 垄(materials.ts
+  //    TILE_UV,垄宽 0.2m)——瓦当间距与贴图的垄一一对上、坐在垄头上;
+  //    不再用 m.rafterPitch(0.153m,和贴图垄距 0.2m 对不上,瓦当落在
+  //    垄间),也不再有 min(0.09,…) 硬顶。直径 = 0.92×垄距,相邻瓦当
+  //    几乎相接,是真实檐口的读法。
+  //  ② 盖缝是本职:那条缝量出来高 coverTo = 板厚(0.16) + 椽高
+  //    (rafterDia×1.15) + 一线余量,从连檐上口一直到椽头底。瓦当下加
+  //    一截垄头舌、滴水舌片拉长,两样都垂过缝底;厚度 0.05→0.09、
+  //    出挑 z 外加 0.03,整排站在连檐正面以外,正面平视那条缝被这排
+  //    围裙整个压住。
+  // 纹样从简(ART_DIRECTION §10):只做圆形的形 + 一圈唇,不刻兽面。
+  // 全部烘焙进一份合并几何,整栋楼只加 1 个 draw call。
   {
     const dripGeos: THREE.BufferGeometry[] = [];
-    const wadangR = Math.min(0.09, m.rafterPitch * 0.4);
-    const wadangT = 0.05;
+    const ridgePitch = 1 / (12 * TILE_UV.u); // 筒瓦垄距 = 贴图垄宽(0.2m)
+    const wadangR = ridgePitch * 0.46;
+    const wadangT = 0.09;
     const lipT = wadangT * 0.4;
-    const dripR = wadangR * 0.72;
-    const dripH = wadangR * 1.5;
+    const coverTo = thick + m.rafterDia * 1.15 + 0.02; // 缝底:板厚 + 椽高 + 余量
+    const heelW = wadangR * 1.2;
+    const dripR = ridgePitch * 0.33;
+    const dripH = coverTo + 0.02;
     for (const e of eaveLines) {
       const hw = e.halfWidth(0);
-      const n = Math.max(2, Math.round((hw * 2) / m.rafterPitch));
+      const n = Math.max(2, Math.round((hw * 2) / ridgePitch));
       if (n < 2) continue;
-      for (let i = 0; i <= n; i++) {
-        const t = i / n;
-        let x = lerp(-hw + wadangR, hw - wadangR, t);
+      for (let i = 0; i < n; i++) {
+        // 从檐口一端起,每半垄一个位:偶数位瓦当(对垄)、奇数位滴水(对垄间)。
+        let x = lerp(-hw + ridgePitch / 2, hw - ridgePitch / 2, i / (n - 1));
         x += push(x, 0, hw);
         const y = pts[0].y + lift(x, 0, hw);
-        const z = e.zTip + 0.015;
+        const z = e.zTip + 0.03;
         let geo: THREE.BufferGeometry;
         if (i % 2 === 0) {
-          // 瓦当:筒瓦垄头,圆饼 + 略大的唇(一圈边)。
-          const drum = new THREE.CylinderGeometry(wadangR * 0.82, wadangR * 0.82, wadangT, 8, 1, true);
+          // 瓦当:筒瓦垄头,圆饼 + 略大的唇(一圈边) + 下垂垄头舌(盖连檐)。
+          const drum = new THREE.CylinderGeometry(wadangR * 0.82, wadangR * 0.82, wadangT, 10, 1, true);
           drum.rotateX(Math.PI / 2);
           drum.translate(0, 0, -wadangT * 0.3);
-          const lip = new THREE.CylinderGeometry(wadangR, wadangR, lipT, 8, 1);
+          const lip = new THREE.CylinderGeometry(wadangR, wadangR, lipT, 10, 1);
           lip.rotateX(Math.PI / 2);
           lip.translate(0, 0, lipT * 0.5);
-          const merged = mergeGeometries([drum.toNonIndexed(), lip.toNonIndexed()], false);
+          const heel = new THREE.BoxGeometry(heelW, coverTo, wadangT * 0.6);
+          heel.translate(0, 0.02 - coverTo / 2, -wadangT * 0.15);
+          const merged = mergeGeometries([drum.toNonIndexed(), lip.toNonIndexed(), heel.toNonIndexed()], false);
           geo = merged ?? lip;
         } else {
-          // 滴水:板瓦垄间,尖头下垂的舌片(四棱锥压扁)。
+          // 滴水:板瓦垄间,尖头下垂的舌片(四棱锥压扁),拉长到垂过缝底。
           geo = new THREE.ConeGeometry(dripR, dripH, 4, 1);
-          geo.rotateX(Math.PI / 2);
-          geo.rotateZ(Math.PI);
-          geo.scale(1, 1, 0.55);
-          geo.translate(0, -dripH * 0.32, wadangT * 0.15);
+          geo.rotateZ(Math.PI); // 尖朝下
+          geo.rotateY(Math.PI / 4); // 平面对外
+          geo.scale(1, 1, 0.5);
+          geo.translate(0, 0.02 - dripH / 2, 0.01);
         }
         geo.translate(x, y, z);
         geo.rotateY(e.rotY);

@@ -68,7 +68,7 @@ const SHOTS = [
    * 纹样在 1600×900 里是两个像素——等于不存在。下面五个各盯一个关键部位，
    * 评审一个回合只看它们加一张联络表(tools/shoot-part.mjs --sheet)，
    * 不看 14 张全景。带 group 的机位默认不拍，用 --group closeup 单独取。 */
-  { id: 'cu_gate_eave',    pos: [55, 0, 240.0],   yaw: 0.0,   pitch: 0.42,  group: 'closeup', desc: '贴脸·正门檐口:瓦当滴水与椽望的收头(用户反馈5「瓦与木架分层、无瓦当滴水」)。' },
+  { id: 'cu_gate_eave',    pos: [55, 0, 241.6],   yaw: 0.0,   pitch: 0.60,  group: 'closeup', desc: '贴脸·正门檐口:瓦当滴水与椽望的收头(用户反馈5「瓦与木架分层、无瓦当滴水」;单子 AJ3 重瞄到真檐口)。' },
   { id: 'cu_gate_plaque',  pos: [55, 0, 239.4],   yaw: 0.0,   pitch: 0.30,  group: 'closeup', desc: '贴脸·大观园匾:匾宽与当心间的关系(用户反馈10;第五档断言的取证机位)。' },
   { id: 'cu_baogushi',     pos: [53.3, 0, 238.4], yaw: -0.92, pitch: -0.28, group: 'closeup', desc: '贴脸·抱鼓石:须弥座/祥云托/鼓面螺旋纹与跨门槛落位(用户反馈1;单子 AJ2 改三段形制、鼓轴左右向)。' },
   { id: 'cu_wall_seam',    pos: [68.0, 0, 239.0], yaw: 1.35,  pitch: -0.08, group: 'closeup', desc: '贴脸·南墙接缝:六段粉墙相接处的墙脚与压顶(用户反馈3;名册侧接缝门报这里互插0.16~0.22m)。' },
