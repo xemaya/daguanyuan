@@ -40,17 +40,37 @@ import type { Provenance } from '@builder/derive/provenance';
  * 但这是形制取舍,两档对照图交用户裁定,默认 'default' = 素鼓。
  */
 
-/** 鼓的半剖:平背 → 鼓帮微鼓 → 平脸,绕 Y 车出鼓形再转 90°,让鼓轴沿 X
- * (鼓面朝两侧,一对石左右相对;旧版鼓轴沿 Z 朝内外,是"都面向门外")。 */
-function drumGeometry(R: number, T: number): THREE.BufferGeometry {
+/** 鼓面(平背那一圈)相对鼓径的半径比——与鼓帮车削剖面的起点对齐。 */
+const DRUM_FACE_R_RATIO = 0.6;
+
+/**
+ * 鼓面:平背那一圈,局部平面投影(沿鼓轴投)——AN2/AJ2 F-AJ-2:旧版整鼓走
+ * 一张 LatheGeometry,车削 UV 在平背上退化成极坐标(u=角度,v=半径),
+ * 各向异性的凿痕贴图一到平面就读成从鼓心放射的条纹。`CircleGeometry`
+ * 默认躺在 XY 平面、法线 +Z,UV 是 (x,y) 的笛卡尔投影(见 three.js 源码,
+ * 不是极坐标)——转个向让法线沿鼓轴(X)朝外,平面投影就天然贴对了鼓轴,
+ * 不会再读出放射纹。两面颜色/法线/粗糙度同一档(fine)。
+ */
+function drumFaceGeometry(rFace: number, outward: 1 | -1): THREE.BufferGeometry {
+  const g = new THREE.CircleGeometry(rFace, 32);
+  g.rotateY((outward * Math.PI) / 2);
+  return g;
+}
+
+/**
+ * 鼓帮:平背之外鼓起的那圈曲面,车削生成,轴沿 X(鼓面朝两侧,一对石左右
+ * 相对;旧版鼓轴沿 Z 朝内外,是"都面向门外")。剖面只剩鼓帮这一段(不再带
+ * 平背),车削默认 UV(u=绕轴角度分数、v=沿剖面弧长分数——"周向展开")
+ * 不再跨平背,不会再把半径线性映进 v。走 rough(看得出雕凿走向的立面)。
+ */
+function drumBarrelGeometry(R: number, T: number): THREE.BufferGeometry {
+  const rFace = R * DRUM_FACE_R_RATIO;
   const pts = [
-    new THREE.Vector2(0.001, -T / 2),
-    new THREE.Vector2(R * 0.6, -T / 2),
+    new THREE.Vector2(rFace, -T / 2),
     new THREE.Vector2(R * 0.94, -T * 0.42),
     new THREE.Vector2(R, 0),
     new THREE.Vector2(R * 0.94, T * 0.42),
-    new THREE.Vector2(R * 0.6, T / 2),
-    new THREE.Vector2(0.001, T / 2),
+    new THREE.Vector2(rFace, T / 2),
   ];
   const g = new THREE.LatheGeometry(pts, 22);
   g.rotateZ(Math.PI / 2); // 鼓轴从 Y 转到 X:鼓面朝门的左右两侧
@@ -92,7 +112,11 @@ export { BAOGUSHI_DRUM_T_M, BAOGUSHI_DRUM_R_M, BAOGUSHI_DRUM_Z_M };
 export type BaogushiTopping = 'none' | 'beast';
 
 export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
+  // AN2:白石两档——鼓帮(周向鼓起、看得出雕凿)与须弥座束腰用 rough,
+  // 其余(门枕、圭角、下枋、莲瓣、上枋、锦铺、鼓面、鼓钉、螺旋纹、祥云托、
+  // 兽)都是 fine(默认档)。
   const stone = whiteStoneMaterial(1);
+  const stoneRough = whiteStoneMaterial(1, 'rough');
   const g = new THREE.Group();
   g.name = 'Baogushi';
 
@@ -100,8 +124,8 @@ export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
   const drumT = BAOGUSHI_DRUM_T_M;
   const drumZ = BAOGUSHI_DRUM_Z_M;
 
-  const add = (geo: THREE.BufferGeometry, x: number, y: number, z: number) => {
-    const m = new THREE.Mesh(geo, stone);
+  const add = (geo: THREE.BufferGeometry, x: number, y: number, z: number, mat: THREE.Material = stone) => {
+    const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, z);
     m.castShadow = true;
     m.receiveShadow = true;
@@ -122,8 +146,8 @@ export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
   add(roundedBox(0.56, 0.07, 0.84, 0.015, 1), 0, 0.035, drumZ);
   // 下枋:收进。
   add(roundedBox(0.34, 0.04, 0.72, 0.012, 1), 0, 0.09, drumZ);
-  // 束腰:再收,是须弥座的"腰"。
-  add(roundedBox(0.29, 0.09, 0.62, 0.01, 1), 0, 0.155, drumZ);
+  // 束腰:再收,是须弥座的"腰"(AN2:雕凿感最强的一层,走 rough)。
+  add(roundedBox(0.29, 0.09, 0.62, 0.01, 1), 0, 0.155, drumZ, stoneRough);
   // 仰莲瓣一圈(考据:须弥座一般刻莲花):花瓣尖朝上,托住上枋。
   {
     const petalGeo = new THREE.ConeGeometry(0.03, 0.085, 4, 1);
@@ -159,7 +183,10 @@ export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
 
   /* ---- 鼓(三段之顶,考据:竖立的鼓) ------------------------------------ */
   const drumY = 0.25 + drumR - 0.06; // 鼓帮沉进锦铺 0.06,整石不悬空
-  add(drumGeometry(drumR, drumT), 0, drumY, drumZ);
+  const drumFaceR = drumR * DRUM_FACE_R_RATIO;
+  add(drumFaceGeometry(drumFaceR, 1), drumT / 2, drumY, drumZ, stone);
+  add(drumFaceGeometry(drumFaceR, -1), -drumT / 2, drumY, drumZ, stone);
+  add(drumBarrelGeometry(drumR, drumT), 0, drumY, drumZ, stoneRough);
 
   // 鼓钉:每脸各一圈十四颗,紧贴鼓面外缘(D6:钉小、密、只沿边缘一圈,
   // 鼓心留素面,才读成"钉"不是散点——第一轮改对的一步,保留)。

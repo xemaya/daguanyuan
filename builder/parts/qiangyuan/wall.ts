@@ -174,8 +174,11 @@ function extrudeSolid(outline: P2[], holes: P2[][], thickness: number, bevel: nu
 }
 
 /**
- * 按法线主轴投影 UV。竖直面 v 从 y0 起按 h 归一(粉墙贴图 v=0 是泛潮的墙脚),
- * u 按 uScale 米一个 repeat;水平面按 h 平铺。
+ * 按法线主轴投影 UV。竖直面 v 从 y0 起按 h 归一,u 按 uScale 米一个 repeat;
+ * 水平面按 h 平铺。`flipV`:CanvasTexture flipY 让烤图第 0 行落在 uv v=1,
+ * 貼图内容若认「第 0 行在某一端」就要配这个开关——AN2 起粉墙贴图不再带
+ * 方向性内容(潮渍已搬到顶点色,见 bakeDampGradient),这里仅剩历史选值,
+ * 不影响正确性。
  */
 function projectUV(geo: THREE.BufferGeometry, y0: number, h: number, uScale: number, flipV = false): void {
   const pos = geo.attributes.position as THREE.BufferAttribute;
@@ -667,15 +670,32 @@ export function gexinGeometry(sub: string, w: number, h: number, bar: number, se
 /* 装配                                                                */
 /* ------------------------------------------------------------------ */
 
-/** 顶点色:yFoot 处是潮渍色,yDry 以上纯白;中间线性(保证大三角形上插值不走样)。 */
-function bakeDampGradient(geo: THREE.BufferGeometry, yFoot: number, yDry: number): void {
+/**
+ * 潮渍高度(单子 AN2):原先烤在 `plasterMaps` 贴图的 v 里,`projectUV` 又把 v
+ * 按整段墙高(BODY_TOP)铺一次——同一条 smoothstep 软边不管这段墙 2.4m 还是
+ * 8m 都出现在固定的高度**比例**上,跟 repeat 撞车,还查不清是不是白墙横色带
+ * 的根(见 buildWall 里的排查记录)。改成只认**构件局部高度**(`bodyGeo` 的
+ * y 本来就是 0=墙脚,不需要再传 yFoot/yDry):0→DAMP_FADE_M 线性退到干净,
+ * 与这段墙多高、贴图 repeat 多少都无关。
+ */
+const DAMP_FADE_M = 0.45; // 墙脚起潮到退干净的高度
+const DAMP_JITTER_M = 0.12; // 退干净高度的抖动幅度——潮痕不是一条直线
+
+/** 顶点色:局部 y=0(墙脚)是潮渍色,DAMP_FADE_M(±沿墙走向的低频抖动)以上
+ *  退净;中间线性(保证大三角形上插值不走样)。 */
+function bakeDampGradient(geo: THREE.BufferGeometry, seed = 4409): void {
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const col = new Float32Array(pos.count * 3);
   const stain = new THREE.Color(CN.plasterStain);
   const base = new THREE.Color(CN.plaster);
   const tint = new THREE.Color(stain.r / base.r, stain.g / base.g, stain.b / base.b);
+  const simplex = new Simplex(seed);
   for (let i = 0; i < pos.count; i++) {
-    const t = clamp((pos.getY(i) - yFoot) / (yDry - yFoot), 0, 1);
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    // 沿墙走向(x)叠一路低频噪声,退干净的高度线不是死直线。
+    const fade = Math.max(0.08, DAMP_FADE_M + fbm2(simplex, x * 0.55 + 2.7, 9.1, 3) * DAMP_JITTER_M);
+    const t = clamp(y / fade, 0, 1);
     const k = 1 - t; // 墙脚 1 → 干处 0
     col[i * 3] = lerp(1, tint.r, k);
     col[i * 3 + 1] = lerp(1, tint.g, k);
@@ -770,10 +790,11 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
       : roundedRect(-hl + BEVEL, BEVEL, hl - BEVEL, BODY_TOP - BEVEL, 0.025, 5);
   const bodyGeo = extrudeSolid(bodyOutline, bodyHoles, THICK, BEVEL, 3);
   projectUV(bodyGeo, 0.0, BODY_TOP, 2.6, true);
-  // 棚拍的 key 光把 #f1ece2 推进 ACES 肩部,贴图里 8% 的潮渍差被压到看不见。
-  // 用顶点色给墙脚压一层 泛潮(§3 #b9b2a3)向上渐淡:只是 y 的线性函数,
-  // 在任何三角剖分上插值都精确,不需要加密网格。
-  bakeDampGradient(bodyGeo, 0.35, 1.9);
+  // 潮渍全靠顶点色(泛潮 §3 #b9b2a3 向上渐淡,见 bakeDampGradient);
+  // 贴图(materials.ts 的 plasterMaps)自 AN2 起不再带潮渍,两套各管一段,
+  // 不会互相打架。y 是构件局部高度上的分段线性函数,在任何三角剖分上
+  // 插值都精确,不需要加密网格。
+  bakeDampGradient(bodyGeo);
   group.add(shadowed(new THREE.Mesh(bodyGeo, plaster)));
 
   /* --- 虎皮石墙脚 + 石礓("下面虎皮石,隨勢砌去",07-02) --- */

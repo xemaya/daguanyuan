@@ -98,7 +98,10 @@ function gridPitch(len: number): number {
 
 export function buildForecourtTerrace(spec: ForecourtTerraceSpec): PartBuild {
   const { halfX: platHX, halfZ: platHZ, platH } = spec;
+  // AN2:陡板石是立面、看得出逐块竖砌的凿痕,走 rough;阶条/面层/土衬/西番草
+  // 是压顶的平面或浅浮雕,走 fine(默认档)。
   const plinth = whiteStoneMaterial(1);
+  const plinthRough = whiteStoneMaterial(1, 'rough');
   // 缝后的垫层(核心砌体):比白石面暗一档的灰石色——缝的对比度刻意压住,
   // 走近才读得出是砌缝(§10「近看工、中看色、远看形」)。
   const bedding = new THREE.MeshStandardMaterial({ color: 0x8f8a7c, roughness: 1, metalness: 0 });
@@ -141,14 +144,14 @@ export function buildForecourtTerrace(spec: ForecourtTerraceSpec): PartBuild {
   for (const [a, b] of blocksOnGrid(-faceHX, faceHX, gridX0, pitchX)) {
     const w = b - a;
     const x = (a + b) / 2;
-    add(roundedBox(w, doubanH, FACE_T, 0.008, 1), plinth, x, doubanY, platHZ + FACE_T / 2);
-    add(roundedBox(w, doubanH, FACE_T, 0.008, 1), plinth, x, doubanY, -platHZ - FACE_T / 2);
+    add(roundedBox(w, doubanH, FACE_T, 0.008, 1), plinthRough, x, doubanY, platHZ + FACE_T / 2);
+    add(roundedBox(w, doubanH, FACE_T, 0.008, 1), plinthRough, x, doubanY, -platHZ - FACE_T / 2);
   }
   for (const [a, b] of blocksOnGrid(-platHZ, platHZ, gridZ0, pitchZ)) {
     const w = b - a;
     const z = (a + b) / 2;
-    add(roundedBox(FACE_T, doubanH, w, 0.008, 1), plinth, platHX + FACE_T / 2, doubanY, z);
-    add(roundedBox(FACE_T, doubanH, w, 0.008, 1), plinth, -platHX - FACE_T / 2, doubanY, z);
+    add(roundedBox(FACE_T, doubanH, w, 0.008, 1), plinthRough, platHX + FACE_T / 2, doubanY, z);
+    add(roundedBox(FACE_T, doubanH, w, 0.008, 1), plinthRough, -platHX - FACE_T / 2, doubanY, z);
   }
 
   // ③ 阶条石:顶边一圈长条石,逐块铺,缝线沿用陡板同一张网格;

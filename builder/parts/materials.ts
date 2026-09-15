@@ -76,7 +76,12 @@ function memo<T extends THREE.Material>(key: string, make: () => T): T {
 /* 粉墙                                                                */
 /* ------------------------------------------------------------------ */
 
-/** 石灰粉墙:细砂质感 + 低处泛潮的水渍 + 偶尔的裂缝。 */
+/**
+ * 石灰粉墙:细砂质感 + 偶尔的裂缝。**不带潮渍**(单子 AN2——潮渍原先烤在
+ * 贴图 v 里,`wall.ts` 的 `projectUV` 又把 v 按整段墙高铺一次,`smoothstep`
+ * 在墙高固定比例处出一条与 repeat 无关的软边,是潇湘馆白墙横色带头号
+ * 嫌疑;潮渍改由 `wall.ts` 按构件局部高度写顶点色,与这张贴图脱钩)。
+ */
 export function plasterMaps(size = 1024): MaterialMaps {
   const h = (u: number, v: number) => {
     const grain = tileableFbm(NOISE.paint, u, v, 120, 3);
@@ -88,12 +93,10 @@ export function plasterMaps(size = 1024): MaterialMaps {
       bakeColorMap({
         size,
         color: (u, v) => {
-          // v=0 是墙脚:潮渍从下往上淡出。
-          const damp = smoothstep(0.42, 0.0, v) * (0.55 + tileableFbm(NOISE.soil, u, v, 5, 3) * 0.45);
           const wear = tileableFbm(NOISE.paint, u, v, 6, 4) * 0.5 + 0.5;
           const base = mixHex(CN.plaster, 0xffffff, 0.15 * (h(u, v) - 0.5));
           const stain = hexToRgb(CN.plasterStain);
-          const t = clamp(damp * 0.6 + (1 - wear) * 0.12, 0, 0.7);
+          const t = clamp((1 - wear) * 0.12, 0, 0.7);
           return [lerp(base[0], stain[0], t), lerp(base[1], stain[1], t), lerp(base[2], stain[2], t)];
         },
       }),
@@ -247,12 +250,29 @@ export function woodMaterial(tint: number = CN.wood, repeat = 1): THREE.MeshPhys
 /* 石                                                                  */
 /* ------------------------------------------------------------------ */
 
-/** 青石:细密的凿痕 + 风化斑。台基、栏杆、驳岸、桥。 */
+/**
+ * 石类贴图的三档尺度(单子 AN2,白石/青石共用同一套约定):
+ *
+ *   - **米级色块**:`mixHex(暗,亮,h)` 的整体明暗分布——贴图在 `repeat=1` 且
+ *     几何 UV 走 `boxProjectedUV`/`projectUV`(1 UV 单位=1 米)时,一张贴图
+ *     覆盖约 1 米见方(调用方常传 `repeat>1` 把它压到几十厘米一格,见各
+ *     construct site 的 `repeat`/`uScale`)。
+ *   - **厘米级加工**:`chisel`(凿痕/刨子纹,`tileableFbm` 频率 50、u:v 拉伸
+ *     比不同档不同)与 `pit`(疏密点蚀,频率 18)——在 1 米贴图里分别是
+ *     约 2cm、5.5cm 一个周期,是"看得出工具走向"的那一层。
+ *   - **毫米级微表面**:`bakeNormalMap` 的 `strength`(无量纲,乘在 Sobel
+ *     斜率上)——数值越大,同一高度场读出的法线扰动越猛,视觉上对应几毫米
+ *     级的粗糙感;白石 fine 档把它降到粗档的 1/3(见 `whiteStoneMaps`)。
+ */
+
+/** 青石:细密的凿痕 + 风化斑。台基、栏杆、驳岸、桥。
+ *  AN2:凿痕(chisel)幅度降一档——踏面「大面平整」,不该处处是刨子纹;
+ *  疏密点蚀(pit)与苔斑不动。不做边缘圆磨(那是几何倒角的事,不归贴图管)。 */
 export function stoneMaps(size = 1024): MaterialMaps {
   const h = (u: number, v: number) => {
     const chisel = tileableFbm(NOISE.stone, u * 5, v * 0.4, 50, 3);
     const pit = tileableFbm(NOISE.stone, u + 3, v, 18, 4);
-    return clamp(0.5 + chisel * 0.16 + pit * 0.2, 0, 1);
+    return clamp(0.5 + chisel * 0.1 + pit * 0.2, 0, 1);
   };
   return {
     map: cached(recipeKey('cn.stone.albedo', size), () =>
@@ -288,15 +308,31 @@ export function stoneMaterial(repeat = 1, vertexColors = false): THREE.MeshStand
   });
 }
 
-/** 白石:与青石同一套凿痕高度场,色换成暖白(07-01「白石台磯」),不带青石的苔斑。 */
-export function whiteStoneMaps(size = 1024): MaterialMaps {
+/**
+ * 白石:色换成暖白(07-01「白石台磯」),不带青石的苔斑。两档加工尺度
+ * (单子 AN2,codex 评审 §3.1——白石与青石此前共用同一套各向异性凿痕,
+ * 鼓面、台面、阶条石全读成刨子纹):
+ *
+ *   - **fine(细磨面,默认)**:各向同性弱颗粒——`chisel`/`pit` 的 u/v 采样
+ *     频率相同(不拉伸),不留方向性刀痕;法线幅度是 rough 档的 1/3;
+ *     粗糙度压平到 0.55 一档(细磨面反光均匀,不该像粗石那样随高度起伏)。
+ *     全仓不传 `finish` 的既有调用(`building.ts` 台基、`forecourt-terrace.ts`
+ *     面层与阶条)自动吃到这一档。
+ *   - **rough(粗档)**:保留旧的各向异性凿痕参数不变,给鼓帮、须弥座束腰、
+ *     台矶陡板这类"看得出砌筑/雕凿走向"的立面。
+ */
+export function whiteStoneMaps(size = 1024, finish: 'fine' | 'rough' = 'fine'): MaterialMaps {
+  const rough = finish === 'rough';
   const h = (u: number, v: number) => {
-    const chisel = tileableFbm(NOISE.stone, u * 5, v * 0.4, 50, 3);
+    const chisel = rough
+      ? tileableFbm(NOISE.stone, u * 5, v * 0.4, 50, 3)
+      : tileableFbm(NOISE.stone, u * 2.4, v * 2.4, 40, 3);
     const pit = tileableFbm(NOISE.stone, u + 3, v, 18, 4);
-    return clamp(0.5 + chisel * 0.13 + pit * 0.14, 0, 1);
+    return clamp(0.5 + chisel * (rough ? 0.13 : 0.045) + pit * (rough ? 0.14 : 0.05), 0, 1);
   };
+  const normalStrength = rough ? 1.6 : 1.6 / 3;
   return {
-    map: cached(recipeKey('cn.whiteStone.albedo', size), () =>
+    map: cached(recipeKey(`cn.whiteStone.${finish}.albedo`, size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -306,14 +342,18 @@ export function whiteStoneMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached(recipeKey('cn.whiteStone.normal', size, 1.6), () => bakeNormalMap({ size, height: h }, 1.6)),
-    roughnessMap: cached(recipeKey('cn.whiteStone.rough', 512), () => bakeScalarMap(512, (u, v) => 0.74 + h(u, v) * 0.16)),
+    normalMap: cached(recipeKey(`cn.whiteStone.${finish}.normal`, size, normalStrength), () =>
+      bakeNormalMap({ size, height: h }, normalStrength),
+    ),
+    roughnessMap: cached(recipeKey(`cn.whiteStone.${finish}.rough`, 512), () =>
+      bakeScalarMap(512, (u, v) => (rough ? 0.74 + h(u, v) * 0.16 : 0.55 + (h(u, v) - 0.5) * 0.06)),
+    ),
   };
 }
 
-export function whiteStoneMaterial(repeat = 1): THREE.MeshStandardMaterial {
-  return memo(`whiteStone:${repeat}`, () => {
-    const m = whiteStoneMaps();
+export function whiteStoneMaterial(repeat = 1, finish: 'fine' | 'rough' = 'fine'): THREE.MeshStandardMaterial {
+  return memo(`whiteStone:${repeat}:${finish}`, () => {
+    const m = whiteStoneMaps(1024, finish);
     const mat = new THREE.MeshStandardMaterial({
       map: m.map,
       normalMap: m.normalMap,
