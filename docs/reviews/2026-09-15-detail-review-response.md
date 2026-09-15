@@ -73,10 +73,11 @@ AO/AP 过了之后：
 
 | 单 | 文件 | 状态 |
 |---|---|---|
-| AK | `docs/superpowers/plans/2026-09-15-ak-perf-baseline.md` | 已写 |
-| AJ2 补充 | 已并进 `docs/superpowers/plans/2026-09-15-aj-gate-refine.md` AJ2 节 | 已写 |
-| AN | `docs/superpowers/plans/2026-09-15-an-see-detail-first.md` | 已写（AN1 现在可派，AN2 等 AJ） |
-| AQ-a | `docs/superpowers/plans/2026-09-15-aq-pipeline-small-fixes.md` | 已写 |
+| AK | `docs/superpowers/plans/2026-09-15-ak-perf-baseline.md` | **已合回 `editor`**（`58579a54`，worktree `dgy-ak`） |
+| AJ2 补充 | 已并进 `docs/superpowers/plans/2026-09-15-aj-gate-refine.md` AJ2 节 | 已写，随 AJ2 走 |
+| AN1 | `docs/superpowers/plans/2026-09-15-an-see-detail-first.md` | **已合回 `editor`**（`ef4d9f9e`，worktree `dgy-an`）——默认值一个未改，对照图与建议档在回报里，等用户看图定档 |
+| AN2 | 同上 | 未派，等 AJ2 / AJ3 合回 |
+| AQ-a | `docs/superpowers/plans/2026-09-15-aq-pipeline-small-fixes.md` | **已合回 `editor`**（`3ede9b34`，worktree `dgy-aq`）——5 处合并前计数已量出，`P-23` 记了 `merge.ts` `keep` 路径的位移翻倍坑，留给 AQ-b |
 | AO / AP / AQ-b / AR | 等 AJ 合回后按落地的代码写，避免对着正在变的文件开单 | 未写 |
 
 ## 5. 记进坑与规矩的

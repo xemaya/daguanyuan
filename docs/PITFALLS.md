@@ -6,6 +6,30 @@
 
 ---
 
+## P-23 `merge.ts` 的 `keep` 保留路径对已挂在单位根下的 mesh 会把位移翻倍
+
+**背景**：单子 AQ-a 改 `mergeByMaterial` 的分桶逻辑时，顺手核了一下未改动的
+`keep`（不参与合并、原样保留）分支——`clone.applyMatrix4(k.matrixWorld)`。
+
+**症状（直接测试复现）**：一个 `position.x = 5` 的 mesh，父节点是单位矩阵的根，
+`matrixWorld` 因此也是 `x=5` 的平移。`clone()` 出来的对象**已经带着这个局部
+`x=5`**；再对它 `applyMatrix4(matrixWorld)` 相当于再平移一次 `x=5`——
+输出对象最终 `position.x = 10`，位移翻倍。
+
+**根因**：`clone()` 复制了 `position/quaternion/scale`（局部变换），
+`applyMatrix4` 是在此基础上**再叠加**一次世界矩阵，而不是"把局部变换替换成
+世界变换"。正确做法要么 `clone()` 后先 `matrix.identity()` / 清空局部变换
+再 `applyMatrix4`，要么直接用 `matrixWorld.decompose()` 写回
+`position/quaternion/scale`。
+
+**现状**：这条路径本单**没有改、也没有修**——它不在 AQ-a2 的文件域改动范围内
+（AQ-a2 只碰属性分桶，不碰变换）。只在这里记一笔：**AQ-b 重写「构件交原型+
+摆放」时会正面碰到这条 `keep` 路径，动它之前先读这条，不要重复踩*。谁先在
+实际场景里触发这条路径（构件树里有 mesh 被判定为"不参与合并、原样保留"且
+父节点不是单位矩阵根）导致可见错位，也是这条坑在生效，别当成新 bug 现查一遍。
+
+---
+
 ## P-22 三次连拍的「噪声」没有复现——82k 那次大概率不是读数抖动
 
 **背景**：标准动作第 8 条记着「同一份代码两次量 `mound_block` 差过 82k（2%）」，
