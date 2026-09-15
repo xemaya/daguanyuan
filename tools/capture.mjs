@@ -254,19 +254,35 @@ await freezeGame();
  * Doing one dry, unmeasured pass over the exact same positions first pays
  * that one-time compile cost before any fps number is read.
  */
+
+/**
+ * Teleport and wait until the player has actually settled on whatever they are
+ * standing on. P-25: with only two manual updates the player on a cold server
+ * lands at the outdoor ground height *under* a platform (the 台基 walk surface
+ * has not claimed them yet), and a close-up framed at a 绦环板 comes back
+ * pointing at the 槛墙 0.75 m lower. Structure numbers cannot see this. So:
+ * step the controller until |Δy| < 1e-4 for 5 consecutive updates (cap 120).
+ */
+const SETTLE_SNIPPET = ({ pos, yaw, pitch }) => {
+  const g = window.__GAME__;
+  const T = g.THREE;
+  g.player.teleport(new T.Vector3(pos[0], pos[1], pos[2]), yaw);
+  g.player.state.pitch = pitch;
+  let stable = 0;
+  let last = g.player.state.position.y;
+  for (let i = 0; i < 120 && stable < 5; i++) {
+    g.player.update(1 / 60);
+    const y = g.player.state.position.y;
+    stable = Math.abs(y - last) < 1e-4 ? stable + 1 : 0;
+    last = y;
+  }
+  g.player.state.pitch = pitch;
+  return { settledY: last, cameraY: g.engine.camera.position.y };
+};
+
 const warmupStart = Date.now();
 for (const shot of selected) {
-  await page.evaluate(
-    ({ pos, yaw, pitch }) => {
-      const g = window.__GAME__;
-      const T = g.THREE;
-      g.player.teleport(new T.Vector3(pos[0], pos[1], pos[2]), yaw);
-      g.player.state.pitch = pitch;
-      g.player.update(1 / 60);
-      g.player.update(1 / 60);
-    },
-    shot,
-  );
+  await page.evaluate(SETTLE_SNIPPET, shot);
   await page.evaluate(
     () => new Promise((res) => { let n = 0; const s = () => (++n >= 8 ? res() : requestAnimationFrame(s)); requestAnimationFrame(s); }),
   );
@@ -293,19 +309,7 @@ async function waitForGame(timeout = 90000) {
  */
 async function captureShot(shot, attempt = 0) {
   try {
-    await page.evaluate(
-      ({ pos, yaw, pitch }) => {
-        const g = window.__GAME__;
-        const T = g.THREE;
-        g.player.teleport(new T.Vector3(pos[0], pos[1], pos[2]), yaw);
-        g.player.state.pitch = pitch;
-        // Two manual updates: one to apply the transform, one to let any
-        // per-frame smoothing settle onto the new pose.
-        g.player.update(1 / 60);
-        g.player.update(1 / 60);
-      },
-      shot,
-    );
+    await page.evaluate(SETTLE_SNIPPET, shot);
 
     if (shot.stage && STAGES[shot.stage]) {
       // Settle BEFORE staging. A teleport into the lab lands the player at the
@@ -350,6 +354,7 @@ async function captureShot(shot, attempt = 0) {
       const info = g.engine.renderer.info;
       return {
         fps: Math.round(g.engine.fps),
+        cameraY: Number(g.engine.camera.position.y.toFixed(3)),
         drawCalls: info.render.drawCalls ?? info.render.calls,
         renderer: g.engine.backend ?? 'webgl-legacy',
         statisticsVersion: g.engine.statisticsVersion ?? 1,

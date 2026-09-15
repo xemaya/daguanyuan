@@ -68,11 +68,6 @@ const ALLOW = [
     path: 'builder/parts/shishan/baishi.ts',
     why: '单子 AM 提议的白石峰构件落点(也可能落在 taihu.ts 里),落地前不存在',
   },
-  ...['builder/parts/ornament/tiaohuan-band.ts', 'tests/ornament-tiaohuan.test.mjs'].map((p) => ({
-    file: 'docs/superpowers/plans/2026-09-15-as-tiaohuan-relief.md',
-    path: p,
-    why: '单子 AS 的待建产物,落地前不存在',
-  })),
   ...['engine/core/look.ts', 'looks/default.json', 'scenes/daoxiangcun.json'].map((p) => ({
     file: 'docs/superpowers/specs/2026-09-14-scale-architecture-design.md',
     path: p,
@@ -224,7 +219,9 @@ function checkToken(raw, mdFile) {
   // 它们在**新克隆的仓库里根本不存在**,所以拿它们当"失效引用"是假阳性
   // ——2026-09-12 在隔离 worktree 里验单子 N 时当场撞到:六道门只有这一道红,
   // 红的却不是被验的那个提交,是门自己。
-  if (/^(shots|dist|node_modules)\//.test(token)) return;
+  // artifacts/ 是 WG 那条线的构建产物(artifacts/wg-current/dist/),主检出里有、新 clone 与 worktree 里没有
+  // ——2026-09-15 单子 AS 在 /private/tmp/dgy-as 里九道门只有这一道红,红的是门自己(as-findings §3)。
+  if (/^(shots|dist|node_modules|artifacts)\//.test(token)) return;
   const rel = relative(ROOT, mdFile);
   const fileWhy = fileAllow.get(rel);
   if (fileWhy) return exempt(rel, token, fileWhy);

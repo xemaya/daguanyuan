@@ -1593,9 +1593,16 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
          * 分档条件写成"离门道最近的两扇",不是写死扇号:开间数或每间扇数一改,
          * 分到的仍然是门道旁边那几扇。**AQ-b 会把它换成按距离分档**,所以两种
          * 表示除了 mesh 以外完全同构(同一条带、同一个落位)。 */
+        /* 2026-09-15 验收人按 D-27 自己那条规矩收回几何版:正门是门屋 + 槛窗,
+         * 绦环板带心被抬到 2.64m(台基 0.75 + 槛墙 1.17 + 板心),高过人眼 1m,
+         * 站距怎么调带子都只有 51px(as-findings §1)——低于 §10「< 60px 不放具象
+         * 雕刻」那条线;而且深檐漫射光下 6mm 几何版读不过 512² 贴图版(P-26)。
+         * 所以正门全部走贴图版;分档机制原样留着(GATE_TIAOHUAN_GEO 打开即恢复),
+         * AQ-b2 要在潇湘馆当心间那 8 扇(带心 1.46m)上重新量几何版值不值。 */
+        const GATE_TIAOHUAN_GEO = false;
         const nearGate: TiaohuanMode[] = [];
         for (let k = 0; k < n; k++) {
-          const nearDoor = gatehouse
+          const nearDoor = GATE_TIAOHUAN_GEO && gatehouse
             && ((i - 1 === centerBay - 1 && k >= n - 2) || (i - 1 === centerBay + 1 && k <= 1));
           nearGate.push(nearDoor ? 'geo' : 'tex');
         }
