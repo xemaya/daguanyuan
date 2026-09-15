@@ -154,3 +154,11 @@ AN1 就是这么丢的。→ 标准动作第 2 条补：**回报里引用的图�
 | **AO** 西番草浮雕样件 | `docs/superpowers/plans/2026-09-15-ao-scroll-relief-sample.md` | **AN2 合回之后** | 新 `builder/parts/ornament/` + `forecourt-terrace.ts` 西番草段；浮雕要坐在 AN2 的细磨白石上 |
 
 AO / AP 过了之后是 AQ-b（原型 + 实例化 + 三档 LOD，`gate_approach` 35 fps 也归它追）。
+
+## 8. AN1 定档（2026-09-15 晚，用户授权验收人定）
+
+用户拍板素鼓（默认，无改动）；颗粒与 AO 档位由验收人定，见 **`D-26`**：GTAO 半径 2.4 → 1.0、强度 1.15 → 0.7、颗粒 0.016 → 0.008。
+加了 `?aoradius=` 开关（与 `?aoscale` 同款只读）。
+
+**一个坑（自己踩的）**：§6 那张表的「默认」是在 AQ-a 提交上拍的，AJ2/AJ3 之后 `cu_baogushi` / `cu_gate_eave` 机位挪了，
+默认与新档之间的数**不可比**；重拍 HEAD 默认后才定档（`shots/an1-tier/head-default` vs `final`）。**定档的表以 D-26 为准。**

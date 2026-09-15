@@ -85,6 +85,8 @@ export class PostFX {
   private aoOverride = ((v: string | null) => v === 'off' ? false : v === 'on' ? true : null)(new URLSearchParams(location.search).get('ao'));
   /** ?aoscale=<x> replaces the GTAO node's fixed `scale.value` (default 1.15). */
   private aoScaleOverride = ((v: string | null) => { const n = v !== null ? Number(v) : NaN; return Number.isFinite(n) ? n : null; })(new URLSearchParams(location.search).get('aoscale'));
+  /** ?aoradius=<m> replaces the GTAO node's sample radius (default 2.4 m). 验收 AN1 定档时加,同 aoscale 一样只读。 */
+  private aoRadiusOverride = ((v: string | null) => { const n = v !== null ? Number(v) : NaN; return Number.isFinite(n) && n > 0 ? n : null; })(new URLSearchParams(location.search).get('aoradius'));
   private fogCells = { density: { value: 0 }, color: { value: new THREE.Vector3(1, 1, 1) } };
   // Camera state frozen into cells every frame: live camera accessor nodes
   // (cameraWorldMatrix & co.) follow whichever camera the renderer is
@@ -103,7 +105,9 @@ export class PostFX {
     liftShadow: new THREE.Color(0.018, 0.032, 0.066),
     gainHighlight: new THREE.Color(1.035, 1.005, 0.955),
     vignette: 0.32,
-    grain: 0.016,
+    // 2026-09-15 D-26:0.016 → 0.008。颗粒加在线性域、sRGB 之前,gamma 把暗部放大;
+    // 实测三镜暗部高频 σ 降约 1.1~1.3 色阶,肉眼几乎不觉。全关不取——它是 look 的一部分(D-02)。
+    grain: 0.008,
     // Cut from 0.0014. At the old strength the fringing was plainly visible as
     // magenta and cyan doubled edges on high-contrast boundaries — roof eaves
     // against sky, leaves against sky — which reads as a rendering fault rather
@@ -167,8 +171,10 @@ export class PostFX {
     this.activeEffects=['scene'];
     if(ssaoOn){
       const gtao=ao(scenePass.getTextureNode('depth'),scenePass.getTextureNode('normal'),this.engine.camera);
-      gtao.resolutionScale=0.5;gtao.radius.value=2.4;gtao.thickness.value=1.4;
-      gtao.distanceExponent.value=1.2;gtao.distanceFallOff.value=1;gtao.scale.value=this.aoScaleOverride??1.15;
+      // 2026-09-15 D-26:radius 2.4 → 1.0、scale 1.15 → 0.7。2.4 m 对檐下 5 cm 级的分件太粗,整片檐下压成一团;
+      // 实测(HEAD 同机位)cu_gate_eave 均亮 68.9 → 72.0、暗部占比 59% → 57%;r0.6 与 r1.0 无可测差别,取 1.0。
+      gtao.resolutionScale=0.5;gtao.radius.value=this.aoRadiusOverride??1.0;gtao.thickness.value=1.4;
+      gtao.distanceExponent.value=1.2;gtao.distanceFallOff.value=1;gtao.scale.value=this.aoScaleOverride??0.7;
       this.resources.push(gtao);this.activeEffects.push('ao');
       const smoothAO=denoise(gtao.getTextureNode(),scenePass.getTextureNode('depth'),scenePass.getTextureNode('normal'),this.engine.camera);
       smoothAO.lumaPhi.value=10;smoothAO.depthPhi.value=2;smoothAO.normalPhi.value=3;
