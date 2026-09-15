@@ -135,6 +135,9 @@ export function auditRosterSeams(roster) {
     chains.get(key).push({ ...r, yaw });
   }
   const seams = [], fails = [];
+  // 候选数单独回报:0 对可能是「全都连成一条了」(好),也可能是「分类条件把该查的
+  // 都筛掉了」(坏)。只报 0 对分不出这两种,报了候选数就分得出。
+  const candidates = [...chains.values()].reduce((n, v) => n + v.length, 0);
   for (const [key, items] of chains) {
     if (items.length < 2) continue;
     const yaw = items[0].yaw;
@@ -156,7 +159,7 @@ export function auditRosterSeams(roster) {
       if (dElev > CHAIN_ELEV_TOL) fails.push(`${a.part} ${a.variant}→${b.variant} 标高差 ${dElev.toFixed(3)}m（@ x≈${a.position[0].toFixed(1)}）`);
     }
   }
-  return { seams, fails };
+  return { seams, fails, candidates };
 }
 
 const loadManifest = (d) => JSON.parse(readFileSync(join(resolve(d), 'manifest.json'), 'utf8'));
@@ -205,8 +208,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.log(`  插  ${`${h.part}:${h.variant}`.padEnd(22)} 陷进 ${h.wall} ${h.depth.toFixed(2)}m（@ ${h.position[0].toFixed(1)}, ${h.position[2].toFixed(1)}）`);
 
     const rs = auditRosterSeams(loadManifest(dir).constructions);
-    console.log(`\n接缝(名册侧，成链构件 ${rs.seams.length} 对)  ${rs.fails.length} 处`);
+    console.log(`\n接缝(名册侧，候选细长件 ${rs.candidates} 件，成链 ${rs.seams.length} 对)  ${rs.fails.length} 处`);
     for (const f of rs.fails) console.log(`  缝  ${f}`);
+    /* ⚠️ 0 对与「比过且干净」不是一回事。2026-09-15 单子 AI2 把正门六段墙
+     * 换成一条连续 wall-path 之后，已建四区里再没有分段拼接的成链构件——
+     * 这道门**当前没有守卫对象**。它仍然活着（谁再堆分段墙它照样找得到），
+     * 但绿是"没东西可查"的绿，读的人必须知道。 */
+    if (rs.seams.length === 0)
+      console.log(`      ⚠ 没有可比的相邻件对——这道门当前无守卫对象，绿不等于"比过且干净"`);
 
     /* 单子 AA 的判据(spec §3)：**区从 4 开到 19，splat cm/texel 与地形 CELL 不许变差。**
      * 基线里记着这两个数;区数涨了它们还得一样,不然就是拿精度换面积——

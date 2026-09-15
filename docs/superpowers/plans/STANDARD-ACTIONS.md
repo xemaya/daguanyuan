@@ -37,6 +37,13 @@
 7. **`npm run check:all` 全过**（现在九道门 + 测试），**改了几何或观感的还要
    `node tools/playtest.mjs --url <你的URL>/garden.html` PASS。**
 
+   `playtest` **默认就记脚下序列**并写 `shots/playtest-surfaces.json`（2026-09-15 改，
+   原先在 `--surfaces` 后面）。**动了地面、铺装、水体、台基的，回报里要贴头几段**——
+   「正门台阶下来 2.9 m 就踩进土里」这一类缺陷只有它看得见。要关掉用 `--no-surfaces`。
+
+   **为什么改默认**：一道要靠人记得加 flag 才会跑的门，等于没有门。
+   验收单子 AI 时我自己就忘了加，读到的是上一轮的旧文件，**差点把旧数字当新结论报出去**。
+
 8. **动了观感或几何的，回报里要给三角数与 draw call 的前后对照**
    （`node tools/capture.mjs --shots gate_approach,grass_close,mound_block`）。
 

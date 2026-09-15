@@ -24,10 +24,17 @@ import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const args = { url: 'http://127.0.0.1:4801/garden.html', surfaces: false };
+/* 脚下序列**默认记录**（2026-09-15 改）。原先它在 `--surfaces` 后面，于是
+ * 它不是常跑的回归项——**一道要靠人记得加 flag 才会跑的门，等于没有门**。
+ * 实际吃过一次亏：验收单子 AI 时忘了加，读到的是上一轮的 `shots/
+ * playtest-surfaces.json`，差点把旧数字当新结论。它本来就零额外成本
+ * （playtest 已经在走那条线，只是多采一串 `surfaceAt`）。
+ * 保留 `--no-surfaces` 给只想验通行、不想写盘的场合。 */
+const args = { url: 'http://127.0.0.1:4801/garden.html', surfaces: true };
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === '--url') args.url = process.argv[++i];
-  else if (process.argv[i] === '--surfaces') args.surfaces = true;
+  else if (process.argv[i] === '--surfaces') args.surfaces = true; // 兼容旧命令行
+  else if (process.argv[i] === '--no-surfaces') args.surfaces = false;
 }
 
 /** 通行验收航点（主通路+曲廊支线），不用于计算29节点叙事里程。 */

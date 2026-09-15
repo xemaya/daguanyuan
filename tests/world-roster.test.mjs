@@ -89,6 +89,20 @@ const wallRoster=[
  {id:'wall:cloud',part:'wall',variant:'cloud',planId:null,position:[78,0.8,236],yaw:0,size:[6,2.7,0.4]},
 ];
 
+/** 2026-09-15：0 对不等于「比过且干净」。单子 AI2 把六段墙换成一条连续
+ *  wall-path 之后，已建四区里再没有成链件——这道门当前无守卫对象。
+ *  只报 0 对分不出「全连成一条了」(好) 与「分类条件把该查的都筛掉了」(坏)，
+ *  所以要同时回报候选数。**这条测试焊住的是这个区分，不是某个具体数字。** */
+test('名册侧接缝门：候选数要单独回报，0 对才分得出"没东西查"与"筛掉了"',()=>{
+ const a=auditRosterSeams(wallRoster);
+ assert.equal(a.candidates,3,'三段墙都该进候选');
+ const lone=auditRosterSeams([wallRoster[0]]);
+ assert.equal(lone.candidates,1,'只有一件时仍要计入候选');
+ assert.equal(lone.seams.length,0,'一件成不了对');
+ const none=auditRosterSeams([{id:'bamboo',part:'bamboo',variant:'grove',planId:null,position:[0,0,0],yaw:0,size:[6,6,6]}]);
+ assert.equal(none.candidates,0,'长厚比不到 5:1 的散置件不该进候选');
+});
+
 test('名册侧接缝门：同一道墙上相邻两段之间的缝要报出来',()=>{
  const a=auditRosterSeams(wallRoster);
  assert.equal(a.seams.length,2,'三段墙应排成两对相邻');
