@@ -24,11 +24,10 @@ MVP(2026-09-10)验证了三件事:程序化的表现力、《营造法式》推�
 核验与执行顺序见 `docs/reviews/2026-09-15-detail-review-response.md`——一句话：**先让已有细节被看见（AN1 后期对照、AQ-a 管线小修），
 AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP 灯笼锦窗花），样件过了再做 AQ-b（原型+实例化+三档 LOD），
 然后才是 AL / AM**（AM 的白石峰要吃 AN2 的白石配方）。**AK / AN1 / AQ-a / AJ 全部合回并经验收人独立复核**（`docs/reviews/2026-09-15-detail-review-response.md` §6–§7）。
-**AN2 / AP 已合回并验收**（§9）。**AO 已合回并验收**（§11）——样件成立，但量出一条会改写 AQ-b 前提的事实：
-**站着的人看不见台矶上的浅浮雕**（人眼 1.62m、浮雕 0.185m，0.11m 的带子在 1600×900 里最多 32px，见 §AO 回报）。
-**AQ-b 开工前要先把"雕饰深度/落位"这道判断题交用户**，不然"三档 LOD"分的是一档看不见的细节。
-**已裁**：AJ2 素鼓（用户）；AN1 后期档位 `D-26`（用户授权验收人定：AO r1.0 / s0.7、颗粒 0.008）。
-`gate_approach` 35 fps 归 AQ-b 追。AL / AM 排在 AO / AP 之后。
+**AN2 / AP / AO 全部合回并验收**（§9–§11）。用户拍板 **`D-27`（取丙）**：雕饰重心挪到人眼高度的构件，台矶浮雕留 4 mm 作形制。
+**现在可派：AS**（绦环板换浮雕，AO 工具第二个消费者，`docs/superpowers/plans/2026-09-15-as-tiaohuan-relief.md`）；
+**AS 合回后派 AQ-b**（`docs/superpowers/plans/2026-09-15-aqb-prototypes-lod.md`：先剖析 `gate_approach` 帧率，再原型 + 实例化，再雕饰按距离分档）。
+AQ-b 之后回到 AL / AM（潇湘馆、翠嶂）。
 
 下面这张三轨表**仍然成立，只是 AL / AM 的位次往后挪**：
 
@@ -42,7 +41,9 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | — | **AQ-a** `docs/superpowers/plans/2026-09-15-aq-pipeline-small-fixes.md` | 管线 | ✅ 合回 | — |
 | — | **AN2** `docs/superpowers/plans/2026-09-15-an2-material-workmanship.md` | 材质 | ✅ 合回 | `materials.ts` / `wall.ts` / `baogushi.ts` / `forecourt-terrace.ts`，不碰 `building.ts` |
 | — | **AP** `docs/superpowers/plans/2026-09-15-ap-lantern-lattice-sample.md` | 窗花 | ✅ 合回 | 只在 `building.ts` |
-| — | **AO** `docs/superpowers/plans/2026-09-15-ao-scroll-relief-sample.md` | 雕饰 | ✅ 合回并验收 | 新 `builder/parts/ornament/` + `forecourt-terrace.ts` 西番草段 |
+| — | **AO** `docs/superpowers/plans/2026-09-15-ao-scroll-relief-sample.md` | 雕饰 | ✅ 合回并验收 | — |
+| — | **AS** `docs/superpowers/plans/2026-09-15-as-tiaohuan-relief.md` | 雕饰 | **可派** | `building.ts` 绦环板段、`ornament/`、`texture-jobs.ts` |
+| — | **AQ-b** `docs/superpowers/plans/2026-09-15-aqb-prototypes-lod.md` | 管线 | 等 AS 合回 | `merge.ts` / `static-batches.ts` / `composer.ts` / 5 处构件合并行 / `engine/scatter/` |
 
 三条都改 `plan.json`，**合回时各自只 `git add -p` 自己那个 hunk**。AL 里 E1（石子漫）E2（曲路）用户已拍板；
 AM 里 **`X-04` 会因形心西移而红，是判断题，agent 做到那一步会停下来问**（单子里给了甲乙两档，建议甲）。

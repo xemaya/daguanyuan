@@ -68,6 +68,11 @@ const ALLOW = [
     path: 'builder/parts/shishan/baishi.ts',
     why: '单子 AM 提议的白石峰构件落点(也可能落在 taihu.ts 里),落地前不存在',
   },
+  ...['builder/parts/ornament/tiaohuan-band.ts', 'tests/ornament-tiaohuan.test.mjs'].map((p) => ({
+    file: 'docs/superpowers/plans/2026-09-15-as-tiaohuan-relief.md',
+    path: p,
+    why: '单子 AS 的待建产物,落地前不存在',
+  })),
   ...['engine/core/look.ts', 'looks/default.json', 'scenes/daoxiangcun.json'].map((p) => ({
     file: 'docs/superpowers/specs/2026-09-14-scale-architecture-design.md',
     path: p,
