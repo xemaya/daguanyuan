@@ -21,7 +21,7 @@ import { SEED } from './config';
 import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
 import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
 import type { Frame } from '@builder/derive/index';
-import { BAOGUSHI_BASE_W_M } from '@builder/parts/shishan/baogushi';
+import { BAOGUSHI_DRUM_T_M, BAOGUSHI_DRUM_R_M, BAOGUSHI_DRUM_Z_M } from '@builder/parts/shishan/baogushi';
 import { FORECOURT_TERRACE_SPEC } from '@builder/parts/qiangyuan/forecourt-terrace';
 
 /**
@@ -302,28 +302,32 @@ function lanternSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: numb
 }
 
 /**
- * 抱鼓石(门当)的摆放(局部坐标):贴着中柱缝门框,坐在门槛两端(用户
- * 2026-09-14 反馈第 1 条:「门口两个石当,位置不对」)。07-01 原文无此
- * 物,设它是"门"最强的视觉符号——纯艺术选择,尺寸与形制的留痕在构件的
- * `root.userData.provenance.art` 里。
+ * 抱鼓石(门当)的摆放(局部坐标):整块门枕石**跨门槛**,门内一头过门轴
+ * (海窝端),鼓落在门外地面上(用户 2026-09-15 反馈第 1 条:「抱鼓石躲到
+ * 了门里面,正确位置是门前,左右相对」)。07-01 原文无此物,设它是"门"
+ * 最强的视觉符号——考据与尺寸留痕在构件的 `root.userData.provenance`。
  *
- * 间距由当心间净宽推导,不是拍一个数:z 取「中柱缝」(gatehouse 的板门
- * 就装在这一缝,见 building.ts 的 `中柱(门屋分心造)`)。x 必须落在当心间
- * 净宽**以内**、贴着两侧中柱的内皮——当心间以外(|lx| > 当心间半宽)是
- * 次间,次间在 gatehouse 里是砌实的槛窗墙(见 building.ts 的
- * `front==='door'` 分支),把石头摆到那一侧就是把它摆进墙体里，从外面
- * 看根本不存在(排查过程见单子 AI 回报)。返回的 ly 是台基顶面的局部
- * 高度——落点在台基面上,不能再用地面高度(旧代码 `ground(x,z)` 对台基
- * 范围内的点是错的,那正是石头此前"没在门口、在台阶两边草地上"的成因
- * 之一)。
+ * z 落在中柱缝(z=0,门槛平面;gatehouse 的板门就装在这一缝,见
+ * building.ts 的 `中柱(门屋分心造)`)——构件自身的局部原点就定在门槛
+ * 平面上,门枕尾伸向门内、鼓伸向门外。x 必须落在当心间净宽**以内**,
+ * 由 `Frame.m` 推导:从中柱内皮(cx1)向门心让开四段——边梃宽(0.09,
+ * building.ts 门口一段的常量)、全开门扇的站立半厚(0.03)、扇与鼓面之
+ * 间的空隙(0.06,艺术选择)、鼓厚一半——鼓面正好停在门扇站立面以里,
+ * 全开板门贴立门道两侧时不穿鼓。当心间以外(|lx| > 当心间半宽)是次间,
+ * 次间在 gatehouse 里是砌实的槛窗墙(见 building.ts 的 `front==='door'`
+ * 分支),把石头摆到那一侧就是把它摆进墙体里,从外面看根本不存在。
+ * 返回的 ly 是台基顶面的局部高度——落点在台基面上,不能再用地面高度
+ * (单子 AI3 修对的一步,不许退回 `ground(x,z)`)。
  */
 function baogushiSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: number; ly: number }[] | null {
   if (p.part !== 'building' || p.variant !== 'men' || built.kind !== 'building') return null;
   const b = built as BuildingResult;
   const m = (b.frame as Frame).m;
   const centerRight = m.columnX[m.columnX.length / 2];
-  const doorGapM = 0.02; // 门枕外沿与中柱内皮之间留一道缝,避免贴死导致的 z-fight
-  const lx = centerRight - m.columnD / 2 - doorGapM - BAOGUSHI_BASE_W_M / 2;
+  const jambW = 0.09; // 边梃宽(building.ts 板门门口一段的艺术常量)
+  const leafHalfT = 0.03; // 全开门扇站立半厚(板门厚 0.055,同上一段)
+  const leafGapM = 0.06; // 门扇站立面与鼓面之间的空隙(艺术选择)
+  const lx = centerRight - m.columnD / 2 - jambW - leafHalfT - leafGapM - BAOGUSHI_DRUM_T_M / 2;
   return [
     { lx: -lx, lz: 0, ly: b.platform.y },
     { lx, lz: 0, ly: b.platform.y },
@@ -545,7 +549,7 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
 
   let calls = 0;
   const lanternSpots: { x: number; y: number; z: number }[] = [];
-  const baogushiSpots: { x: number; y: number; z: number }[] = [];
+  const baogushiSpots: { x: number; y: number; z: number; dx: number; dz: number }[] = [];
   for (const p of all) {
     const key = `${p.part}:${p.variant ?? 'default'}`;
     let part = cache.get(key);
@@ -627,9 +631,11 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     // 抱鼓石守在正门口(艺术选择,07-01 无此物):跟着正门走。
     for (const s of baogushiSpotsFor(p, part) ?? []) {
       const [bx, bz] = toWorld(wx, wz, yaw, s.lx, s.lz);
+      // 碰撞中心取鼓心(鼓在门槛平面以外 BAOGUSHI_DRUM_Z_M 处),不是门槛点。
+      const [dx, dz] = toWorld(wx, wz, yaw, s.lx, s.lz + BAOGUSHI_DRUM_Z_M);
       // 落点在台基面上(s.ly 是台基顶的局部高度),不能再查地面高度——
       // 台基范围内地面高度和台基面高度是两回事。
-      baogushiSpots.push({ x: bx, y: y + s.ly, z: bz });
+      baogushiSpots.push({ x: bx, y: y + s.ly, z: bz, dx, dz });
     }
 
     if (p.pier) {
@@ -670,8 +676,8 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
         st.position.set(s.x, s.y, s.z);
         st.name = '抱鼓石';
         staticGroup.add(st);
-        // 挡人不挡路:两颗石在门洞两侧,门轴中线(x=55)畅通。
-        ctx.collision.addCircle(s.x, s.z, 0.44, s.y, s.y + 1.25, '抱鼓石');
+        // 挡人不挡路:两颗石守在门槛两端,门轴中线畅通。碰撞圆心在鼓上。
+        ctx.collision.addCircle(s.dx, s.dz, BAOGUSHI_DRUM_R_M, s.y, s.y + 1.25, '抱鼓石');
         registerObject({
           id: 'zhengmen.baogushi',
           name: '抱鼓石(门当)',

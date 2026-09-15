@@ -8,17 +8,40 @@ import type { Provenance } from '@builder/derive/provenance';
 /**
  * 抱鼓石 / 门枕石 — 正门口的"门当"。
  *
- * 一块门枕石:门内一端承门扇转轴(海窝从略),门外一端凿成圆鼓立在基座上,
- * 鼓面钉一圈鼓钉。第十七回写正门只到「白石台磯」为止,抱鼓石原文无据
- * (07-01 已核验段落内无此物),规则表(fashi/qing/fayuan/missing 全查过)
- * 也没有它的尺寸——所有数字都是为观感取的艺术选择,留痕在
- * `root.userData.provenance.art`,不当史料。
+ * 第十七回写正门只到「白石台磯」为止,抱鼓石原文无据(07-01 已核验段落内
+ * 无此物),规则表(fashi/qing/fayuan/missing 全查过)也没有它的尺寸。设此物
+ * 是因为它是"门"最强的视觉符号(ROADMAP PQ-7)。形制的出处状态:
  *
- * 局部坐标:原点在基座底面中心,+Z 朝门外(鼓面朝向),门枕尾伸向 -Z(门内)。
- * 一对就是同一构件在门左右各放一份,不镜像——两边门枕都指向门洞进深。
+ *   **有出处**(2026-09-15 查维基「门墩」「抱鼓石」两条,甲已核、乙待核——
+ *   维基是通论,清代官式门枕石的具体做法与尺寸未核《工程做法》,待裁点见
+ *   knowledge/docs/qingshi/07-honglou.md open_questions):
+ *   - 整块门枕石跨在门槛下,**门内部分有海窝承门轴,门外部分才是门墩(鼓)**;
+ *   - 门墩由**须弥座、抱鼓、兽吻或狮子**几部分构成;须弥座一般刻**莲花**、
+ *     上面通常有**锦铺**;
+ *   - 抱鼓是**竖立的鼓**,鼓面常刻**螺旋纹**(故又称螺鼓石),鼓面与鼓侧面
+ *     刻吉祥纹样;
+ *   - 整个门枕石由**一块整石**雕成——所以三段之间不许有"零件摞起来"的
+ *     接缝感,收分要连贯、交接要过渡。
+ *
+ *   **用户指定**(2026-09-15 反馈第 1 条):位置在**门前**(鼓落在门外的地
+ *   面上,不躲进门里);朝向**左右相对**(两块互为镜像,鼓面朝两侧互相对
+ *   着,不是都面向门外);鼓下要有**祥云、平台**。
+ *
+ *   **无出处(艺术选择,留 provenance.art)**:所有具体尺寸、莲瓣与祥云的
+ *   形状参数、收分比例。
+ *
+ * 局部坐标:原点在整石底面中心、门槛平面(中柱缝)上;+Z 朝门外,门枕尾
+ * 伸向 -Z(门内)。构件自身 X 向对称(圭角前后、鼓的两面同样做法),一对
+ * 就是同一构件在门左右各放一份——两面鼓面都刻螺旋纹与鼓钉,两块石的
+ * 内侧鼓面自然互相对着(「左右相对」),不需要镜像变体。
+ *
+ * ⚠️ 鼓顶「兽吻或狮子」做成可选档(variant 'beast'):用户 2026-09-14 已拍板
+ * 门前不加石狮(07-53 石狮属府门、07-01 刻意写素),同一条理由倾向素鼓;
+ * 但这是形制取舍,两档对照图交用户裁定,默认 'default' = 素鼓。
  */
 
-/** 鼓的半剖:平背 → 鼓帮微鼓 → 平脸,绕 Y 车出鼓形再立起来。 */
+/** 鼓的半剖:平背 → 鼓帮微鼓 → 平脸,绕 Y 车出鼓形再转 90°,让鼓轴沿 X
+ * (鼓面朝两侧,一对石左右相对;旧版鼓轴沿 Z 朝内外,是"都面向门外")。 */
 function drumGeometry(R: number, T: number): THREE.BufferGeometry {
   const pts = [
     new THREE.Vector2(0.001, -T / 2),
@@ -30,37 +53,52 @@ function drumGeometry(R: number, T: number): THREE.BufferGeometry {
     new THREE.Vector2(0.001, T / 2),
   ];
   const g = new THREE.LatheGeometry(pts, 22);
-  g.rotateX(Math.PI / 2); // 鼓轴从 Y 转到 Z:鼓面朝门内/门外
+  g.rotateZ(Math.PI / 2); // 鼓轴从 Y 转到 X:鼓面朝门的左右两侧
   return g;
 }
 
+/** 平螺旋(阿基米德螺线)圆管——螺鼓石的鼓面螺旋纹 / 鼓脚的祥云卷。
+ * 在 Y-Z 平面上盘,x 由 caller 平移;sign 控制旋向(两面镜像)。 */
+function spiralTube(
+  r0: number, r1: number, turns: number, tubeR: number, sign: number, mat: THREE.Material,
+): THREE.Mesh {
+  const pts: THREE.Vector3[] = [];
+  const steps = Math.ceil(turns * 16);
+  for (let k = 0; k <= steps; k++) {
+    const t = k / steps;
+    const a = t * turns * Math.PI * 2 * sign;
+    const r = r0 + (r1 - r0) * t;
+    pts.push(new THREE.Vector3(0, Math.cos(a) * r, Math.sin(a) * r));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.2);
+  const geo = new THREE.TubeGeometry(curve, Math.max(12, steps * 2), tubeR, 5, false);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
 // 尺寸全部无出处,为观感取值(见 userData.provenance.art)。用户 2026-09-14
-// 走完正门拍板「做大、做精」(D6)：五间大门不施朱粉,气派要由尺度撑,原
-// 0.54/1.04/0.34m 一档在 13.76m 门脸前读得单薄——整体放大到 ×1.3。
+// 走完正门拍板「做大、做精」(D6):整体尺度沿用那一档(×1.3)。
 const SCALE = 1.3;
-const BAOGUSHI_BASE_W_M = 0.54 * SCALE;
-const BAOGUSHI_BASE_L_M = 1.04 * SCALE;
-const BAOGUSHI_BASE_H_M = 0.14 * SCALE;
 const BAOGUSHI_DRUM_R_M = 0.34 * SCALE;
 const BAOGUSHI_DRUM_T_M = 0.18 * SCALE;
-const BAOGUSHI_PILLOW_W_M = 0.24 * SCALE; // 门枕尾:伸到门槛下承门轴
-const BAOGUSHI_PILLOW_H_M = 0.2 * SCALE;
-export { BAOGUSHI_BASE_W_M, BAOGUSHI_BASE_L_M };
+/** 鼓心到门槛平面(中柱缝)的距离:鼓背贴在门槛外一线,鼓落在门外地面上。 */
+const BAOGUSHI_DRUM_Z_M = 0.03 + BAOGUSHI_DRUM_R_M;
+/** 门枕尾伸进门内的长度(海窝那一端,过门轴 0.5m——「长度要够」)。 */
+const BAOGUSHI_PILLOW_BACK_M = 0.52;
+export { BAOGUSHI_DRUM_T_M, BAOGUSHI_DRUM_R_M, BAOGUSHI_DRUM_Z_M };
 
-export function buildBaogushi(): PartBuild {
+export type BaogushiTopping = 'none' | 'beast';
+
+export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
   const stone = whiteStoneMaterial(1);
   const g = new THREE.Group();
   g.name = 'Baogushi';
 
-  const baseW = BAOGUSHI_BASE_W_M;
-  const baseL = BAOGUSHI_BASE_L_M;
-  const baseH = BAOGUSHI_BASE_H_M;
   const drumR = BAOGUSHI_DRUM_R_M;
   const drumT = BAOGUSHI_DRUM_T_M;
-  const drumZ = baseL / 2 - drumT / 2 - 0.06; // 鼓坐在基座靠门外一端
-  const pillowW = BAOGUSHI_PILLOW_W_M;
-  const pillowH = BAOGUSHI_PILLOW_H_M;
-  const pillowL = baseL - 0.1;
+  const drumZ = BAOGUSHI_DRUM_Z_M;
 
   const add = (geo: THREE.BufferGeometry, x: number, y: number, z: number) => {
     const m = new THREE.Mesh(geo, stone);
@@ -71,55 +109,140 @@ export function buildBaogushi(): PartBuild {
     return m;
   };
 
-  // 基座:双层,上层略收(须弥座的意思,不做莲瓣——原文只到"西番草"于台磯,
-  // 门枕座上再堆雕饰就过了)。
-  add(roundedBox(baseW, baseH * 0.55, baseL, 0.02, 2), 0, (baseH * 0.55) / 2, 0);
-  add(roundedBox(baseW - 0.08, baseH * 0.45, baseL - 0.08, 0.015, 2), 0, baseH * 0.55 + (baseH * 0.45) / 2, 0);
-  // 门枕:基座上沿 -Z 伸出的长条,顶面与门槛平。
-  add(roundedBox(pillowW, pillowH, pillowL, 0.015, 2), 0, baseH + pillowH / 2, -0.12);
-  // 鼓。
-  const drumY = baseH + pillowH + drumR - 0.04; // 鼓帮略沉进门枕,不悬空
-  add(drumGeometry(drumR, drumT), 0, drumY, drumZ);
-  // 鼓钉:前后脸各一圈十四颗,紧贴鼓面外缘(D6:原九颗等距半球铺满整个
-  // 鼓面偏大,近观读成"麻子"——钉本身缩小、加密,且只沿边缘一圈,鼓心
-  // 留素面,才读成"钉"而不是散点。不雕兽面(兽头大门是宁府门制,07-53)。
-  const studGeo = new THREE.SphereGeometry(0.014, 6, 4);
-  const studCount = 14;
-  const studRingR = drumR * 0.86;
-  for (const face of [-1, 1]) {
-    for (let i = 0; i < studCount; i++) {
-      const a = (i / studCount) * Math.PI * 2;
-      add(
-        studGeo,
-        Math.cos(a) * studRingR,
-        drumY + Math.sin(a) * studRingR,
-        drumZ + face * (drumT / 2 + 0.003),
-      );
+  /* ---- 门枕(整石的脊):从门内海窝端穿过门槛下,接进须弥座 -------------
+   * 低而窄,顶面压在门槛(0.08m 高)之下——门槛跨在它上面,读作"嵌在石槽里"
+   * (考据:门枕石中间有槽支撑门框)。海窝本身从略(藏在门槛与门扇下,看不见),
+   * 但长度留够:门内一端过门轴 0.52m。 */
+  add(roundedBox(0.31, 0.075, BAOGUSHI_PILLOW_BACK_M + 0.3, 0.012, 1), 0, 0.0375, (0.3 - BAOGUSHI_PILLOW_BACK_M) / 2);
+
+  /* ---- 须弥座(三段之底,考据:刻莲花、上面有锦铺) ----------------------
+   * 圭角 → 下枋 → 束腰(仰莲) → 上枋锦铺,逐层收分;层与层之间用圆角
+   * 过渡,不读成几个独立 box 摞着(考据:一块整石)。 */
+  // 圭角:最宽一层,贴地,前后挑出,把整石"放稳"。
+  add(roundedBox(0.56, 0.07, 0.84, 0.015, 1), 0, 0.035, drumZ);
+  // 下枋:收进。
+  add(roundedBox(0.34, 0.04, 0.72, 0.012, 1), 0, 0.09, drumZ);
+  // 束腰:再收,是须弥座的"腰"。
+  add(roundedBox(0.29, 0.09, 0.62, 0.01, 1), 0, 0.155, drumZ);
+  // 仰莲瓣一圈(考据:须弥座一般刻莲花):花瓣尖朝上,托住上枋。
+  {
+    const petalGeo = new THREE.ConeGeometry(0.03, 0.085, 4, 1);
+    petalGeo.scale(1, 1, 0.5);
+    const spots: { x: number; z: number; rotY: number }[] = [];
+    const hx = 0.29 / 2, hz = 0.62 / 2;
+    for (let i = 0; i <= 3; i++) {
+      const x = -hx + (i / 3) * hx * 2;
+      spots.push({ x, z: drumZ + hz, rotY: 0 }, { x, z: drumZ - hz, rotY: Math.PI });
+    }
+    for (let i = 1; i < 7; i++) {
+      const z = drumZ - hz + (i / 7) * hz * 2;
+      spots.push({ x: hx, z, rotY: Math.PI / 2 }, { x: -hx, z, rotY: -Math.PI / 2 });
+    }
+    for (const s of spots) {
+      const petal = new THREE.Mesh(petalGeo, stone);
+      petal.position.set(s.x * 1.1, 0.168, drumZ + (s.z - drumZ) * 1.08);
+      petal.rotation.y = s.rotY;
+      petal.castShadow = true;
+      g.add(petal);
     }
   }
-  // 挟鼓:鼓脚两侧两块小斜楔,把鼓"抱"住。
+  // 上枋:放出一线,顶面是鼓的床。
+  add(roundedBox(0.33, 0.05, 0.74, 0.012, 1), 0, 0.225, drumZ);
+  // 锦铺(考据:须弥座上面通常有锦铺):搭在上枋上的"包袱皮",两侧垂下
+  // 两片薄搭脑,顶边贴鼓床、底边略向外撇——读作搭着的布,不是又一截石。
+  // 外撇幅度刻意收住:全石 y>0.08m 的部分都要让开全开门扇的站立面
+  // (见 composer 的落位推导),底边不许探进扇带。
   for (const sx of [-1, 1]) {
-    const w = add(roundedBox(0.09 * SCALE, 0.24 * SCALE, drumT + 0.05, 0.015, 2), sx * (drumR * 0.55), baseH + pillowH + 0.02, drumZ);
-    w.rotation.z = sx * 0.38;
+    const flap = add(roundedBox(0.025, 0.1, 0.7, 0.008, 1), sx * 0.155, 0.2, drumZ);
+    flap.rotation.z = sx * 0.15;
+  }
+
+  /* ---- 鼓(三段之顶,考据:竖立的鼓) ------------------------------------ */
+  const drumY = 0.25 + drumR - 0.06; // 鼓帮沉进锦铺 0.06,整石不悬空
+  add(drumGeometry(drumR, drumT), 0, drumY, drumZ);
+
+  // 鼓钉:每脸各一圈十四颗,紧贴鼓面外缘(D6:钉小、密、只沿边缘一圈,
+  // 鼓心留素面,才读成"钉"不是散点——第一轮改对的一步,保留)。
+  {
+    const studGeo = new THREE.SphereGeometry(0.016, 6, 4);
+    const studCount = 14;
+    const studRingR = drumR * 0.86;
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < studCount; i++) {
+        const a = (i / studCount) * Math.PI * 2;
+        add(
+          studGeo,
+          sx * (drumT / 2 + 0.007),
+          drumY + Math.sin(a) * studRingR,
+          drumZ + Math.cos(a) * studRingR,
+        );
+      }
+    }
+  }
+
+  // 鼓面螺旋纹(考据:鼓面常刻螺旋纹,故又称螺鼓石):每脸一盘平螺旋,
+  // 两面旋向相反(左右相对的一对石,朝里的两面互为镜像)。
+  for (const sx of [-1, 1]) {
+    const sp = spiralTube(0.045, drumR * 0.68, 2.2, 0.011, sx, stone);
+    sp.position.set(sx * (drumT / 2 + 0.004), drumY, drumZ);
+    g.add(sp);
+  }
+
+  /* ---- 祥云托(用户指定:鼓下要有祥云):鼓脚前后各一卷云,从锦铺上卷
+   * 起托住鼓帮——结构上就是旧版"挟鼓"楔子的纹样化,把鼓"抱"住。 */
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const cloud = spiralTube(0.02, 0.105, 1.4, 0.013, sx * sz, stone);
+      cloud.position.set(sx * (drumT / 2 + 0.004), 0.32, drumZ + sz * (drumR * 0.62));
+      g.add(cloud);
+    }
+  }
+
+  /* ---- 鼓顶小兽(可选档,⚠️ 形制取舍待用户裁定) --------------------------
+   * 考据:门墩"在抱鼓或箱体上面雕刻有兽吻或狮子"。但 07-53 石狮属府门、
+   * 07-01 刻意写素——同一条理由倾向不加,两档对照图交用户选。 */
+  if (topping === 'beast') {
+    const topY = drumY + drumR;
+    // 蹲兽:身、首、双耳,从简(§10 具象雕刻要集中),面朝门外。
+    add(roundedBox(0.15, 0.13, 0.22, 0.05, 2), 0, topY + 0.045, drumZ - 0.02);
+    add(roundedBox(0.12, 0.11, 0.12, 0.045, 2), 0, topY + 0.12, drumZ + 0.08);
+    for (const sx of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.06, 4, 1), stone);
+      ear.position.set(sx * 0.04, topY + 0.2, drumZ + 0.07);
+      ear.castShadow = true;
+      g.add(ear);
+    }
   }
 
   const merged = mergeByMaterial(g);
   merged.name = 'Baogushi';
   const provenance: Provenance = {
     evidence: [],
-    inference: [],
+    inference: [
+      {
+        id: 'project:baogushi-menzhen-form',
+        name: '门枕石三段形制(须弥座+抱鼓,跨门槛)',
+        method: 'derived',
+        note:
+          '维基「门墩」「抱鼓石」(2026-09-15 查,甲已核、乙待核——清代官式门枕石做法尺寸' +
+          '未核《工程做法》,见 07-honglou.md open_questions):门枕石跨门槛、门内有海窝承门轴、' +
+          '门外部分是门墩;门墩由须弥座(刻莲花、上有锦铺)、抱鼓(竖立的鼓、鼓面常刻螺旋纹)、' +
+          '兽吻或狮子构成;整石雕成。位置与"左右相对"朝向、祥云托为用户 2026-09-15 指定;' +
+          '兽吻一档按 07-53/07-01 倾向不加(素鼓),两档对照交用户裁定。',
+      },
+    ],
     art: [
       {
         id: 'project:baogushi-dimensions',
-        name: '抱鼓石/门枕石尺寸与形制',
+        name: '抱鼓石/门枕石尺寸与形制细节',
         method: 'artistic_choice',
         note:
           '《红楼梦》第十七回写正门无抱鼓石(07-01),规则表亦无门枕石条目;' +
           '设此物是因为它是"门"最强的视觉符号(ROADMAP PQ-7)。' +
-          `鼓径 ${(drumR * 2).toFixed(2)}m、鼓厚 ${drumT.toFixed(2)}m、基座 ${baseW.toFixed(2)}×${baseL.toFixed(2)}m、门枕宽 ${pillowW.toFixed(2)}m,` +
-          `均为观感取值,较此前一档整体放大 ${SCALE}× (用户 2026-09-14 反馈第 1/6 条拍板"做大做精");` +
-          `鼓面朝内外、不雕兽面(兽头是宁府门制,07-53);鼓钉改为沿鼓面外缘一圈 ${studCount} 颗、` +
-          '半径 0.014m,不再是原先九颗铺满整个鼓面偏大读成"麻子"的半球。',
+          `鼓径 ${(drumR * 2).toFixed(2)}m、鼓厚 ${drumT.toFixed(2)}m、鼓心距门槛平面 ${drumZ.toFixed(2)}m、` +
+          `门枕伸入门内 ${BAOGUSHI_PILLOW_BACK_M}m,均为观感取值,沿用 2026-09-14 D6"做大做精"的 ${SCALE}× 一档;` +
+          '莲瓣形状、祥云卷的圈数与半径、须弥座各层收分、螺旋纹盘数均无出处;' +
+          '海窝(门内承门轴的圆窝)从略——藏在门槛与门扇下看不见,但门枕长度留够。',
       },
     ],
   };
@@ -127,4 +250,4 @@ export function buildBaogushi(): PartBuild {
   return { root: merged, groundRadius: 1.2 * SCALE };
 }
 
-registerPart('baogushi', () => buildBaogushi());
+registerPart('baogushi', (variant) => buildBaogushi(variant === 'beast' ? 'beast' : 'none'));
