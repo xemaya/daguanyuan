@@ -243,73 +243,140 @@ function chuidaiGeometry(hw: number, topY: number, botY: number, topZ: number, b
   return g;
 }
 
-/** 灯笼锦格心(单子 AG2 返工):大格(灯笼框,粗棂条起线)与小格(棋盘格一半
- *  嵌一个斜插小方框,细棂条不起线)相间,内部节点缀卡子花——这才是"灯笼"的
- *  大小相间读法,不是方格纸上每格打一个叉(旧实现,加密解决不了,要改构成)。
+/** 棂条截面(单子 AP,ART_DIRECTION §2 小木例外):8 顶点倒角截面;外框/抹头
+ *  在内侧(宽度方向一侧)再加一道 3mm 凹线,12 顶点。
+ *  截面定义在 (x=深, y=宽) 平面,逆时针一圈;配 extrudeBar 沿长度挤出。
+ *  细于 4cm 的棂条不走 roundedBox(倒角看不见、三角 15 倍),走这份截面挤出
+ *  (三角只多一倍)——这是圣经 §2 登记的小木例外,不是代码自行破例。 */
+function barProfile(d: number, w: number, c: number, groove?: { w: number; d: number; side: 1 | -1 }): [number, number][] {
+  const hd = d / 2;
+  const hw = w / 2;
+  const cc = Math.max(1e-4, Math.min(c, hd - 1e-4, hw - 1e-4));
+  if (!groove) {
+    return [
+      [hd - cc, hw], [-(hd - cc), hw],
+      [-hd, hw - cc], [-hd, -(hw - cc)],
+      [-(hd - cc), -hw], [hd - cc, -hw],
+      [hd, -(hw - cc)], [hd, hw - cc],
+    ];
+  }
+  const gw = groove.w / 2;
+  const gd = groove.d;
+  const top: [number, number][] = groove.side === 1
+    ? [[hd - cc, hw], [gw, hw], [gw, hw - gd], [-gw, hw - gd], [-gw, hw], [-(hd - cc), hw]]
+    : [[hd - cc, hw], [-(hd - cc), hw]];
+  const bot: [number, number][] = groove.side === -1
+    ? [[-(hd - cc), -hw], [-gw, -hw], [-gw, -(hw - gd)], [gw, -(hw - gd)], [gw, -hw], [hd - cc, -hw]]
+    : [[-(hd - cc), -hw], [hd - cc, -hw]];
+  return [
+    ...top,
+    [-hd, hw - cc], [-hd, -(hw - cc)],
+    ...bot,
+    [hd, -(hw - cc)], [hd, hw - cc],
+  ];
+}
+
+/** 截面沿线段挤出:挤出后长度沿 +X、宽度沿 Y、深度沿 Z,与旧 addBar 的方盒同约定。 */
+function extrudeBar(profile: [number, number][], len: number): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(profile[0][0], profile[0][1]);
+  for (let i = 1; i < profile.length; i++) shape.lineTo(profile[i][0], profile[i][1]);
+  shape.closePath();
+  const g = new THREE.ExtrudeGeometry(shape, { depth: len, bevelEnabled: false });
+  g.translate(0, 0, -len / 2);
+  g.rotateY(-Math.PI / 2);
+  return g;
+}
+
+/** 灯笼锦格心(单子 AG2 返工;AP 工艺样板):大格(灯笼框,粗棂条)与小格(棋盘格一半
+ *  嵌一个斜插小方框,细棂条)相间,内部节点缀卡子花——这才是"灯笼"的大小相间读法,
+ *  不是方格纸上每格打一个叉(旧实现,加密解决不了,要改构成)。
  *  与 wan(万字不到头)、ice(冰裂)同层但另起一支——qiangyuan/wall.ts 的
- *  gexinGeometry 不认这个纹样名(未知 sub 会被它当 ice 处理),所以另写,不复用。 */
-function lanternLatticeGeometry(w: number, h: number, bar: number): THREE.BufferGeometry {
+ *  gexinGeometry 不认这个纹样名(未知 sub 会被它当 ice 处理),所以另写,不复用。
+ *  单子 AP(只改工艺,花样与洞口尺寸不变):
+ *  - AP1 截面分级:框棂 2.4cm / 细棂 1.4cm,都走 8 顶点截面挤出,2mm 倒角;
+ *  - AP2 节点整理:先求线网(横竖中线+交点),框棂拆成节点间的段、每个节点一个
+ *    小方块,交叉处不再两根整棂互穿;
+ *  - AP3 收头:单元保持 cell=0.38m,nx/ny 取整后余量分到两侧边框内侧的留白,
+ *    不摊进单元、不在边界切半个花样。
+ *  返回 depth 供调用方把窗纸退到棂条背面(AP4)。 */
+export function lanternLatticeGeometry(w: number, h: number, bar: number): { geo: THREE.BufferGeometry; depth: number } {
   const cell = 0.38;
   const nx = Math.max(2, Math.round(w / cell));
   const ny = Math.max(2, Math.round(h / cell));
-  const cw = w / nx;
-  const ch = h / ny;
+  // AP3 收头:单元不许超过 cell;取整后的余量分到两侧边框内侧的留白,不摊进单元。
+  // 洞口凑不满整数个 cell 时单元只能收窄(cw<cell,与旧行为一致),超出的余量
+  // (w−nx·cell)落成两侧留白——边界永远是完整花样,不出现随意切断的半个。
+  const cw = Math.min(cell, w / nx);
+  const ch = Math.min(cell, h / ny);
+  const pw = nx * cw;
+  const ph = ny * ch;
   const depth = bar * 0.9;
-  // 灯笼框棂条比小格插框粗一档,起线才看得出(细于 4cm 倒角看不见——makeGeshan
-  // 的规则仍然成立,这里是给这一层单独破例加粗,不是给全部棂条都起线)。
-  const frameBar = Math.max(bar * 1.6, 0.032);
+  const chamfer = 0.002;
+  // 灯笼框棂条比小格插框粗一档,主辅比例才读得出(细棂 1.4cm,框棂 2.4cm)。
+  const frameBar = Math.max(bar * 1.7, 0.024);
+  const frameProf = barProfile(depth, frameBar, chamfer);
+  const thinProf = barProfile(depth, bar, chamfer);
   const geos: THREE.BufferGeometry[] = [];
-  const addBar = (x0: number, y0: number, x1: number, y1: number, thick: number, chamfer: boolean) => {
+  const addSeg = (x0: number, y0: number, x1: number, y1: number, prof: [number, number][]) => {
     const len = Math.hypot(x1 - x0, y1 - y0);
     if (len < 1e-4) return;
-    const geo = chamfer
-      ? roundedBox(len, thick, depth, Math.min(0.006, (Math.min(thick, depth) - 1e-3) / 2), 1)
-      : new THREE.BoxGeometry(len, thick, depth);
+    const geo = extrudeBar(prof, len);
     geo.rotateZ(Math.atan2(y1 - y0, x1 - x0));
     geo.translate((x0 + x1) / 2, (y0 + y1) / 2, 0);
     geos.push(geo);
   };
-  // 灯笼框:整根方格骨架(粗棂条 + 起线),不错位——"灯笼"的外框来自这一层。
+  // 线网:横竖棂条中线按单元居中,纹样范围 pw×ph,两侧留白 (w−pw)/2。
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i <= nx; i++) xs.push(-pw / 2 + i * cw);
+  for (let j = 0; j <= ny; j++) ys.push(-ph / 2 + j * ch);
+  // 节点整理:框棂拆成节点间的段,段端顶到节点方块边,不互穿。
+  const nh = frameBar / 2;
   for (let i = 0; i <= nx; i++) {
-    const x = -w / 2 + i * cw;
-    addBar(x, -h / 2, x, h / 2, frameBar, true);
+    for (let j = 0; j < ny; j++) addSeg(xs[i], ys[j] + nh, xs[i], ys[j + 1] - nh, frameProf);
   }
   for (let j = 0; j <= ny; j++) {
-    const y = -h / 2 + j * ch;
-    addBar(-w / 2, y, w / 2, y, frameBar, true);
+    for (let i = 0; i < nx; i++) addSeg(xs[i] + nh, ys[j], xs[i + 1] - nh, ys[j], frameProf);
+  }
+  // 每个节点一个小方块(一次),段与节点端面齐平,转角连续。
+  for (const x of xs) {
+    for (const y of ys) {
+      const node = new THREE.BoxGeometry(frameBar, frameBar, depth);
+      node.translate(x, y, 0);
+      geos.push(node);
+    }
   }
   // 卡子花:内部节点(框的交叉点)钉一颗小菱花(压扁八面体,略凸出画面),
-  // 节点上有装饰是灯笼锦区别于素方格的第二个标志。
+  // 节点上有装饰是灯笼锦区别于素方格的第二个标志;现在坐在真节点方块上。
   const kaziR = Math.min(cw, ch) * 0.1;
   for (let i = 1; i < nx; i++) {
     for (let j = 1; j < ny; j++) {
-      const x = -w / 2 + i * cw;
-      const y = -h / 2 + j * ch;
       const geo = new THREE.OctahedronGeometry(kaziR, 0);
       geo.scale(1, 1, 0.45);
       geo.rotateZ(Math.PI / 4);
-      geo.translate(x, y, depth * 0.5 + kaziR * 0.22);
+      geo.translate(xs[i], ys[j], depth * 0.5 + kaziR * 0.22);
       geos.push(geo);
     }
   }
-  // 大小格相间:棋盘格取一半的大格,格心斜插一个更小的方框(细棂条,不起线)——
+  // 大小格相间:棋盘格取一半的大格,格心斜插一个更小的方框(细棂条)——
   // 另一半大格留空,大小相邻并置才读成"灯笼",不是把所有格子一起加密。
   for (let i = 0; i < nx; i++) {
     for (let j = 0; j < ny; j++) {
       if ((i + j) % 2 !== 0) continue;
-      const cx = -w / 2 + (i + 0.5) * cw;
-      const cy = -h / 2 + (j + 0.5) * ch;
+      const cx = -pw / 2 + (i + 0.5) * cw;
+      const cy = -ph / 2 + (j + 0.5) * ch;
       const hx = cw * 0.3;
       const hy = ch * 0.3;
-      addBar(cx - hx, cy, cx, cy - hy, bar, false);
-      addBar(cx, cy - hy, cx + hx, cy, bar, false);
-      addBar(cx + hx, cy, cx, cy + hy, bar, false);
-      addBar(cx, cy + hy, cx - hx, cy, bar, false);
+      addSeg(cx - hx, cy, cx, cy - hy, thinProf);
+      addSeg(cx, cy - hy, cx + hx, cy, thinProf);
+      addSeg(cx + hx, cy, cx, cy + hy, thinProf);
+      addSeg(cx, cy + hy, cx - hx, cy, thinProf);
     }
   }
   const merged = mergeGeometries(geos.map((g) => g.toNonIndexed()), false);
   if (!merged) throw new Error('lantern lattice merge failed');
-  return merged;
+  return { geo: merged, depth };
 }
 
 /* ------------------------------------------------------------------ */
@@ -320,36 +387,62 @@ function lanternLatticeGeometry(w: number, h: number, bar: number): THREE.Buffer
  *  07-76③:纹样原著未写死(「细雕新鲜花样」不是具体名字),这里 artChoice 换掉万字。 */
 function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Material, seed: number, pattern?: 'ice' | 'wan' | 'haitang' | 'lantern'): THREE.Group {
   const g = new THREE.Group();
+  // 截面分级(单子 AP1):外框 3.5cm 起线,抹头(内框) 2.8cm 起线,
+  // 格心棂条由灯笼锦生成器自己分级(框棂 2.4cm / 细棂 1.4cm)。
   const bar = 0.035;
+  const railBar = 0.028;
   const frameD = 0.05;
-  // 外框。
-  const add = (x: number, y: number, sx: number, sy: number, d = frameD) => {
-    // 细于 4cm 的棂条倒角看不见,用直箱省 15 倍三角。
-    const thinBar = Math.min(sx, sy) < 0.04;
-    const m = new THREE.Mesh(thinBar ? new THREE.BoxGeometry(sx, sy, d) : roundedBox(sx, sy, d, 0.006, 1), mat);
+  // 外框与抹头:0.6mm 倒角 + 内侧一道 3mm 凹线(起线),截面挤出。
+  // side 指凹线开在宽度方向哪一侧(+1 = 挤出后的 +Y 侧;竖放旋转后转到 −X)。
+  const addMolded = (x: number, y: number, sx: number, sy: number, side: 1 | -1, d = frameD) => {
+    const len = Math.max(sx, sy);
+    const t = Math.min(sx, sy);
+    const geo = extrudeBar(barProfile(d, t, 0.0006, { w: 0.003, d: 0.0016, side }), len);
+    if (sy > sx) geo.rotateZ(Math.PI / 2);
+    const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, 0);
     m.castShadow = true;
     m.receiveShadow = true;
     g.add(m);
   };
-  add(0, h / 2 - bar / 2, w, bar);
-  add(0, -h / 2 + bar / 2, w, bar);
-  add(-w / 2 + bar / 2, 0, bar, h);
-  add(w / 2 - bar / 2, 0, bar, h);
+  const add = (x: number, y: number, sx: number, sy: number, d = frameD) => {
+    // 小木例外(ART_DIRECTION §2,单子 AP):细于 4cm 的棂条不走 roundedBox
+    // (倒角看不见、三角 15 倍),走 8 顶点倒角截面挤出(三角只多一倍)。
+    const thinBar = Math.min(sx, sy) < 0.04;
+    let geo: THREE.BufferGeometry;
+    if (thinBar) {
+      geo = extrudeBar(barProfile(d, Math.min(sx, sy), 0.002), Math.max(sx, sy));
+      if (sy > sx) geo.rotateZ(Math.PI / 2);
+    } else {
+      geo = roundedBox(sx, sy, d, 0.006, 1);
+    }
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, 0);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    g.add(m);
+  };
+  // 外框:凹线朝扇内。
+  addMolded(0, h / 2 - bar / 2, w, bar, -1);
+  addMolded(0, -h / 2 + bar / 2, w, bar, 1);
+  addMolded(-w / 2 + bar / 2, 0, bar, h, -1);
+  addMolded(w / 2 - bar / 2, 0, bar, h, 1);
   // 抹头:下·裙板 0~28%h,中·绦环板一条窄带(clamp,矮格扇也不挤没),上·格心余下。
   const skirtTop = -h / 2 + h * 0.28;
   const tiaoH = clamp(h * 0.12, 0.07, 0.2);
   const tiaoTop = skirtTop + tiaoH;
-  const addRail = (y: number) => {
-    add(0, y, w, bar);
+  const addRail = (y: number, side: 1 | -1) => {
+    addMolded(0, y, w, railBar, side);
     add(0, y + bar * 1.6, w, bar * 0.6, frameD * 0.8);
   };
-  addRail(skirtTop);
-  addRail(tiaoTop);
+  addRail(skirtTop, -1); // 凹线朝裙板
+  addRail(tiaoTop, 1); // 凹线朝格心
   // 下·裙板:素板 + 浅浮雕(起线边框 + 中心团花),按 §10"木作更克制"从简。
+  // 上端插进抹头背面、下端叠进下框——AP1 抹头收窄到 2.8cm 后,旧余量(板顶距抹头
+  // 底 8.5mm→12mm)会在背光面漏光成通缝,板要咬住抹头。
   const skirtW = w - bar * 2;
-  const skirtH = skirtTop - (-h / 2) - bar * 1.5;
-  const skirtCY = (-h / 2 + skirtTop) / 2;
+  const skirtH = skirtTop - railBar / 2 + 0.004 - (-h / 2 + bar * 0.75);
+  const skirtCY = (-h / 2 + bar * 0.75 + skirtTop - railBar / 2 + 0.004) / 2;
   const skirt = new THREE.Mesh(roundedBox(skirtW, skirtH, 0.03, 0.005, 2), mat);
   skirt.position.set(0, skirtCY, 0);
   skirt.receiveShadow = true;
@@ -379,9 +472,10 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
     }
   }
   // 中·绦环板:浅浮雕缠枝卷草——复用脊那根 ridgeTube,一条波形藤蔓 + 几个卷叶点。
+  // 板两端同样咬进上下抹头(通缝同上)。
   const tiaoW = w - bar * 2;
   const tiaoCY = (skirtTop + tiaoTop) / 2;
-  const tiaoBoard = new THREE.Mesh(roundedBox(tiaoW, tiaoH - bar * 1.5, 0.025, 0.004, 2), mat);
+  const tiaoBoard = new THREE.Mesh(roundedBox(tiaoW, tiaoH - railBar + 0.008, 0.025, 0.004, 2), mat);
   tiaoBoard.position.set(0, tiaoCY, 0);
   tiaoBoard.receiveShadow = true;
   g.add(tiaoBoard);
@@ -408,16 +502,26 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
       g.add(leaf);
     }
   }
-  // 格心:窗纸打底,纹样按 pattern 生成(见下方 gexinGeometry / lanternLatticeGeometry)。
+  // 格心:窗纸退到棂条背面(AP4:z = −棂厚/2 − 3mm),框边对纸面产生遮光;
+  // paperMaterial 的 emissive 假透光是 D-14 定的,不动。纹样按 pattern 生成
+  // (见下方 gexinGeometry / lanternLatticeGeometry)。
   const gy0 = tiaoTop + bar * 2.2;
   const gy1 = h / 2 - bar;
   const gh = gy1 - gy0;
   const gw = w - bar * 2;
-  const p = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh), paper);
-  p.position.set(0, (gy0 + gy1) / 2, 0);
-  g.add(p);
+  // 纸面比格心洞口大一圈:四边插进外框/抹头背面各 4mm——棂条退后后,
+  // 抹头与格心之间的窄带不能漏成通缝(背光面实测漏光,见单子 AP 回报)。
+  const paperY0 = tiaoTop + railBar / 2 - 0.004;
+  const paperY1 = gy1 + 0.004;
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(gw + 0.008, paperY1 - paperY0), paper);
+  p.receiveShadow = true; // 框边/棂条的影子要落在纸面上,遮光才读得出
   if (pattern) {
-    const geo = pattern === 'lantern' ? lanternLatticeGeometry(gw, gh, 0.02) : gexinGeometry(pattern, gw, gh, 0.02, seed, true);
+    // gexinGeometry 的棂条截面是 bar×bar(wall.ts 不在本单文件域,深度按 bar 计)。
+    const { geo, depth } = pattern === 'lantern'
+      ? lanternLatticeGeometry(gw, gh, 0.014)
+      : { geo: gexinGeometry(pattern, gw, gh, 0.02, seed, true), depth: 0.02 };
+    p.position.set(0, (paperY0 + paperY1) / 2, -(depth / 2 + 0.003));
+    g.add(p);
     const lattice = new THREE.Mesh(geo, mat);
     lattice.position.set(0, (gy0 + gy1) / 2, 0);
     lattice.castShadow = true;
@@ -425,6 +529,8 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
     g.add(lattice);
     return g;
   }
+  p.position.set(0, (paperY0 + paperY1) / 2, -(0.03 / 2 + 0.003));
+  g.add(p);
   const rng = makeRng(seed);
   const nx = Math.max(2, Math.round(gw / 0.14));
   const ny = Math.max(3, Math.round(gh / 0.14));
