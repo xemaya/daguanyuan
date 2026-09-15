@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { registerPart, type PartBuild } from '@builder/parts/registry';
 import { whiteStoneMaterial } from '@builder/parts/materials';
+import { buildScrollSample, SAMPLE_LEN, SAMPLE_CELL, SAMPLE_BAND_H } from '@builder/parts/ornament/scroll-sample';
 import { roundedBox } from '@builder/parts/sculpt';
 import { lerp } from '@engine/core/Noise';
 import type { Provenance } from '@builder/derive/provenance';
@@ -36,6 +37,12 @@ import type { Provenance } from '@builder/derive/provenance';
  * 观感一致,不在本单顺手"改良"。AJ1 唯一动的是它的落位:分层之后立
  * 面比原来(core 面)凸出 0.06m,浮雕带随之外移坐到陡板面上,算法与
  * 参数一字未改。
+ *
+ * 单子 AO(2026-09-15,台账 `C4`「西番草读成铁丝」):**只换一段**。正门台矶
+ * 前檐、台阶右侧那一段(局部 x∈[1.90, 3.70],长 1.8m)换成真浮雕样件——纹样
+ * 描述在 `builder/parts/ornament/pattern2d.ts`,高度场与两个消费者在
+ * `relief.ts`。其余三面与本面这一段以外的 `ridgeTube` **原样保留作对照**
+ * (铺开等 AQ-b 的距离档,本单不许顺手铺满,见 `ART_DIRECTION` §10)。
  *
  * 局部坐标:原点在台矶底面中心,+Z 朝门外。
  */
@@ -94,6 +101,27 @@ function blocksOnGrid(a: number, b: number, grid0: number, pitch: number): [numb
 /** 目标块长 BLOCK_L 下把 len 均分成整数块的格距。 */
 function gridPitch(len: number): number {
   return len / Math.max(1, Math.round(len / BLOCK_L));
+}
+
+/* ---- 单子 AO:西番草浮雕样件的落位(带子本身在 ornament/scroll-sample.ts) ---- */
+
+/** 样件起点(局部 x)。踏跺净宽 3.0m 居中,右缘在 x=1.5;留 0.4m 才起纹样。 */
+const SAMPLE_X0 = 1.9;
+/** 带心高(米)。陡板 0.08~0.275,带高 0.11,居中略偏上贴近老卷草那条线。 */
+const SAMPLE_BAND_CY = 0.185;
+/** 样件两侧的 `ridgeTube` 让出的净空(米)。 */
+const SAMPLE_GAP = 0.06;
+/** 样件底面离陡板外皮抬起的量(米)。纹样的石面部分 h=0,与陡板面共面就会
+ *  z-fighting——1mm 是"仍然读成同一块石头"与"不打架"之间的最小值。 */
+const SAMPLE_LIFT = 0.001;
+
+/**
+ * `?relief=tex` 切到贴图版(评审用)。默认 `geo`——本单交付的是近景几何版,
+ * 贴图版只为中景 pixel diff 那一档取证,不是可发布的第二种做法。
+ */
+function reliefMode(): 'geo' | 'tex' {
+  if (typeof location === 'undefined') return 'geo';
+  return new URLSearchParams(location.search).get('relief') === 'tex' ? 'tex' : 'geo';
 }
 
 export function buildForecourtTerrace(spec: ForecourtTerraceSpec): PartBuild {
@@ -203,8 +231,12 @@ export function buildForecourtTerrace(spec: ForecourtTerraceSpec): PartBuild {
   const inMargin = 0.16;
   const bandOut = FACE_T + 0.015;
   type Side = { x0: number; z0: number; x1: number; z1: number; nx: number; nz: number };
+  // 单子 AO:前檐这一面让出样件那一段(x∈[SAMPLE_X0, SAMPLE_X0+SAMPLE_LEN]),
+  // 拆成左右两截老做法。让出的净空两边各 SAMPLE_GAP,样件与老卷草不打架,
+  // 同一张贴脸图里就能左右对照「铁丝 vs 浮雕」。其余三面一字未动。
   const sides: Side[] = [
-    { x0: -platHX + inMargin, z0: platHZ, x1: platHX - inMargin, z1: platHZ, nx: 0, nz: 1 },
+    { x0: -platHX + inMargin, z0: platHZ, x1: SAMPLE_X0 - SAMPLE_GAP, z1: platHZ, nx: 0, nz: 1 },
+    { x0: SAMPLE_X0 + SAMPLE_LEN + SAMPLE_GAP, z0: platHZ, x1: platHX - inMargin, z1: platHZ, nx: 0, nz: 1 },
     { x0: -platHX + inMargin, z0: -platHZ, x1: platHX - inMargin, z1: -platHZ, nx: 0, nz: -1 },
     { x0: -platHX, z0: -platHZ + inMargin, x1: -platHX, z1: platHZ - inMargin, nx: -1, nz: 0 },
     { x0: platHX, z0: -platHZ + inMargin, x1: platHX, z1: platHZ - inMargin, nx: 1, nz: 0 },
@@ -282,6 +314,13 @@ export function buildForecourtTerrace(spec: ForecourtTerraceSpec): PartBuild {
     }
   }
 
+  // 单子 AO 的样件:坐在陡板外皮上(不是像 ridgeTube 那样再外凸 15mm),
+  // 浮雕自己从石面长出来 4mm——「粘上去」与「刻出来」的分界就在这里。
+  const mode = reliefMode();
+  const sample = buildScrollSample(mode, plinth);
+  sample.position.set(SAMPLE_X0 + SAMPLE_LEN / 2, SAMPLE_BAND_CY, platHZ + FACE_T + SAMPLE_LIFT);
+  root.add(sample);
+
   const provenance: Provenance = {
     evidence: [],
     inference: [
@@ -319,6 +358,21 @@ export function buildForecourtTerrace(spec: ForecourtTerraceSpec): PartBuild {
       },
     ],
   };
+  provenance.art.push({
+    id: 'project:xifancao-relief-sample',
+    name: '西番草浅浮雕样件(一段)',
+    method: 'artistic_choice',
+    note:
+      '07-01「鑿成西番草花樣」只定了"白石台矶上凿西番草";`07-76`③ 记「西番草=缠枝卷叶」' +
+      '是二手判断(甲已核其自洽、乙待核),**纹样的形本身无出处**。本样件的形是艺术选择:' +
+      `一个单元 = 一段 S 形主藤 + 两片反向卷叶,单元长 ${SAMPLE_CELL}m、带高 ${SAMPLE_BAND_H}m,` +
+      '四个种子(卷叶开合 + 主藤二次谐波)轮排;主藤 4mm、叶面 2.5mm、主脉浅槽 0.8mm、' +
+      '边缘 2mm 软过渡回石面,分层高度同样无出处。落位:前檐踏跺右侧 ' +
+      `x∈[${SAMPLE_X0}, ${(SAMPLE_X0 + SAMPLE_LEN).toFixed(2)}],长 ${SAMPLE_LEN}m,` +
+      `带心高 ${SAMPLE_BAND_CY}m。**只做一段**(ART_DIRECTION §10「具象雕刻要集中不要摊开」);` +
+      '其余各面仍是单子 AJ1 那版圆管卷草,留作对照,铺开与否归 AQ-b 的距离档判。' +
+      `当前输出:${mode === 'tex' ? '贴图版(?relief=tex,评审用)' : '近景几何版'}。`,
+  });
   root.userData.provenance = provenance;
   return { root, groundRadius: Math.hypot(platHX, platHZ) };
 }
