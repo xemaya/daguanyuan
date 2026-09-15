@@ -74,6 +74,9 @@ const SHOTS = [
   { id: 'cu_wall_seam',    pos: [68.0, 0, 239.0], yaw: 1.35,  pitch: -0.08, group: 'closeup', desc: '贴脸·南墙接缝:六段粉墙相接处的墙脚与压顶(用户反馈3;名册侧接缝门报这里互插0.16~0.22m)。' },
   { id: 'cu_terrace',      pos: [58.5, 0, 246.8], yaw: 0.28,  pitch: -0.38, group: 'closeup', desc: '贴脸·白石台矶:石作分层(土衬/陡板/阶条/面层)与砌缝(用户反馈「大白平台质感差」;单子 AJ1)。' },
   { id: 'cu_lattice',      pos: [62.0, 0, 238.4], yaw: 1.35,  pitch: 0.06,  group: 'closeup', desc: '贴脸·格心:灯笼锦的纹样构成(用户反馈2「窗花粗糙」)。' },
+  // 单子 AP:灯笼锦工艺样板的三视补位——正面看纹样收头与主辅比例,背光看框边对纸面的遮光。
+  { id: 'cu_lattice_front',  pos: [62.0, 0, 240.6], yaw: 0.0,   pitch: 0.05,  group: 'closeup', desc: '贴脸·格心正面:正对次间窗,看灯笼锦完整纹样、边界收头与留白(单子 AP)。' },
+  { id: 'cu_lattice_inside', pos: [62.0, 0, 236.0], yaw: 3.14,  pitch: 0.05,  group: 'closeup', desc: '贴脸·格心背光:门内朝南看同一扇窗,纸面退后后框边对纸面的遮光(单子 AP;不许给窗加私灯)。' },
 ];
 
 /**
