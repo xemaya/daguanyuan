@@ -220,7 +220,8 @@ export function buildTiaohuanRelief(
 ): THREE.Mesh {
   const band = tiaohuanBand(lengthM, heightM);
   if (mode === 'geo') {
-    const geo = buildReliefBandGeometry(band, TIAOHUAN_STEP, TIAOHUAN_STEP);
+    const step = tiaohuanStep();
+    const geo = buildReliefBandGeometry(band, step, step);
     // `buildReliefBandGeometry` 给的是米制 `boxProjectedUV`(台矶那边石作的约定)。
     // 木作不是那套:格扇每块板都是 `roundedBox`,一面一张贴图。换成面片 0..1,
     // 浮雕带上的木纹才与它贴着的那块板同一个尺度。
@@ -243,6 +244,22 @@ export function buildTiaohuanRelief(
 /** 几何版一扇的三角数(预算与回报用)。 */
 export function tiaohuanTriangleCount(lengthM: number, heightM = TIAOHUAN_BAND_H): number {
   return bandTriangleCount(tiaohuanBand(lengthM, heightM), TIAOHUAN_STEP, TIAOHUAN_STEP);
+}
+
+/**
+ * `?tiaostep=<毫米>` 换几何版的网格步长(取证用,默认 `TIAOHUAN_STEP` = 6mm)。
+ *
+ * 单子 AQ-b2 要在潇湘馆当心间那 8 扇落地格扇上做「几何版 4mm / 6mm 各一档
+ * vs 贴图版」的并排——`P-26` 说漫射光下 6mm 的采样抹平了主藤峰,4mm 能不能翻盘
+ * 是**量出来的问题**,而要量就得有一个只读的开关。同 `tiaohuanOverride()` 一样:
+ * 不带参数时返回默认值,编译进去的那一档一格不动。
+ * 夹在 1~20mm:再细下去一扇的三角就不是"一档"而是另一件事了。
+ */
+export function tiaohuanStep(): number {
+  if (typeof location === 'undefined') return TIAOHUAN_STEP;
+  const v = Number(new URLSearchParams(location.search).get('tiaostep'));
+  if (!Number.isFinite(v) || v <= 0) return TIAOHUAN_STEP;
+  return Math.min(0.02, Math.max(0.001, v / 1000));
 }
 
 /**
