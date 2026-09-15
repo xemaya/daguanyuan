@@ -78,6 +78,13 @@ export class PostFX {
   private skyHook: SkyHook | null = null;
   /** ?skyfx=off builds the pre-W graph exactly, for same-server A/B captures. */
   private skyFxOn = new URLSearchParams(location.search).get('skyfx') !== 'off';
+  // 单子 AN1 — read-only review switches, same style as ?dof=. Each is `null`
+  // unless the URL explicitly asks for it, so the compiled default (q.ssao /
+  // gtao.scale.value 1.15 / settings.grain 0.016) never moves on its own.
+  /** ?ao=off|on forces GTAO regardless of the quality tier's `ssao` flag. */
+  private aoOverride = ((v: string | null) => v === 'off' ? false : v === 'on' ? true : null)(new URLSearchParams(location.search).get('ao'));
+  /** ?aoscale=<x> replaces the GTAO node's fixed `scale.value` (default 1.15). */
+  private aoScaleOverride = ((v: string | null) => { const n = v !== null ? Number(v) : NaN; return Number.isFinite(n) ? n : null; })(new URLSearchParams(location.search).get('aoscale'));
   private fogCells = { density: { value: 0 }, color: { value: new THREE.Vector3(1, 1, 1) } };
   // Camera state frozen into cells every frame: live camera accessor nodes
   // (cameraWorldMatrix & co.) follow whichever camera the renderer is
@@ -118,6 +125,9 @@ export class PostFX {
     else if(dofMode==='off')this.settings.dofStrength=0;
     // ?dof=<far>[,<strength>] pins explicit values for comparison captures.
     else if(dofMode){const[far,strength]=dofMode.split(',').map(Number);if(far>0)this.settings.dofFar=far;if(strength>0)this.settings.dofStrength=strength;}
+    // ?grain=<0..0.03> pins the grade node's grain uniform for comparison captures (单子 AN1).
+    const grainMode=new URLSearchParams(location.search).get('grain');
+    if(grainMode!==null){const g=Number(grainMode);if(Number.isFinite(g))this.settings.grain=Math.min(0.03,Math.max(0,g));}
     this.applyQuality(engine.quality);
   }
   applyQuality(q: QualityTier): void {
@@ -125,12 +135,14 @@ export class PostFX {
     this.resources=[];
     const scenePass=this.scenePass=pass(this.engine.scene,this.engine.camera,{samples:q.msaaSamples>0?4:0});
     this.resources.push(scenePass);
+    // ?ao=off|on overrides the tier's ssao flag; null (no param) leaves q.ssao untouched.
+    const ssaoOn=this.aoOverride??q.ssao;
     const aoNormal=Fn((builder: NodeBuilder)=>(builder as NodeBuilder & {isFlatShading(): boolean}).isFlatShading()?normalViewGeometry:negateOnBackSide(normalViewGeometry))();
     // The old FrontSide normal override did not shade DoubleSide back faces.
     // Keep their actual depth for DOF/occlusion, but do not turn thin leaf backs black.
     const opaqueCoverage=Fn((builder: NodeBuilder)=>builder.material.side===THREE.DoubleSide?float(frontFacing):float(1))();
-    const targets=mrt(q.ssao||q.dof ? {output,normal:vec4(aoNormal,1),aoMask:vec4(vec3(opaqueCoverage),1)} : {output});
-    if(q.ssao||q.dof){
+    const targets=mrt(ssaoOn||q.dof ? {output,normal:vec4(aoNormal,1),aoMask:vec4(vec3(opaqueCoverage),1)} : {output});
+    if(ssaoOn||q.dof){
       targets.setBlendMode('normal',new THREE.BlendMode(THREE.MaterialBlending));
       targets.setBlendMode('aoMask',new THREE.BlendMode(THREE.MaterialBlending));
     }
@@ -147,16 +159,16 @@ export class PostFX {
     const color=scenePass.getTextureNode('output');
     const viewDistance=scenePass.getViewZNode().negate();
     this.views={color,depth:vec4(vec3(viewDistance.div(600)),1)};
-    if(q.ssao||q.dof){
+    if(ssaoOn||q.dof){
       this.views.normal=vec4(scenePass.getTextureNode('normal').xyz.mul(0.5).add(0.5),1);
       this.views.aoMask=vec4(vec3(scenePass.getTextureNode('aoMask').r),1);
     }
     let hdr: Node<'vec4'>=color;
     this.activeEffects=['scene'];
-    if(q.ssao){
+    if(ssaoOn){
       const gtao=ao(scenePass.getTextureNode('depth'),scenePass.getTextureNode('normal'),this.engine.camera);
       gtao.resolutionScale=0.5;gtao.radius.value=2.4;gtao.thickness.value=1.4;
-      gtao.distanceExponent.value=1.2;gtao.distanceFallOff.value=1;gtao.scale.value=1.15;
+      gtao.distanceExponent.value=1.2;gtao.distanceFallOff.value=1;gtao.scale.value=this.aoScaleOverride??1.15;
       this.resources.push(gtao);this.activeEffects.push('ao');
       const smoothAO=denoise(gtao.getTextureNode(),scenePass.getTextureNode('depth'),scenePass.getTextureNode('normal'),this.engine.camera);
       smoothAO.lumaPhi.value=10;smoothAO.depthPhi.value=2;smoothAO.normalPhi.value=3;
