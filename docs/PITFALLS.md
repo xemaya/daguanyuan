@@ -6,6 +6,46 @@
 
 ---
 
+## P-22 三次连拍的「噪声」没有复现——82k 那次大概率不是读数抖动
+
+**背景**：标准动作第 8 条记着「同一份代码两次量 `mound_block` 差过 82k（2%）」，
+但一直没人查过是三角数本身在跳、还是别的什么在跳。单子 AK 建 `perf-baseline.json`
+要三次连拍取中位数，顺手把这件事量清楚了。
+
+**量法**：同一份代码（同一次 `vite dev`、未改任何源文件），对四镜各连续跑三次
+`tools/capture.mjs`（每次都是独立进程：重新起 chromium、重新建世界、重新读
+`window.__GAME__.engine.renderer.info`），逐镜比 `drawCalls` / `triangles` /
+`sceneSubmissions`（主场景+阴影提交）/ `frameSubmissions`（整帧提交，含 postfx）。
+
+**结果**：**四镜的这四个数字三次全部逐位相同**，一位不差：
+
+```
+gate_approach  drawCalls=269 triangles=4208871  sceneSubmissions{calls:252,triangles:4208854}  frameSubmissions{calls:269,triangles:4208871}
+mound_block    drawCalls=255 triangles=4191277  sceneSubmissions{calls:238,triangles:4191260}  frameSubmissions{calls:255,triangles:4191277}
+grass_close    drawCalls=292 triangles=4344847  sceneSubmissions{calls:275,triangles:4344830}  frameSubmissions{calls:292,triangles:4344847}
+xiaoxiang      drawCalls=250 triangles=3250633  sceneSubmissions{calls:233,triangles:3250616}  frameSubmissions{calls:250,triangles:3250633}
+```
+
+只有 `fps` 在跳（`gate_approach` 34/36/38，`grass_close` 47/46/46）——这是已知的、
+D-25 明确不比的那部分。
+
+**结论（照实写，不编原因）**：**这次没有复现 82k 的噪声**。三角数与 draw call
+在「同一份代码、独立进程连拍」这个条件下是确定性的，说明它不是逐帧簇剔除
+相位或阴影级联抖动那类运行时随机性（如果是，同一份代码三次独立建世界不可能
+逐位相同）。82k 那次更可能是**两次读数之间代码或状态本身就不同**——例如
+中间有源文件改动导致 Vite HMR 触发了部分模块重建、或者两次量隔着不同的
+git 提交——而不是同一份代码本身的抖动。**这只是本单三次样本的观察，不是
+「噪声不存在」的证明**：真要排除运行时随机性，需要在明确不改任何源文件、
+不触发任何 HMR 的前提下再多测几轮，本单没有做那件事。
+
+**留给后面**：如果哪天真的在「确认代码没变」的前提下复现了跳动，先比
+`sceneSubmissions` 与 `frameSubmissions` 是否一起跳——一起跳说明是场景图
+本身的构件数在变（该去查是不是有条件分支在跑），只有 `frameSubmissions`
+跳而 `sceneSubmissions` 不跳，说明是 postfx 那层（例如 SMAA history 相关的
+额外 pass）在变。
+
+---
+
 ## P-21 worktree 隔离之后忘了合回来,活悬在 /private/tmp 里
 
 **症状**:2026-09-14 派出三张并行单子,三十分钟后复查,`git log` 上只有两张的提交,
