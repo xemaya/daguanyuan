@@ -52,6 +52,22 @@ const ALLOW = [
     path: 'builder/parts/damu/dougong.ts',
     why: '单子 V 的 V2 产物,落地前不存在',
   },
+  ...[
+    'docs/DECISIONS.md',
+    'docs/ROADMAP.md',
+    'docs/superpowers/plans/2026-09-15-ak-perf-baseline.md',
+    'docs/superpowers/plans/STANDARD-ACTIONS.md',
+  ].map((f) => ({ file: f, path: 'projects/daguanyuan/perf-baseline.json', why: 'D-25 定的三角预算基线,由单子 AK 落地,落地前不存在' })),
+  {
+    file: 'docs/superpowers/plans/2026-09-15-ak-perf-baseline.md',
+    path: 'tests/perf-baseline.test.mjs',
+    why: '单子 AK 的待建测试,落地前不存在',
+  },
+  {
+    file: 'docs/superpowers/plans/2026-09-15-am-cuizhang-rebuild.md',
+    path: 'builder/parts/shishan/baishi.ts',
+    why: '单子 AM 提议的白石峰构件落点(也可能落在 taihu.ts 里),落地前不存在',
+  },
   ...['engine/core/look.ts', 'looks/default.json', 'scenes/daoxiangcun.json'].map((p) => ({
     file: 'docs/superpowers/specs/2026-09-14-scale-architecture-design.md',
     path: p,

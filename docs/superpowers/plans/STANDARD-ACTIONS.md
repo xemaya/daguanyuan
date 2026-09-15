@@ -44,12 +44,24 @@
    **为什么改默认**：一道要靠人记得加 flag 才会跑的门，等于没有门。
    验收单子 AI 时我自己就忘了加，读到的是上一轮的旧文件，**差点把旧数字当新结论报出去**。
 
-8. **动了观感或几何的，回报里要给三角数与 draw call 的前后对照**
-   （`node tools/capture.mjs --shots gate_approach,grass_close,mound_block`）。
+8. **动了观感或几何的，收工要对 `perf-baseline.json` 跑一次相对回归，并把 fps 写进回报。**
+   （判据形式见 `docs/DECISIONS.md` `D-25`，2026-09-15 起 **400 万绝对线退役**。）
 
-   **为什么**：400 万这个上限只活在单子的散文里，**没有任何一道门执行它**
-   （`manifest-diff` 只做 A/B 相对回归，没有绝对天花板）。历史：单子 V3 收口时确实回到
-   400 万内，之后单子 Z 的选料规则加了 17 件散石把它顶回去，**没人发现，因为没人看守**。
+   ```
+   node tools/capture.mjs --out shots/<单子号>-after --shots gate_approach,grass_close,mound_block,xiaoxiang
+   node tools/manifest-diff.mjs --baseline shots/<单子号>-after      # 单子 AK 落地前先用 A/B：
+   node tools/manifest-diff.mjs shots/<单子号>-before shots/<单子号>-after --tolerance 0.03
+   ```
+
+   - **门**：每镜三角数与 draw call 相对基线 **±3%**。超了不是错，**沉默才是错**——
+     回报里说清是哪件细节买的，验收人通过后在 `perf-baseline.json` 的 `history` 记一行、抬基线。
+   - **目标**：参考机上每镜 **≥ 45 fps**，三次读数取中位数，量的时候关掉别的预览。
+     它只进回报，不进门。
+   - **本单开工前先量一次基线写进单子**（三次取中位数），收工时前后对照。
+
+   **为什么**：以前那条 400 万只活在单子散文里，没有一道门执行它——单子 V3 收口时回到线内，
+   单子 Z 的 17 件散石把它顶回去，**没人发现，因为没人看守**。而它量的又是每镜剔除后的提交量，
+   园子扩区不该让它涨，近景细节才会；细节值不值是人判的，所以改成「报数 + 归因 + 人抬基线」。
 
    **两个已知坑**：(a) 读数有噪声——同一份代码两次量，`mound_block` 差过 82k（2%），
    **别拿单次读数当基线**；(b) 预算可能写错——单子 AH 的 draw call 超额完全来自

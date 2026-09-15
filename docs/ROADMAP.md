@@ -20,9 +20,19 @@ MVP(2026-09-10)验证了三件事:程序化的表现力、《营造法式》推�
 | 踩过的坑 | `docs/PITFALLS.md`（`P-1` … `P-21`） |
 | 拍过的板 | `docs/DECISIONS.md`（`D-01` … `D-24`） |
 
-**下一步**：单子 **AJ**（`docs/superpowers/plans/2026-09-15-aj-gate-refine.md`）**已写好、待派**——
-正门第二轮精修三件，顺序由用户指定 AJ1 台矶质感 → AJ2 抱鼓石形制 → AJ3 瓦当盖缝。
-再往后是台账的 **D 梯队**（翠嶂重做、沁芳亭桥五步、高照杆、竹夹路）与 **E 组判断题**（要用户拍板）。
+**下一步**（2026-09-15 下午更新）：**三轨并行，按区域切文件域**，沁芳与正门第三轮排在 AJ 之后。
+
+| 轨 | 单子 | 区 | 状态 | 与别轨的文件重叠 |
+|---|---|---|---|---|
+| 1 | **AJ** `docs/superpowers/plans/2026-09-15-aj-gate-refine.md` | 正门 | **进行中** | `forecourt-terrace` / `baogushi` / `composer` / `building` |
+| 2 | **AL** `docs/superpowers/plans/2026-09-15-al-xiaoxiang-bamboo-path.md` | 潇湘馆 | 已写、待派 | `plan.json paths[]` 一条、`projects/daguanyuan/scenes/xiaoxiangguan.json`、`bamboo.ts`、`vegetation.ts` 野花段、`cobbleMaps` |
+| 3 | **AM** `docs/superpowers/plans/2026-09-15-am-cuizhang-rebuild.md` | 翠嶂 | 已写、待派 | `plan.json hills[]` 一条、`projects/daguanyuan/scenes/cuizhang.json`、`shishan/`、规则表追加 07-77/78 |
+| — | **AK** `docs/superpowers/plans/2026-09-15-ak-perf-baseline.md` | 工具 | 已写、待派 | 只有 `manifest-diff.mjs` + 新基线文件，零重叠 |
+
+三条都改 `plan.json`，**合回时各自只 `git add -p` 自己那个 hunk**。AL 里 E1（石子漫）E2（曲路）用户已拍板；
+AM 里 **`X-04` 会因形心西移而红，是判断题，agent 做到那一步会停下来问**（单子里给了甲乙两档，建议甲）。
+**排在 AJ 之后**：沁芳 D3/D4（撞 `composer.ts` 的 CAUSEWAY 与 `building.ts` 的 tingSpec）、正门第三轮（D5 高照杆 + E4 古松）。
+再往后是 **E5 / E6** 判断题与 **AE**（形制断言，等 D 梯队修完再焊）。
 
 **当前基线**（2026-09-15 实测，收工比对用）：
 
@@ -34,9 +44,9 @@ grass_close   291 calls 4334k tris 48 fps
 地面精度 CELL 0.48 m / splat 24.8 cm/texel（1088²）
 ```
 
-⚠️ **三角数 400 万这个上限只活在单子的散文里，没有任何一道门执行它**——
-`manifest-diff` 只做 A/B 相对回归，没有绝对天花板。现在三镜都在 4.1–4.3M。
-要立这道门的话，先解决读数噪声（同一份代码两次量差过 82k ≈ 2%）。
+**三角预算判据已改**（`D-25`，2026-09-15 用户拍板）：400 万绝对线退役，改为**每镜相对基线 ±3% 当门、fps ≥ 45 当目标**，
+基线落盘 `projects/daguanyuan/perf-baseline.json`、抬基线记 `history`。工具由单子 **AK** 落地；AK 之前用 `manifest-diff` A/B 模式 `--tolerance 0.03`。
+读数噪声（同一份代码两次差 2%）AK 顺手量清楚。
 
 ---
 
