@@ -91,3 +91,62 @@ test('userData.keep 与 InstancedMesh 原样保留，不进任何合并桶', () 
   assert.equal(merged[0].geometry.attributes.position.count, 36 * 2, 'kept 节点不该混进合并桶的顶点数里');
   assert.equal(keptOut.length, 1, 'userData.keep 的节点应该原样多出一个,不进任何桶');
 });
+
+/**
+ * `P-23`:`keep`(不参与合并、原样保留)那条路径以前是
+ * `clone.applyMatrix4(k.matrixWorld)`。`clone()` 已经带着局部变换,
+ * 再叠一次世界矩阵就是**位移翻倍**——父节点不是单位矩阵时当场错位。
+ *
+ * 这条坑在 AQ-a 记下来时还没人在真场景里触发(`ornament/scroll-sample.ts`
+ * 那块 `userData.keep = true` 的样件,父链恰好是单位矩阵)。AQ-b1 把构件的
+ * 内部合并撤掉之后,`keep` 的父链再也不保证是单位矩阵,所以先修它再动构件。
+ */
+test('keep 路径:父节点带变换时,保留件的世界位置不许翻倍（P-23）', () => {
+  const root = new THREE.Group();
+  const parent = new THREE.Group();
+  parent.position.set(5, 0, 0);
+  root.add(parent);
+
+  const kept = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial());
+  kept.position.set(3, 0, 0);
+  kept.rotation.y = 0.5;
+  kept.userData.keep = true;
+  parent.add(kept);
+
+  root.updateWorldMatrix(true, true);
+  const expected = kept.matrixWorld.clone();
+
+  const out = mergeByMaterial(root);
+  out.updateWorldMatrix(true, true);
+  const survivor = out.children.find((c) => c.isMesh);
+  assert.ok(survivor, 'keep 的 mesh 没有出现在合并结果里');
+  survivor.updateWorldMatrix(true, true);
+  survivor.matrixWorld.elements.forEach((n, i) => {
+    assert.ok(
+      Math.abs(n - expected.elements[i]) < 1e-6,
+      `keep 件的世界矩阵第 ${i} 位 ${n} != ${expected.elements[i]}——位移翻倍(P-23)`,
+    );
+  });
+});
+
+test('keep 路径:非 keep 的普通件也不许因为父变换而错位', () => {
+  const root = new THREE.Group();
+  const parent = new THREE.Group();
+  parent.position.set(-7, 2, 4);
+  parent.rotation.y = 0.9;
+  root.add(parent);
+  const mat = new THREE.MeshStandardMaterial();
+  for (let i = 0; i < 3; i++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
+    m.position.set(i, 0, 0);
+    parent.add(m);
+  }
+  root.updateWorldMatrix(true, true);
+  const box = new THREE.Box3().setFromObject(root);
+  const out = mergeByMaterial(root);
+  const merged = new THREE.Box3().setFromObject(out);
+  for (const k of ['x', 'y', 'z']) {
+    assert.ok(Math.abs(box.min[k] - merged.min[k]) < 1e-5 && Math.abs(box.max[k] - merged.max[k]) < 1e-5,
+      `合并前后包围盒 ${k} 不一致:${box.min[k]}..${box.max[k]} vs ${merged.min[k]}..${merged.max[k]}`);
+  }
+});

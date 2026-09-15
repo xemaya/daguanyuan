@@ -80,8 +80,14 @@ export function mergeByMaterial(root: THREE.Object3D): THREE.Group {
     }
   }
   for (const k of keep) {
+    // `P-23`:不许 `clone()` 之后再 `applyMatrix4(matrixWorld)`。`clone()` 复制的是
+    // **局部**变换,`applyMatrix4` 是在它之上**再叠**一次世界矩阵——父节点不是单位
+    // 矩阵时位移就翻倍。要的是"把局部变换替换成世界变换",所以直接把 matrixWorld
+    // 分解回 position/quaternion/scale。
     const clone = k.clone();
-    clone.applyMatrix4(k.matrixWorld);
+    k.matrixWorld.decompose(clone.position, clone.quaternion, clone.scale);
+    clone.matrixAutoUpdate = true;
+    clone.updateMatrix();
     out.add(clone);
   }
   return out;
