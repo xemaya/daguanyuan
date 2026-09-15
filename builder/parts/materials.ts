@@ -4,6 +4,7 @@ import {
   bakeNormalMap,
   bakeScalarMap,
   cached,
+  recipeKey,
   mixHex,
   hexToRgb,
   NOISE,
@@ -83,7 +84,7 @@ export function plasterMaps(size = 1024): MaterialMaps {
     return clamp(0.5 + grain * 0.18 + trowel * 0.08, 0, 1);
   };
   return {
-    map: cached('cn.plaster.albedo', () =>
+    map: cached(recipeKey('cn.plaster.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -97,8 +98,8 @@ export function plasterMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('cn.plaster.normal', () => bakeNormalMap({ size, height: h }, 0.9)),
-    roughnessMap: cached('cn.plaster.rough', () =>
+    normalMap: cached(recipeKey('cn.plaster.normal', size, 0.9), () => bakeNormalMap({ size, height: h }, 0.9)),
+    roughnessMap: cached(recipeKey('cn.plaster.rough', 512), () =>
       bakeScalarMap(512, (u, v) => 0.82 + tileableFbm(NOISE.paint, u, v, 30, 2) * 0.08),
     ),
   };
@@ -141,7 +142,7 @@ export function tileMaps(rows = 12, size = 1024): MaterialMaps {
     return { arch, lip, ci: Math.floor(col), ri: Math.floor(v * rows * 1.6) };
   };
   return {
-    map: cached('cn.tile.albedo', () =>
+    map: cached(recipeKey('cn.tile.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -158,7 +159,7 @@ export function tileMaps(rows = 12, size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('cn.tile.normal', () =>
+    normalMap: cached(recipeKey('cn.tile.normal', size, 2.4), () =>
       bakeNormalMap(
         {
           size,
@@ -170,7 +171,7 @@ export function tileMaps(rows = 12, size = 1024): MaterialMaps {
         2.4,
       ),
     ),
-    roughnessMap: cached('cn.tile.rough', () =>
+    roughnessMap: cached(recipeKey('cn.tile.rough', 512), () =>
       bakeScalarMap(512, (u, v) => 0.6 + (tileableFbm(NOISE.stone, u, v, 30, 3) * 0.5 + 0.5) * 0.22),
     ),
   };
@@ -203,7 +204,7 @@ export function woodMaps(key: string, tint: number, size = 1024): MaterialMaps {
   const grain = (u: number, v: number) =>
     tileableFbm(NOISE.bark, u * 6, v * 0.25, 36, 4) * 0.5 + 0.5;
   return {
-    map: cached(`cn.wood.${key}.albedo`, () =>
+    map: cached(recipeKey(`cn.wood.${key}.albedo`, size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -215,10 +216,10 @@ export function woodMaps(key: string, tint: number, size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached(`cn.wood.${key}.normal`, () =>
+    normalMap: cached(recipeKey(`cn.wood.${key}.normal`, size, 0.8), () =>
       bakeNormalMap({ size, height: (u, v) => clamp(0.5 + (grain(u, v) - 0.5) * 0.6, 0, 1) }, 0.8),
     ),
-    roughnessMap: cached(`cn.wood.${key}.rough`, () =>
+    roughnessMap: cached(recipeKey(`cn.wood.${key}.rough`, 512), () =>
       bakeScalarMap(512, (u, v) => 0.48 + (1 - grain(u, v)) * 0.2),
     ),
   };
@@ -254,7 +255,7 @@ export function stoneMaps(size = 1024): MaterialMaps {
     return clamp(0.5 + chisel * 0.16 + pit * 0.2, 0, 1);
   };
   return {
-    map: cached('cn.stone.albedo', () =>
+    map: cached(recipeKey('cn.stone.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -266,8 +267,8 @@ export function stoneMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('cn.stone.normal', () => bakeNormalMap({ size, height: h }, 1.6)),
-    roughnessMap: cached('cn.stone.rough', () => bakeScalarMap(512, (u, v) => 0.7 + h(u, v) * 0.2)),
+    normalMap: cached(recipeKey('cn.stone.normal', size, 1.6), () => bakeNormalMap({ size, height: h }, 1.6)),
+    roughnessMap: cached(recipeKey('cn.stone.rough', 512), () => bakeScalarMap(512, (u, v) => 0.7 + h(u, v) * 0.2)),
   };
 }
 
@@ -295,7 +296,7 @@ export function whiteStoneMaps(size = 1024): MaterialMaps {
     return clamp(0.5 + chisel * 0.13 + pit * 0.14, 0, 1);
   };
   return {
-    map: cached('cn.whiteStone.albedo', () =>
+    map: cached(recipeKey('cn.whiteStone.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -305,8 +306,8 @@ export function whiteStoneMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('cn.whiteStone.normal', () => bakeNormalMap({ size, height: h }, 1.6)),
-    roughnessMap: cached('cn.whiteStone.rough', () => bakeScalarMap(512, (u, v) => 0.74 + h(u, v) * 0.16)),
+    normalMap: cached(recipeKey('cn.whiteStone.normal', size, 1.6), () => bakeNormalMap({ size, height: h }, 1.6)),
+    roughnessMap: cached(recipeKey('cn.whiteStone.rough', 512), () => bakeScalarMap(512, (u, v) => 0.74 + h(u, v) * 0.16)),
   };
 }
 
@@ -362,7 +363,7 @@ export function tigerSkinMaps(size = 1024): MaterialMaps {
     return clamp(0.42 + jointT(w) * 0.34 + bulge * 0.14 + (blotch(u, v) - 0.5) * 0.1, 0, 1);
   };
   return {
-    map: cached('cn.tigerSkin.albedo', () =>
+    map: cached(recipeKey('cn.tigerSkin.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -384,8 +385,8 @@ export function tigerSkinMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('cn.tigerSkin.normal', () => bakeNormalMap({ size, height: h }, 1.9)),
-    roughnessMap: cached('cn.tigerSkin.rough', () =>
+    normalMap: cached(recipeKey('cn.tigerSkin.normal', size, 1.9), () => bakeNormalMap({ size, height: h }, 1.9)),
+    roughnessMap: cached(recipeKey('cn.tigerSkin.rough', 512), () =>
       bakeScalarMap(512, (u, v) => lerp(0.86, 0.66, jointT(cell(u, v)))),
     ),
   };
@@ -415,7 +416,7 @@ export function taihuMaps(size = 1024): MaterialMaps {
     return clamp(0.6 + n * 0.3 - pits * 0.5, 0, 1);
   };
   return {
-    map: cached('cn.taihu.albedo', () =>
+    map: cached(recipeKey('cn.taihu.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -427,8 +428,8 @@ export function taihuMaps(size = 1024): MaterialMaps {
         },
       }),
     ),
-    normalMap: cached('cn.taihu.normal', () => bakeNormalMap({ size, height: h }, 2.2)),
-    roughnessMap: cached('cn.taihu.rough', () => bakeScalarMap(512, (u, v) => 0.62 + h(u, v) * 0.25)),
+    normalMap: cached(recipeKey('cn.taihu.normal', size, 2.2), () => bakeNormalMap({ size, height: h }, 2.2)),
+    roughnessMap: cached(recipeKey('cn.taihu.rough', 512), () => bakeScalarMap(512, (u, v) => 0.62 + h(u, v) * 0.25)),
   };
 }
 
@@ -456,7 +457,7 @@ export function bambooMaterial(): THREE.MeshStandardMaterial {
       color: CN.bamboo,
       roughness: 0.55,
       metalness: 0,
-      map: cached('cn.bamboo.albedo', () =>
+      map: cached(recipeKey('cn.bamboo.albedo', 256), () =>
         bakeColorMap({
           size: 256,
           color: (u, v) => {
@@ -483,7 +484,7 @@ export function paperMaterial(): THREE.MeshStandardMaterial {
       emissive: CN.paper,
       emissiveIntensity: 0.18,
       side: THREE.DoubleSide,
-      map: cached('cn.paper.albedo', () =>
+      map: cached(recipeKey('cn.paper.albedo', 256), () =>
         bakeColorMap({
           size: 256,
           color: (u, v) => {
