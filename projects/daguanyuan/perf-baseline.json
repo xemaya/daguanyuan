@@ -1,0 +1,15 @@
+{
+  "$comment": "单子 AK 落成 D-25 的判据：每镜相对回归，三角与 draw call 按 ±tolerance 比，fps 只是参考不进门。照 coverage-baseline.json 的做法——数字是量的不是估的。四镜（gate_approach / mound_block / grass_close / xiaoxiang）与单子 AJ 用的一致。drawCalls/triangles 各由三次独立进程连拍（各自重新起 chromium、重新建世界）取中位数；这三次读数逐位相同，中位数就是原始读数本身（细节见回报与 docs/PITFALLS.md P-22）。fps 同样取三次中位数，但会随机器负载浮动，不比、只参考，见 docs/DECISIONS.md D-25。history 由验收人在每次「买了细节、基线该抬」时追加一行，本单留空。",
+  "decision": "D-25",
+  "tolerance": 0.03,
+  "fpsTarget": 45,
+  "shots": {
+    "gate_approach": { "drawCalls": 269, "triangles": 4208871, "fps": 36 },
+    "mound_block":   { "drawCalls": 255, "triangles": 4191277, "fps": 48 },
+    "grass_close":   { "drawCalls": 292, "triangles": 4344847, "fps": 46 },
+    "xiaoxiang":     { "drawCalls": 250, "triangles": 3250633, "fps": 48 }
+  },
+  "measuredAt": "2026-09-15",
+  "commit": "cb6c6ae0080b6a80a2dbe642ef6bc678b3894209",
+  "history": []
+}
