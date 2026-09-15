@@ -254,12 +254,38 @@ export interface ReliefBand {
   levels: ReliefLevels;
   /** 两端淡出长度(米)——样件只换一段,两头要能落回石面。 */
   endFadeM: number;
+  /** 纹样单元的长宽比(见 `ScrollBandOptions.aspect`)。进烘焙键。 */
+  aspect: number;
+  /**
+   * 首尾相接(单子 AS 加的参数,默认 `false` = 台矶样件的原行为)。
+   *
+   * 开了之后 `bandHeight` 算邻格时把下标环起来:第 0 格的左邻是最后一格、
+   * 最后一格的右邻是第 0 格。**这是「一张图铺一条带」的前提**——绦环板的
+   * 贴图版只烤四格的图集、靠 uv 重复铺满整扇,若两端各自截断,每四格就有
+   * 一道竖缝,而且是有规律地重复出现,比单独一道缝更刺眼。
+   */
+  cyclic: boolean;
 }
 
 /**
  * 铺一条西番草带:按 `seeds` 轮着取单元,长度必须是单元长的整数倍。
  * 不整除就抛错——半个单元的接缝在石头上是读得出来的,不许静默取整。
  */
+export interface ScrollBandOptions {
+  /** 首尾相接(见 `ReliefBand.cyclic`)。默认 false。 */
+  cyclic?: boolean;
+  /**
+   * 覆盖纹样的长宽比。默认 `cellW / heightM`,即"纹样按本带的真实单元比例生成"。
+   *
+   * 绦环板要覆盖它(单子 AS):全园格扇净宽 0.47~0.77m,各自求整得到的单元长
+   * 在 0.156~0.194m 之间飘。若每扇都按自己的比例生成纹样,**每扇的叶形都不
+   * 一样**,那张四格图集就只对某一种宽度成立。锁成同一个标称比例后,各扇之间
+   * 只差一个整体拉伸——几何版与贴图版拉伸得一模一样,中景 pixel diff 才量的是
+   * "位移 vs 法线",不是"两片形状不同的叶子"。
+   */
+  aspect?: number;
+}
+
 export function makeScrollBand(
   lengthM: number,
   heightM: number,
@@ -267,12 +293,13 @@ export function makeScrollBand(
   seeds: number[],
   levels: ReliefLevels = XIFANCAO_LEVELS,
   endFadeM = 0.05,
+  opts: ScrollBandOptions = {},
 ): ReliefBand {
   const n = Math.round(lengthM / cellW);
   if (n < 1 || Math.abs(n * cellW - lengthM) > 1e-6) {
     throw new Error(`卷草带长 ${lengthM}m 不是单元长 ${cellW}m 的整数倍`);
   }
-  const aspect = cellW / heightM;
+  const aspect = opts.aspect ?? cellW / heightM;
   const used: number[] = [];
   const cells: MetricPattern[] = [];
   for (let i = 0; i < n; i++) {
@@ -280,7 +307,7 @@ export function makeScrollBand(
     used.push(seed);
     cells.push(toMetric(xifancaoUnit(seed, aspect), cellW, heightM, levels));
   }
-  return { lengthM, heightM, cellW, cells, seeds: used, levels, endFadeM };
+  return { lengthM, heightM, cellW, cells, seeds: used, levels, endFadeM, aspect, cyclic: opts.cyclic ?? false };
 }
 
 /**
@@ -295,11 +322,15 @@ export function makeScrollBand(
 export function bandHeight(band: ReliefBand, x: number, y: number): number {
   const yb = y + band.heightM / 2;
   const i0 = Math.floor(x / band.cellW);
+  const n = band.cells.length;
   let h = 0;
   for (let k = -1; k <= 1; k++) {
     const i = i0 + k;
-    if (i < 0 || i >= band.cells.length) continue;
-    h = Math.max(h, cellHeight(band.cells[i], x - i * band.cellW, yb, band.levels));
+    // 环起来的是**取哪一格的纹样**,不是**在哪儿求值**:偏移一律按未环绕的
+    // i 算,邻格越界长出来的那半片叶子才落在接缝的正确一侧。
+    const cell = band.cyclic ? band.cells[((i % n) + n) % n] : (i < 0 || i >= n ? null : band.cells[i]);
+    if (!cell) continue;
+    h = Math.max(h, cellHeight(cell, x - i * band.cellW, yb, band.levels));
   }
   if (h <= 0) return 0;
   // 两端缓缓落回石面:样件是一段,不是一圈,两头不能是断口。
@@ -380,7 +411,17 @@ export interface ReliefMaps {
  * 出自两次求值,以后谁改了 h 只改到一张,是个会静默漂的口子。
  */
 export function bakeReliefBandMaps(band: ReliefBand, size: number, strength = 1.6): ReliefMaps {
-  const key = `${band.lengthM}x${band.heightM}@${band.cellW}@${band.seeds.join('-')}`;
+  /**
+   * 键必须把**所有会改像素的输入**叠进来(`TextureLab` 的 `cached` 只比字符串)。
+   * 单子 AO 落地时只有台矶样件一个消费者,尺寸就够分;单子 AS 加了绦环板,它
+   * 用的是抬过叶高的 `levels`、锁死的纹样比例、首尾相接的铺法——三件都不在
+   * 尺寸里。哪天谁做一条与样件同尺寸的带,静默拿到的就是样件那张图。
+   * **像素不变,只是键变长了一次**(记忆化是运行期的,busts 一次没有代价)。
+   */
+  const lv = band.levels;
+  const key = `${band.lengthM}x${band.heightM}@${band.cellW}@${band.seeds.join('-')}`
+    + `@${lv.spineH}-${lv.leafH}-${lv.veinDepth}-${lv.veinHalfW}-${lv.edgeSoft}`
+    + `@${band.endFadeM}@${band.aspect}${band.cyclic ? '@cyc' : ''}`;
   const peak = band.levels.spineH; // h 的上界就是主藤峰高,不用量——量出来的峰值会随采样分辨率漂
   // LUT 是懒的:两张图都命中 cache 时(热重载、第二次进园)一格都不采。
   let lut: Float32Array | null = null;

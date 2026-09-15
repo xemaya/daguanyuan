@@ -87,6 +87,11 @@ const SHOTS = [
   { id: 'cu_scroll_front',   pos: [57.8, 0, 244.96], yaw: 0.0,   pitch: -0.92, group: 'closeup', desc: '贴脸·西番草样件正视:读叶面、主脉、主藤起伏与两端落回石面(单子 AO)。' },
   { id: 'cu_scroll_oblique', pos: [59.3, 0, 245.00], yaw: 0.92,  pitch: -0.65, group: 'closeup', desc: '贴脸·西番草样件斜 60°:掠射读浮起——轮廓线有起伏才是刻出来的(单子 AO)。' },
   { id: 'cu_scroll_mid',     pos: [57.8, 0, 249.86], yaw: 0.0,   pitch: -0.22, group: 'closeup', desc: '中景 6m·西番草样件:几何版 vs 贴图版(?relief=tex)在这一档做 pixel diff(单子 AO)。' },
+  /* 单子 AS:绦环板浮雕的取证位。D-27 把雕饰重心移到人眼高度的构件,绦环板
+   * 带心在 1.30m(台基 0.75 + 槛墙 + 板中),人眼 1.62m——这一条带才是「近看工」
+   * 真正兑现的地方,与台矶那 32px 正好对照。站位与 cu_lattice_front 同一条
+   * 中线(x=60.6,东梢间窗),只是把头低下来正对绦环板。 */
+  { id: 'cu_tiaohuan',     pos: [60.6, 0, 239.6],  yaw: 0.0,   pitch: -0.15, group: 'closeup', desc: '贴脸·绦环板:西番草浮雕的叶面/主脉/主藤起伏,与 ?tiaohuan=tex 的贴图版做 pixel diff(单子 AS)。' },
 ];
 
 /**
