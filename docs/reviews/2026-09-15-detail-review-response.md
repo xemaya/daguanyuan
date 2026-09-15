@@ -127,3 +127,30 @@ agent 三次量 34/36/38，我独立量 35；其余三镜 45–48。这不是噪
 
 worktree 收工合回是标准动作第 2 条，但**对照图这类交付物也在 worktree 里，worktree 一删就没了**。
 AN1 就是这么丢的。→ 标准动作第 2 条补：**回报里引用的图与表，合回前拷到主检出 `shots/<单子号>/`**（`shots/` 不进库，但主检出不会被删）。
+
+## 7. AJ 合回验收（2026-09-15 晚）+ AN2 / AO / AP 开单
+
+**AJ 三件都合回 `editor`**：AJ1 `6b931477`、AJ2 `46e0df5f`、AJ3 `f77f3757`，旁证登记 `8df08a12`。验收人复核：
+
+| 项 | 复核 | 结果 |
+|---|---|---|
+| 九道门 | `check:all` 218/218 | ✅ |
+| 四镜预算（`D-25`，我自己拍） | gate_approach 269 / 4232k（+0.55%）、mound_block 255 / 4209k（+0.42%）、grass_close 292 / 4363k（+0.42%）、xiaoxiang 250 / 3263k（+0.38%）；draw call 四镜**一个没变** | ✅ 全在 ±3% 内，不抬基线。xiaoxiang 也涨是因为 AJ3 瓦当作用于所有建筑 |
+| 对账门 | 21/25，4 缺项仍是翠嶂与沁芳 | ✅ |
+| AJ1 台矶 | `shots/aj1-terrace/cu_terrace.png`：陡板竖缝、阶条横缝、面层墁缝对得上，读成砌出来的 | ✅ |
+| AJ2 抱鼓石 | `shots/aj2-plain` / `aj2-beast`：跨门槛、鼓在门外、须弥座 + 祥云托 + 螺鼓 | ✅ 形制成立。**素鼓 / 鼓顶小兽两档等用户裁**（默认是素鼓；我建议素鼓，小兽那档是一坨，撞 §10「具象要集中」） |
+| AJ2 补充（鼓面 UV） | **没做**，F-AJ-2 自认并把病根归给了别的单 | ⚠️ 并进 **AN2-3** |
+| AJ3 瓦当 | `shots/aj3-after/cu_gate_eave.png`：瓦当跟垄距走、垄头舌 + 长滴水，正面那条缝盖住了 | ✅ |
+| 试玩 | `playtest`（我自己跑） | ✅ PASS，脚下序列 28 段；干净四镜 manifest 过 `--baseline` 0 处超出 |
+
+**顺手看到（记台账，不归 AJ）**：台矶前方、近门大路两侧是**裸土**——大路只有 4.4 m 宽，台矶 13.76 m，两翼露黄土（`cu_terrace.png` 左下）。F-AJ-1 那块深色斜坡也在这一带。归下一次动「近门大路」的单。
+
+**开出的三张单**（按核验稿 §3 的顺序，对着落地代码写的）：
+
+| 单 | 文件 | 派单时机 | 文件域要点 |
+|---|---|---|---|
+| **AN2** 材质加工尺度 | `docs/superpowers/plans/2026-09-15-an2-material-workmanship.md` | **现在** | `materials.ts`、`wall.ts`（不碰 `gexinGeometry`）、`baogushi.ts`、`forecourt-terrace.ts`（不碰西番草段）；**不碰 `building.ts`** |
+| **AP** 灯笼锦窗花样件 | `docs/superpowers/plans/2026-09-15-ap-lantern-lattice-sample.md` | **现在，与 AN2 并行** | 只在 `building.ts` 的 `makeGeshan` / `lanternLatticeGeometry` |
+| **AO** 西番草浮雕样件 | `docs/superpowers/plans/2026-09-15-ao-scroll-relief-sample.md` | **AN2 合回之后** | 新 `builder/parts/ornament/` + `forecourt-terrace.ts` 西番草段；浮雕要坐在 AN2 的细磨白石上 |
+
+AO / AP 过了之后是 AQ-b（原型 + 实例化 + 三档 LOD，`gate_approach` 35 fps 也归它追）。
