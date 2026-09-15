@@ -475,7 +475,9 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
       g.add(medallion);
     }
   }
-  // 中·绦环板:浅浮雕缠枝卷草——复用脊那根 ridgeTube,一条波形藤蔓 + 几个卷叶点。
+  // 中·绦环板:西番草浅浮雕(单子 AS3 起是真浮雕;此前是复用屋脊那根 `ridgeTube`
+  // 拉的一条波形圆管 + 三个压扁球,截面是圆的、边缘是断的,评审读成「一根粘在
+  // 板上的铁丝」,台账 `C4`。管与球全部拆除,两种表示都不再有它们)。
   // 板两端同样咬进上下抹头(通缝同上)。
   const tiaoW = w - bar * 2;
   const tiaoCY = (skirtTop + tiaoTop) / 2;
@@ -497,29 +499,6 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
     const relief = buildTiaohuanRelief(tiaohuanOverride() ?? tiaohuan, tiaoW, mat, seed, tiaoBandH);
     relief.position.set(0, tiaoCY, 0.025 / 2 + TIAOHUAN_LIFT);
     g.add(relief);
-  }
-  if (tiaoW > 0.2) {
-    const reliefZ = 0.025 / 2 + 0.012;
-    const halfSpan = tiaoW / 2 - 0.06;
-    const amp = Math.min(tiaoH, 0.16) * 0.24;
-    const vinePts: THREE.Vector3[] = [];
-    const nSeg = 6;
-    for (let i = 0; i <= nSeg; i++) {
-      const t = i / nSeg;
-      const x = lerp(-halfSpan, halfSpan, t);
-      const y = tiaoCY + Math.sin(t * Math.PI * 2.2) * amp;
-      vinePts.push(new THREE.Vector3(x, y, reliefZ));
-    }
-    g.add(ridgeTube(vinePts, Math.min(0.012, tiaoH * 0.12), mat));
-    for (const t of [0.18, 0.5, 0.82]) {
-      const x = lerp(-halfSpan, halfSpan, t);
-      const y = tiaoCY + Math.sin(t * Math.PI * 2.2) * amp;
-      const leaf = new THREE.Mesh(new THREE.SphereGeometry(Math.min(0.022, tiaoH * 0.2), 6, 4), mat);
-      leaf.scale.set(1, 0.55, 0.5);
-      leaf.position.set(x, y + amp * 0.55, reliefZ + 0.014);
-      leaf.castShadow = true;
-      g.add(leaf);
-    }
   }
   // 格心:窗纸退到棂条背面(AP4:z = −棂厚/2 − 3mm),框边对纸面产生遮光;
   // paperMaterial 的 emissive 假透光是 D-14 定的,不动。纹样按 pattern 生成
