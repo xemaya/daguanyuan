@@ -17,6 +17,10 @@ import { roundedBox } from '@builder/parts/sculpt';
 import { assemblePingshengKe, qingDougongBook } from '@builder/parts/damu/dougong';
 import { makeRng, smoothstep, lerp, clamp } from '@engine/core/Noise';
 import { mergeByMaterial } from '@builder/parts/merge';
+import {
+  buildTiaohuanRelief, tiaohuanOverride, TIAOHUAN_BAND_H, TIAOHUAN_LIFT, TIAOHUAN_MIN_W,
+  type TiaohuanMode,
+} from '@builder/parts/ornament/tiaohuan-band';
 import { makePlaque } from '@builder/parts/xiaomu/plaque';
 import { gexinGeometry } from '@builder/parts/qiangyuan/wall';
 import { plaqueFromPlan } from '@builder/plan/objects';
@@ -385,7 +389,7 @@ export function lanternLatticeGeometry(w: number, h: number, bar: number): { geo
 
 /** 一扇格扇,清式标准三段:下裙板(浅浮雕)、中绦环板(浅浮雕缠枝)、上格心(纹样)。
  *  07-76③:纹样原著未写死(「细雕新鲜花样」不是具体名字),这里 artChoice 换掉万字。 */
-function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Material, seed: number, pattern?: 'ice' | 'wan' | 'haitang' | 'lantern'): THREE.Group {
+function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Material, seed: number, pattern?: 'ice' | 'wan' | 'haitang' | 'lantern', tiaohuan: TiaohuanMode = 'tex'): THREE.Group {
   const g = new THREE.Group();
   // 截面分级(单子 AP1):外框 3.5cm 起线,抹头(内框) 2.8cm 起线,
   // 格心棂条由灯笼锦生成器自己分级(框棂 2.4cm / 细棂 1.4cm)。
@@ -475,10 +479,25 @@ function makeGeshan(w: number, h: number, mat: THREE.Material, paper: THREE.Mate
   // 板两端同样咬进上下抹头(通缝同上)。
   const tiaoW = w - bar * 2;
   const tiaoCY = (skirtTop + tiaoTop) / 2;
-  const tiaoBoard = new THREE.Mesh(roundedBox(tiaoW, tiaoH - railBar + 0.008, 0.025, 0.004, 2), mat);
+  const tiaoBoardH = tiaoH - railBar + 0.008;
+  const tiaoBoard = new THREE.Mesh(roundedBox(tiaoW, tiaoBoardH, 0.025, 0.004, 2), mat);
   tiaoBoard.position.set(0, tiaoCY, 0);
   tiaoBoard.receiveShadow = true;
   g.add(tiaoBoard);
+  /* 单子 AS2:西番草浮雕带(`ornament/tiaohuan-band.ts`)。`D-27` 的落点就是这条带
+   * ——带心在 1.3m 上下,人眼 1.62m,站 1m 就占满一条;台矶那条 0.185m 的怎么站
+   * 都只有 32px。带高钉在 0.14m,上下各留 1.6cm 素板;板窄到塞不下一格纹样
+   * (净宽 ≤ 0.2m)或抹头挤得只剩一线时不上纹样,留素板。
+   *
+   * z:板面在 +12.5mm,带子再抬 0.6mm 免得 h=0 的平地与板面打架。浮雕峰高 4mm,
+   * 即 +17.1mm,而外框/抹头的面在 +25mm——带子整条坐在框子退进去的那个浅槽里,
+   * 两端的断口被框边挡住。这是「带长 = 板净宽、两端不淡出」能成立的前提。 */
+  const tiaoBandH = Math.min(TIAOHUAN_BAND_H, tiaoBoardH - 0.04);
+  if (tiaoW > TIAOHUAN_MIN_W && tiaoBandH >= 0.06) {
+    const relief = buildTiaohuanRelief(tiaohuanOverride() ?? tiaohuan, tiaoW, mat, seed, tiaoBandH);
+    relief.position.set(0, tiaoCY, 0.025 / 2 + TIAOHUAN_LIFT);
+    g.add(relief);
+  }
   if (tiaoW > 0.2) {
     const reliefZ = 0.025 / 2 + 0.012;
     const halfSpan = tiaoW / 2 - 0.06;
@@ -1585,8 +1604,24 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
         const cap = new THREE.Mesh(roundedBox(span, 0.08, wallT + 0.06, 0.01, 2), wood);
         cap.position.set((x0 + x1) / 2, platH + sillH + 0.04, z);
         root.add(cap);
+        /* 单子 AS2 · 按角色分档(AQ-b 之前的静态分配)。
+         *
+         * 门屋的当心间是空的门道,玩家进园必从那儿穿过去,**贴着走的是门道两旁
+         * 这两间的内侧各两扇**——站距 0.5~1m,绦环板在画面里 ≥100px。这 4 扇给
+         * 顶点位移的几何版(一扇 ≈4k 三角);其余 32 扇(含本间外侧两扇、全园其他
+         * 建筑)给贴图版,共用那一张四格图集。
+         *
+         * 分档条件写成"离门道最近的两扇",不是写死扇号:开间数或每间扇数一改,
+         * 分到的仍然是门道旁边那几扇。**AQ-b 会把它换成按距离分档**,所以两种
+         * 表示除了 mesh 以外完全同构(同一条带、同一个落位)。 */
+        const nearGate: TiaohuanMode[] = [];
         for (let k = 0; k < n; k++) {
-          const g = makeGeshan(gw - 0.01, wallH - sillH - 0.16, wood, paper, seed + k + i * 10, opts.lattice);
+          const nearDoor = gatehouse
+            && ((i - 1 === centerBay - 1 && k >= n - 2) || (i - 1 === centerBay + 1 && k <= 1));
+          nearGate.push(nearDoor ? 'geo' : 'tex');
+        }
+        for (let k = 0; k < n; k++) {
+          const g = makeGeshan(gw - 0.01, wallH - sillH - 0.16, wood, paper, seed + k + i * 10, opts.lattice, nearGate[k]);
           g.position.set(x0 + gw * (k + 0.5), platH + sillH + 0.08 + (wallH - sillH - 0.16) / 2, z);
           root.add(g);
         }
