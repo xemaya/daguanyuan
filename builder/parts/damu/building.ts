@@ -16,7 +16,6 @@ import {
 import { roundedBox } from '@builder/parts/sculpt';
 import { assemblePingshengKe, qingDougongBook } from '@builder/parts/damu/dougong';
 import { makeRng, smoothstep, lerp, clamp } from '@engine/core/Noise';
-import { mergeByMaterial } from '@builder/parts/merge';
 import {
   buildTiaohuanRelief, tiaohuanOverride, TIAOHUAN_BAND_H, TIAOHUAN_LIFT, TIAOHUAN_MIN_W,
   type TiaohuanMode,
@@ -1761,16 +1760,31 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     root.add(pl);
   }
 
-  const merged = mergeByMaterial(root);
-  merged.name = 'Building';
+/*
+ * 单子 AQ-b1:**不在构件内部提前合并**。
+ *
+ * 以前这里是 `mergeByMaterial(root)`——一栋房子按材质合成十来个大 mesh 再交出去。
+ * 合完之后 `composer` 末端 `assembleStatic` 的实例化(≥ 8 个同几何原型 →
+ * `InstancedMesh`)就**没有原型可认**了:重复的小件已经被烤进大 mesh 的顶点里。
+ *
+ * 所以构件改为交出**未合并的 `Object3D` 树**,由 `assembleStatic` 统一处理:
+ * 先按 `geometry.uuid + material.uuid + 阴影/renderOrder/layers` 分桶实例化,
+ * 剩下的才 `mergeByMaterial`。**合并这件事本身没有取消,只是挪到了末端**——
+ * 末端的桶跨构件,所以同材质的石作、木作合得比以前更拢,draw call 只会降不会升。
+ *
+ * 代价:交出去的树大得多(正门 739 个 mesh 而不是 12 个),`composer` 对重复
+ * 摆放要 `clone()` 这棵树。`Object3D.clone()` 共享 geometry/material 引用,
+ * 所以这是指针的钱不是顶点的钱(实测世界构建时间见回报)。
+ */
+  root.name = 'Building';
   if(opts.backDoor||opts.steps)fr.provenance.art.push({id:'project:building-access',name:'小门与踏步施工输入',method:'artistic_choice',
     note:JSON.stringify({backDoor:opts.backDoor,steps:opts.steps,platformMarginM:opts.platformMarginM})});
-  merged.userData.construction = { paramSet: 'paramSet' in fr ? fr.paramSet : 'fashi',
+  root.userData.construction = { paramSet: 'paramSet' in fr ? fr.paramSet : 'fashi',
     spec: opts.spec, dimensions: fr.m, provenance: fr.provenance, surfaces: {front,sides,back},access:{rearDoor,walkSurfaces,options:{backDoor:opts.backDoor,steps:opts.steps}} };
 
   return {
     kind: 'building',
-    root: merged,
+    root,
     frame: fr,
     platform: { hx: platHX, hz: platHZ, y: platH },
     walkSurfaces,

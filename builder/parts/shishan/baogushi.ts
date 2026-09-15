@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { registerPart, type PartBuild } from '@builder/parts/registry';
 import { whiteStoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
-import { mergeByMaterial } from '@builder/parts/merge';
 import type { Provenance } from '@builder/derive/provenance';
 
 /**
@@ -241,8 +240,23 @@ export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
     }
   }
 
-  const merged = mergeByMaterial(g);
-  merged.name = 'Baogushi';
+/*
+ * 单子 AQ-b1:**不在构件内部提前合并**。
+ *
+ * 以前这里是 `mergeByMaterial(root)`——一栋房子按材质合成十来个大 mesh 再交出去。
+ * 合完之后 `composer` 末端 `assembleStatic` 的实例化(≥ 8 个同几何原型 →
+ * `InstancedMesh`)就**没有原型可认**了:重复的小件已经被烤进大 mesh 的顶点里。
+ *
+ * 所以构件改为交出**未合并的 `Object3D` 树**,由 `assembleStatic` 统一处理:
+ * 先按 `geometry.uuid + material.uuid + 阴影/renderOrder/layers` 分桶实例化,
+ * 剩下的才 `mergeByMaterial`。**合并这件事本身没有取消,只是挪到了末端**——
+ * 末端的桶跨构件,所以同材质的石作、木作合得比以前更拢,draw call 只会降不会升。
+ *
+ * 代价:交出去的树大得多(抱鼓石 64 个 mesh 而不是 2 个),`composer` 对重复
+ * 摆放要 `clone()` 这棵树。`Object3D.clone()` 共享 geometry/material 引用,
+ * 所以这是指针的钱不是顶点的钱(实测世界构建时间见回报)。
+ */
+  g.name = 'Baogushi';
   const provenance: Provenance = {
     evidence: [],
     inference: [
@@ -273,8 +287,8 @@ export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
       },
     ],
   };
-  merged.userData.provenance = provenance;
-  return { root: merged, groundRadius: 1.2 * SCALE };
+  g.userData.provenance = provenance;
+  return { root: g, groundRadius: 1.2 * SCALE };
 }
 
 registerPart('baogushi', (variant) => buildBaogushi(variant === 'beast' ? 'beast' : 'none'));
