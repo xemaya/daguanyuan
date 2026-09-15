@@ -6,6 +6,19 @@
 
 ---
 
+## P-27 harness 里的 fps 有两层假象：编译停顿溢到第一镜、帧闸把节奏量化到 45
+
+**症状**：`gate_approach` 长期读 33–36 fps 而其余三镜 45–48，三角与 `mound_block` 相当。三张单子（AK、AS、AQ-b）都把它当"这个机位重"追。
+
+**根因（单子 AQ-b0 量的）**：① WebGPU render pipeline 首次用到才编译，一次 130–400 ms 同步停顿；预热只十几帧不到 0.4 s，
+停顿溢出到第一个真正拍摄的机位，`engine.fps` 又是 0.5 s 滑动平均——`gate_approach` 在 `SHOTS` 里永远排第一，永远背锅。
+agent 说换个顺序拍就换镜背锅；**验收人复测不成立**（旧尺子把 `mound_block` 排第一，`gate_approach` 仍读 36、`mound_block` 仍 48）——所以更准确的说法是：**teleport 到 `gate_approach` 之后有一次性的停顿**（这个机位首次可见的管线/资源），被 0.5 s 滑动窗口放大成"持续 35 fps"；新尺子 90 帧中位把一次性停顿排除，四镜持续帧成本 3.6–4.0 ms 一致。游戏里玩家不 teleport，这个停顿只在出生那一帧发生。② headless `--disable-frame-rate-limit` 下 rAF 自由跑（≈3.7 ms），
+`Engine.frame()` 的 60 帧闸把节奏量化到约 22 ms，于是四镜一律 45–46——量的是闸不是画面。真机 vsync 下不会发生。
+
+**处理**：`capture.mjs` 预热等到连续 20 帧无 > 40 ms 停顿；fps 取干净窗口 90 帧中位；另记 `frameCostMs`（抬开限帧的真实帧成本）。
+**教训**：**fps 掉在"永远排第一"的那一镜，先怀疑顺序，再怀疑机位。** 另：`Engine.frame()` 的 `fpsWindow += raw`（未夹的 delta）
+让一次停顿污染整个窗口，真机 HUD 也会瞬间掉到个位数，改不改是观感判断，未动。
+
 ## P-25 `capture.mjs` 在冷服务器上第一发贴脸机位会低 0.75 m——结构数字门看不见
 
 **症状**（2026-09-15 单子 AS 报，as-findings §4）：同一个 `cu_tiaohuan`（pos/yaw/pitch 全同），vite 刚起时第一发拍到的取景

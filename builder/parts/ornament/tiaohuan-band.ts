@@ -6,6 +6,11 @@ import {
   bandTriangleCount, XIFANCAO_LEVELS, type ReliefBand, type ReliefLevels,
 } from '@builder/parts/ornament/relief';
 
+/*
+ * ⚠️ 2026-09-16 验收裁定(AQ-b2):**贴图版是绦环板的终态**。几何版分支('geo'、
+ * GATE_TIAOHUAN_GEO、?tiaostep=)留着只当量尺——正门 51px、潇湘馆 86px 两处实测
+ * 几何 4/6mm 都读成素板,贴图版最清楚还最便宜(P-26)。默认一格不进画面。
+ */
 /**
  * 绦环板的西番草带(单子 AS)——AO 那条管线的第二个消费者,这一次落在人眼高度。
  *
