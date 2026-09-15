@@ -6,6 +6,37 @@
 
 ---
 
+## P-21 worktree 隔离之后忘了合回来,活悬在 /private/tmp 里
+
+**症状**:2026-09-14 派出三张并行单子,三十分钟后复查,`git log` 上只有两张的提交,
+第三张(单子 AI,四件)**一个提交都没有**,工作区也干净——读起来像"这个 agent 挂了或没派出去"。
+
+**真相**:它全做完了。四个提交在 `/private/tmp/dgy-ai` 的**游离 HEAD** 上,
+从派单那个 commit 分叉,**从来没合回 `editor`**。`git worktree list` 一眼就看得见:
+
+```
+/Users/huanghaibin/Workspace/games   5b6c6575 [editor]
+/private/tmp/dgy-ai                  1301bb92 (detached HEAD)   ← 四件活在这里
+```
+
+**为什么会这样**:标准动作写的是「分支 `editor`」,而 `feedback` 里另有一条
+「要隔离就 `git worktree add --detach`」(那条是为了替换掉更糟的 `git stash`)。
+两条加起来,**agent 合理地选了 worktree,但没有任何一条说"收工要合回来"**。
+
+**为什么没被早点发现**:同一轮里单子 V 也用了 worktree(`/private/tmp/dgy-v`),
+但它合回来了,所以这个口子一直没露出来。
+
+**代价**:`/private/tmp` 是临时目录,**系统清理会真的删掉它**。
+要不是去翻 `worktree list`,这四件活会连同它的推理过程一起消失。
+
+**修法**:标准动作补一条——**要隔离可以用 worktree,但收工必须合回 `editor`,
+并在回报里给出合并后的 commit**。见 `docs/superpowers/plans/STANDARD-ACTIONS.md` 第 2 条。
+
+**一条推论**:「做完了」与「交付了」是两件事,worktree 把它们分开了。
+以后凡是"某个 agent 零产出"的判断,**先 `git worktree list` 再下结论**。
+
+---
+
 ## P-20 按大尺度对象标定的米制常数,照搬到同一场里的小尺度对象上
 
 **症状**:潇湘馆院内一条「開溝僅尺許」的引泉沟,渲出来是一条**四米多宽的沙疤**,
