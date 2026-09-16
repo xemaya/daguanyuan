@@ -21,6 +21,7 @@ import {
   type TiaohuanMode,
 } from '@builder/parts/ornament/tiaohuan-band';
 import { makePlaque, PLAQUE_H_RATIO, PLAQUE_TILT_RAD } from '@builder/parts/xiaomu/plaque';
+import { buildPushou } from '@builder/parts/xiaomu/pushou';
 import { gexinGeometry } from '@builder/parts/qiangyuan/wall';
 import { plaqueFromPlan } from '@builder/plan/objects';
 import {compileRearDoor,compileExteriorSteps,type RearDoorSpec,type StairSpec,type WalkSurface} from '@builder/plan/building-access';
@@ -1662,7 +1663,12 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     root.add(sill2);
     // 两扇板门:素板加三条穿带,不上朱漆不装门钉(「並無朱粉塗飾」)。
     const gw2 = openW / 2 - 0.01;
-    const mkLeaf = () => {
+    /**
+     * 一扇板门。`side` 与 `hingedPanel` 的同名参数一致：`+1` = 铰在西(-x)一侧、
+     * 门扇往 +x 伸；`-1` 反之。**门环要认这个方向**——它挂在门扇的**内沿**
+     * (两扇相对的那条自由边)一侧，不是铰链一侧。
+     */
+    const mkLeaf = (side: 1 | -1) => {
       const leaf = new THREE.Group();
       const panel = new THREE.Mesh(roundedBox(gw2, doorH, 0.055, 0.008, 2), wood);
       leaf.add(panel);
@@ -1671,6 +1677,12 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
         batten.position.set(0, ty * doorH, -0.04);
         leaf.add(batten);
       }
+      // 铺首门环(单子 AU2):板门通式,**不是门钉**——门钉论品级、装府门,
+      // 园门不装(`07-01`「並無朱粉塗飾」)。挂在门扇外皮(+Z 是门外,穿带在 -Z
+      // 的内皮)、离内沿 0.12m、离台基面 1.05m —— 手正好够到的高度。
+      const pushou = buildPushou().root;
+      pushou.position.set(side * (gw2 / 2 - 0.12), 1.05 - sillH2 - doorH / 2, 0.055 / 2);
+      leaf.add(pushou);
       leaf.traverse((o) => {
         o.castShadow = true;
         o.receiveShadow = true;
@@ -1678,8 +1690,8 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       return leaf;
     };
     const openAng = doorOpen ? Math.PI / 2 - 0.06 : 0.04;
-    hingedPanel(mkLeaf(), gw2, cx0 + jambW, 1, platH + sillH2 + doorH / 2, 0, openAng);
-    hingedPanel(mkLeaf(), gw2, cx1 - jambW, -1, platH + sillH2 + doorH / 2, 0, openAng);
+    hingedPanel(mkLeaf(1), gw2, cx0 + jambW, 1, platH + sillH2 + doorH / 2, 0, openAng);
+    hingedPanel(mkLeaf(-1), gw2, cx1 - jambW, -1, platH + sillH2 + doorH / 2, 0, openAng);
     if (doorOpen) {
       // 全开的门扇贴立在门道两侧,各是一条顺 Z 的薄阻挡,不占中路。
       for (const sx of [-1, 1]) {
