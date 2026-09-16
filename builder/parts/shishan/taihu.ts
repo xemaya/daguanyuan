@@ -29,8 +29,9 @@ const ISO = 0.35;
 /* 球场                                                                */
 /* ------------------------------------------------------------------ */
 
-/** 与 Sculpt.metaSurface 同一套 Wyvill 场,用来做 AO 采样与走廊净空校验。 */
-function fieldAt(balls: Ball[], px: number, py: number, pz: number): number {
+/** 与 Sculpt.metaSurface 同一套 Wyvill 场,用来做 AO 采样与走廊净空校验。
+ *  (导出给 `baishi.ts`:负球强度要跟着这一点的实心场走,不然胖处挖不穿。) */
+export function fieldAt(balls: Ball[], px: number, py: number, pz: number): number {
   let sum = 0;
   for (const b of balls) {
     const s = b.strength ?? 1;
@@ -59,7 +60,11 @@ export interface HoleLine {
   view: 'front' | 'side';
 }
 
-interface StoneSpec {
+/**
+ * 一块石头的参数化描述。`baishi.ts` 复用同一套字段(它自己排球场,`waist`/`plate`/
+ * `holes`/`pits` 由它自己的剖面函数解读),所以这里导出。
+ */
+export interface StoneSpec {
   /** 脊线顶高(m),有效顶再高一点。 */
   height: number;
   /** 底宽(m)。 */
@@ -78,10 +83,18 @@ interface StoneSpec {
   wrinkle: number;
   /** 板状程度:X 放大、Z 缩小的倍率,1 = 圆柱。 */
   plate?: number;
+  /**
+   * 皱与细皮的**频率**倍率(不动幅度),缺省 1。
+   *
+   * 两层位移的频率都按 `scale = height/2.6` 反比给,于是"石头越高,纹路越粗"——
+   * 2.6m 的湖石正好,5m 的白石峰就把竖沟拉成了从顶流到底的一条,读作**蜡烛**。
+   * 高石头传 >1 把纹路收回人眼尺度。缺省 1 保证太湖石三个 variant 逐位不变。
+   */
+  wrinkleFreq?: number;
   seed: number;
 }
 
-interface StoneResult {
+export interface StoneResult {
   geo: THREE.BufferGeometry;
   balls: Ball[];
   holes: HoleLine[];
@@ -115,7 +128,8 @@ function profile(t: number, spec: StoneSpec): number {
   return W * piecewise(t, pts);
 }
 
-function piecewise(t: number, pts: [number, number][]): number {
+/** 折线插值(smoothstep 缓和),剖面控制点用。导出给 `baishi.ts` 的峰剖面。 */
+export function piecewise(t: number, pts: [number, number][]): number {
   for (let i = 1; i < pts.length; i++) {
     if (t <= pts[i][0]) {
       const u = (t - pts[i - 1][0]) / (pts[i][0] - pts[i - 1][0]);
@@ -454,9 +468,18 @@ function faceProjectedUV(geo: THREE.BufferGeometry, scale: number, seed: number)
   return ni;
 }
 
-/** 一块石头:球 → 表面 → 皱 → 细皮 → 落地 → 烤色 → UV。 */
-function buildStone(spec: StoneSpec): StoneResult {
-  const { balls, holes } = buildBalls(spec);
+/**
+ * 一块石头:球 → 表面 → 皱 → 细皮 → 落地 → 烤色 → UV。
+ *
+ * `made` 缺省就是太湖石的球场。`baishi.ts` 传自己排的球场进来——石种不同的是
+ * **形**(剖面、瘤的走向、孔的多少),而不是后面这条噪声/AO/UV 流水线,那条
+ * 一字不改地复用。默认参数保证太湖石三个 variant 的输出逐位不变。
+ */
+export function buildStone(
+  spec: StoneSpec,
+  made: { balls: Ball[]; holes: HoleLine[] } = buildBalls(spec),
+): StoneResult {
+  const { balls, holes } = made;
   const extentY = spec.height + spec.width * 0.4 + 0.56;
   const extentXZ = spec.width * 1.35 + 0.56;
   const resolution = Math.ceil(Math.max(extentY, extentXZ) / spec.cell);
@@ -467,8 +490,15 @@ function buildStone(spec: StoneSpec): StoneResult {
 
   const scale = spec.squat ? spec.width : spec.height / 2.6;
   const coarse = 0.055 * spec.wrinkle * Math.max(0.5, scale);
-  const disp = wrinkle(geo, spec.seed + 5, coarse, 3.0 / Math.max(0.6, scale));
-  geo = noiseDisplace(geo, 0.008 * spec.wrinkle * Math.max(0.5, scale), 9 / Math.max(0.6, scale), spec.seed + 9, 2);
+  const detail = spec.wrinkleFreq ?? 1;
+  const disp = wrinkle(geo, spec.seed + 5, coarse, (3.0 / Math.max(0.6, scale)) * detail);
+  geo = noiseDisplace(
+    geo,
+    0.008 * spec.wrinkle * Math.max(0.5, scale),
+    (9 / Math.max(0.6, scale)) * detail,
+    spec.seed + 9,
+    2,
+  );
   geo = clipToGround(geo);
   bakeColors(geo, balls, disp, Math.max(0.5, scale), spec.seed);
   geo = faceProjectedUV(geo, 0.7, spec.seed + 3);
@@ -497,10 +527,42 @@ export interface TaihuGeometry {
   groundRadius: number;
 }
 
-function transformStone(r: StoneResult, x: number, y: number, z: number, rotY: number): StoneResult {
-  r.geo.rotateY(rotY);
-  r.geo.translate(x, y, z);
-  const m = new THREE.Matrix4().makeRotationY(rotY).setPosition(x, y, z);
+/**
+ * 摆一块石头:绕 Y 转 `rotY`,再平移到 (x,y,z)。孔的轴线跟着同一个矩阵走——
+ * 分两条路算会立刻让 `holeHits` 打空,这是唯一的真源。
+ *
+ * `lean`(单子 AM1 加,白石峰成组"拱立"用):竖向**错切** x += kx·y、z += kz·y。
+ * 用错切而不是绕底边旋转,是因为错切**不动 y**——石头是 `clipToGround` 削平底面
+ * 后摆上去的,真旋转会把一侧的底边抬离地面几厘米(棚拍地盘贴着最低点,那道缝
+ * 看得见),而错切让底面原样贴地,顶自然歪出去。5–12° 这一档的形变肉眼读不出。
+ * 顶点色里"脚下泛青"按局部 y 烤,错切保持 y 不变,那条青带也不会跑位。
+ */
+export function transformStone(
+  r: StoneResult,
+  x: number,
+  y: number,
+  z: number,
+  rotY: number,
+  lean?: { kx: number; kz: number },
+): StoneResult {
+  const m = new THREE.Matrix4().makeRotationY(rotY);
+  if (lean) {
+    // prettier-ignore
+    m.premultiply(new THREE.Matrix4().set(
+      1, lean.kx, 0, 0,
+      0, 1,       0, 0,
+      0, lean.kz, 1, 0,
+      0, 0,       0, 1,
+    ));
+  }
+  m.setPosition(x, y, z);
+  if (lean) {
+    r.geo.applyMatrix4(m);
+  } else {
+    // 无倾斜时走原路径,保证太湖石既有产出逐位不变。
+    r.geo.rotateY(rotY);
+    r.geo.translate(x, y, z);
+  }
   const v = new THREE.Vector3();
   const holes = r.holes.map((h) => {
     v.set(...h.a).applyMatrix4(m);
