@@ -509,7 +509,10 @@ export function taihuMaterial(): THREE.MeshStandardMaterial {
 export function baishiMaps(size = 1024): MaterialMaps {
   const h = (u: number, v: number) => {
     // 层理:u 方向密、v 方向疏 —— 竖向的长条纹。
-    const streak = tileableFbm(NOISE.stone, u * 3.2, v * 0.55, 46, 3);
+    // u/v 乘数必须是整数(tileableFbm 把 u→u·2π 映射到环面上做无缝包裹,
+    // 非整数乘数会在纹理接缝处留下断层);6:1 的各向异性靠降低基频(46→8)
+    // 而不是靠非整数乘数来维持同样的观感比例。
+    const streak = tileableFbm(NOISE.stone, u * 6, v * 1, 8, 3);
     const grain = tileableFbm(NOISE.stone, u + 5, v, 26, 4);
     const pits = smoothstep(0.2, 0.04, worley(u, v, 9, 7109).f1);
     return clamp(0.56 + streak * 0.22 + grain * 0.14 - pits * 0.2, 0, 1);
