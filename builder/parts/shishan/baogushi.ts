@@ -106,11 +106,37 @@ const BAOGUSHI_DRUM_T_M = 0.18 * SCALE;
 const BAOGUSHI_DRUM_Z_M = 0.03 + BAOGUSHI_DRUM_R_M;
 /** 门枕尾伸进门内的长度(海窝那一端,过门轴 0.5m——「长度要够」)。 */
 const BAOGUSHI_PILLOW_BACK_M = 0.52;
-export { BAOGUSHI_DRUM_T_M, BAOGUSHI_DRUM_R_M, BAOGUSHI_DRUM_Z_M };
+/** 须弥座最下一层(圭角)的 Z 向半深。落位要拿它躲开踏跺、对墁缝,所以导出。 */
+const BAOGUSHI_SEAT_HALF_Z_M = 0.84 / 2;
+export { BAOGUSHI_DRUM_T_M, BAOGUSHI_DRUM_R_M, BAOGUSHI_DRUM_Z_M, BAOGUSHI_SEAT_HALF_Z_M };
 
 export type BaogushiTopping = 'none' | 'beast';
 
-export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
+/**
+ * 单子 AT2(2026-09-16):**垂带抱鼓**一档。
+ *
+ * 用户 2026-09-16 试玩后拍板:「抱鼓石样式 OK 了,但位置还是不对,不会放在
+ * 门里面的,放到台阶两侧」。清式踏跺的**垂带石下端**常设抱鼓石(垂带抱鼓 /
+ * 砚窝石一带),鼓面朝踏跺、左右相对,坐在踏跺脚的地面上——正是用户要的位置。
+ * (甲核:通式;乙待核:《工程做法》踏跺垂带条目有无抱鼓规定,记
+ * `knowledge/docs/qingshi/07-honglou.md` open_questions,与 AJ2 那条并排。)
+ *
+ * 挪到台阶脚就**不跨门槛**了,所以 `withPillow:false` 这一档把门枕那一截
+ * (连同它的海窝端)整个去掉:门枕的用处是承门轴,踏跺脚没有门轴,留着它
+ * 就是一条从须弥座伸出来、伸进空气里的石舌头。
+ *
+ * 去掉门枕之后整件在 Z 向就**前后对称**了(圭角/下枋/束腰/上枋/锦铺/鼓/祥云
+ * 都是对称的),于是局部原点顺势从"门槛平面"挪到**须弥座中心**——`drumZ`
+ * 归零。落位方因此拿到一个"就是这块石头的中心"的原点,不用再记
+ * `BAOGUSHI_DRUM_Z_M` 这个偏移(门枕档仍然要记,它的原点还在门槛上)。
+ */
+export interface BaogushiOptions {
+  /** 跨门槛的门枕那一截。门当档 true(默认),垂带抱鼓档 false。 */
+  withPillow?: boolean;
+}
+
+export function buildBaogushi(topping: BaogushiTopping = 'none', opts: BaogushiOptions = {}): PartBuild {
+  const withPillow = opts.withPillow !== false;
   // AN2:白石两档——鼓帮(周向鼓起、看得出雕凿)与须弥座束腰用 rough,
   // 其余(门枕、圭角、下枋、莲瓣、上枋、锦铺、鼓面、鼓钉、螺旋纹、祥云托、
   // 兽)都是 fine(默认档)。
@@ -121,7 +147,9 @@ export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
 
   const drumR = BAOGUSHI_DRUM_R_M;
   const drumT = BAOGUSHI_DRUM_T_M;
-  const drumZ = BAOGUSHI_DRUM_Z_M;
+  // 门当档的原点在门槛平面上、鼓在 +Z 外;垂带抱鼓档没有门槛可对,原点就是
+  // 石头自己的中心(见 BaogushiOptions 的注释)。
+  const drumZ = withPillow ? BAOGUSHI_DRUM_Z_M : 0;
 
   const add = (geo: THREE.BufferGeometry, x: number, y: number, z: number, mat: THREE.Material = stone) => {
     const m = new THREE.Mesh(geo, mat);
@@ -136,7 +164,9 @@ export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
    * 低而窄,顶面压在门槛(0.08m 高)之下——门槛跨在它上面,读作"嵌在石槽里"
    * (考据:门枕石中间有槽支撑门框)。海窝本身从略(藏在门槛与门扇下,看不见),
    * 但长度留够:门内一端过门轴 0.52m。 */
-  add(roundedBox(0.31, 0.075, BAOGUSHI_PILLOW_BACK_M + 0.3, 0.012, 1), 0, 0.0375, (0.3 - BAOGUSHI_PILLOW_BACK_M) / 2);
+  if (withPillow) {
+    add(roundedBox(0.31, 0.075, BAOGUSHI_PILLOW_BACK_M + 0.3, 0.012, 1), 0, 0.0375, (0.3 - BAOGUSHI_PILLOW_BACK_M) / 2);
+  }
 
   /* ---- 须弥座(三段之底,考据:刻莲花、上面有锦铺) ----------------------
    * 圭角 → 下枋 → 束腰(仰莲) → 上枋锦铺,逐层收分;层与层之间用圆角
@@ -280,10 +310,15 @@ export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
         note:
           '《红楼梦》第十七回写正门无抱鼓石(07-01),规则表亦无门枕石条目;' +
           '设此物是因为它是"门"最强的视觉符号(ROADMAP PQ-7)。' +
-          `鼓径 ${(drumR * 2).toFixed(2)}m、鼓厚 ${drumT.toFixed(2)}m、鼓心距门槛平面 ${drumZ.toFixed(2)}m、` +
-          `门枕伸入门内 ${BAOGUSHI_PILLOW_BACK_M}m,均为观感取值,沿用 2026-09-14 D6"做大做精"的 ${SCALE}× 一档;` +
+          `鼓径 ${(drumR * 2).toFixed(2)}m、鼓厚 ${drumT.toFixed(2)}m、` +
+          (withPillow
+            ? `鼓心距门槛平面 ${drumZ.toFixed(2)}m、门枕伸入门内 ${BAOGUSHI_PILLOW_BACK_M}m,`
+            : `垂带抱鼓档(单子 AT2):去门枕、原点即须弥座中心,落位在前踏跺两条垂带石的下端外侧,`) +
+          `均为观感取值,沿用 2026-09-14 D6"做大做精"的 ${SCALE}× 一档;` +
           '莲瓣形状、祥云卷的圈数与半径、须弥座各层收分、螺旋纹盘数均无出处;' +
-          '海窝(门内承门轴的圆窝)从略——藏在门槛与门扇下看不见,但门枕长度留够。',
+          (withPillow
+            ? '海窝(门内承门轴的圆窝)从略——藏在门槛与门扇下看不见,但门枕长度留够。'
+            : '门枕与海窝整段不做:踏跺脚没有门轴,留着就是一条伸进空气里的石舌头。'),
       },
     ],
   };
@@ -291,4 +326,9 @@ export function buildBaogushi(topping: BaogushiTopping = 'none'): PartBuild {
   return { root: g, groundRadius: 1.2 * SCALE };
 }
 
-registerPart('baogushi', (variant) => buildBaogushi(variant === 'beast' ? 'beast' : 'none'));
+/**
+ * 三档:`default` = 门当(跨门槛、素鼓)、`beast` = 门当加鼓顶小兽、
+ * `chuidai` = 垂带抱鼓(去门枕,坐踏跺脚,单子 AT2 用的就是这一档)。
+ */
+registerPart('baogushi', (variant) =>
+  buildBaogushi(variant === 'beast' ? 'beast' : 'none', { withPillow: variant !== 'chuidai' }));

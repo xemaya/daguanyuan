@@ -21,7 +21,7 @@ import { SEED } from './config';
 import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
 import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
 import type { Frame } from '@builder/derive/index';
-import { BAOGUSHI_DRUM_T_M, BAOGUSHI_DRUM_R_M, BAOGUSHI_DRUM_Z_M } from '@builder/parts/shishan/baogushi';
+import { BAOGUSHI_DRUM_T_M, BAOGUSHI_DRUM_R_M, BAOGUSHI_SEAT_HALF_Z_M } from '@builder/parts/shishan/baogushi';
 import { FORECOURT_TERRACE_SPEC } from '@builder/parts/qiangyuan/forecourt-terrace';
 
 /**
@@ -302,35 +302,94 @@ function lanternSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: numb
 }
 
 /**
- * 抱鼓石(门当)的摆放(局部坐标):整块门枕石**跨门槛**,门内一头过门轴
- * (海窝端),鼓落在门外地面上(用户 2026-09-15 反馈第 1 条:「抱鼓石躲到
- * 了门里面,正确位置是门前,左右相对」)。07-01 原文无此物,设它是"门"
- * 最强的视觉符号——考据与尺寸留痕在构件的 `root.userData.provenance`。
+ * 抱鼓石的摆放(**世界坐标**)。
  *
- * z 落在中柱缝(z=0,门槛平面;gatehouse 的板门就装在这一缝,见
- * building.ts 的 `中柱(门屋分心造)`)——构件自身的局部原点就定在门槛
- * 平面上,门枕尾伸向门内、鼓伸向门外。x 必须落在当心间净宽**以内**,
- * 由 `Frame.m` 推导:从中柱内皮(cx1)向门心让开四段——边梃宽(0.09,
- * building.ts 门口一段的常量)、全开门扇的站立半厚(0.03)、扇与鼓面之
- * 间的空隙(0.06,艺术选择)、鼓厚一半——鼓面正好停在门扇站立面以里,
- * 全开板门贴立门道两侧时不穿鼓。当心间以外(|lx| > 当心间半宽)是次间,
- * 次间在 gatehouse 里是砌实的槛窗墙(见 building.ts 的 `front==='door'`
- * 分支),把石头摆到那一侧就是把它摆进墙体里,从外面看根本不存在。
- * 返回的 ly 是台基顶面的局部高度——落点在台基面上,不能再用地面高度
- * (单子 AI3 修对的一步,不许退回 `ground(x,z)`)。
+ * ## 为什么从"门道里"挪到"台阶两侧"
+ *
+ * 用户 2026-09-15 说「抱鼓石躲到了门里面」,于是单子 AI3/AJ2 把它搬到门外
+ * 地面、跨门槛立成门当。用户 2026-09-16 再看,给了更准的一句:
+ * **「位置还是不对,不会放在门里面的,放到台阶两侧」**。
+ *
+ * 对应的形制是**垂带抱鼓**:清式踏跺的垂带石下端常设抱鼓石(砚窝石一带),
+ * 鼓面朝踏跺、左右相对,坐在踏跺脚的地面上。所以这一版:
+ *   - **构件换档** `baogushi:chuidai`——去掉跨门槛的门枕(踏跺脚没有门轴,
+ *     那截石舌头没有去处),局部原点即须弥座中心;
+ *   - **朝向不用动**。构件的鼓轴本来就沿 X(单子 AJ2 改的),两块石一左一右,
+ *     朝里的两面鼓面自然互相对着踏跺中线——两面都刻螺旋纹与鼓钉,所以
+ *     不需要镜像变体。
+ *
+ * ## 三个坐标怎么来的
+ *
+ * **x**:从踏跺净宽往外让三段——垂带石中线 `半宽 + 0.10`、垂带半宽 `0.12`
+ * (两个都是 `building.ts` 踏跺垂带那一段的艺术常量,那段本单不许改,所以
+ * 这里按值抄并留痕;它们改了这里要跟着改)、鼓面与垂带之间的净空 0.03,
+ * 再加鼓厚一半。鼓**贴着垂带外侧**站,不骑在踏跺上。
+ *
+ * **y = 台矶面层顶**,不是台基顶、也不是 `ground(x,z)`。⚠️ 这是本单最容易
+ * 踩的坑(单子 AI 踩过一次):门屋自己的台基顶在 +0.75,而踏跺脚落在**另一
+ * 个构件**——`forecourt-terrace`(白石台矶)——的面层上,面层顶比门屋台基底
+ * 还高 0.36m。用 `ground()` 会让石头沉进台矶里,用 `b.platform.y` 会让它浮在
+ * 半空。所以从台矶自己的锚点与 `platH` 反推。
+ *
+ * **z**:先算**踏跺脚**——垂带顶面是一条从台基边(平台高)到地面的斜线,它
+ * 降到台矶面层高度的那一点就是人眼看到的"台阶到头了"。再往外让一个须弥座
+ * 半深,石头就整个站在斜坡以外、不与还露着的垂带打架。
+ *
+ * 最后**对台矶的墁缝网格**(单子 AT2 要求「别骑缝」):面层 Z 向格距 0.80m
+ * (台矶 Z 向长 5.6m 均分 7 格,缝线从南北端头起排),而圭角 Z 向 0.84m —
+ * **比一格还长**,所以"整块内"在这套网格下无解,只能取唯一对称的那个解:
+ * **压在一行墁石的正中**,前后各出 0.02m。X 向则真的落在一格以内
+ * (0.56m 的圭角坐在 0.771m 的格里)。
+ *
+ * ⚠️ 0.80 这个格距是从 `forecourt-terrace.ts` 的 `gridPitch/BLOCK_L` 算出来的,
+ * 那张网格**没有导出**,所以这条耦合眼下是注释不是代码——台矶的格距改了,
+ * 这里不会报错,只会悄悄骑缝。建议见 `docs/reviews/2026-09-16-at-findings.md`。
  */
-function baogushiSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: number; ly: number }[] | null {
+function baogushiSpotsFor(
+  p: Placement,
+  built: PartBuild,
+  wx: number,
+  wz: number,
+  yaw: number,
+  baseY: number,
+  ground: (x: number, z: number) => number,
+): { x: number; y: number; z: number }[] | null {
   if (p.part !== 'building' || p.variant !== 'men' || built.kind !== 'building') return null;
   const b = built as BuildingResult;
-  const m = (b.frame as Frame).m;
-  const centerRight = m.columnX[m.columnX.length / 2];
-  const jambW = 0.09; // 边梃宽(building.ts 板门门口一段的艺术常量)
-  const leafHalfT = 0.03; // 全开门扇站立半厚(板门厚 0.055,同上一段)
-  const leafGapM = 0.06; // 门扇站立面与鼓面之间的空隙(艺术选择)
-  const lx = centerRight - m.columnD / 2 - jambW - leafHalfT - leafGapM - BAOGUSHI_DRUM_T_M / 2;
+  const steps = b.walkSurfaces.filter((s) => s.tag.startsWith('front-step-'));
+  if (!steps.length) return null;
+  // 正门在 scenes/zhengmen.json 里 yaw=0。台矶的墁缝网格是**世界轴对齐**的,
+  // 转了门就对不上——真要转门,得先把网格也一起转,那不是这里能糊弄过去的。
+  if (Math.abs(yaw) > 1e-6) throw new Error('[garden] 垂带抱鼓的落位与台矶墁缝对齐只在 yaw=0 下成立,正门转向了就要重推这一段');
+
+  /* ---- 台矶面层顶(世界 y)---- */
+  const [tx, tz] = findAnchor(findRegion('zhengmen'), 'zhengmen.forecourt-terrace');
+  const terraceTopY = ground(tx, tz) + FORECOURT_TERRACE_SPEC.platH;
+
+  /* ---- x:垂带外皮 + 净空 + 鼓厚一半 ---- */
+  const stepHalfW = steps[0].hx;
+  const CHUIDAI_OFFSET_M = 0.1; // 垂带中线离踏跺边(building.ts 踏跺垂带段)
+  const CHUIDAI_HALF_W_M = 0.12; // 垂带半宽(同上,带宽 0.24)
+  const DRUM_CLEAR_M = 0.03; // 鼓面与垂带外皮之间的净空(艺术选择)
+  const lx = stepHalfW + CHUIDAI_OFFSET_M + CHUIDAI_HALF_W_M + DRUM_CLEAR_M + BAOGUSHI_DRUM_T_M / 2;
+
+  /* ---- z:踏跺脚 + 须弥座半深,再对墁缝 ---- */
+  const platHZ = b.platform.hz;
+  const platH = b.platform.y;
+  const run = Math.max(...steps.map((s) => s.cz)) + steps[0].hz - platHZ;
+  // 垂带顶面 y(z) = platH·(1 − (z−platHZ)/run);解 y = 台矶面层顶(化到门的局部高度)。
+  const terraceTopLocal = Math.min(platH, Math.max(0, terraceTopY - baseY));
+  const emergeZ = platHZ + run * (1 - terraceTopLocal / platH);
+  const minZ = wz + emergeZ + BAOGUSHI_SEAT_HALF_Z_M;
+  // 墁缝网格:缝线在 tz + (−halfZ + k·pitch),一行石板的中线在两条缝的中间。
+  const PAVING_PITCH_Z_M = 0.8;
+  const grid0 = tz - FORECOURT_TERRACE_SPEC.halfZ;
+  const k = Math.ceil((minZ - grid0) / PAVING_PITCH_Z_M - 0.5);
+  const z = grid0 + (k + 0.5) * PAVING_PITCH_Z_M;
+
   return [
-    { lx: -lx, lz: 0, ly: b.platform.y },
-    { lx, lz: 0, ly: b.platform.y },
+    { x: wx - lx, y: terraceTopY, z },
+    { x: wx + lx, y: terraceTopY, z },
   ];
 }
 
@@ -549,7 +608,7 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
 
   let calls = 0;
   const lanternSpots: { x: number; y: number; z: number }[] = [];
-  const baogushiSpots: { x: number; y: number; z: number; dx: number; dz: number }[] = [];
+  const baogushiSpots: { x: number; y: number; z: number }[] = [];
   for (const p of all) {
     const key = `${p.part}:${p.variant ?? 'default'}`;
     let part = cache.get(key);
@@ -628,14 +687,13 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
       lanternSpots.push({ x: lx, y: y + s.hangY, z: lz });
     }
 
-    // 抱鼓石守在正门口(艺术选择,07-01 无此物):跟着正门走。
-    for (const s of baogushiSpotsFor(p, part) ?? []) {
-      const [bx, bz] = toWorld(wx, wz, yaw, s.lx, s.lz);
-      // 碰撞中心取鼓心(鼓在门槛平面以外 BAOGUSHI_DRUM_Z_M 处),不是门槛点。
-      const [dx, dz] = toWorld(wx, wz, yaw, s.lx, s.lz + BAOGUSHI_DRUM_Z_M);
-      // 落点在台基面上(s.ly 是台基顶的局部高度),不能再查地面高度——
-      // 台基范围内地面高度和台基面高度是两回事。
-      baogushiSpots.push({ x: bx, y: y + s.ly, z: bz, dx, dz });
+    // 抱鼓石守在正门踏跺两侧(艺术选择,07-01 无此物):跟着正门走。
+    // 单子 AT2 起 `baogushiSpotsFor` 直接给世界坐标——落位要对台矶的墁缝
+    // 网格,而那张网格是世界轴对齐的,在局部算完再转就对不上了。
+    for (const s of baogushiSpotsFor(p, part, wx, wz, yaw, y, ground) ?? []) {
+      // 垂带抱鼓档的局部原点就是须弥座中心(门枕已去),碰撞圆心即落点,
+      // 不用再叠 BAOGUSHI_DRUM_Z_M 那个门当档的偏移。
+      baogushiSpots.push(s);
     }
 
     if (p.pier) {
@@ -669,20 +727,22 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
     }
   }
   if (baogushiSpots.length) {
-    const baogushi = buildPart('baogushi', 'default', { ground });
+    // `chuidai` = 垂带抱鼓档(单子 AT2):去门枕、原点在须弥座中心。
+    const baogushi = buildPart('baogushi', 'chuidai', { ground });
     if (baogushi) {
       for (const s of baogushiSpots) {
         const st = baogushi.root.clone();
         st.position.set(s.x, s.y, s.z);
         st.name = '抱鼓石';
         staticGroup.add(st);
-        // 挡人不挡路:两颗石守在门槛两端,门轴中线畅通。碰撞圆心在鼓上。
-        ctx.collision.addCircle(s.dx, s.dz, BAOGUSHI_DRUM_R_M, s.y, s.y + 1.25, '抱鼓石');
+        // 挡人不挡路:两颗石守在踏跺两侧的垂带外,踏跺净宽 3m 一路畅通
+        // (石心离中线 1.87m,碰撞半径 0.44m —— 最近也还在踏跺边以外 0.93m)。
+        ctx.collision.addCircle(s.x, s.z, BAOGUSHI_DRUM_R_M, s.y, s.y + 1.25, '抱鼓石');
         registerObject({
           id: 'zhengmen.baogushi',
-          name: '抱鼓石(门当)',
+          name: '抱鼓石(垂带抱鼓)',
           part: 'baogushi',
-          variant: 'default',
+          variant: 'chuidai',
           position: [s.x, s.y, s.z],
           yaw: 0,
           planId: null,
