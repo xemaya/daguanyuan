@@ -61,6 +61,37 @@ export interface HoleLine {
 }
 
 /**
+ * **磨平一块正面**(摩崖题字的那一刀;单子 AM3)。
+ *
+ * 做法与 `clipToGround` 同一路数——后者把 y<0 的点压到 y=0 这个**水平面**上,
+ * 这里把正面(+Z 半球)一扇窗口里的点压到 z=plane 这个**竖直面**上。
+ *
+ * 三条不得不讲的:
+ *   ① **双向投影,但两个方向的判据不一样**。凸出平面的点一律压回去(不看法线);
+ *      凹进平面的点只提法线朝前的那些。理由见 `flattenFace` 里的两段注释——
+ *      压回去压不塌石头(平面在 z>0 一侧),提上来却会把背面与侧壁拽穿。
+ *      只压凸的也不行:窗口里原有的凿沟会留成坑,字面就不是一个平面。
+ *   ② 平面位置不是外部写死的数,是**从这块石头自己量出来的**:取窗口内正面
+ *      顶点 z 的 `q` 分位数。石头是噪声长出来的,正面在哪一层每颗种子都不同,
+ *      写死 z 会要么切掉半块石头、要么悬在皮外面什么也没磨到。q<0.5 让平面
+ *      落在皮下一点——磨面**凹进去**、四周的石头凸在外边,读作「刻出来的」
+ *      而不是「削掉的」;q 大一点则更像「磨掉一层」。
+ *   ③ 窗口是**椭圆**、边缘 `feather` 一段内按 smoothstep 过渡:矩形硬边会在
+ *      剪影上留一道刀切的直棱(台面感),椭圆软边给出一圈斜坡,像凿子收口。
+ */
+export interface FlattenSpec {
+  /** 椭圆窗口的中心与两个半轴(局部坐标,y 自石脚起算)。 */
+  cx: number;
+  cy: number;
+  hx: number;
+  hy: number;
+  /** 边缘过渡带,按归一化半径算:0.2 = 最外 20% 是斜坡。 */
+  feather: number;
+  /** 平面取窗口内正面顶点 z 的第几分位,缺省 0.3(磨面略凹)。 */
+  q?: number;
+}
+
+/**
  * 一块石头的参数化描述。`baishi.ts` 复用同一套字段(它自己排球场,`waist`/`plate`/
  * `holes`/`pits` 由它自己的剖面函数解读),所以这里导出。
  */
@@ -83,6 +114,8 @@ export interface StoneSpec {
   wrinkle: number;
   /** 板状程度:X 放大、Z 缩小的倍率,1 = 圆柱。 */
   plate?: number;
+  /** 磨平正面的一块(单子 AM3 的题字石用),缺省不磨——太湖石三个 variant 逐位不变。 */
+  flatten?: FlattenSpec;
   /**
    * 皱与细皮的**频率**倍率(不动幅度),缺省 1。
    *
@@ -100,6 +133,8 @@ export interface StoneResult {
   holes: HoleLine[];
   /** 有效顶高。 */
   top: number;
+  /** 磨平面实际落在的 z(局部坐标);没磨就没有。字面要贴在它前面。 */
+  flatZ?: number;
 }
 
 /** 剖面半径:t∈[0,1] 自下而上。 */
@@ -303,6 +338,47 @@ function wrinkle(geo: THREE.BufferGeometry, seed: number, amp: number, freq: num
   return out;
 }
 
+/**
+ * 磨面:见 `FlattenSpec`。返回平面实际落在的 z(局部),没磨到东西返回 undefined。
+ * 在皱与细皮之后、落地裁切之前调用——裁切末尾会重算法线,磨面自然跟着更新。
+ */
+function flattenFace(geo: THREE.BufferGeometry, f: FlattenSpec): number | undefined {
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  const nor = geo.attributes.normal as THREE.BufferAttribute;
+  // 窗口权重:椭圆,不是矩形。矩形的四角会切在石头的侧棱上留下两条直缝;
+  // 椭圆在上下两头自己收细,顶上那截脖子只被蹭到一点点,碎顶留得住。
+  const window = (i: number): number => {
+    const dx = (pos.getX(i) - f.cx) / f.hx;
+    const dy = (pos.getY(i) - f.cy) / f.hy;
+    return smoothstep(1, 1 - f.feather, Math.hypot(dx, dy));
+  };
+  // 平面从「正面那层皮」上取分位:只拿窗口核心里法线朝前的点。
+  // 拿整块石头的 z 取分位会把背面与侧壁算进去,平面直接落到石心里。
+  const front: number[] = [];
+  for (let i = 0; i < pos.count; i++)
+    if (window(i) > 0.5 && nor.getZ(i) > 0.45 && pos.getZ(i) > 0) front.push(pos.getZ(i));
+  if (front.length < 12) return undefined;
+  front.sort((a, b) => a - b);
+  const plane = front[Math.min(front.length - 1, Math.floor(front.length * (f.q ?? 0.3)))];
+  for (let i = 0; i < pos.count; i++) {
+    const w = window(i);
+    if (w <= 0) continue;
+    const z = pos.getZ(i);
+    if (z > plane) {
+      // 凸出平面的一律压回去,**不看法线**。看法线是第一版的错:一个鼓包的
+      // 正脸(nz≈1)被压回去了、它的侧壁(nz≈0)留在原地,于是鼓包被削成一圈
+      // 立在字面前头的尖刺——量出来窗口里还有 1393 个点凸出平面 0.41 m。
+      // 压回去不可能把石头压塌:平面在 z>0 这一侧,背面的点 z<0,够不着。
+      pos.setZ(i, lerp(z, plane, w));
+    } else if (z > 0) {
+      // 凹进去的只提**正面**的点:侧壁与背面提上来会把石身拽穿。
+      pos.setZ(i, lerp(z, plane, w * smoothstep(0.1, 0.45, nor.getZ(i))));
+    }
+  }
+  geo.computeVertexNormals();
+  return plane;
+}
+
 /** 地面裁切:y<0 的点压到 0,整片贴地的三角删掉(在地下,看不见,省三角)。 */
 function clipToGround(geo: THREE.BufferGeometry): THREE.BufferGeometry {
   const pos = geo.attributes.position as THREE.BufferAttribute;
@@ -499,11 +575,12 @@ export function buildStone(
     spec.seed + 9,
     2,
   );
+  const flatZ = spec.flatten ? flattenFace(geo, spec.flatten) : undefined;
   geo = clipToGround(geo);
   bakeColors(geo, balls, disp, Math.max(0.5, scale), spec.seed);
   geo = faceProjectedUV(geo, 0.7, spec.seed + 3);
   geo.computeBoundingBox();
-  return { geo, balls, holes, top: geo.boundingBox!.max.y };
+  return { geo, balls, holes, top: geo.boundingBox!.max.y, flatZ };
 }
 
 /* ------------------------------------------------------------------ */

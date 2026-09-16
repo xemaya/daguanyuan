@@ -51,9 +51,12 @@ export function plaqueFromPlan(objectId: string): string | undefined {
   } catch {
     return undefined;
   }
-  const regions = (plan as { regions?: { buildings?: { id: string; plaque?: string | null }[] }[] }).regions ?? [];
+  // rocks[] 也认(单子 AM3):题字石 cuizhang.rock-02 的「曲徑通幽處」与檐下匾是
+  // 同一件事——字是数据不是构件里的字面量,它住在 rocks[] 只是因为它是石头不是房子。
+  type Plaqued = { id: string; plaque?: string | null };
+  const regions = (plan as { regions?: { buildings?: Plaqued[]; rocks?: Plaqued[] }[] }).regions ?? [];
   for (const region of regions) {
-    const hit = (region.buildings ?? []).find((b) => b.id === objectId);
+    const hit = [...(region.buildings ?? []), ...(region.rocks ?? [])].find((b) => b.id === objectId);
     if (hit) return hit.plaque ?? undefined;
   }
   return undefined;

@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { registerPart, type PartBuild } from '@builder/parts/registry';
 import { baishiMaterial } from '@builder/parts/materials';
+import { plaqueFromPlan } from '@builder/plan/objects';
+import { inscriptionTexture } from '@builder/parts/xiaomu/plaque';
 import type { Ball } from '@builder/parts/sculpt';
 import {
   buildStone,
@@ -46,7 +48,7 @@ import { makeRng, rangeOf, clamp, lerp } from '@engine/core/Noise';
  * 到顶剩 0.44。**上半身保持体量、临了才收**,不是一路匀着细下去——匀着细的是
  * 笋,不是峰。裙脚也只比腰宽一档(湖石是 1.6 倍),免得整块读成一个锥。
  */
-function peakProfile(t: number, spec: StoneSpec): number {
+function defaultPeakProfile(t: number, spec: StoneSpec): number {
   const w = spec.waist;
   const pts: [number, number][] = [
     [0, 1.0],
@@ -64,8 +66,36 @@ function peakProfile(t: number, spec: StoneSpec): number {
 /* 球场                                                                */
 /* ------------------------------------------------------------------ */
 
+/**
+ * 题字石的剖面(单子 AM3)。峰剖面从脚到顶一路收(3.4 m → 尖),9 m 高的一块
+ * 照它走**读作一个锥**;题字石要的是「竖长白石」——**近乎等宽的一柱**,
+ * 到 0.86 才碎成几个尖。两条理由都是量出来的:
+ *   ① 字面窗口开在 t≈0.8,照峰剖面那里只剩 1.2 m 宽,五个字的列贴上去两边
+ *      各留 0.1 m,读成「一条纸贴在笋上」;等宽剖面在那里有 2.1 m 可用。
+ *   ② 裙脚不外张(0.98 而不是 1.0 起跳、且腰不细下去),锥感的一半来自
+ *      「脚比腰宽一大截」,收掉它剪影才立得住。
+ * 0.86 以上照样塌到 0.4 并由 `buildPeakBalls` 的碎顶补三四个尖——**顶还是峰**,
+ * 不是一块切平的板。
+ */
+function tabletProfile(t: number, spec: StoneSpec): number {
+  const w = spec.waist;
+  const pts: [number, number][] = [
+    [0, 0.98],
+    [0.1, 0.92],
+    [0.3, w],
+    [0.55, w],
+    [0.75, w - 0.07],
+    [0.86, w * 0.76],
+    [1, w * 0.4],
+  ];
+  return spec.width * 0.5 * piecewise(t, pts);
+}
+
 /** 沿脊线堆球 + 竖棱 + 碎顶 + 少量贯穿孔 + 纵向凿沟。 */
-function buildPeakBalls(spec: StoneSpec): { balls: Ball[]; holes: HoleLine[] } {
+function buildPeakBalls(
+  spec: StoneSpec,
+  peakProfile: (t: number, spec: StoneSpec) => number = defaultPeakProfile,
+): { balls: Ball[]; holes: HoleLine[] } {
   const rng = makeRng(spec.seed);
   const H = spec.height;
   const plate = spec.plate ?? 1.3;
@@ -251,11 +281,13 @@ export interface BaishiGeometry {
   /** 每块峰自己的几何 + 孔(组里校验透孔时,邻峰挡住不算)。 */
   stones: { geo: THREE.BufferGeometry; holes: HoleLine[] }[];
   groundRadius: number;
+  /** 题字石才有:磨平面上那一列字该挂在哪(构件局部坐标),`cell` 是一个字的高。 */
+  inscription?: { object: string; cx: number; cy: number; cz: number; width: number; cell: number };
 }
 
-function parseVariant(variant: string): { kind: 'peak' | 'group'; n: number } {
-  const m = /^(peak|group)/.exec(variant);
-  const kind = (m?.[1] as 'peak' | 'group' | undefined) ?? 'peak';
+function parseVariant(variant: string): { kind: 'peak' | 'group' | 'tablet'; n: number } {
+  const m = /^(peak|group|tablet)/.exec(variant);
+  const kind = (m?.[1] as 'peak' | 'group' | 'tablet' | undefined) ?? 'peak';
   const d = /(\d+)/.exec(variant);
   return { kind, n: d ? Number(d[1]) : 0 };
 }
@@ -361,9 +393,96 @@ function buildGroup(n: number): BaishiGeometry {
   return { geo, holes: results.flatMap((r) => r.holes), stones: results, groundRadius: 4.4 };
 }
 
+/* ------------------------------------------------------------------ */
+/* 题字石(单子 AM3)                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 「鏡面白石」——正面磨平一块、其余面照旧皱的竖长白石,给 `cuizhang.rock-02`
+ * 题「曲徑通幽處」(07-78「抬頭忽見山上有鏡面白石一塊,正是迎面留題處」)。
+ *
+ * **为什么是 8.4 m 而不是单子写的 4.5–5.5 m。** 单子那个数是按「站在平地上的
+ * 一块石头」给的;而锚点 (−34, 200) 的实测地形是 **−1.00 m** ——它落在西山口
+ * 那道溪的**河床**里:溪面在 y=0,北岸(z=198)3.32 m、南岸(z=205)2.35 m,
+ * 是一条约 4 m 宽、3.4 m 深的沟。`named[]` 的落位一律读 plan 锚点、不许带
+ * dx/dz(`scenes.ts` 的契约),所以石头只能站在这个点上。于是:
+ *   - 判断「大不大」的不是构件高度,是**顶在世界里的高度**。这块顶在 y=8.47;
+ *     同一座山上五组白石峰的顶实测 8.02 / 8.59 / 9.20 / 9.58 / 10.05 ——
+ *     **落在同一档里,一点不出挑**。
+ *   - 它的构件高度比峰组大一倍(9.47 对 4.9–5.2),只因为**脚低了 4.6 m**:
+ *     水面以下 1.0 m,露出北岸岸顶 5.15 m、露出南岸 6.12 m。多出来的那一截
+ *     正是单子要的「嵌在西口山体里,半埋,不是立在平地上的碑」——在这个
+ *     地形上只能这么实现。
+ * 字心因此落在世界 y=**5.70**(= 局部 6.7 − 1.0),离**该处地面 6.70 m**
+ *(判据要 ≥3.5),高过来路上人眼(cu_inscription 机位眼高 3.95)**1.75 m**
+ * ——「抬頭」是真抬。
+ *
+ * 磨面走 `taihu.ts` 的 `flattenFace`(见那边的 `FlattenSpec` 注释):把正面一扇
+ * 窗口里的顶点投到同一竖直面上,窗口外一点不碰。所以正面是一块磨平的字面、
+ * 四周与顶上还是峰石的皱与碎尖——不是一块立起来的板。
+ */
+/**
+ * 这一档只服务 `cuizhang.rock-02` 一个对象——与 `garden-building` 的 variant
+ * 直接就是 plan 对象 id 同一路数。字**不写在这里**,按这个 id 去 plan 取
+ * (99-26);真要给第二块题字石用,照 `wall.ts` 的做法把 id 编进 variant 串。
+ */
+const TABLET_OBJECT = 'cuizhang.rock-02';
+/** 磨面窗口中心离石脚的高度(m)。字心、贴图面中心都跟着它。 */
+const TABLET_FACE_Y = 6.7;
+/** 一个字占的高度(m)。字数从 plan 的字串来,这里只定字号。 */
+const TABLET_CELL = 0.5;
+
+function buildTablet(n: number): BaishiGeometry {
+  const seed = 8501 + n * 97;
+  const rng = makeRng(seed);
+  const spec: StoneSpec = {
+    height: 8.4,
+    width: 1.56,
+    waist: rangeOf(rng, 0.93, 0.97),
+    // 不开孔:一块要刻字的石头开个窟窿是自相矛盾;峰本来也只 0–1 个。
+    // 凿沟也只留 2 道、`plate` 也从 1.55 收到 1.38:`pits` 的负球半径按剖面给,
+    // 板再薄一点第 3 道就**打穿了**(侧视图上一条黑缝),与「不开孔」自相矛盾。
+    holes: 0,
+    pits: 2,
+    cell: 0.055,
+    wrinkle: 1.05,
+    // 石头越高纹路越粗(见 StoneSpec.wrinkleFreq);8.4 m 这一档要 2.3 才把
+    // 竖沟收回人眼尺度,照 peak 的 1.7 会拉成从顶流到底的一条。
+    wrinkleFreq: 2.3,
+    plate: 1.38,
+    seed: seed + 1,
+  };
+  const made = buildPeakBalls(spec, tabletProfile);
+  // 磨面的横向中心不能写死 0:脊线的「顶略歪」在 8.4 m 上能把上半身带出 ±0.6 m,
+  // 窗口照 x=0 开就开到了石头边上。按窗口高度那一带主体球的实际 x 取中。
+  const near = made.balls.filter((b) => (b.strength ?? 1) > 0 && Math.abs(b.y - TABLET_FACE_Y) < 0.6);
+  const cx = near.length ? near.reduce((a, b) => a + b.x, 0) / near.length : 0;
+  // 椭圆窗口 1.7×4.0 m,把 0.8×2.5 m 的字列整个套进核心区(字的四角归一化半径
+  // 0.78,落在 feather 0.2 的核心内)。磨面必须**包住**字:卡着字开的话,
+  // 窗外留下的皱会在掠射角度横穿到字面前头,把笔画啃掉一截。
+  spec.flatten = { cx, cy: TABLET_FACE_Y, hx: 0.85, hy: 2.0, feather: 0.2, q: 0.5 };
+  const r = buildStone(spec, made);
+  return {
+    geo: r.geo,
+    holes: r.holes,
+    stones: [r],
+    groundRadius: 2.2,
+    inscription: {
+      object: TABLET_OBJECT,
+      cx,
+      cy: TABLET_FACE_Y,
+      // 贴在磨面前 2.5 cm:再近会与石面 z-fighting,再远字会从面上「浮」起来。
+      cz: (r.flatZ ?? 0.3) + 0.025,
+      width: 0.8,
+      cell: TABLET_CELL,
+    },
+  };
+}
+
 /** 纯几何入口(可在 node 里跑校验,不碰材质)。 */
 export function buildBaishiGeometry(variant: string): BaishiGeometry {
   const { kind, n } = parseVariant(variant);
+  if (kind === 'tablet') return buildTablet(n);
   return kind === 'group' ? buildGroup(n) : buildPeak(n);
 }
 
@@ -374,6 +493,29 @@ registerPart('baishi', (variant): PartBuild => {
   mesh.receiveShadow = true;
   const root = new THREE.Group();
   root.add(mesh);
+  if (g.inscription) {
+    const ins = g.inscription;
+    // 字面的真源是 plan.json(99-26「构件不写文字面量」);plan 没注入就不挂字,
+    // 不回落字面量——屏幕上少一列字是数据的话,不是构件的话。
+    const text = plaqueFromPlan(ins.object) ?? '';
+    if (text) {
+      const face = new THREE.Mesh(
+        new THREE.PlaneGeometry(ins.width, ins.cell * text.length),
+        new THREE.MeshStandardMaterial({
+          map: inscriptionTexture(text),
+          transparent: true,
+          // 空白处直接丢掉:字以外的像素不写深度,免得一整块透明面参与排序、
+          // 在草叶/竹子前后来回跳。
+          alphaTest: 0.2,
+          // 比石身(0.78–0.96)润一档,不上亮面——这园子没有一处磨光大理石。
+          roughness: 0.62,
+          metalness: 0,
+        }),
+      );
+      face.position.set(ins.cx, ins.cy, ins.cz);
+      root.add(face);
+    }
+  }
   root.userData.holes = g.holes;
   return { root, groundRadius: g.groundRadius };
 });
