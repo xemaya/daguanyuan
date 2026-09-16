@@ -696,11 +696,12 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
    * 用**它自己的**半宽与羽化收边；宽度呼吸噪声也按半宽比缩放，
    * 否则 ±0.32m 的呼吸放在 0.6m 半宽的羊肠上会把路整个吞掉。
    */
-  function pathBlend(x: number, z: number): { w: number; t: number; d: number; hw: number; feather: number; paving?: 'cobble' | 'slab' } {
+  function pathBlend(x: number, z: number, pavedOnly = false): { w: number; t: number; d: number; hw: number; feather: number; paving?: 'cobble' | 'slab' } {
     if (indexed && pathPresence.query(x,z).length === 0) return {w:0,t:0,d:Infinity,hw:0,feather:0};
     const [wx, wz] = warp2(x, z, 0.35, 0.045, 0.12, 0.3);
     let bestD = Infinity, bestT = 0, bestScope = 1, best: PathProfile | null = null;
     for (const p of pathProfiles) {
+      if (pavedOnly && !p.paving) continue;
       const scope=scopeWeight(p,x,z);if(scope<=0)continue;
       const r = pathQuery(wx, wz, p);
       if (r && r.d < bestD) {
@@ -775,6 +776,49 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     .filter((l) => (l as { mossInside?: boolean }).mossInside === true)
     .map((l) => makePoly(l.points.map((pt) => [pt[0], pt[1]] as [number, number])));
 
+  /*
+   * 「官式地面」区（单子 AU3）：`style.rustic === 0` 的区，地面只有铺装与草，
+   * **不刷路土**（`dirt`）。
+   *
+   * 用户 2026-09-16 试玩：「门前还是有一些黄土地，顺便清理下，都是青青草就好。」
+   * 台矶两翼那两块黄土的来源不是羽化土肩，是 `legacy-ch17-roadwork`
+   * （兼容路基，无铺装）斜切过广场的两条臂——它在两翼比「近门大路」更近，
+   * 于是赢了选路、把广场刷成土。收掉土肩之后它仍在，所以还要按区收一道。
+   *
+   * **按 style 挑区，不写区名、不写坐标**（接缝 ②，与 `scatter-rules.ts` 同一口径）：
+   * 规则说的是「不带荒野气的院子地面不露荒土」，不是「正门不露土」。
+   * `rustic === 0` 现在正好落到两个区——正门(A)与省亲别墅(A)，两处都是
+   * 官式院落：`07-01`「下面白石臺磯」、`17` 回「平坦寬闊大路」说的都是
+   * 铺装地面，稻香村那种 `rustic 0.9` 的田舍不在其列，土路一寸不动。
+   *
+   * 边界羽化 3m：区界是一条直折线，硬切会在开阔地上留一道笔直的色边。
+   *
+   * ⚠️ **它只收路土，不收露土（`soil`）。** 第一版顺手把 `soil` 也乘了进去，
+   * `tests/terrain-index.test.mjs`「露土掩码与草密度同源」当场红了——那条门守的是
+   * 「草稀处 = 露土处」**逐点**成立：`vegetation.ts` 的 `grassDensity` 与这里的
+   * `soil` 调同一个 grass-cover 场，单方面把 `soil` 压成 0，地上会画着满绿、
+   * 低头却是一片秃草。要在正门区取消露土，得连草密度一起改（`vegetation.ts`，
+   * 不在单子 AU 的文件域），已在回报里点名。
+   */
+  const FORMAL_GROUND_FEATHER = 3.0;
+  const formalGrounds: Poly2[] = plan.regions
+    .filter((r) => (r as unknown as { style?: { rustic?: number } }).style?.rustic === 0)
+    .map((r) => makePoly(r.polygon));
+  const formalIndex = new BoundsIndex<Poly2>(32);
+  for (const g of formalGrounds) formalIndex.add(g, g, 0);
+  /** 0..1：这一点有多「官式地面」，1 = 区内深处，0 = 区外。 */
+  function formalGround(x: number, z: number): number {
+    let best = 0;
+    for (const g of indexed ? formalIndex.query(x, z) : formalGrounds) {
+      if (!inBBox(x, z, g, 0)) continue;
+      const d = signedDist(x, z, g);
+      if (d >= 0) continue;
+      const w = smoothstep(0, FORMAL_GROUND_FEATHER, -d);
+      if (w > best) best = w;
+    }
+    return best;
+  }
+
   function masks(x: number, z: number): SurfaceMasks {
     const path = pathBlend(x, z);
 
@@ -802,20 +846,37 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     /*
      * 铺地（单子 N）：plan.paths[] 里带 paving 的路才铺——原文点名的先铺
      * （潇湘馆院内「石子漫」07-41、近门大路 17 回「宽阔大路」），没点名的留土路。
-     * 铺装收到路肩内侧：边上留一线浮土，石板路才不是从草里硬切出来的色带。
      * 喂饱 cobble/slab 之后 ctx.collision.surfaceAt 回 'stone'，
      * 草散布器自己就退开（运行时查 surfaceAt，不需要改散布器）。
+     *
+     * **有铺装的路不留土肩**（单子 AU3，用户 2026-09-16「门前还是有一些黄土地，
+     * 都是青青草就好」）。原先这里写的是 `dirt *= 1 - max(cobble, slab)`：
+     * 铺装只在 `hw + feather*0.4` 以内，而 `path.w` 一直铺到 `hw + feather`，
+     * 中间那一圈 `dirt` 没人扣，于是每条铺装路两侧各长出一条浮土带
+     * ——近门大路 4.4m 宽、羽化 1.1m，门前就是两条黄土。石板路的边由
+     * `luya` 路牙收住，不需要土来过渡；让给草，读出来才是「青青草」。
+     *
+     * ⚠️ **只对有铺装的路**。没有 `paving` 的土路行为一个字不动：园内
+     * 大半路面本来就该是土路（脚下序列里那些 dirt 段是对的，不是缺陷）。
      */
     let cobble = 0;
     let slab = 0;
-    if (path.paving && path.w > 0.001 && path.d < Infinity) {
-      const pave = smoothstep(path.hw + path.feather * 0.4, path.hw - 0.22, path.d) * path.w;
-      if (path.paving === 'cobble') cobble = pave * 0.92;
+    // 铺装按「最近的**有铺装的**那条路」单算一次，不复用 `path`（最近的任意一条）。
+    // ⚠️ 单子 AU3 量出来的真病根：`pathBlend` 取最近的一条，而
+    // `legacy-ch17-roadwork`（兼容路基，无 paving）在正门广场上是一条斜切过去的
+    // 折线——在 x≈56 一带它比真正的「近门大路」还近 0.2m，于是它赢了选路，
+    // 广场被刷成 `dirt=1`。用户看到的「门前黄土地」主要是这一片，不是羽化土肩。
+    // 高程仍旧由 `path` 决定（动它会改地形高度），这里只决定地表材质。
+    const paved = path.paving ? path : pathBlend(x, z, true);
+    if (paved.paving && paved.w > 0.001 && paved.d < Infinity) {
+      const pave = smoothstep(paved.hw + paved.feather * 0.4, paved.hw - 0.22, paved.d) * paved.w;
+      if (paved.paving === 'cobble') cobble = pave * 0.92;
       else slab = pave * 0.92;
-      dirt *= 1 - Math.max(cobble, slab);
+      dirt = 0;
     }
 
-    dirt = clamp(dirt, 0, 1) * (1 - sand);
+    // 官式地面区不刷荒土（见 `formalGround` 头注）。
+    dirt = clamp(dirt, 0, 1) * (1 - sand) * (1 - formalGround(x, z));
     const grass = clamp(1 - sand - cobble - slab - dirt, 0, 1);
 
     let wear = clamp(
