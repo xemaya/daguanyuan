@@ -73,6 +73,11 @@ const ALLOW = [
     path: p,
     why: '单子 AT 的待建产物,落地前不存在',
   })),
+  ...['builder/parts/xiaomu/gaozhao.ts', 'builder/parts/xiaomu/pushou.ts'].map((p) => ({
+    file: 'docs/superpowers/plans/2026-09-16-au-gate-freeze.md',
+    path: p,
+    why: '单子 AU 的待建构件,落地前不存在',
+  })),
   ...['engine/core/look.ts', 'looks/default.json', 'scenes/daoxiangcun.json'].map((p) => ({
     file: 'docs/superpowers/specs/2026-09-14-scale-architecture-design.md',
     path: p,
