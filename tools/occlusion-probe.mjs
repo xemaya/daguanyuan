@@ -81,8 +81,10 @@ const MARCH_MAX = 160;    // 水平最长行程(m)，够从 z=236 斜着走出 z
 /* 合格线：默认**没有**（这是尺子不是门，见文件头）。`--threshold <百分数>` 才立一条线，
  * 那是调用方自己立的回归线，不是本脚本的判据。退休的 97% 只作为历史注记留在文件头。 */
 const THRESHOLD_PCT = (() => {
-  const raw = arg('--threshold', null);
-  if (raw === null || raw === undefined) return null;
+  if (!process.argv.includes('--threshold')) return null;
+  const raw = arg('--threshold', undefined);
+  // 给了 `--threshold` 却没给值,不许静默降级成「不设门」——那正好是调用方以为有门、
+  // 实际没门的那种失败。
   const v = Number(raw);
   if (!Number.isFinite(v) || v < 0 || v > 100) {
     console.error(`[occlusion-probe] --threshold 需要 0…100 的百分数，实际收到 ${raw}`);
