@@ -77,7 +77,7 @@
       "order": "AM1/AM2",
       "shots": "gate_approach 4395055→4716621(+7.32%,calls -6), mound_block 4317505→4660605(+7.95%,calls +1), grass_close 4441493→4623915(+4.11%,calls -27), xiaoxiang 3214313→3480769(+8.29%,calls +7,超±3%)",
       "bought": "AM1 白石峰群构件(baishi:peakN/groupN,土岭换峰群);AM2 山体收形 212×11m→135×4m + rocks 换绑 5 组 21 峰",
-      "by": "验收人(Claude)",
+      "by": "AM 施工 agent 自报;验收人(Claude)2026-09-16 在 5177 复拍四镜逐位一致后认可",
       "note": "三镜(gate/mound/grass)在 ≤+10%/+12calls 内;xiaoxiang 超容差——独立复核逐件归因:+3.61% 是山体收形通过全园阴影 pass 漏进这一镜(与峰群本身无关),余下是峰群真实成本(峰群总量与 AM1 单组数字对账一致);未降细节去凑数,如实抬线。遮挡探针(tools/occlusion-probe.mjs)只测≥97%射线遮挡这条不进此表,退休为参考数(见 docs/superpowers/plans/2026-09-15-am-cuizhang-rebuild.md 验收裁定)。此账是 AM 分支独立测的,起点是 AQ-b1 之后、AQ-c 之前——AQ-c 的收益在合并时已叠进下面的合并重测,数字不重复扣。"
     },
     {
@@ -101,7 +101,7 @@
       "order": "merge(AQ-c + AM)",
       "shots": "gate_approach 3912537→4020205(+107668/+2.75%,calls 277→271), mound_block 3937457→4211480(+274023/+6.96%,calls 265→267), grass_close 4061925→4174790(+112865/+2.78%,calls 298→270), xiaoxiang 2913186→2967908(+54722/+1.88%,calls 219→225)",
       "bought": "合并两条独立分支：AQ-c 的残余合批优化 + AM 的翠嶂重做(白石峰群/题字石/苔藓)——AM 在自己分支上量的账全是相对 AQ-b1(AQ-c 之前)算的,这是两支代码第一次真正一起跑,mound_block 的 +6.96% 正是峰群几何第一次落进 AQ-c 优化后的世界里的真实成本",
-      "by": "验收人(Claude)",
+      "by": "AM 施工 agent 自报;验收人(Claude)2026-09-16 在 5177 复拍四镜逐位一致后认可",
       "note": "三次独立进程连拍(shots/merge-final、merge-final2、merge-final3),drawCalls/triangles 三次逐位相同;fps/frameCostMs 取三次中位数。mound_block 单镜 +6.96% 超 ±3%——如实抬线,不是回归,是两支功能第一次合体的真实买入(峰群 276k 三角 vs AQ-c 优化前的旧土岭,合并后两边效果都在);其余三镜在 ±3% 内。"
     }
   ]
