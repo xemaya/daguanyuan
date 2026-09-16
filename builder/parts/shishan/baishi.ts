@@ -503,16 +503,21 @@ registerPart('baishi', (variant): PartBuild => {
         new THREE.PlaneGeometry(ins.width, ins.cell * text.length),
         new THREE.MeshStandardMaterial({
           map: inscriptionTexture(text),
-          transparent: true,
           // 空白处直接丢掉:字以外的像素不写深度,免得一整块透明面参与排序、
-          // 在草叶/竹子前后来回跳。
+          // 在草叶/竹子前后来回跳。不带 transparent——alphaTest 已经把它归到不透明
+          // 队列(项目里 vegetation.ts/bamboo.ts/distant/scene.ts 的所有 alpha-cut
+          // 材质都是这个搭配,没有一处再加 transparent),alphaToCoverage 吃掉硬切边缘。
           alphaTest: 0.2,
+          alphaToCoverage: true,
           // 比石身(0.78–0.96)润一档,不上亮面——这园子没有一处磨光大理石。
           roughness: 0.62,
           metalness: 0,
         }),
       );
       face.position.set(ins.cx, ins.cy, ins.cz);
+      // 石身两个 flag 都开;字面是薄贴面,只收阴影不投——它紧贴石身表面 2.5cm,
+      // 自己投影到石头上会在字缝里叠一层多余的暗边,像素级没有意义还可能穿帮。
+      face.receiveShadow = true;
       root.add(face);
     }
   }
