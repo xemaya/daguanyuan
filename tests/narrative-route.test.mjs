@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {compileNarrativeRoute,sampleNarrativeRoute} from '@builder/plan/narrative-route.ts';
+import {locatePoint} from '@builder/plan/geometry.ts';
 import {auditNarrative} from '../tools/narrative-audit.mjs';
 const plan=JSON.parse(readFileSync('projects/daguanyuan/plan.json','utf8'));
 const source=plan.narrativeRoutes[0],copy=()=>structuredClone(source);
@@ -57,7 +58,14 @@ test('the flower-to-cave leg cannot take the old shortcut through Hengwu before 
  assert.ok(auditNarrative(p).fails.some(s=>s.includes('先穿入蘅芜苑')));
  const p2=structuredClone(plan);p2.narrativeRoutes[0].nodes[7].refs[0].id='hill.missing';
  assert.ok(auditNarrative(p2).fails.some(s=>s.includes('引用hill:hill.missing')));
+ // 这道门查的是「出园末段的路面不许压过翠嶂山体」,山体多边形是现读的,与山多大无关。
+ // 单子 AM2(2026-09-15)把翠嶂收形 212→135 m、东界从 x≈152 退到 x=80 后,末段首尾直连
+ // 整条都落在新山体之北 18 m 开外,原来那记「首尾直连」突变打不着山,成了空炮。
+ // 改成让末段直穿山体:突变点从现多边形算出来,并先断言它真在山内,免得哪天又打空。
  const shortcut=structuredClone(plan);const last=shortcut.narrativeRoutes[0].legs.at(-1);
- last.points=[last.points[0],last.points.at(-1)];
+ const ring=plan.hills.find(h=>h.id==='hill.cuizhang').polygon,verts=ring.slice(0,-1);
+ const through=[verts.reduce((a,p)=>a+p[0],0)/verts.length,verts.reduce((a,p)=>a+p[1],0)/verts.length];
+ assert.equal(locatePoint(ring,through),'inside','突变点必须落在翠嶂山体内,否则这条断言打空');
+ last.points=[last.points[0],through,last.points.at(-1)];
  assert.ok(auditNarrative(shortcut).fails.some(s=>s.includes('绕翠嶂东界')));
 });
