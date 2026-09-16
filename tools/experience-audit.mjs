@@ -62,6 +62,19 @@ export function resolveRefPoint(plan, id) {
   return null;
 }
 
+/** 行进射线 at→dir 首次「入界」的点;射不中多边形返回 null。
+ * 复用 segmentLocations:它把线段按多边形边界切段并标注内外,
+ * 第一段 location==='inside' 的起参数就是首次入界处。
+ * reach 取够长(园子尺度 ≪ 1000 m),因为 dir 来自 path,只表方向不表距离。 */
+function firstRayEntry(at, dir, polygon, reach = 1000) {
+  const len = Math.hypot(dir[0], dir[1]);
+  if (!(len > 0)) return null;
+  const far = [at[0] + dir[0] / len * reach, at[1] + dir[1] / len * reach];
+  const span = segmentLocations(at, far, polygon).find((s) => s.location === 'inside');
+  if (!span) return null;
+  return [at[0] + (far[0] - at[0]) * span.from, at[1] + (far[1] - at[1]) * span.from];
+}
+
 function resolveSubjectPolygon(plan, id) {
   const hill = (plan.hills ?? []).find((h) => h.id === id);
   return hill && Array.isArray(hill.polygon) ? hill.polygon : null;
@@ -161,9 +174,20 @@ function auditApproachAxis(plan, entry) {
   for (const ref of entry.targets ?? []) {
     const target = resolveRefPoint(plan, ref);
     if (!target) { fails.push(`${label(entry)} 目标 ${ref} 不存在`); continue; }
-    const bearing = [target.point[0] - at[0], target.point[1] - at[1]];
+    // 山体目标(多边形)改判「行进射线首次入界点」,不用形心(2026-09-15 用户拍板,甲-2 判法):
+    // approach_axis 对山问的是「走出门正前方有没有山迎面」,那是命中测试,
+    // 不是「山的几何中点在不在正前方」——山一收形,形心就偏出阈值,可山还堵在门口。
+    // 只在这里改;resolveRefPoint 仍给形心,occlusion/reveal 要的正是稳定参考点。
+    const polygon = resolveSubjectPolygon(plan, ref);
+    let point = target.point;
+    if (polygon) {
+      const hit = firstRayEntry(at, dir, polygon);
+      if (!hit) { fails.push(`${label(entry)} 在 (${at}) 行进方向的射线未命中 ${target.label} 的多边形`); continue; }
+      point = hit;
+    }
+    const bearing = [point[0] - at[0], point[1] - at[1]];
     const cos = (dir[0] * bearing[0] + dir[1] * bearing[1]) / (Math.hypot(...dir) * Math.hypot(...bearing));
-    const deg = Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI;
+    const deg = Math.hypot(...bearing) < 1e-9 ? 0 : Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI;
     if (deg > threshold)
       fails.push(`${label(entry)} 在 (${at}) 行进方向与 ${target.label} 方位夹角 ${deg.toFixed(1)}° 超过阈值 ${threshold}°`);
   }

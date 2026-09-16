@@ -37,12 +37,17 @@ test('突变:潇湘馆月洞门挪离正房轴线后,框景条目必须红', () 
   assert.ok(fails.some(f => f.startsWith(framed.id)), `挪门后框景未失败: ${JSON.stringify(fails)}`);
 });
 
-test('突变:翠嶂挪开后,X4 的迎面(approach_axis)条目必须红', () => {
+test('突变:翠嶂挪离入口正前方后,X4 的迎面(approach_axis)条目必须红', () => {
   const p = copy();
   const axis = p.experience.find(e => e.type === 'approach_axis');
   if (!axis) return; // X4 之前没有 approach_axis 条目,跳过
   const hill = p.hills.find(h => h.id === 'hill.cuizhang');
-  hill.polygon = hill.polygon.map(([x, z]) => [x + 80, z]);
+  // 甲-2 判法(2026-09-15 拍板)下 X4 问的是「行进射线打不打得中山体」,不是形心测向,
+  // 所以突变必须把整座山横挪出入口射线所在的 x——挪多少由山体自身与射线的相对位置算,不写死。
+  const entryX = (axis.at ?? axis.path[1])[0];
+  const east = Math.max(...hill.polygon.map(([x]) => x));
+  const shift = -(east - entryX) - 10; // 整座山挪到入口射线以西 10 m 开外
+  hill.polygon = hill.polygon.map(([x, z]) => [x + shift, z]);
   const { fails } = auditExperience(p);
   assert.ok(fails.some(f => f.startsWith(axis.id)), `挪动山体后 ${axis.id} 未失败: ${JSON.stringify(fails)}`);
 });
