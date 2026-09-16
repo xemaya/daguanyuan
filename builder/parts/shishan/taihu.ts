@@ -537,7 +537,13 @@ function bakeColors(
     // 石上的苔(单子 AM4):朝上 × 低频噪声 —— 成斑,不是均匀染。
     if (sm && mossColor) {
       // 朝上的偏好。软过渡,不是台阶:硬阈值会切出一条绿帽檐。
-      const uy = snor ? snor.getY(i) / (Math.hypot(snor.getX(i), snor.getY(i), snor.getZ(i)) || 1) : n.y;
+      // `snormal` 在 `buildStone` 里紧跟 `metaSurface` 之后无条件写入,只在
+      // `bakeColors` 之后的 `faceProjectedUV` 里才删除——这里必然存在。不做
+      // 回落到 `normal` 的静默兜底:那正是 AM4 修掉的"用褶皱后的真法线做
+      // 朝上判据→椒盐噪点"那个 bug 的写法,管线一旦被重排,兜底会悄悄把它
+      // 带回来。改成断言,重排了就在这里炸,而不是在渲染里长出椒盐苔。
+      if (!snor) throw new Error('bakeColors: geometry is missing the `snormal` attribute');
+      const uy = snor.getY(i) / (Math.hypot(snor.getX(i), snor.getY(i), snor.getZ(i)) || 1);
       const up = smoothstep(mossUp - mossUpSoft, mossUp + mossUpSoft, uy);
       // 低频噪声决定**哪一块**长苔。主斑 `mossPatch` m 一个,再叠半尺度的一层
       // 把斑的边缘啃碎——单频噪声的等值线太圆,读作一摊一摊的水渍。
