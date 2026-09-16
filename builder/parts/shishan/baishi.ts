@@ -11,6 +11,7 @@ import {
   piecewise,
   transformStone,
   type HoleLine,
+  type MossSpec,
   type StoneResult,
   type StoneSpec,
 } from '@builder/parts/shishan/taihu';
@@ -37,6 +38,43 @@ import { makeRng, rangeOf, clamp, lerp } from '@engine/core/Noise';
  * 材质 `baishiMaterial()`:冷灰白、粗糙度 0.78–0.96、竖向层理、无脉纹
  * ——这一档的头号做坏法是做成大理石,三条都是冲着它去的。
  */
+
+/* ------------------------------------------------------------------ */
+/* 苔(单子 AM4)                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 「翠嶂」那个**翠**字。07-03 只说「白石峻嶒」,没说树——一带纯白的石屏叫不成
+ * 「翠」嶂,绿是**石上的苔**。做法照 `taihu.ts` 顶点色的老路加一层
+ *(`MossSpec` 的注释讲了为什么是「朝上 smoothstep × 低频噪声」这两件事),
+ * **零三角、零 draw call**:改的只是已经存在的 color 属性里的数。
+ *
+ * 这几个数是对着 `baishi:group1` 的 front/side 棚拍与 `mound_block`(判据机位)
+ * 一起调出来的,判据是「看得出白石上有苔斑、不是纯白也不是刷绿漆」:
+ *   - `up 0.05 / upSoft 0.5`:实算的这条曲线(`smoothstep(−0.45, 0.55, snormal.y)`)——
+ *     朝天 33° 以上 **1.00**、仰 17° 的肩 **0.84**、**竖壁 0.42**、俯 12° 的檐下 0.16、
+ *     俯 27° 以下 **0**。竖壁给 0.42 不给 0 是被判据机位逼出来的:
+ *     `mound_block` 的眼高 5.6 m 而峰顶 8–10 m,是**从下往上看**,朝天的那些面
+ *     一个都看不见——苔只长在朝天面时,这个机位上一点绿也读不到。竖壁上长苔
+ *     本来也是石灰岩的常态,成不成斑交给下面那条噪声去管。
+ *   - `patch 0.85 m`:峰高 3–5 m,斑的特征尺度取到峰宽(≈1 m)这一档,
+ *     一块峰身上四五处斑。再大就成了「半边绿半边白」,再小就碎成噪点(读作贴图)。
+ *   - `coverage 0.05 / edge 0.28`:噪声超过 0.05 才起苔(约四成面积),0.28 的软边
+ *     让斑心浓、斑缘散。覆盖率是这一层里最敏感的旋钮——调到 −0.2 就明显是
+ *     刷绿漆了。
+ *   - `strength 0.88`:斑心几乎盖成苔色。苔不是滤镜,浓处就该是绿的;
+ *     石头的褶与 AO 在 `lerp` 之前已经乘进去了,斑里照样看得见石纹。
+ *     1.0 在 side 机位的掠射光下把几处斑烧成了亮黄绿(读作漆),0.88 收得回来。
+ */
+const BAISHI_MOSS: MossSpec = {
+  color: [0.20, 0.37, 0.15],
+  up: 0.05,
+  upSoft: 0.5,
+  patch: 0.85,
+  coverage: 0.05,
+  edge: 0.28,
+  strength: 0.88,
+};
 
 /* ------------------------------------------------------------------ */
 /* 峰的剖面                                                            */
@@ -305,6 +343,7 @@ function buildPeak(n: number): BaishiGeometry {
     wrinkle: 1.25,
     wrinkleFreq: 1.7,
     plate: rangeOf(rng, 1.3, 1.45),
+    moss: BAISHI_MOSS,
     seed: seed + 1,
   };
   const r = buildStone(spec, buildPeakBalls(spec));
@@ -371,6 +410,7 @@ function buildGroup(n: number): BaishiGeometry {
       wrinkleFreq: 1.7,
       // 板状程度拉开:有的从正面看是一片薄岩板,有的是一坨方墩。
       plate: rangeOf(rng, 1.15, 1.6),
+      moss: BAISHI_MOSS,
       seed: seed + 11 + i * 13,
     };
     const built = buildStone(spec, buildPeakBalls(spec));
@@ -450,6 +490,9 @@ function buildTablet(n: number): BaishiGeometry {
     // 竖沟收回人眼尺度,照 peak 的 1.7 会拉成从顶流到底的一条。
     wrinkleFreq: 2.3,
     plate: 1.38,
+    // 题字石也长苔:它是同一座山上的同一种石头,独独它一块纯白反而出挑。
+    // 字面本身不受影响——磨面法线朝 +Z(水平),`up` 判据在那里算出来是 0。
+    moss: BAISHI_MOSS,
     seed: seed + 1,
   };
   const made = buildPeakBalls(spec, tabletProfile);

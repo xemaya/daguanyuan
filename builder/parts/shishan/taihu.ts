@@ -92,6 +92,40 @@ export interface FlattenSpec {
 }
 
 /**
+ * **石上的苔**(单子 AM4)。07-03 那个「翠」字的来处是石上的绿,不是树,
+ * 所以它必须长在**白石本身**上——顶点色里多混一路,**零三角、零 draw call**。
+ *
+ * 两条参数都是冲着「成斑、不是刷绿漆」去的:
+ *   ① **朝上才长**:`up`/`upSoft` 在光滑法线的 y 上做 smoothstep。为什么不是硬阈值
+ *      ——硬切会沿等高法线画出一条边界,整块峰读成「戴了顶绿帽子」;软过渡让
+ *      苔从朝天面顺着肩往侧面淡出去,像淋上去的。
+ *   ② **低频噪声决定哪一块长**:两层 simplex(`patch` m 为特征尺度的主斑 +
+ *      一半尺度的破边),再经 `coverage` 的 smoothstep 切出斑块边界。只有 ①
+ *      没有 ② 就是「所有朝天面一律染绿」= 刷绿漆,判据直接判死。
+ *
+ * 苔色偏暗:白石的顶点色基线是 0.5 灰,苔要压到它下面一档才像「石头上长了东西」,
+ * 提亮的绿会读作**上了色的石头**。
+ */
+export interface MossSpec {
+  /** 苔色(线性 RGB,与 0.5 灰的基线同一把尺子)。 */
+  color?: [number, number, number];
+  /**
+   * 朝上判据:**光滑法线**(`snormal`,皱之前的那一份)的 y 从 `up - upSoft`
+   * 到 `up + upSoft` 之间 smoothstep 抬起来。为什么不是真法线见 `bakeColors`。
+   */
+  up?: number;
+  upSoft?: number;
+  /** 一块苔斑的特征尺度(m)。 */
+  patch?: number;
+  /** 覆盖率旋钮:噪声要超过它才算长苔,越小苔越多(噪声域约 [-1,1])。 */
+  coverage?: number;
+  /** 斑块边界的软硬:0 = 刀切,大 = 渐隐。 */
+  edge?: number;
+  /** 最浓处混进去多少(0–1)。1 = 完全盖成苔色。 */
+  strength?: number;
+}
+
+/**
  * 一块石头的参数化描述。`baishi.ts` 复用同一套字段(它自己排球场,`waist`/`plate`/
  * `holes`/`pits` 由它自己的剖面函数解读),所以这里导出。
  */
@@ -124,6 +158,8 @@ export interface StoneSpec {
    * 高石头传 >1 把纹路收回人眼尺度。缺省 1 保证太湖石三个 variant 逐位不变。
    */
   wrinkleFreq?: number;
+  /** 石上长苔(单子 AM4 的白石峰用),缺省不长——太湖石三个 variant 逐位不变。 */
+  moss?: MossSpec;
   seed: number;
 }
 
@@ -402,7 +438,11 @@ function clipToGround(geo: THREE.BufferGeometry): THREE.BufferGeometry {
 
 /**
  * 顶点色:用球场当占据函数,沿法线半球打 9 根短线,被"实心"挡住的比例就是 cavity。
- * 孔洞内壁、石缝、褶皱谷底都会暗下去;脚下泛青。
+ * 孔洞内壁、石缝、褶皱谷底都会暗下去;脚下泛青;`spec.moss` 在的话再叠一路苔斑。
+ *
+ * 四路是**叠**不是**换**(顺序即层序):AO×折痕×低频明度 → 孔内泛青 → 脚下潮湿
+ * → 苔斑。苔在最外一层,因为它是长在石头表面上的东西——底下那三路的暗谷/亮脊
+ * 会透过 `lerp` 的剩余权重继续起作用,苔斑里还看得见石头的褶。
  */
 function bakeColors(
   geo: THREE.BufferGeometry,
@@ -410,11 +450,31 @@ function bakeColors(
   disp: Float32Array,
   scale: number,
   seed: number,
+  moss?: MossSpec,
 ): void {
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const nor = geo.attributes.normal as THREE.BufferAttribute;
   const colors = new Float32Array(pos.count * 3);
   const s = new Simplex(seed + 77);
+  // 苔用**另一颗**种子,不从 `s` 上取:`s` 是明度起伏,两者共用一条噪声会让
+  // "苔斑"与"亮斑"严丝合缝地重合,读作贴图而不是长出来的东西。
+  const sm = moss ? new Simplex(seed + 313) : null;
+  /**
+   * 朝上判据读的是**皱之前的光滑法线** `snormal`,不是 `normal`。
+   * 这条是实拍改出来的:用真法线时,峰身上密布的褶皱让 `normal.y` 在相邻顶点
+   * 之间来回跳 ±0.4,苔就碎成了**椒盐噪点**——远看是一层绿霉斑,近看是脏,
+   * 完全不成"斑"。`snormal` 跟着瘤的真实朝向走、不带褶皱的抖动(`faceProjectedUV`
+   * 选投影轴也是为同一个理由用它),于是"哪一片面朝天"是低频的,
+   * 斑的形状就交给低频噪声去定——这正是单子要的那两个因子各司其职。
+   */
+  const snor = geo.attributes.snormal as THREE.BufferAttribute | undefined;
+  const mossColor = moss ? new THREE.Color(...(moss.color ?? [0.23, 0.36, 0.17])) : null;
+  const mossUp = moss?.up ?? 0.3;
+  const mossUpSoft = moss?.upSoft ?? 0.45;
+  const mossPatch = moss?.patch ?? 0.9;
+  const mossCoverage = moss?.coverage ?? 0.05;
+  const mossEdge = moss?.edge ?? 0.34;
+  const mossStrength = moss?.strength ?? 0.88;
   const n = new THREE.Vector3();
   const t = new THREE.Vector3();
   const bt = new THREE.Vector3();
@@ -474,6 +534,20 @@ function bakeColors(
     // 脚下潮湿
     const wetT = smoothstep(0.34 * scale, 0.02, py);
     c.lerp(wet, wetT * 0.85);
+    // 石上的苔(单子 AM4):朝上 × 低频噪声 —— 成斑,不是均匀染。
+    if (sm && mossColor) {
+      // 朝上的偏好。软过渡,不是台阶:硬阈值会切出一条绿帽檐。
+      const uy = snor ? snor.getY(i) / (Math.hypot(snor.getX(i), snor.getY(i), snor.getZ(i)) || 1) : n.y;
+      const up = smoothstep(mossUp - mossUpSoft, mossUp + mossUpSoft, uy);
+      // 低频噪声决定**哪一块**长苔。主斑 `mossPatch` m 一个,再叠半尺度的一层
+      // 把斑的边缘啃碎——单频噪声的等值线太圆,读作一摊一摊的水渍。
+      const f = 1 / mossPatch;
+      const blotch =
+        sm.noise3D(px * f, py * f * 0.8, pz * f) * 0.72 +
+        sm.noise3D(px * f * 2.1, py * f * 1.7, pz * f * 2.1) * 0.28;
+      const patch = smoothstep(mossCoverage, mossCoverage + mossEdge, blotch);
+      c.lerp(mossColor, up * patch * mossStrength);
+    }
     colors[i * 3] = c.r;
     colors[i * 3 + 1] = c.g;
     colors[i * 3 + 2] = c.b;
@@ -577,7 +651,7 @@ export function buildStone(
   );
   const flatZ = spec.flatten ? flattenFace(geo, spec.flatten) : undefined;
   geo = clipToGround(geo);
-  bakeColors(geo, balls, disp, Math.max(0.5, scale), spec.seed);
+  bakeColors(geo, balls, disp, Math.max(0.5, scale), spec.seed, spec.moss);
   geo = faceProjectedUV(geo, 0.7, spec.seed + 3);
   geo.computeBoundingBox();
   return { geo, balls, holes, top: geo.boundingBox!.max.y, flatZ };
