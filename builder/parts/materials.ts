@@ -45,6 +45,13 @@ export const CN = {
   /** 太湖石:灰白带青,孔洞里深。 */
   taihu: 0xb9b7ad,
   taihuPit: 0x6f6d66,
+  /**
+   * 白石峰:07-03「白石峻嶒」的石灰岩峰。**冷**灰白——比 `taihu`(暖灰绿)冷、
+   * 比它亮一档;比 `whiteStone`(暖米白,台磯/门枕的加工面)冷得多,B 通道压过 R,
+   * 而 `whiteStone` 是 R>G>B。三者放一起不会认错,也不是大理石(见 `baishiMaps`)。
+   */
+  baishi: 0xc4c7cc,
+  baishiPit: 0x676c74,
   /** 竹。 */
   bamboo: 0x6e9a4a,
   bambooNode: 0x8fb56a,
@@ -476,6 +483,64 @@ export function taihuMaps(size = 1024): MaterialMaps {
 export function taihuMaterial(): THREE.MeshStandardMaterial {
   return memo('taihu', () => {
     const m = taihuMaps();
+    return new THREE.MeshStandardMaterial({
+      map: m.map,
+      normalMap: m.normalMap,
+      roughnessMap: m.roughnessMap,
+      roughness: 1,
+      metalness: 0,
+      vertexColors: true,
+    });
+  });
+}
+
+/**
+ * 白石峰:07-03「白石峻嶒」的石灰岩峰身。与太湖石同一套机制(三平面投影、
+ * 顶点色 AO 相乘),不同的是三件事——**这三件就是"不做成大理石"的全部内容**:
+ *
+ *   1. **色**:`CN.baishi`/`CN.baishiPit` 是冷灰白,不是 `whiteStone` 的暖米白。
+ *   2. **纹**:主纹理是沿 v 拉长的层理条纹(`streak`,u:v 频率比约 6:1)。
+ *      三平面投影里侧立面的 v 就是世界竖向,所以这层读作**竖着走的皱**
+ *      ——与几何上的竖棱/凿沟同向。孔蚀(`worley`)只留太湖石的三分之一强度:
+ *      白石是石灰岩峰,不是湖石的漏透。**不做贯通的脉纹**——一见脉就是大理石。
+ *   3. **糙**:粗糙度 0.78–0.96(太湖石是 0.62–0.87),`roughness: 1` 打底、
+ *      不加 clearcoat。磨光的白石是大理石,粗糙的白石才是山石。
+ */
+export function baishiMaps(size = 1024): MaterialMaps {
+  const h = (u: number, v: number) => {
+    // 层理:u 方向密、v 方向疏 —— 竖向的长条纹。
+    // u/v 乘数必须是整数(tileableFbm 把 u→u·2π 映射到环面上做无缝包裹,
+    // 非整数乘数会在纹理接缝处留下断层);6:1 的各向异性靠降低基频(46→8)
+    // 而不是靠非整数乘数来维持同样的观感比例。
+    const streak = tileableFbm(NOISE.stone, u * 6, v * 1, 8, 3);
+    const grain = tileableFbm(NOISE.stone, u + 5, v, 26, 4);
+    const pits = smoothstep(0.2, 0.04, worley(u, v, 9, 7109).f1);
+    return clamp(0.56 + streak * 0.22 + grain * 0.14 - pits * 0.2, 0, 1);
+  };
+  return {
+    map: cached(recipeKey('cn.baishi.albedo', size), () =>
+      bakeColorMap({
+        size,
+        color: (u, v) => {
+          const t = h(u, v);
+          const c = mixHex(CN.baishiPit, CN.baishi, t);
+          // 潮痕:同一石种里的冷调低频斑,不引绿——苔色是单子 AM4 的事。
+          const damp = smoothstep(0.66, 0.98, tileableFbm(NOISE.water, u, v, 5, 3) * 0.5 + 0.5) * 0.16;
+          const d = hexToRgb(0x93a0a3);
+          return [lerp(c[0], d[0], damp), lerp(c[1], d[1], damp), lerp(c[2], d[2], damp)];
+        },
+      }),
+    ),
+    normalMap: cached(recipeKey('cn.baishi.normal', size, 2.0), () => bakeNormalMap({ size, height: h }, 2.0)),
+    roughnessMap: cached(recipeKey('cn.baishi.rough', 512), () => bakeScalarMap(512, (u, v) => 0.78 + h(u, v) * 0.18)),
+  };
+}
+
+/** 白石峰材质。顶点色开着:`buildStone` 把 cavity AO 与脚下泛青烤进 `color` 属性,
+ *  关掉它整块石头就变成一张均匀的浅灰板。 */
+export function baishiMaterial(): THREE.MeshStandardMaterial {
+  return memo('baishi', () => {
+    const m = baishiMaps();
     return new THREE.MeshStandardMaterial({
       map: m.map,
       normalMap: m.normalMap,

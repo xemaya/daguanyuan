@@ -13,7 +13,10 @@ test('all named linear objects and three supplementary enclosures/banks have rea
  assert.ok(fences.runs.every(r=>r.footprint.length>4));
 });
 test('P2 acceptance distinguishes complete geometry inputs from unfinished full-garden assembly',()=>{
- const a=auditP2(p);assert.equal(a.complete,true);assert.equal(a.fullGardenComplete,false);assert.equal(a.fullGardenPending.length,6);
+ // 单子 AM2(2026-09-15)把翠嶂收形 212→135 m 后,约束5 的平面遮挡诊断多出 15 条
+ // 待验(怡红院 5/栊翠庵 4/凸碧凹晶 4/暖香坞 1/嘉荫堂 1)——东侧那批视线本就是
+ // 靠 76 m 横向冗余挡住的,收形即失去遮挡,是拍板认下的连带结果,不是回归:6 → 21。
+ const a=auditP2(p);assert.equal(a.complete,true);assert.equal(a.fullGardenComplete,false);assert.equal(a.fullGardenPending.length,21);
  const bad=structuredClone(p);delete object(bad,'qinfang_ting_qiao.three-opening-bridge').layout.threePortBridge;
  assert.equal(auditP2(bad).complete,false);
  const bridge=auditLinearLayouts(p).objects.find(o=>o.id==='qinfang_ting_qiao.three-opening-bridge');
