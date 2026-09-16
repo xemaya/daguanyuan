@@ -1736,17 +1736,14 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     // 匾宽按当心间净宽算(单子 AG4 返工),不是字数的函数——旧公式
     // opts.plaque.length*0.45 让「大观园」与「潇湘馆」(都三字)都算出 1.35m,
     // 与开间大小无关,用户看得分毫不差。当心间净宽用 centerBay/centerBay+1
-    // 这对跨零的柱缝(门屋分心造那段已算过的同一对索引);比例 0.62 落在
-    // 常规 0.6~0.75 区间(取证见 shots/zhengmen-closeup),记 provenance.art。
+    // 这对跨零的柱缝(门屋分心造那段已算过的同一对索引);比例落在常规
+    // 0.6~0.75 区间(AG4 取证见 shots/zhengmen-closeup),记 provenance.art。
     const bayW = colXs[centerBay + 1] - colXs[centerBay];
-    // ⚠️ 单子 AT1 的硬性中断点:宽度系数 **0.62 vs 0.72 两档由用户裁定**,
-    // 施工侧不许自己拍板(STANDARD-ACTIONS §12)。默认留在 0.62,
-    // `?plaquew=0.72` 是出对照图用的那一档。用户选完之后把默认值改成
-    // 选中的那个,这个开关就可以整段删掉。
-    const bayRatio = ((): number => {
-      if (typeof location === 'undefined') return 0.62;
-      return Number(new URLSearchParams(location.search).get('plaquew')) === 0.72 ? 0.72 : 0.62;
-    })();
+    // 单子 AT1 的宽度系数:0.62 vs 0.72 两档出图交用户裁定(STANDARD-ACTIONS §12),
+    // **用户 2026-09-16 选了 0.72**——0.62 那块匾在当心间上沿留出两大截空木,
+    // 正是用户说的「小气」;0.72 让匾占满当心间,上下沿各压进铺作层约 0.07m。
+    // 裁定落地后 `?plaquew=` 那个出图开关已整段删掉,不留死开关。
+    const bayRatio = 0.72;
     const pw = bayW * bayRatio;
     fr.provenance.art.push({
       id: 'project:plaque-width-bay',
@@ -1757,7 +1754,7 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
         `${bayRatio} 落在常规 0.6~0.75 区间(实测:当心间 3.276m 时旧值 1.35m ÷ 3.276 = 0.41,` +
         `明显偏窄)。字数只决定字有多大,不决定板有多宽(makePlaque(text,width) 签名不变)。` +
         `单子 AT1(2026-09-16):匾高/匾宽从 0.36 抬到 ${PLAQUE_H_RATIO}(旧值把匾拉成窄牌子),` +
-        `宽度系数 0.62 vs 0.72 两档由用户裁定,默认 0.62,?plaquew=0.72 出对照图。`,
+        `宽度系数 0.62 vs 0.72 两档出图交用户裁定,用户 2026-09-16 选定 0.72(对照图 shots/AT/ab-plaque-width-*)。`,
     });
     const pl = makePlaque(opts.plaque, pw, { hangers: true, tilt: PLAQUE_TILT_RAD });
     // 挂在铺作外皮之前、橑檐枋之下,人从院子里一眼看到。
