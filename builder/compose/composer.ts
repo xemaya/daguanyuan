@@ -282,11 +282,21 @@ function lanternSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: numb
   if (hangY - LANTERN_DROP < b.platform.y + 2.05) return null;
 
   // 几盏、挂哪儿由开间数定,不由「这栋叫什么」定:
+  //   门屋(规则 `where.perBay` 点名的构件档) → **每间一盏**,挂在每间当心;
   //   五间及以上 → 两盏,挂在两侧次间(门屋的老做法,07-70「两溜高照」);
   //   三、四间   → 两盏,挂在当心间左右 1/4 处;
   //   一、两间   → 一盏,当心。
   const x = m.columnX;
   const bays = x.length - 1;
+  // 单子 AU1:`perBay` 列的是**构件档**(`men` = 门屋预设),不是栋名——
+  // 换一座门屋进来照样吃到,与接缝 ② 同一口径。规则说"门屋每间一盏",
+  // 两盏挂在 13.76m 宽的五间门脸下读成"小气"(用户 2026-09-16)。
+  const perBay = (rule.where?.perBay as string[] | undefined) ?? [];
+  if (p.variant && perBay.includes(p.variant)) {
+    const out: { lx: number; lz: number; hangY: number }[] = [];
+    for (let i = 0; i < bays; i++) out.push({ lx: (x[i] + x[i + 1]) / 2, lz: front, hangY });
+    return out;
+  }
   if (bays <= 2) return [{ lx: 0, lz: front, hangY }];
   if (bays >= 5) {
     return [
