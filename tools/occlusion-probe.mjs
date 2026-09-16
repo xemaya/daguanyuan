@@ -1,11 +1,29 @@
 #!/usr/bin/env node
 /**
- * occlusion-probe.mjs — 翠嶂挡不挡得住，用射线数出来，不靠「我看着是挡住了」。
+ * occlusion-probe.mjs — 翠嶂挡住了多少射线，数出来，不靠「我看着是挡住了」。
  *
- * 单子 AM2 的唯一硬数值判据。07-03 里贾政那句「非此一山，一進來園中所有之景悉入目中，
- * 則有何趣」是这座山存在的全部理由；单子 AM2 把它从 212 m×11 m 收到 135 m×4 m，
- * 收完必须**证明它还在干这件事**。cuizhang.md §5 把「该多高多宽」算成了一条遮挡断言的解，
- * 这个脚本就是那条断言的执行器。
+ * ## 这是尺子，不是门（2026-09-16 起）
+ *
+ * **它曾经是单子 AM2 的硬数值判据（≥97%），那条判据已经退休。**
+ * 见 `docs/superpowers/plans/2026-09-15-am-cuizhang-rebuild.md`「验收裁定·裁定一」：
+ * AM2 把山从 212 m×11 m 收到 135 m×4 m 之后实测只挡住 **40.89%**；进一步测出
+ * 就算把整个新多边形（x∈[−55,80]）填满实心石料到顶，**天花板也只有 91.90%**——
+ * 探针的 94° 视场在山脊距离处横向覆盖到 x≈91.5，而山体东边只到 x=80，
+ * **97% 在这个多边形宽度下物理上够不到**，与峰群摆得多密无关。判据本身设错了。
+ *
+ * 「一进门看不到全景」这句话真正落数的地方是 `plan.json` `experience` 的 **`X-01`**
+ * （`assert: 'ray'`，三个具名目标：沁芳亭 / 滴翠亭 / 潇湘馆正房），它焊在
+ * `check:experience` 里，是门。这个脚本留下来干另一件事：**给后续单子当一把一致的尺子**
+ * ——谁再动这座山（加峰、改轮廓、改高程），跑一遍，和 40.89% 这个基准比，
+ * 数字往哪边走、漏在哪个方位，一眼看得出。
+ *
+ * 所以它**默认只报数、不判 PASS/FAIL、退出码恒为 0**。真要当门用（比如某个单子
+ * 自己立一条「不得低于 X%」的回归线），显式给 `--threshold <百分数>`。
+ * 非零退出码只留给**工具本身坏了**：读不到 plan、场景里一个 baishi 落位都没有等等。
+ *
+ * 07-03 里贾政那句「非此一山，一進來園中所有之景悉入目中，則有何趣」仍是这座山存在的
+ * 全部理由；cuizhang.md §5 把「该多高多宽」算成了一条遮挡断言的解，这个脚本是那条
+ * 断言的**度量器**——只是「合格线画在哪」不再由它说了算。
  *
  * ## 只读
  *
@@ -30,10 +48,14 @@
  *
  * 漏掉的射线逐条打出方位/俯仰，方便人一眼看出漏在哪个方向——一个百分比不够，
  * 得能顺着方向去看是不是该漏（比如东口「出接平坦宽阔大路」本来就是敞的）。
+ * 现状记一笔：1235 条里漏 730 条，其中**眼高档（俯仰 ≤1°）的 57 条全部落在方位
+ * +29°…+47°**，也就是东侧那一片——与 `check-plan.mjs` 约束 5 的 6→21 对得上，
+ * 见裁定一末段。
  *
  * 用法：
  *   node --import ./tests/ts-resolver.mjs tools/occlusion-probe.mjs
  *   node --import ./tests/ts-resolver.mjs tools/occlusion-probe.mjs --json
+ *   node --import ./tests/ts-resolver.mjs tools/occlusion-probe.mjs --threshold 40   # 显式当门用
  */
 
 import { readFileSync } from 'node:fs';
@@ -56,7 +78,18 @@ const PITCH_DEG = { min: 0, max: 6, step: 0.5 };
 const NORTH_EDGE_Z = 184; // 山北边界：射线越过它还没被挡住 = 漏
 const MARCH_STEP = 0.2;   // 水平步长(m)
 const MARCH_MAX = 160;    // 水平最长行程(m)，够从 z=236 斜着走出 z=184
-const PASS_RATIO = 0.97;
+/* 合格线：默认**没有**（这是尺子不是门，见文件头）。`--threshold <百分数>` 才立一条线，
+ * 那是调用方自己立的回归线，不是本脚本的判据。退休的 97% 只作为历史注记留在文件头。 */
+const THRESHOLD_PCT = (() => {
+  const raw = arg('--threshold', null);
+  if (raw === null || raw === undefined) return null;
+  const v = Number(raw);
+  if (!Number.isFinite(v) || v < 0 || v > 100) {
+    console.error(`[occlusion-probe] --threshold 需要 0…100 的百分数，实际收到 ${raw}`);
+    process.exit(2);
+  }
+  return v;
+})();
 
 /* ---- 读世界快照 ------------------------------------------------------ */
 const plan = JSON.parse(readFileSync(resolve(ROOT, 'projects/daguanyuan/plan.json'), 'utf8'));
@@ -158,13 +191,14 @@ for (const ray of rays) {
 }
 
 const ratio = blocked / rays.length;
-const pass = ratio >= PASS_RATIO;
+// 没给 --threshold 就没有「过不过」这回事——只报数。
+const pass = THRESHOLD_PCT === null ? null : ratio * 100 >= THRESHOLD_PCT;
 
 if (AS_JSON) {
   console.log(JSON.stringify({
     eye: EYE, yaw: YAW_DEG, pitch: PITCH_DEG, northEdgeZ: NORTH_EDGE_Z,
     rays: rays.length, blocked, byTerrain, byPeak,
-    ratio, threshold: PASS_RATIO, pass,
+    ratio, threshold: THRESHOLD_PCT === null ? null : THRESHOLD_PCT / 100, pass,
     boxes: boxes.map((b) => ({ tag: b.tag, variant: b.variant, peaks: b.peaks, x: b.x, z: b.z, yaw: b.yaw,
       y0: +b.y0.toFixed(3), y1: +b.y1.toFixed(3),
       hx: +((b.lx1 - b.lx0) / 2).toFixed(3), hz: +((b.lz1 - b.lz0) / 2).toFixed(3) })),
@@ -176,7 +210,10 @@ if (AS_JSON) {
   for (const b of boxes)
     console.log(`  ${b.tag.padEnd(10)} ${b.variant.padEnd(7)} ${b.peaks} 块  世界 (${b.x.toFixed(1)}, ${b.z.toFixed(1)})  y ${b.y0.toFixed(2)}→${b.y1.toFixed(2)} m  半宽/半深 ${((b.lx1 - b.lx0) / 2).toFixed(2)}/${((b.lz1 - b.lz0) / 2).toFixed(2)}`);
   console.log(`射线 ${rays.length} 条：挡住 ${blocked}（地形 ${byTerrain} / 峰石 ${byPeak}），漏 ${leaks.length}`);
-  console.log(`遮挡率 ${(ratio * 100).toFixed(2)}%  判据 ≥${(PASS_RATIO * 100).toFixed(0)}%  → ${pass ? 'PASS' : 'FAIL'}`);
+  if (THRESHOLD_PCT === null)
+    console.log(`遮挡率 ${(ratio * 100).toFixed(2)}%（参考尺子，不是门；97% 判据已退休，见计划文档裁定一。要当门用加 --threshold <百分数>）`);
+  else
+    console.log(`遮挡率 ${(ratio * 100).toFixed(2)}%  调用方给的线 ≥${THRESHOLD_PCT}%  → ${pass ? 'PASS' : 'FAIL'}`);
   if (leaks.length) {
     const byYaw = new Map();
     for (const l of leaks) byYaw.set(l.yaw, [...(byYaw.get(l.yaw) ?? []), l.pitch]);
@@ -186,4 +223,5 @@ if (AS_JSON) {
   }
 }
 
-process.exit(pass ? 0 : 1);
+// 默认恒 0：低遮挡率不是工具失败，是一条要被人读的数。只有显式给了线才判退出码。
+process.exit(pass === false ? 1 : 0);
