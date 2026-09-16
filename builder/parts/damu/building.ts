@@ -20,7 +20,7 @@ import {
   buildTiaohuanRelief, tiaohuanOverride, TIAOHUAN_BAND_H, TIAOHUAN_LIFT, TIAOHUAN_MIN_W,
   type TiaohuanMode,
 } from '@builder/parts/ornament/tiaohuan-band';
-import { makePlaque } from '@builder/parts/xiaomu/plaque';
+import { makePlaque, PLAQUE_H_RATIO, PLAQUE_TILT_RAD } from '@builder/parts/xiaomu/plaque';
 import { gexinGeometry } from '@builder/parts/qiangyuan/wall';
 import { plaqueFromPlan } from '@builder/plan/objects';
 import {compileRearDoor,compileExteriorSteps,type RearDoorSpec,type StairSpec,type WalkSurface} from '@builder/plan/building-access';
@@ -1739,24 +1739,37 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
     // 这对跨零的柱缝(门屋分心造那段已算过的同一对索引);比例 0.62 落在
     // 常规 0.6~0.75 区间(取证见 shots/zhengmen-closeup),记 provenance.art。
     const bayW = colXs[centerBay + 1] - colXs[centerBay];
-    const pw = bayW * 0.62;
+    // ⚠️ 单子 AT1 的硬性中断点:宽度系数 **0.62 vs 0.72 两档由用户裁定**,
+    // 施工侧不许自己拍板(STANDARD-ACTIONS §12)。默认留在 0.62,
+    // `?plaquew=0.72` 是出对照图用的那一档。用户选完之后把默认值改成
+    // 选中的那个,这个开关就可以整段删掉。
+    const bayRatio = ((): number => {
+      if (typeof location === 'undefined') return 0.62;
+      return Number(new URLSearchParams(location.search).get('plaquew')) === 0.72 ? 0.72 : 0.62;
+    })();
+    const pw = bayW * bayRatio;
     fr.provenance.art.push({
       id: 'project:plaque-width-bay',
       name: '匾额宽度按开间',
       method: 'artistic_choice',
       note: `旧公式 pw=字数×0.45,「大观园」「潇湘馆」都三字→都是 1.35m,不随开间变;` +
-        `改成当心间净宽 ${bayW.toFixed(3)}m × 0.62 = ${pw.toFixed(3)}m,0.62 落在常规` +
-        `0.6~0.75 区间(实测:当心间 3.276m 时旧值 1.35m ÷ 3.276 = 0.41,明显偏窄)。` +
-        `字数只决定字有多大,不决定板有多宽(makePlaque(text,width) 签名不变)。`,
+        `改成当心间净宽 ${bayW.toFixed(3)}m × ${bayRatio} = ${pw.toFixed(3)}m,` +
+        `${bayRatio} 落在常规 0.6~0.75 区间(实测:当心间 3.276m 时旧值 1.35m ÷ 3.276 = 0.41,` +
+        `明显偏窄)。字数只决定字有多大,不决定板有多宽(makePlaque(text,width) 签名不变)。` +
+        `单子 AT1(2026-09-16):匾高/匾宽从 0.36 抬到 ${PLAQUE_H_RATIO}(旧值把匾拉成窄牌子),` +
+        `宽度系数 0.62 vs 0.72 两档由用户裁定,默认 0.62,?plaquew=0.72 出对照图。`,
     });
-    const pl = makePlaque(opts.plaque, pw);
-    // 挂在铺作外皮之前、橑檐枋之下,人从院子里一眼看到;略向前俯 8°。
-    const ph = pw * 0.36;
+    const pl = makePlaque(opts.plaque, pw, { hangers: true, tilt: PLAQUE_TILT_RAD });
+    // 挂在铺作外皮之前、橑檐枋之下,人从院子里一眼看到。
+    const ph = pw * PLAQUE_H_RATIO;
     const zFront = rowsZ[0] + (m.puzuoH > 0 ? m.puzuoOut + 0.22 : 0.16);
     // 竖向落在铺作层的中段(没铺作就贴阑额下),别钻进屋面板。
     const yMid = m.puzuoH > 0 ? platH + colH + pupai + m.puzuoH * 0.5 : platH + colH - m.lan.w - ph / 2 - 0.05;
-    pl.position.set(0, yMid, zFront);
-    pl.rotation.x = 0.14;
+    // 前倾 12°(单子 AT1,旧值 8°):**绕下沿倾**,不是绕板心倾。绕板心转
+    // 下沿就往墙里钻 (ph/2)·sin12° ≈ 0.10m,匾会咬进阑额;整块往外让这么多,
+    // 下沿才仍然压在 zFront 那条线上、上沿离墙——这才是"挂"出来的样子。
+    pl.position.set(0, yMid, zFront + (ph / 2) * Math.sin(PLAQUE_TILT_RAD));
+    pl.rotation.x = PLAQUE_TILT_RAD;
     root.add(pl);
   }
 

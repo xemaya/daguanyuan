@@ -7,6 +7,17 @@
     <title>大观园</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <style>
+      /* 匾额用字(单子 AT1)。Ma Shan Zheng,SIL OFL 1.1,子集 37KB——
+         授权、来源与「plan 加了新匾怎么重做子集」写在 public/fonts/README.md。
+         URL 必须是相对的:BASE=/daguanyuan/ 构建时 garden.html 在 /daguanyuan/ 下,
+         写成 /fonts/... 就会去站点根目录找,404 后静默回落系统楷体。 */
+      @font-face {
+        font-family: "Ma Shan Zheng";
+        src: url(fonts/MaShanZheng-plaque-subset.woff2) format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
       :root { color-scheme: dark; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0d10; }
