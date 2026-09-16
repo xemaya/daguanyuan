@@ -5,32 +5,32 @@
   "fpsTarget": 45,
   "shots": {
     "gate_approach": {
-      "drawCalls": 258,
-      "triangles": 4395055,
-      "fps": 47,
+      "drawCalls": 277,
+      "triangles": 3912537,
+      "fps": 45,
       "frameCostMs": 3.6
     },
     "mound_block": {
-      "drawCalls": 243,
-      "triangles": 4317505,
-      "fps": 47,
-      "frameCostMs": 3.6
+      "drawCalls": 265,
+      "triangles": 3937457,
+      "fps": 45,
+      "frameCostMs": 3.4
     },
     "grass_close": {
-      "drawCalls": 274,
-      "triangles": 4441493,
-      "fps": 47,
-      "frameCostMs": 6.1
+      "drawCalls": 298,
+      "triangles": 4061925,
+      "fps": 46,
+      "frameCostMs": 5.3
     },
     "xiaoxiang": {
-      "drawCalls": 213,
-      "triangles": 3214313,
-      "fps": 47,
-      "frameCostMs": 3.7
+      "drawCalls": 219,
+      "triangles": 2913186,
+      "fps": 45,
+      "frameCostMs": 3.6
     }
   },
-  "measuredAt": "2026-09-15",
-  "commit": "acad5690f053a92d7525d0cc35cb4e47d718f9d0",
+  "measuredAt": "2026-09-16",
+  "commit": "6035bebdf0119c3fa58109999278f6dedd9e0a5d",
   "history": [
     {
       "date": "2026-09-15",
@@ -63,7 +63,14 @@
       "bought": "构件不再内部提前合并,末端实例化接住原型;三角微涨在阴影 pass(全园一锅端残余 mesh 剔不掉,AQ-c 收)",
       "by": "验收人(Claude)",
       "note": "名册 74→74、同机位 pixel diff 0.25~0.34 色阶,无视觉回归;fps 一栏换新尺子口径,加 frameCostMs"
+    },
+    {
+      "date": "2026-09-16",
+      "order": "AQ-c",
+      "shots": "draw call 258→277 / 243→265 / 274→298 / 213→219; tris −11.0% / −8.8% / −8.5% / −9.4%",
+      "bought": "末端残余合并按 128 m 簇分桶,视锥与阴影窗剔得掉(为扩区铺路)",
+      "by": "验收人(Claude)",
+      "note": "名册 74→74、pixel diff 0.25~0.34 无回归、建时 +1.7%、frameCostMs 不升;新基线 commit 6035bebd"
     }
-  ],
-  "fpsNote": "fps 自 2026-09-16 起是新尺子(干净窗口 90 帧中位,限帧在位);frameCostMs 是抬开限帧的真实帧成本中位数——四镜之间只有它有分辨力。fpsTarget 保留为参考,不进门(D-25 补记)。"
+  ]
 }
