@@ -5,32 +5,32 @@
   "fpsTarget": 45,
   "shots": {
     "gate_approach": {
-      "drawCalls": 277,
-      "triangles": 3912537,
-      "fps": 45,
-      "frameCostMs": 3.6
+      "drawCalls": 271,
+      "triangles": 4020205,
+      "fps": 47,
+      "frameCostMs": 3.5
     },
     "mound_block": {
-      "drawCalls": 265,
-      "triangles": 3937457,
-      "fps": 45,
-      "frameCostMs": 3.4
+      "drawCalls": 267,
+      "triangles": 4211480,
+      "fps": 48,
+      "frameCostMs": 3.9
     },
     "grass_close": {
-      "drawCalls": 298,
-      "triangles": 4061925,
-      "fps": 46,
-      "frameCostMs": 5.3
+      "drawCalls": 270,
+      "triangles": 4174790,
+      "fps": 47,
+      "frameCostMs": 5.6
     },
     "xiaoxiang": {
-      "drawCalls": 219,
-      "triangles": 2913186,
-      "fps": 45,
-      "frameCostMs": 3.6
+      "drawCalls": 225,
+      "triangles": 2967908,
+      "fps": 46,
+      "frameCostMs": 3.8
     }
   },
   "measuredAt": "2026-09-16",
-  "commit": "PENDING-REMEASURE-AFTER-MERGE",
+  "commit": "ca6bf07226bda8fada628957fdddaf4627a14f73",
   "history": [
     {
       "date": "2026-09-15",
@@ -99,10 +99,10 @@
     {
       "date": "2026-09-16",
       "order": "merge(AQ-c + AM)",
-      "shots": "PENDING-REMEASURE-AFTER-MERGE",
-      "bought": "两条并行分支(AQ-c 的残余合批优化、AM 的翠嶂重做)各自基于同一起点(278ef346)独立测量,合并时没人见过对方的改动,故上面 shots/commit 字段先占位,合并提交后立即在合并结果上重跑 capture.mjs/manifest-diff.mjs 拿真数补齐。",
+      "shots": "gate_approach 3912537→4020205(+107668/+2.75%,calls 277→271), mound_block 3937457→4211480(+274023/+6.96%,calls 265→267), grass_close 4061925→4174790(+112865/+2.78%,calls 298→270), xiaoxiang 2913186→2967908(+54722/+1.88%,calls 219→225)",
+      "bought": "合并两条独立分支：AQ-c 的残余合批优化 + AM 的翠嶂重做(白石峰群/题字石/苔藓)——AM 在自己分支上量的账全是相对 AQ-b1(AQ-c 之前)算的,这是两支代码第一次真正一起跑,mound_block 的 +6.96% 正是峰群几何第一次落进 AQ-c 优化后的世界里的真实成本",
       "by": "验收人(Claude)",
-      "note": "PENDING"
+      "note": "三次独立进程连拍(shots/merge-final、merge-final2、merge-final3),drawCalls/triangles 三次逐位相同;fps/frameCostMs 取三次中位数。mound_block 单镜 +6.96% 超 ±3%——如实抬线,不是回归,是两支功能第一次合体的真实买入(峰群 276k 三角 vs AQ-c 优化前的旧土岭,合并后两边效果都在);其余三镜在 ±3% 内。"
     }
   ]
 }
