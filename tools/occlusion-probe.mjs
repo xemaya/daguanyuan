@@ -120,7 +120,7 @@ function insideBox(b, x, y, z) {
   if (y < b.y0 || y > b.y1) return false;
   const dx = x - b.x, dz = z - b.z;
   if (dx * dx + dz * dz > b.r * b.r) return false; // 粗筛
-  const c = Math.cos(-b.yaw), s = Math.sin(-b.yaw);
+  const c = Math.cos(b.yaw), s = Math.sin(b.yaw);
   // composer 的 yaw 是绕 +y 转；把世界点反转回构件局部系。
   const lx = dx * c - dz * s;
   const lz = dx * s + dz * c;
