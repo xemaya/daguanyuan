@@ -71,6 +71,22 @@
       "bought": "AM1 白石峰群构件(baishi:peakN/groupN,土岭换峰群);AM2 山体收形 212×11m→135×4m + rocks 换绑 5 组 21 峰",
       "by": "验收人(Claude)",
       "note": "三镜(gate/mound/grass)在 ≤+10%/+12calls 内;xiaoxiang 超容差——独立复核逐件归因:+3.61% 是山体收形通过全园阴影 pass 漏进这一镜(与峰群本身无关),余下是峰群真实成本(峰群总量与 AM1 单组数字对账一致);未降细节去凑数,如实抬线。遮挡探针(tools/occlusion-probe.mjs)只测≥97%射线遮挡这条不进此表,退休为参考数(见 docs/superpowers/plans/2026-09-15-am-cuizhang-rebuild.md 验收裁定)。"
+    },
+    {
+      "date": "2026-09-16",
+      "order": "AM3",
+      "shots": "gate_approach 4716621→4792365(+75,744/+1.61%), mound_block 4660605→4736349(+75,744/+1.63%), grass_close 4623915→4699659(+75,744/+1.64%), xiaoxiang 3480769→3518641(+37,872/+1.09%);draw call 四镜全 +0(252/244/247/220 不变)",
+      "bought": "AM3 题字石 baishi:tablet(cuizhang.rock-02「曲徑通幽處」;构件本体 75.8k 三角,含字面 2 个;draw call 被静态合批吃掉)",
+      "by": "收尾单(Claude)补记——AM3 当时没记 history,计划 §预算 要求逐件归因含 AM3",
+      "note": "**不抬基线**:四镜全在 ±3% 容差内,shots/commit 保持 AM1/AM2 那一版(403a3315)。数字来源:AM3 回报 §三镜预算(gate/grass 两镜)+ AM4 回报 §2 的前值表(补齐 mound_block/xiaoxiang),两份对同一状态,逐位一致。xiaoxiang 只涨 +37,872(恰好是另三镜的一半)——口径差在哪没追,记数不记因。"
+    },
+    {
+      "date": "2026-09-16",
+      "order": "AM4",
+      "shots": "四镜三角/draw call **逐位不变**:gate_approach 4792365/252、mound_block 4736349/244、grass_close 4699659/247、xiaoxiang 3518641/220",
+      "bought": "AM4 苔斑(baishi 峰的顶点色里混一路苔绿;藤萝未做,原因见 AM4 回报 §4)",
+      "by": "收尾单(Claude)补记",
+      "note": "**+0 三角 / +0 draw call**:改的只是已经存在的 color 属性里的数,没有新几何、新 mesh、新材质、新 pass。收尾单在 HEAD 474e3d90 现跑 `capture.mjs --shots gate_approach,mound_block,grass_close,xiaoxiang` 复测过,读数与 AM3/AM4 回报**逐位相同**,距记录基线 +1.09%~+1.64%,在 ±3% 内——所以只补 history,`shots`/`commit`/`measuredAt` 一个不动。收尾单同时改了 `mound_west` 的取景,那一镜不在本表四镜里,复测已确认对四镜零影响。"
     }
   ],
   "fpsNote": "fps 自 2026-09-16 起是新尺子(干净窗口 90 帧中位,限帧在位);frameCostMs 是抬开限帧的真实帧成本中位数——四镜之间只有它有分辨力。fpsTarget 保留为参考,不进门(D-25 补记)。"
