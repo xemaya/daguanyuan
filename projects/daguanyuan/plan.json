@@ -2216,7 +2216,8 @@
           "facing": "south",
           "x": 55,
           "z": 236,
-          "plaque": "大观园",
+          "plaque": "大觀園",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「大观园→大觀園」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。第十八回「大觀園」。",
           "id": "zhengmen.main-gate",
           "kind": "building",
           "construction": {
@@ -3183,7 +3184,8 @@
           "facing": "south",
           "x": -105,
           "z": 120,
-          "plaque": "潇湘馆",
+          "plaque": "瀟湘館",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「潇湘馆→瀟湘館」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "xiaoxiangguan.moon-gate",
           "kind": "opening"
         },
@@ -3784,7 +3786,8 @@
           "facing": "south",
           "x": -190,
           "z": -22,
-          "plaque": "杏帘在望",
+          "plaque": "杏簾在望",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「杏帘在望→杏簾在望」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "daoxiangcun.wine-banner",
           "kind": "prop"
         }
@@ -4037,7 +4040,8 @@
           "facing": "south",
           "x": -116,
           "z": -158,
-          "plaque": "蘅芜苑",
+          "plaque": "蘅蕪苑",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「蘅芜苑→蘅蕪苑」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "hengwuyuan.main-house",
           "kind": "building",
           "construction": {
@@ -4479,7 +4483,8 @@
           "facing": "south",
           "x": 25,
           "z": -148,
-          "plaque": "省亲别墅",
+          "plaque": "省親別墅",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「省亲别墅→省親別墅」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "shengqin_biesu.stone-archway",
           "kind": "stone-archway"
         },
@@ -4491,7 +4496,8 @@
           "facing": "south",
           "x": 25,
           "z": -180,
-          "plaque": "顾恩思义",
+          "plaque": "顧恩思義",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「顾恩思义→顧恩思義」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "shengqin_biesu.main-hall",
           "kind": "building",
           "construction": {
@@ -4532,7 +4538,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.9,
-              "plaque": "顾恩思义"
+              "plaque": "顧恩思義"
             },
             "source": {
               "document": "knowledge/docs/qingshi/tiers.md",
@@ -4562,7 +4568,8 @@
           "facing": "south",
           "x": 25,
           "z": -208,
-          "plaque": "大观楼",
+          "plaque": "大觀樓",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「大观楼→大觀樓」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "shengqin_biesu.daguan-tower",
           "kind": "building",
           "construction": {
@@ -4603,7 +4610,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.9,
-              "plaque": "大观楼"
+              "plaque": "大觀樓"
             },
             "source": {
               "document": "knowledge/docs/qingshi/tiers.md",
@@ -4670,7 +4677,8 @@
           "facing": "south",
           "x": 72,
           "z": -202,
-          "plaque": "缀锦阁",
+          "plaque": "綴錦閣",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「缀锦阁→綴錦閣」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "shengqin_biesu.zhuijin-pavilion",
           "kind": "building",
           "construction": {
@@ -4709,7 +4717,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.9,
-              "plaque": "缀锦阁"
+              "plaque": "綴錦閣"
             },
             "source": {
               "document": "knowledge/docs/qingshi/tiers.md",
@@ -4774,7 +4782,8 @@
           "facing": "south",
           "x": -22,
           "z": -202,
-          "plaque": "含芳阁",
+          "plaque": "含芳閣",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「含芳阁→含芳閣」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "shengqin_biesu.hanfang-pavilion",
           "kind": "building",
           "construction": {
@@ -4813,7 +4822,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.9,
-              "plaque": "含芳阁"
+              "plaque": "含芳閣"
             },
             "source": {
               "document": "knowledge/docs/qingshi/tiers.md",
@@ -5056,7 +5065,8 @@
           "facing": "south",
           "x": 118,
           "z": 176,
-          "plaque": "怡红快绿",
+          "plaque": "怡紅快綠",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「怡红快绿→怡紅快綠」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "yihongyuan.main-house",
           "kind": "building",
           "construction": {
@@ -5790,7 +5800,8 @@
           "facing": "south",
           "x": -130,
           "z": -100,
-          "plaque": "缀锦楼",
+          "plaque": "綴錦樓",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「缀锦楼→綴錦樓」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "zilingzhou.zhuijin-tower",
           "kind": "building",
           "construction": {
@@ -5878,7 +5889,8 @@
           "facing": "south",
           "x": -118,
           "z": -80,
-          "plaque": "荇叶渚",
+          "plaque": "荇葉渚",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「荇叶渚→荇葉渚」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "zilingzhou.landing",
           "kind": "dock",
           "layout": {
@@ -6110,7 +6122,8 @@
           "facing": "south",
           "x": -62,
           "z": 10,
-          "plaque": "秋爽斋",
+          "plaque": "秋爽齋",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「秋爽斋→秋爽齋」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "qiushuangzhai.main-house",
           "kind": "building",
           "construction": {
@@ -6143,7 +6156,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.45,
-              "plaque": "秋爽斋"
+              "plaque": "秋爽齋"
             }
           }
         },
@@ -6155,7 +6168,8 @@
           "facing": "south",
           "x": -40,
           "z": 26,
-          "plaque": "晓翠堂",
+          "plaque": "曉翠堂",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「晓翠堂→曉翠堂」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "qiushuangzhai.xiaocui-hall",
           "kind": "building",
           "construction": {
@@ -6188,7 +6202,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.45,
-              "plaque": "晓翠堂"
+              "plaque": "曉翠堂"
             }
           }
         },
@@ -6374,7 +6388,8 @@
           "facing": "south",
           "x": 206,
           "z": 170,
-          "plaque": "栊翠庵",
+          "plaque": "櫳翠庵",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「栊翠庵→櫳翠庵」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "longcuian.mountain-gate",
           "kind": "building",
           "construction": {
@@ -6409,7 +6424,7 @@
               "sides": "wall",
               "back": "door",
               "platformH": 0.45,
-              "plaque": "栊翠庵"
+              "plaque": "櫳翠庵"
             }
           }
         },
@@ -6703,7 +6718,8 @@
           "facing": "south",
           "x": 190,
           "z": 86,
-          "plaque": "凸碧山庄",
+          "plaque": "凸碧山莊",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「凸碧山庄→凸碧山莊」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "tubi_aojing.tubi-hall",
           "kind": "building",
           "construction": {
@@ -6738,7 +6754,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.45,
-              "plaque": "凸碧山庄"
+              "plaque": "凸碧山莊"
             }
           }
         },
@@ -6750,7 +6766,8 @@
           "facing": "west",
           "x": 205.5,
           "z": 33,
-          "plaque": "凹晶溪馆",
+          "plaque": "凹晶溪館",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「凹晶溪馆→凹晶溪館」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "tubi_aojing.aojing-hall",
           "kind": "building",
           "construction": {
@@ -6784,7 +6801,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.45,
-              "plaque": "凹晶溪馆"
+              "plaque": "凹晶溪館"
             }
           }
         },
@@ -7056,7 +7073,8 @@
           "facing": "south",
           "x": 168,
           "z": -70,
-          "plaque": "蓼风轩",
+          "plaque": "蓼風軒",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「蓼风轩→蓼風軒」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "nuanxiangwu.liaofeng-house",
           "kind": "building",
           "construction": {
@@ -7089,7 +7107,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.45,
-              "plaque": "蓼风轩"
+              "plaque": "蓼風軒"
             }
           }
         },
@@ -7101,7 +7119,8 @@
           "facing": "south",
           "x": 182,
           "z": -54,
-          "plaque": "暖香坞",
+          "plaque": "暖香塢",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「暖香坞→暖香塢」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "nuanxiangwu.nuanxiang-house",
           "kind": "building",
           "construction": {
@@ -7134,7 +7153,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.45,
-              "plaque": "暖香坞"
+              "plaque": "暖香塢"
             }
           }
         },
@@ -7192,7 +7211,8 @@
           "facing": "west",
           "x": 148,
           "z": -20,
-          "plaque": "穿云/度月",
+          "plaque": "穿雲/度月",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「穿云/度月→穿雲/度月」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "nuanxiangwu.west-street-gate",
           "kind": "building",
           "construction": {
@@ -7227,7 +7247,7 @@
               "sides": "wall",
               "back": "door",
               "platformH": 0.45,
-              "plaque": "穿云/度月"
+              "plaque": "穿雲/度月"
             }
           }
         },
@@ -7445,7 +7465,8 @@
           "facing": "north",
           "x": 197,
           "z": -212,
-          "plaque": "沁芳闸",
+          "plaque": "沁芳閘",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「沁芳闸→沁芳閘」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "qinfangzha.sluice-bridge",
           "kind": "bridge",
           "layout": {
@@ -7686,7 +7707,8 @@
           "facing": "south",
           "x": -34,
           "z": -116,
-          "plaque": "蓼汀花溆",
+          "plaque": "蓼汀花漵",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「蓼汀花溆→蓼汀花漵」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。底本用字「漵」：维基文库第十七回正文「莫若『蓼汀花漵』四字」；旧字符串「溆」不取。",
           "id": "liaoting_huaxu.water-cave",
           "kind": "cave",
           "layout": {
@@ -8033,7 +8055,8 @@
           "facing": "west",
           "x": 120,
           "z": 28,
-          "plaque": "芦雪广",
+          "plaque": "蘆雪廣",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「芦雪广→蘆雪廣」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。底本作「蘆雪广」：维基文库第五十回回目（庚辰本；「广」读 yǎn，非简化字），异文「蘆雪庵」（戚序/王府本）、「蘆雪亭」（程甲/梦觉本）不取；繁体化按单子对照表作「蘆雪廣」。",
           "id": "luxueguang.reed-hall",
           "kind": "building",
           "construction": {
@@ -8301,7 +8324,8 @@
           "facing": "south",
           "x": 120,
           "z": 112,
-          "plaque": "嘉荫堂",
+          "plaque": "嘉蔭堂",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「嘉荫堂→嘉蔭堂」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "jiayintang.main-hall",
           "kind": "building",
           "construction": {
@@ -8338,7 +8362,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.45,
-              "plaque": "嘉荫堂"
+              "plaque": "嘉蔭堂"
             }
           }
         },
@@ -8706,7 +8730,8 @@
           "facing": "south",
           "x": -224,
           "z": -152,
-          "plaque": "红香圃",
+          "plaque": "紅香圃",
+          "basis": "单子 AW1(2026-09-17)匾文繁体化「红香圃→紅香圃」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "huajia_huapu.hongxiang-hall",
           "kind": "building",
           "construction": {
@@ -8740,7 +8765,7 @@
               "sides": "wall",
               "back": "wall",
               "platformH": 0.45,
-              "plaque": "红香圃"
+              "plaque": "紅香圃"
             }
           }
         },
