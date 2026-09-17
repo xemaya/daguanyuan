@@ -382,7 +382,7 @@ AU3 `f5278b6a`、AU2 `8b0eea6b`、AU1 `d6f6fd82` 已在 `editor`（用户没报�
 | **AU1 灯** | 檐灯直径 0.32 → **0.56 m**（`R` 0.28、`H` 0.60、`LANTERN_DROP` 1.04，离潇湘馆那道 1.12 的天花板 8 cm）；门屋 **五间五盏**（规则 `where.perBay:['men']`，全园「灯笼-檐下」8 件 = 正门 5 + 潇湘馆 3，潇湘馆三盏没丢）；阶下 **高照 4 根**，x = 50.0 / 51.5 / 58.5 / 60.0、z = 240.2，杆脚落台矶面层，总高 3.54 m（座 0.34 + 杆 3.2），纸罩 / 木杆 / 石座不朱粉 | ✅ 「只有两盏、不够大」销 |
 | **AU2 门环** | 每扇一副素面铺首：板 0.15 × 0.17 m、环 Ø 0.15 m，熟铜色；门钉不装（D-28） | ✅ |
 | **AU3 门前青草** | 脚下序列：stone 0–10.6 → grass 10.9–**56.4** → dirt 56.7 起（AU 前 grass 到 39.4、dirt 39.7 起）——近门大路两侧 17 m 土肩归草；官式区（`style.rustic === 0`）不刷路土，台矶两翼裸土没了；门外三个临时机位（`gate_far` (55,260)、东西两翼 (41/69,254)）画面里没有黄土；土路（翠嶂南脚 56.7 m 起）没动 | ✅ 「黄土」销 |
-| 文件域 | AU1 只碰 `lanternSpotsFor` / 规则那条 / `lantern.ts` / 新 `gaozhao.ts` / `scenes/zhengmen.json`；AU2 只碰 `mkLeaf` / 新 `pushou.ts`；AU3 只碰 `terrain-from-plan.ts`（`pathBlend` 加 `pavedOnly`、`formalGround`） | ✅ |
+| 文件域 | AU1 只碰 `lanternSpotsFor` / 规则那条 / `lantern.ts` / 新 `gaozhao.ts` / `projects/daguanyuan/scenes/zhengmen.json`；AU2 只碰 `mkLeaf` / 新 `pushou.ts`；AU3 只碰 `terrain-from-plan.ts`（`pathBlend` 加 `pavedOnly`、`formalGround`） | ✅ |
 
 **两条记台账，不挡冻结**：
 1. **当心间那盏檐灯与匾争位**：五盏同一 `hangY`，当心间那盏正好挂在匾的正下方，`cu_gate_plaque` / `gate_approach` 里它上半截被前倾的匾遮住、下半截从匾底下探出来。实做里匾占当心间、灯挂次间或檐柱是常态。**建议当心间不挂（四盏），留给用户点头**——07-70 只说「挑著大明角燈」不给数。

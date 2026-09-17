@@ -45,7 +45,7 @@
 | 匾「大观园」 | 有匾框、角花、前倾匾托、钤印；真毛笔字 | 宽 = 当心间 × 0.72 = 2.59 m；马善政楷子集字体 | `builder/parts/xiaomu/plaque.ts`；`public/fonts/MaShanZheng-plaque-subset.woff2` | ✅ AT1；**繁体「大觀園」待用户点头** |
 | 门板 | 素板门，不装门钉，一对素面铺首门环，熟铜色 | 每扇一副：板 0.15 × 0.17 m、环 Ø 0.15 m | `builder/parts/xiaomu/pushou.ts`；`building.ts` `mkLeaf` | ✅ AU2 |
 | 檐下灯笼 | 每间一盏共五盏，直径 ≥0.55 m，纸色 | 直径 0.56 m、灯身高 0.60、`LANTERN_DROP` 1.04（天花板 1.12）；五盏同一 `hangY` | `builder/parts/xiaomu/lantern.ts`；`builder/compose/scatter-rules.ts` | ✅ AU1；**当心间那盏与匾争位**（§6） |
-| 阶下高照 | 两溜落地灯杆，踏跺两侧对称，对齐台矶墁缝 | 4 根：x = 55 ± 3.47、55 ± 5.01，z = 240.2 | `projects/daguanyuan/scenes/zhengmen.json` placements `gaozhao` ×4；`builder/parts/xiaomu/gaozhao.ts` | 待验收（AU1） |
+| 阶下高照 | 两溜落地灯杆，踏跺两侧对称，对齐台矶墁缝 | 4 根：x = 50.0 / 51.5 / 58.5 / 60.0，z = 240.2，杆脚在台矶面层，总高 3.54 m | `projects/daguanyuan/scenes/zhengmen.json` placements `gaozhao` ×4；`builder/parts/xiaomu/gaozhao.ts` | ✅ AU1 |
 | 白石台矶 | 四层石作（土衬 / 陡板 / 阶条 / 面层）有砌缝；陡板西番草 | 宽 13.76 m，锚 (55,241)；浮雕 4 mm（D-27：台矶 32 px 视张角，几何浮雕留着当尺子） | `builder/parts/qiangyuan/forecourt-terrace.ts`；`builder/parts/ornament/` | ✅ AJ1 / AO |
 | 垂带抱鼓 | 一对，坐在前踏跺两条垂带外侧的台矶面层上，鼓面相对 | `chuidai` 档 | `builder/parts/shishan/baogushi.ts` | ✅ AT2 |
 | 格扇 | 格心灯笼锦，截面分级、节点、收头、纸面退后 | 梢间窗 | `building.ts` 格扇；AP | ✅ AP；bug：门内两扇之间漏天光蓝缝 |
@@ -58,7 +58,7 @@
 | 项 | 要求 | 现状 | 状态 |
 |---|---|---|---|
 | 门前古松 | 两株，门外净空不密植 | HERO_TREES (40.5,244.2) / (69.5,244.2)，`REGION_TREES.zhengmen` 密度 0.18 只出松 | ✅ |
-| 门前地面 | 大路铺装两侧是青草，无黄土肩；台矶两翼无裸土 | AU3：铺装路不留土肩、官式地面区不刷路土 | 待验收：脚下序列出生点到踏跺 dirt 段 = 0 |
+| 门前地面 | 大路铺装两侧是青草，无黄土肩；台矶两翼无裸土 | AU3：铺装路不留土肩、官式区（`style.rustic === 0`）不刷路土；脚下序列 grass 到 56.4 m（AU 前 39.4） | ✅ AU3；门外大路读不出路（§6） |
 | 甬道 | 4.4 m 宽大路直抵台阶 | 旧路基 `legacy-ch17-roadwork` 末段 | ✅ |
 
 ## 6 判据、机位、台账
@@ -80,13 +80,16 @@
 - 四镜 `--baseline`：`gate_approach` drawCalls / triangles 在基线 ±3%（`projects/daguanyuan/perf-baseline.json`）。
 - X-04「迎面」：从 (55,244) 沿 +北 射线打到 `hill.cuizhang` 夹角 0°（现行判法只到土山，**AV 单子改为打到白石组**）。
 - 名册（`manifest-diff --coverage`）正门件无 LOST。
-- 灯：五盏檐灯直径 ≥0.55 m，高照 4 根杆脚落在台矶面层，杆位对齐墁缝（AU 回报值待复核）。
+- 灯：五盏檐灯直径 ≥0.55 m，高照 4 根杆脚落在台矶面层，杆位对齐墁缝（2026-09-17 复核通过）。
+- 对账门 `manifest-diff --coverage`：23/25，野生件 ≤ 43。
 
 **未决与 bug**
 
 | 编号 | 事 | 归谁 |
 |---|---|---|
-| AU 验收 | 灯笼直径前后、高照杆高、门环尺寸、脚下序列、四镜前后 | 验收人 |
+| 当心间灯 | 五盏同高，当心间那盏挂在匾正下方被匾遮半截；建议当心间不挂（四盏） | 用户点头 |
+| 门外大路 | 台矶前只有一小片铺装舌头，往南全是草，读不出路；做园外甬道（E 档）时给铺装 | E 档 |
+| 对账门计法 | 带 basis 的 scenes placements 仍记作野生件，feral 基线已抬 40 → 43 | AD 系单 |
 | 匾文 | 「大观园」→「大觀園」（plan.json + 字集重建） | 用户点头 |
 | AE | 形制断言门第二批（五间 / 桶瓦 / 无朱粉 / 台矶层数），冻结后可焊 | 可写单 |
 | F-AJ-1 | 台矶前缘深色斜坡 | 下次动近门大路的单 |
@@ -94,5 +97,5 @@
 | AP 副作用 | 门内看不见卡子花、背阴窗纸偏灰 | 同上 |
 | F1 | 占位场不认线性墙体，散置件可插墙 | occupancy 单 |
 
-**履历**：AI（墙线性化）→ AJ（台矶 / 抱鼓 / 檐口）→ AK / AN1 / AQ-a（浮雕管线、颗粒）→ AN2 / AP（格扇）→ AO（AO 与颗粒档位，D-26）→ AS（绦环板贴图档，D-27）→ AT（匾五件、垂带抱鼓）→ AU（灯 / 门环 / 青草，D-28 冻结）。
+**履历**：AI（墙线性化）→ AJ（台矶 / 抱鼓 / 檐口）→ AK / AN1 / AQ-a（浮雕管线、颗粒）→ AN2 / AP（格扇）→ AO（AO 与颗粒档位，D-26）→ AS（绦环板贴图档，D-27）→ AT（匾五件、垂带抱鼓）→ AU（灯 / 门环 / 青草，D-28 冻结，2026-09-17 验收）。
 验收记录在 `docs/reviews/2026-09-15-detail-review-response.md` §6–§17。
