@@ -631,6 +631,65 @@ function buildTablet(n: number): BaishiGeometry {
   };
 }
 
+/**
+ * 每块峰的**峰顶与两肩**(构件局部坐标;单子 AV3)。
+ *
+ * 藤萝要「自峰顶垂落」(07-03「藤蘿掩映」)。旧实现把四个锚点写死在
+ * `vegetation.ts` 里,再拿**地形高度场**去扫这四个点附近的最高处——峰是构件、
+ * 不在高度场里,于是扫出来的"最高点"永远只是土坡,`best.y > baseY + 0.8` 这条
+ * 门槛一次也没过,藤萝 mesh 从来没建出来过(景需求文档 §5 实测 0 根)。
+ * 这个函数把锚点的来源换成**石头自己的几何**:不猜、不扫地形,一动峰就跟着动。
+ *
+ * 判法:逐块峰取顶点里 y 最大的那个当**顶**;再把顶点按绕该块中心的方位角分 8 扇,
+ * 每扇取各自的最高点,在其中挑两处当**肩**——要求 (a) 高度不低于该块顶的 0.55,
+ * (b) 水平离顶至少 0.35 m(挨着顶的那一圈仍是顶,不是肩)。
+ * 返回顺序:每块「顶、肩、肩」,块与块之间按顶高从高到低。挂几条、挂哪一面
+ * 由调用方挑(背阴面是北 / 西北)。
+ */
+export interface BaishiCrownPoint {
+  x: number;
+  y: number;
+  z: number;
+  /** 'top' = 峰顶,'shoulder' = 肩。 */
+  kind: 'top' | 'shoulder';
+  /** 第几块峰(按顶高降序)。 */
+  stone: number;
+}
+
+export function baishiCrownPoints(variant: string): BaishiCrownPoint[] {
+  const g = buildBaishiGeometry(variant);
+  const stones = g.stones.map((st) => {
+    st.geo.computeBoundingBox();
+    return { geo: st.geo, top: st.geo.boundingBox!.max.y, box: st.geo.boundingBox! };
+  });
+  stones.sort((a, b) => b.top - a.top);
+  const out: BaishiCrownPoint[] = [];
+  stones.forEach((st, si) => {
+    const pos = st.geo.attributes.position as THREE.BufferAttribute;
+    const cx = (st.box.min.x + st.box.max.x) / 2;
+    const cz = (st.box.min.z + st.box.max.z) / 2;
+    const SECTORS = 8;
+    const best: ({ x: number; y: number; z: number } | null)[] = new Array(SECTORS).fill(null);
+    let top: { x: number; y: number; z: number } | null = null;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      if (!top || y > top.y) top = { x, y, z };
+      const a = Math.atan2(z - cz, x - cx);
+      const k = Math.min(SECTORS - 1, Math.floor(((a + Math.PI) / (Math.PI * 2)) * SECTORS));
+      if (!best[k] || y > best[k]!.y) best[k] = { x, y, z };
+    }
+    if (!top) return;
+    out.push({ ...top, kind: 'top', stone: si });
+    const shoulders = best
+      .filter((b): b is { x: number; y: number; z: number } => !!b)
+      .filter((b) => b.y >= st.top * 0.55 && Math.hypot(b.x - top!.x, b.z - top!.z) >= 0.35)
+      .sort((a, b) => b.y - a.y)
+      .slice(0, 2);
+    for (const sh of shoulders) out.push({ ...sh, kind: 'shoulder', stone: si });
+  });
+  return out;
+}
+
 /** 纯几何入口(可在 node 里跑校验,不碰材质)。 */
 export function buildBaishiGeometry(variant: string): BaishiGeometry {
   const { kind, n } = parseVariant(variant);

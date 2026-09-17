@@ -29,6 +29,7 @@ import {
   bakeCanopyShading,
 } from './foliage-materials';
 import { occupancyFree, occupancyDistance } from '@builder/compose/occupancy';
+import { baishiCrownPoints } from '@builder/parts/shishan/baishi';
 import { registerObject } from '@builder/compose/roster';
 import { TERRAIN, getPlan } from '@builder/compose/terrain';
 import { getScenes } from '@builder/compose/scenes';
@@ -1021,7 +1022,12 @@ function buildBush(
       sy: rangeOf(rng, 0.74, 0.96),
     });
   }
-  const geo = metaSurface(balls, { resolution: 16, isoLevel: 1.0, padding: size * 0.4, smooth: 1.1 });
+  // 分辨率 16 → 12(单子 AV3)。16 是给老镇子写的,那里灌木「几乎每一镜都在
+  // 齐眼到齐膝的高度上」(下面那条注释),所以壳做得细。大观园里它是配景:
+  // 贴着石脚与墙根、42 m 外就剔除,一丛顶多占十几个像素高。16 实测一丛壳 957 三角、
+  // 叶片 909,全园数百丛就是百万级——四镜 draw call 一度翻倍。12 把壳收到 ~540,
+  // 剪影上看不出差别(丛本来就是一团圆疙瘩),省下来的三角留给峰。
+  const geo = metaSurface(balls, { resolution: 12, isoLevel: 1.0, padding: size * 0.4, smooth: 1.1 });
   noiseDisplace(geo, size * 0.15, 1.7 / size, seed ^ 0x2b45, 3);
   geo.setAttribute('uv', boxProjectedUV(geo, 0.85));
   geo.computeVertexNormals();
@@ -1045,9 +1051,13 @@ function buildBush(
   // A bush sits at eye-to-knee height in almost every shot in the town, so its
   // silhouette is scrutinised harder than a canopy twenty metres away. It gets
   // proportionally more, larger cards than a tree does.
+  // 单子 AV3:卡片数减半(105+205·size → 58+112·size)。理由同上——这句话是
+  // 老镇子的实情,不是大观园的:这里灌木不在游线的齐眼高度上,它贴着石脚。
+  // 减半后一丛叶片 ~460 三角,剪影仍碎(卡片是**沿壳面**撒的,数量减半只是稀一点,
+  // 不会退回「一个光滑的绿疙瘩」那种失败态)。
   const fringe = shellCards(geo, {
     seed: seed ^ 0x1eaf,
-    count: Math.round(105 + size * 205),
+    count: Math.round(58 + size * 112),
     minSize: size * 0.23,
     maxSize: size * 0.42,
     upBias: 0.5,
@@ -1686,6 +1696,67 @@ export function buildVegetation(ctx: GameContext): void {
   /** `scenes/<区>.json` 点名的树（单子 AV2）。位置是绝对坐标，理由见 `SceneTree`。 */
   const sceneTrees = getScenes().flatMap((sc) => sc.trees ?? []);
 
+  /**
+   * scenes 里每一件白石的世界落位（单子 AV3）。
+   *
+   * 口径与 `builder/compose/composer.ts` 的 `resolvePosition()` 一致：
+   * `named[]` 读 plan 锚点本身，`placements[]` 读锚点 + dx/dz。**一个坐标都不手抄**
+   * ——峰一挪，贴石的灌木、峰脚的蕨、峰顶的藤萝全都跟着挪，这正是旧藤萝
+   * 「锚点写死四个数、峰换了位置没人发现」那个坑的修法（景需求文档 §5）。
+   *
+   * `kind` 分峰与石脚：灌木和蕨要贴的是**峰**，藤萝更要挂在峰上，
+   * 半埋的 `skirt*` 岩板只有一米来高，挂不住三米长的垂蔓。
+   */
+  const baishiWorld: { variant: string; x: number; z: number; yaw: number; kind: 'peak' | 'skirt' | 'other' }[] = (() => {
+    const anchors = new Map<string, [number, number]>();
+    for (const r of (getPlan() as unknown as { regions: { rocks?: { id: string; x: number; z: number }[] }[] }).regions)
+      for (const k of r.rocks ?? []) anchors.set(k.id, [k.x, k.z]);
+    const kindOf = (v: string): 'peak' | 'skirt' | 'other' =>
+      /^group|^peak/.test(v) ? 'peak' : /^skirt/.test(v) ? 'skirt' : 'other';
+    const out: { variant: string; x: number; z: number; yaw: number; kind: 'peak' | 'skirt' | 'other' }[] = [];
+    for (const sc of getScenes()) {
+      for (const n of sc.named ?? []) {
+        if (n.part !== 'baishi') continue;
+        const a = anchors.get(n.object);
+        if (a) out.push({ variant: n.variant ?? '', x: a[0], z: a[1], yaw: n.yaw ?? 0, kind: kindOf(n.variant ?? '') });
+      }
+      for (const pl of sc.placements ?? []) {
+        if (pl.part !== 'baishi') continue;
+        const a = anchors.get(pl.anchor);
+        if (a) out.push({ variant: pl.variant ?? '', x: a[0] + pl.dx, z: a[1] + pl.dz, yaw: pl.yaw ?? 0, kind: kindOf(pl.variant ?? '') });
+      }
+    }
+    return out;
+  })();
+  const baishiPeaks = baishiWorld.filter((b) => b.kind === 'peak');
+  /** 到最近一组峰的水平距离；没有峰就是 Infinity。 */
+  const peakDistance = (x: number, z: number): number => {
+    let d = Infinity;
+    for (const b of baishiPeaks) {
+      const t = Math.hypot(x - b.x, z - b.z);
+      if (t < d) d = t;
+    }
+    return d;
+  };
+  /**
+   * 背阴度：1 = 峰的背阴面，0.4 = 向阳面。
+   *
+   * 光从 +X/+Z 方向、仰角 38° 打过来（`SunKey`，与 `tools/shot-list.mjs` 的
+   * `mound_west` 注释里那次实测同一个判断），所以峰的 −X/−Z 半边是背阴面。
+   */
+  const peakShade = (x: number, z: number): number => {
+    let best = 0.4;
+    for (const b of baishiPeaks) {
+      const dx = x - b.x, dz = z - b.z;
+      const l = Math.hypot(dx, dz);
+      if (l < 1e-6 || l > 9) continue;
+      const dot = (dx / l) * -0.7071 + (dz / l) * -0.7071;
+      const v = lerp(0.4, 1.0, smoothstep(-0.35, 0.55, dot));
+      if (v > best) best = v;
+    }
+    return best;
+  };
+
   const treeDensity = (x: number, z: number): number => {
     if (x < VEG.scatterMinX || x > VEG.scatterMaxX || z < VEG.scatterMinZ || z > VEG.scatterMaxZ) return 0;
     const m = mask.at(x, z);
@@ -2012,29 +2083,87 @@ export function buildVegetation(ctx: GameContext): void {
     shrubMats.warm, shrubMats.cool, shrubMats.warm,
   ];
 
+  /**
+   * 灌木往哪儿长（单子 AV3 重写）。
+   *
+   * **旧版全园 0 株,不是密度调小了,是坐标过期了。** 那两项 `nearWood`
+   * (|x| 11.5–21) 与 `nearSouth`(z 18.5–28) 是 pallet-town 老镇子的常量,
+   * 而大观园四区在 z≈80–250、x≈−145…80;更要命的是散布窗口写死
+   * `minX −24…24 / minZ −24…30`——**整个窗口落在园子外的空地上**。
+   * 于是「灌木 0 株」在数据上是对的:没有一处能长。(景需求文档 §5)
+   *
+   * 三项都换成数据驱动,一个坐标常量都不留:
+   *   - **贴石**:离最近一组白石峰 2–7 m 的环带(判据要山上 40–60 株,实测 47)。背阴半圆权重 1.0、向阳 0.4
+   *     (`peakShade`);石头是这一层里灌木唯一真正该抱住的东西——
+   *     07-03 说翠嶂的绿是石上的苔与藤,丛植的灌木是把石脚与草地之间那道
+   *     生硬的接边做软。
+   *   - **贴建筑角**:原样保留(单子 Z 已经从 occupancy 场读,不是手抄表)。
+   *   - **贴林缘**:`treeDensity` 那个低频 clump 场的**边界带**——林子里不长、
+   *     空地上不长,只长在林子的边上。这是「灌木是林与草之间的过渡」这句话
+   *     唯一可计算的写法。
+   * 散布窗口跟着 `VEG.scatter*` 走(与树、草同一个窗口),不再自带一个小盒子。
+   */
   const bushDensity = (x: number, z: number): number => {
     if (mask.at(x, z) < 0.75) return 0;
     if (ground(x, z) < 0.35) return 0;
-    // Bushes hug things: the skirt of the wood, and the corners of buildings.
-    const nearWood = smoothstep(11.5, 15.0, Math.abs(x)) * smoothstep(21.0, 16.5, Math.abs(x));
-    const nearSouth = smoothstep(18.5, 22.5, z) * smoothstep(28, 24.5, z);
+    // 贴石:2–7 m 环带,背阴浓、向阳稀。
+    const pd = peakDistance(x, z);
+    const nearRock = pd < 40 ? smoothstep(2.0, 3.1, pd) * smoothstep(7.0, 4.5, pd) * peakShade(x, z) : 0;
     // 单子 Z:距离从 occupancy 场读(plan 推导的檐口外包络),不再遍历手抄表。
     // `>= -0.4` 保留原来的语义:只贴边,不往建筑深处长。
     const cornerD = occupancyDistance(x, z);
     const corner = cornerD >= -0.4 ? smoothstep(1.9, 0.25, cornerD) : 0;
-    // Free scatter is deliberately tiny and gated behind a low-frequency mask:
-    // a bush every few metres across an open green reads as procedural litter,
-    // a thicket in one corner reads as landscaping.
-    const scatter =
-      smoothstep(0.34, 0.62, fbm2(clump, x * 0.075 + 9, z * 0.075, 3) * 0.5 + 0.5) * 0.3;
-    const d = clamp(Math.max(Math.max(nearWood, nearSouth) * 0.42, corner * 0.7) + scatter * 0.4, 0, 1);
+    // 贴林缘:copse 低频场的过渡带(场值既不高也不低的那一圈)。
+    const c = fbm2(clump, x * 0.09, z * 0.09, 3) * 0.5 + 0.5;
+    const woodEdge = smoothstep(0.30, 0.46, c) * smoothstep(0.70, 0.54, c);
+    /*
+     * 自由散布那一项**删掉了**(原来是 `scatter * 0.25`)。它在老镇子那个
+     * 48×54 m 的窗口里是「一角丛植」;散布窗口换成全园 500×500 m 之后,
+     * 同一个权重算出来是**全园 696 株**——实测光灌木就是 374 个 mesh、
+     * 130 万三角,四镜的 draw call 直接翻倍(271→568)、三角 +42%,fps 从 47 掉到 42。
+     * 灌木在这个园子里该抱住的是石头与房子,不是把每一片空地都点上一丛。
+     */
+    const d = clamp(
+      Math.max(nearRock * 0.85, corner * 0.40, woodEdge * 0.03),
+      0,
+      1,
+    );
     return d * outsideBuildings(x, z, 0.25) * wildGrassClearance(x, z);
   };
 
-  const bushSpots = poissonScatter({
-    minX: -24, maxX: 24, minZ: -24, maxZ: 30,
-    radius: 2.5, tries: 9000, density: bushDensity, rng,
-  });
+  /**
+   * 丛，不是网格（单子 AV3；与上面树的 copse 同一路数，理由也同一条）。
+   *
+   * 单点 Poisson 在饱和之后就是一个**塞满的堆积**，读出来是「每隔两米一株」的
+   * 程序化垃圾；单子要的是「成丛 3–7 株」。所以两级：Poisson 先在 8.5 m 上选丛心，
+   * 每个丛心长 3–6 株、半径 1.1–2.6 m，株间硬隔 0.95 m 不互穿。
+   *
+   * 第一版没分级、环带也开得宽（2–7.4 m、权重 0.95、半径 2.2 m），实测**全园
+   * 2 463 株、山上 202 株**——判据要的是 40–60。收到现在这一档是量出来的，
+   * 不是估的：前后两次普查的数写在单子 AV 的回报里。
+   */
+  const bushSpots: Spot[] = [];
+  {
+    const centres = poissonScatter({
+      minX: VEG.scatterMinX, maxX: VEG.scatterMaxX,
+      minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
+      radius: 8.5, tries: 26000, density: bushDensity, rng,
+    });
+    const MIN_SEP2 = 0.95 * 0.95;
+    for (const c of centres) {
+      const n = 3 + Math.floor(rng() * 4);
+      const spread = rangeOf(rng, 1.1, 2.6);
+      for (let i = 0; i < n; i++) {
+        const a = rng() * Math.PI * 2;
+        const r = i === 0 ? 0 : spread * Math.pow(rng(), 0.6);
+        const x = c.x + Math.cos(a) * r;
+        const z = c.z + Math.sin(a) * r;
+        if (bushDensity(x, z) <= 0.02) continue;
+        if (bushSpots.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < MIN_SEP2)) continue;
+        bushSpots.push({ x, z });
+      }
+    }
+  }
 
   const bushBuckets: { x: number; z: number }[][] = [[], [], []];
   for (const s of bushSpots) bushBuckets[Math.floor(rng() * 3) % 3].push(s);
@@ -2074,7 +2203,20 @@ export function buildVegetation(ctx: GameContext): void {
     leaves.computeBoundingSphere();
     group.add(mesh, leaves);
 
-    culler.add([mesh, leaves], { skipShadow: [leaves] });
+    /*
+     * 灌木吃**距离剔除**(单子 AV3):`maxDist 30`、`cellSize 20`。
+     *
+     * 30 这个数不是拍的:这个文件自己的 `VEG.drawDist` 里草 26、杂草 23、花 27——
+     * 灌木比杂草大一档,落在 30 正好接上那张表。
+     * 文件开头写过「Trees and bushes have no distance cut at all — they are
+     * silhouette」。对树成立,对灌木不成立:一棵 8 m 的树在 80 m 外仍是天际线上
+     * 一个形,一丛 0.9 m 的灌木在 30 m 外只有 17 个像素高,而且它从来不在天际线上
+     * ——它贴着石头和墙根,前面永远有别的东西。代价是实打实的:不剔除时
+     * 全园灌木每帧都进**阴影 pass**(`castShadow` 开着,阴影相机罩住大半个园子),
+     * 这正是 draw call 翻倍的那一半。`cellSize` 从默认 64 收到 20,是为了让这条
+     * 距离线切得准——64 m 的格子里只要有一株在 30 m 内,整格 100 多株都得画。
+     */
+    culler.add([mesh, leaves], { skipShadow: [leaves], maxDist: 30, cellSize: 20 });
   });
 
   /* ---------------- 点名种植(PQ-5c) --------------------------------- */
@@ -2125,26 +2267,46 @@ export function buildVegetation(ctx: GameContext): void {
     // 锚点不手猜高度:在每个候选点附近 ±1.2 m 扫 5×5,取地面场最高的点
     // (即石顶/石肩),锚在其表面下 0.12 m;扫不到明显高于基面的点就放弃,
     // 免得垂蔓浮空。——
+    /*
+     * 单子 AV3:锚点改从**白石几何**取,不再扫地形。
+     *
+     * 旧写法(留在下面 git 历史里)把四个坐标写死在 (5.4,200.8) 一带,再在每个点
+     * 周围 ±1.2 m 扫 5×5 个地形采样,取最高的那个当峰顶,还要求它高出基面 0.8 m。
+     * 两个致命处:① 峰是**构件**,不在地形高度场里——扫出来的最高点永远只是土坡,
+     * 0.8 m 那道门槛一次也没过过,`Wisteria_cuizhang` 这个 mesh 从来没建出来,
+     * 全园藤萝 0 根(景需求文档 §5 实测);② 那四个坐标是旧太湖石土丘周围的,
+     * AM2 把它换成白石峰群、AV1 又把主组挪上门轴,它们早就不指向任何东西了。
+     *
+     * 现在:`baishiCrownPoints(variant)` 给出每块峰的顶与两肩(构件局部坐标),
+     * 按该件的 yaw 与世界落位转成世界锚点,挂在**背阴面**(北 / 西北,与灌木
+     * `peakShade` 同一个光向判断)。每组 2–4 条,`scale` 1.15–1.6 把原生 0.8–1.7 m
+     * 的垂蔓拉到 0.9–2.7 m。峰一挪,藤萝跟着挪。
+     */
     {
-      const wanted = [
-        { x: 5.4, z: 200.8 },
-        { x: 8.6, z: 199.6 },
-        { x: 10.8, z: 202.6 },
-        { x: 6.8, z: 204.0 },
-      ];
-      const anchors: { x: number; z: number; y: number }[] = [];
-      for (const w of wanted) {
-        const baseY = ground(w.x, w.z);
-        let best: { x: number; z: number; y: number } | null = null;
-        for (let gx = -2; gx <= 2; gx++) {
-          for (let gz = -2; gz <= 2; gz++) {
-            const px = w.x + gx * 0.6;
-            const pz = w.z + gz * 0.6;
-            const py = ground(px, pz);
-            if (!best || py > best.y) best = { x: px, z: pz, y: py };
-          }
+      const anchors: { x: number; z: number; y: number; s: number }[] = [];
+      for (const b of baishiPeaks) {
+        const gy = ground(b.x, b.z);
+        const c = Math.cos(b.yaw), sn = Math.sin(b.yaw);
+        const cands = baishiCrownPoints(b.variant)
+          .map((q) => ({
+            x: b.x + q.x * c + q.z * sn,
+            z: b.z + (-q.x * sn + q.z * c),
+            y: gy + q.y,
+            kind: q.kind,
+          }))
+          // 背阴面:峰心的 −X/−Z 半边(光从 +X/+Z 来)。**顶点也要挑边**——
+          // 第一版放行了所有 `top`,结果 `mound_west`(贴着 group3 东南面往上看)
+          // 的右上角被一条从正顶垂下来的蔓盖掉三分之一,而那一镜是 AM4 苔斑的
+          // 判据机位。挂在背阴面的本意就是「从来路看不见它糊在峰脸上」。
+          .filter((q) => (q.x - b.x) * -0.7071 + (q.z - b.z) * -0.7071 > 0.05)
+          .sort((q, r) => r.y - q.y);
+        const want = 2 + (cands.length >= 6 ? 1 : 0) + (cands.length >= 10 ? 1 : 0);
+        for (const q of cands) {
+          if (anchors.filter((a) => Math.hypot(a.x - b.x, a.z - b.z) < 9).length >= want) break;
+          // 两条蔓不挂在同一块石头的同一处。
+          if (anchors.some((a) => Math.hypot(a.x - q.x, a.z - q.z) < 0.9)) continue;
+          anchors.push({ x: q.x, z: q.z, y: q.y, s: rangeOf(nRng, 1.15, 1.6) });
         }
-        if (best && best.y > baseY + 0.8) anchors.push(best);
       }
       if (anchors.length) {
         const mesh = makeInstanced(
@@ -2166,7 +2328,7 @@ export function buildVegetation(ctx: GameContext): void {
         );
         for (let i = 0; i < anchors.length; i++) {
           const a = anchors[i];
-          const sc = rangeOf(nRng, 0.9, 1.25);
+          const sc = a.s;
           euler.set(0, nRng() * Math.PI * 2, 0, 'ZYX');
           q.setFromEuler(euler);
           pos3.set(a.x, a.y - 0.12, a.z);
@@ -3033,8 +3195,20 @@ export function buildVegetation(ctx: GameContext): void {
         // 单子 Z:同上,距离读 occupancy 场。
         const wall = smoothstep(1.6, 0.2, occupancyDistance(x, z));
         const n = fbm2(clump, x * 0.22 + 41, z * 0.22, 3) * 0.5 + 0.5;
-        return clamp((Math.max(wood, south) * 0.75 + wall * 0.7) * (0.3 + n), 0, 1) *
-          outsideBuildings(x, z, 0.1);
+        /*
+         * 峰脚蕨簇(单子 AV3)。「翠」的三层里最贴地的那一层:石与土交界的那一圈
+         * 潮阴处长蕨与书带草,它同时是 AV4 的石脚与草地之间那道缝的填充物——
+         * 石脚落位时特意给蕨留了 0.28–0.46 m。
+         * 环带 0.9–4.3 m:再近就长进石头里(峰的世界包围盒半宽 1.9–3.0 m),
+         * 再远就散成普通杂草、失掉「贴着石脚一圈」的读法。
+         */
+        const pd = peakDistance(x, z);
+        const foot = pd < 40 ? smoothstep(0.55, 1.1, pd) * smoothstep(4.3, 2.6, pd) : 0;
+        return clamp(
+          (Math.max(wood, south) * 0.75 + wall * 0.7) * (0.3 + n) + foot * (0.5 + n * 0.6),
+          0,
+          1,
+        ) * outsideBuildings(x, z, 0.1);
       },
       rng: wRng,
     });

@@ -47,6 +47,11 @@ export interface PlanHill {
   name: string;
   height_m: number;
   polygon: [number, number][];
+  /**
+   * 这座山的地表苔化上限（单子 AV3）。缺省不苔——只有写了这个字段的山才苔化，
+   * 其余五座山一个像素不变。数与依据写在 `plan.json` 该条的 `name` 里。
+   */
+  mossCover?: number;
 }
 
 export interface PlanPath {
@@ -354,12 +359,12 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
   const canvasHalfX = plan.canvas.width_m / 2;
   const canvasHalfZ = plan.canvas.depth_m / 2;
 
-  interface Hill extends Poly2 { h: number; inradius: number }
+  interface Hill extends Poly2 { h: number; inradius: number; mossCover: number }
   const hills: Hill[] = plan.hills.map((h) => {
     const poly = makePoly(h.polygon);
     // 每座山的羽化带按它自己的内深自适应——翠嶂是 210m 长的带状山，
     // 用固定羽化会让长山变成一道陡墙，或让质心到不了标称高程。
-    return { ...poly, h: h.height_m, inradius: inradiusOf(poly) };
+    return { ...poly, h: h.height_m, inradius: inradiusOf(poly), mossCover: h.mossCover ?? 0 };
   });
 
   interface Water extends Poly2 {
@@ -897,6 +902,33 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       const patch = fbm2(nWear, x * 0.045 + 4.7, z * 0.045 - 1.9, 3) * 0.5 + 0.5;
       const m = smoothstep(0, 1.1, -d) * (0.30 + 0.70 * patch);
       if (m > moss) moss = m;
+    }
+    /*
+     * 山体苔地（单子 AV3；用户 2026-09-17 拍板「山体地表从草坪改成偏暗的苔地」）。
+     *
+     * 07-03 说翠嶂「上面**苔蘚成斑**，藤蘿掩映」——「翠」字的来处是石上的苔与藤。
+     * AM4 把苔做进了白石的顶点色，可**地表还是草皮**：4 m 高、36 m 进深的土坡
+     * 读成一片黄绿果岭，白石峰像五根柱子插在高尔夫球道上（景需求文档 §6-4）。
+     * 这一项让带 `mossCover` 的山，它的地表按山体权重混成苔地。
+     *
+     * `shade`（0.6…1.0）**不是**按「离最近一组峰多远」算的，虽然单子原文是那么写的。
+     * 理由是一条硬约束：`makeTerrainField` 要能在**没有注入 scenes** 的纯 node 工具里
+     * 跑（`tools/occlusion-probe.mjs`、地形探针、单元测试都这么用），而峰位只住在
+     * scenes 里。让它去读 scenes，工具里要么抛、要么悄悄走另一条分支——
+     * 那就成了「同一个函数两个答案」，正是这个项目反复栽过的跟头。
+     * 改用一层低频噪声当背阴度：同样给出 0.6→1.0 的起伏、同样是「有浓有淡不是一片
+     * 均匀绿」，而且**地形场自给自足**。峰脚真正的浓淡由 `vegetation.ts` 那边的
+     * 蕨簇与灌木（它们读得到 scenes）去给。
+     *
+     * 后面那串乘子原样保留：路面、铺装上不长苔（「苍苔布满的是土地」）。
+     */
+    for (const hill of indexed ? hillIndex.query(x, z) : hills) {
+      if (hill.mossCover <= 0) continue;
+      const hm = hillMask(x, z, hill);
+      if (hm <= 0.001) continue;
+      const shade = 0.6 + 0.4 * smoothstep(0.34, 0.72, fbm2(nWear, x * 0.055 - 18.3, z * 0.055 + 7.1, 3) * 0.5 + 0.5);
+      const v = hm * hill.mossCover * shade;
+      if (v > moss) moss = v;
     }
     moss = clamp(moss, 0, 1) * (1 - path.w * 0.85) * (1 - Math.max(cobble, slab)) * 0.85;
 
