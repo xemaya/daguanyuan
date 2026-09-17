@@ -1,9 +1,12 @@
 // tools/tree-census.mjs — 数一座山上有几棵树、几株灌木、离每组峰多近。
 //
 // 用法:node tools/tree-census.mjs --url http://127.0.0.1:5177/garden.html
-//        [--hill hill.cuizhang] [--ridge 202] [--json]
+//        [--hill hill.cuizhang] [--ridge 202] [--json] [--dump <file>]
 //   --ridge  「山脊在哪」的 z,只影响最后那行「脊南 / 脊北」的分法(缺省 202)。
 //   --json   只吐那一行 JSON,不吐散文——给脚本与回报用,免得靠 tail/grep 去捞。
+//   --dump   把全园每棵树/每株灌木的实例位置(种、x、z、scaleY,四位小数)写成
+//            一份排序过的 JSON。单子 AV-b1 的判据 diff 用它:改散布算法前后各
+//            dump 一份,「翠嶂之外一棵不动」就是两份 dump 相减为空。
 //
 // 从跑着的世界里把 Trunk_* / Bush_* 的实例矩阵全解出来(与 tools/shot-list.mjs
 // `mound_west` 注释里那次手工普查同一路数),按 plan.json 的山体多边形分内外,
@@ -11,16 +14,17 @@
 // knowledge/docs/scenes/cuizhang.md §5 / §7 的判据脚本:数字从这里来,不从回报来。
 // 2026-09-17 从验收人的 scratch 脚本转正(单子 AV5)。
 import { chromium } from 'playwright';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const args = { url: 'http://127.0.0.1:5173/garden.html', hill: 'hill.cuizhang', ridge: 202, json: false };
+const args = { url: 'http://127.0.0.1:5173/garden.html', hill: 'hill.cuizhang', ridge: 202, json: false, dump: null };
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === '--url') args.url = process.argv[++i];
   else if (process.argv[i] === '--hill') args.hill = process.argv[++i];
   else if (process.argv[i] === '--ridge') args.ridge = Number(process.argv[++i]);
+  else if (process.argv[i] === '--dump') args.dump = process.argv[++i];
   else if (process.argv[i] === '--json') args.json = true;
 }
 if (!Number.isFinite(args.ridge)) { console.error('--ridge 需要一个数'); process.exit(2); }
@@ -64,7 +68,7 @@ const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 await page.goto(args.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 await page.waitForFunction(() => window.__GAME__ !== undefined, null, { timeout: 150000 });
 const data = await page.evaluate(() => {
-  const g = window.__GAME__, T = g.THREE, out = { trees: [], bushes: [], named: {} };
+  const g = window.__GAME__, T = g.THREE, out = { trees: [], bushes: [], named: {}, dump: { trees: [], bushes: [] } };
   const m = new T.Matrix4(), p = new T.Vector3(), q = new T.Quaternion(), s = new T.Vector3();
   g.world.root.traverse((o) => {
     if (o.isInstancedMesh && /^Trunk_|^Bush_/.test(o.name)) {
@@ -72,6 +76,8 @@ const data = await page.evaluate(() => {
       for (let i = 0; i < o.count; i++) {
         o.getMatrixAt(i, m); m.premultiply(o.matrixWorld); m.decompose(p, q, s);
         (o.name.startsWith('Trunk') ? out.trees : out.bushes).push([o.name.replace(/^(Trunk|Bush)_/, ''), +p.x.toFixed(1), +p.z.toFixed(1), +s.y.toFixed(2)]);
+        // --dump 用全精度:判据说「一棵不动」,0.1m 的四舍五入会把两棵不同的树压成同一个键。
+        (o.name.startsWith('Trunk') ? out.dump.trees : out.dump.bushes).push([o.name.replace(/^(Trunk|Bush)_/, '').replace(/@.*/, ''), +p.x.toFixed(4), +p.z.toFixed(4), +s.y.toFixed(4)]);
       }
     }
     if (/Wisteria|Moss_patches/.test(o.name)) out.named[o.name] = { count: o.count ?? 1 };
@@ -82,6 +88,13 @@ const data = await page.evaluate(() => {
   return out;
 });
 await browser.close();
+
+if (args.dump) {
+  // 排序后写盘:同一园子两次 dump 才能逐行 diff;键 = 种 + 位置 + 体量。
+  for (const k of ['trees', 'bushes']) data.dump[k].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  writeFileSync(args.dump, JSON.stringify(data.dump, null, 1));
+  say(`dumped ${data.dump.trees.length} trees / ${data.dump.bushes.length} bushes -> ${args.dump}`);
+}
 
 const poly = hill.polygon;
 const onHill = data.trees.filter((t) => inside(poly, t[1], t[2]));

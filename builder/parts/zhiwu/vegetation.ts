@@ -9,7 +9,7 @@ import {locatePoint,type Point2} from '@builder/plan/geometry';
 import {bedsFromPlan} from '@builder/plan/objects';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
-import { poissonScatter, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter/index';
+import { poissonScatter, scatterHash01, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter/index';
 import { metaSurface, noiseDisplace, boxProjectedUV, type Ball } from '@builder/parts/sculpt';
 import {
   createFoliageMaterial,
@@ -1794,11 +1794,22 @@ export function buildVegetation(ctx: GameContext): void {
    * 1.5 m hard separation so nothing interpenetrates.
    */
   const treeSpots: Spot[] = [];
-  const treeBudget = Math.min(180, Math.ceil(TERRAIN.width*TERRAIN.depth/400));
+  // treeBudget 语义（单子 AV-b1）：「筛后 ≤180」的纯上限，不是「撒够 180」——
+  // 筛后不足不补撒（补撒又是顺序依赖）。旧的 `min(180, 面积/400)` 按当前地形
+  // 包围盒算出 148,预算常年打满——**预算截断本身就是顺序依赖的补撒**:
+  // 一区密度下降,候选序列后排的丛就顶进名额,「其他区一棵不动」永远过不了。
+  // 所以预算固定 180、落到永远触不到的位置,树数由下面的密度筛自然决定。
+  const treeBudget = 180;
   {
+    // 树的 copse 散布走「先撒后筛」档（P-28）：候选丛心全园稳定，
+    // 留不留由丛心坐标哈希决定；局部密度改动不再全局重洗。
+    // 用专用 rng,不吃共享流——树这路的飞镖消耗不再影响灌木/花草的位置。
+    // tries 9000→7000 之外还要说明:24000 撒出的筛后树数约 379,会顶穿
+    // treeBudget 的 180 上限触发截断补撒;7000 的筛后约 147,与 AV 前的
+    // 146 同量级,上限永远触不到。
     const copses = poissonScatter({
       minX: VEG.scatterMinX, maxX: VEG.scatterMaxX, minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
-      radius: 3.7, tries: 24000, density: treeDensity, rng,
+      radius: 3.7, tries: 7000, density: treeDensity, rng: makeRng(ctx.seed ^ 0x7eee), filterByHash: true,
     });
     // Bucketed by copse for the separation test: over a few hundred trees a
     // naive all-pairs check is fine, but a copse only ever collides with its own
@@ -1806,12 +1817,15 @@ export function buildVegetation(ctx: GameContext): void {
     const MIN_SEP2 = 1.5 * 1.5;
     for (const c of copses) {
       if (treeSpots.length >= treeBudget) break;
+      // 每个丛的生长参数用丛心坐标播种,不吃共享 rng 的顺序——否则筛掉一个丛,
+      // 后面所有丛的簇形、每棵树的种与姿态都会整体平移（P-28 的另一半）。
+      const copseRng = makeRng((ctx.seed ^ Math.floor(scatterHash01(c.x, c.z) * 4294967296)) >>> 0);
       // Cluster size skewed low: mostly singles and pairs, occasional thicket.
-      const n = 1 + Math.floor(Math.pow(rng(), 1.35) * 5);
-      const spread = rangeOf(rng, 0.9, 3.1);
+      const n = 1 + Math.floor(Math.pow(copseRng(), 1.35) * 5);
+      const spread = rangeOf(copseRng, 0.9, 3.1);
       for (let i = 0; i < n && treeSpots.length < treeBudget; i++) {
-        const a = rng() * Math.PI * 2;
-        const r = i === 0 ? 0 : spread * Math.pow(rng(), 0.55);
+        const a = copseRng() * Math.PI * 2;
+        const r = i === 0 ? 0 : spread * Math.pow(copseRng(), 0.55);
         const x = c.x + Math.cos(a) * r;
         const z = c.z + Math.sin(a) * r;
         if (treeDensity(x, z) <= 0.02) continue;
@@ -1837,6 +1851,8 @@ export function buildVegetation(ctx: GameContext): void {
     speciesIdx: number,
     /** 点名树给的定值（单子 AV2）；不给就走下面那条随机档。 */
     fixed?: { scale?: number; tilt?: number; tiltAz?: number },
+    /** 散布树按坐标播种的 rng（单子 AV-b1）；点名树 / 古树 / 柳树不传，走共享流。 */
+    rand: () => number = rng,
   ) => {
     const b = built[speciesIdx];
     // Bigger trees deeper into the wood; the trees nearest the town are the
@@ -1845,14 +1861,14 @@ export function buildVegetation(ctx: GameContext): void {
     // A 1.75 : 1 spread on top of the species' own 2.3 : 1 height spread. The
     // old 0.82–1.08 was a 1.3 : 1 band, which is inside the range a viewer
     // reads as "the same asset".
-    const s = fixed?.scale ?? rangeOf(rng, 0.70, 1.22) * lerp(0.86, 1.22, edge);
+    const s = fixed?.scale ?? rangeOf(rand, 0.70, 1.22) * lerp(0.86, 1.22, edge);
     // 随机档照抽不误,即使 fixed 覆盖了它——抽掉的是同一串 rng,不抽会让
     // 后面所有树的随机序列整体平移,一棵点名树能把全园的树换一遍样子。
-    const rTilt = rangeOf(rng, 0.02, 0.16);
-    const rAz = rng() * Math.PI * 2;
+    const rTilt = rangeOf(rand, 0.02, 0.16);
+    const rAz = rand() * Math.PI * 2;
     b.spots.push({
       x, z, s,
-      yaw: rng() * Math.PI * 2,
+      yaw: rand() * Math.PI * 2,
       // Up to 9 degrees of lean, and never exactly zero. The old 4 degree cap
       // was small enough that every trunk read as vertical.
       tilt: fixed?.tilt ?? rTilt,
@@ -1863,11 +1879,14 @@ export function buildVegetation(ctx: GameContext): void {
   for (const s of treeSpots) {
     // 按区选种:园子长什么由 plan.json 的 regions[].plants 定(REGION_TREES),
     // 区域之外用 FALLBACK_MIX 的背景混交。mix 是带权重复键的牌堆,抽一张即得种。
+    // 选种与形态用树位坐标播种的 rng(单子 AV-b1):一棵树的存废不再平移
+    // 其他树的种 / 尺度 / 姿态,dump diff 的「一棵不动」才有意义。
+    const spotRng = makeRng((ctx.seed ^ Math.floor(scatterHash01(s.x, s.z) * 4294967296) ^ 0x9e3779b9) >>> 0);
     const reg = regionOf(s.x, s.z);
     const rt = reg ? REGION_TREES[reg] : undefined;
     const mix = rt && rt.mix.length > 0 ? rt.mix : FALLBACK_MIX;
-    const idx = SPECIES_INDEX[mix[Math.floor(rng() * mix.length)]];
-    placeTree(s.x, s.z, idx);
+    const idx = SPECIES_INDEX[mix[Math.floor(spotRng() * mix.length)]];
+    placeTree(s.x, s.z, idx, undefined, spotRng);
   }
 
   for (const [x, z, key] of HERO_TREES) {
@@ -1964,6 +1983,10 @@ export function buildVegetation(ctx: GameContext): void {
 
     for (let i = 0; i < n; i++) {
       const sp = b.spots[i];
+      // 每棵树的径/高/色相抖动按它自己的坐标播种(单子 AV-b1,P-28 的另一半):
+      // 用种内顺序 cRng 的话,任何一个种的成员增减都会把该种后面所有实例的
+      // 抖动整体平移——树没动,样子变了,dump diff 照样红。
+      const iRng = makeRng((ctx.seed ^ (b.def.key.length * 7717) ^ Math.floor(scatterHash01(sp.x, sp.z) * 4294967296)) >>> 0);
       // Slope- and girth-aware sink.
       //
       // A trunk is a vertical cylinder with a root flare, so on any gradient its
@@ -1992,8 +2015,8 @@ export function buildVegetation(ctx: GameContext): void {
       // tree seen from further away — what the eye reads is proportion, not
       // size, so slenderness has to vary per instance or two neighbours of one
       // species still read as copies. Costs nothing: it is one matrix.
-      const girth = sp.s * rangeOf(cRng, 0.78, 1.28);
-      scl.set(girth, sp.s * rangeOf(cRng, 0.80, 1.28), girth);
+      const girth = sp.s * rangeOf(iRng, 0.78, 1.28);
+      scl.set(girth, sp.s * rangeOf(iRng, 0.80, 1.28), girth);
       m4.compose(pos3, q, scl);
       trunkMesh.setMatrixAt(i, m4);
       canopyMesh.setMatrixAt(i, m4);
@@ -2001,17 +2024,17 @@ export function buildVegetation(ctx: GameContext): void {
 
       // Hue / value jitter. Warm-yellow in the light, cool-blue in the shade,
       // per ART_DIRECTION §3 — never a flat brightness scale.
-      const warm = rangeOf(cRng, -1, 1);
+      const warm = rangeOf(iRng, -1, 1);
       col.setRGB(
-        1 + warm * 0.075 + rangeOf(cRng, -0.05, 0.05),
-        1 + rangeOf(cRng, -0.055, 0.055),
-        1 - warm * 0.1 + rangeOf(cRng, -0.05, 0.05),
+        1 + warm * 0.075 + rangeOf(iRng, -0.05, 0.05),
+        1 + rangeOf(iRng, -0.055, 0.055),
+        1 - warm * 0.1 + rangeOf(iRng, -0.05, 0.05),
       );
       canopyMesh.setColorAt(i, col);
       fringeMesh.setColorAt(i, col);
       // Value and warmth jitter on the bark, wide enough that a stand of one
       // species still has light trunks and dark trunks in it.
-      const bt = rangeOf(cRng, -0.15, 0.15);
+      const bt = rangeOf(iRng, -0.15, 0.15);
       col.setRGB(btR * (1 + bt), btG * (1 + bt * 0.85), btB * (1 + bt * 0.6));
       trunkMesh.setColorAt(i, col);
 
