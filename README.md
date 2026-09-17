@@ -31,6 +31,7 @@ BASE=/daguanyuan/ npm run build   # 部署到 hub 子路径
 | 4 | [ART_DIRECTION.md](ART_DIRECTION.md) | 艺术圣经。做几何或材质的必读，它压过个人品味 |
 | 5 | [docs/ROADMAP.md](docs/ROADMAP.md) | 下一步做什么，怎么分期 |
 | 6 | [CONTRIBUTING.md](CONTRIBUTING.md) | 协作规矩：碰哪些文件、过哪些门、怎么提交 |
+| 7 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | 工作方法：一景一轮六步、三个角色、验收清单、派单模板、站住了的经验 |
 
 外部调研（要用先看它们各自的使用说明）：
 

@@ -6,6 +6,16 @@
 
 ---
 
+## P-29 后台拍图时改了 vite 根下的源码，HMR 一刷新，正在跑的 capture 当场崩
+
+**症状**：`capture.mjs` 在后台跑四镜，验收人顺手改了一个 `.ts`，几秒后 capture 报
+`Cannot read properties of undefined (reading 'engine')`——页面被 HMR 整页重载，`window.__GAME__` 没了，那一组图全废（2026-09-15 验 AN1 时）。
+
+**根因**：vite dev server 监听源码，模块图里的文件一改就推送更新；世界构建 20 多秒，重载中间 `__GAME__` 是空的。
+
+**处理**：拍图期间只改不在模块图里的文件（`docs/`、`knowledge/docs/`、`shots/`）；要改 `.ts` / `.json` 就等 capture 收工，或者拍图走另一台 worktree 的服务。
+**教训**：验收时"顺手改一行"的代价是重拍一轮；把要改的攒到图出来之后。
+
 ## P-28 Bridson 泊松散布：局部改一处密度，全园的树跟着重洗
 
 **症状**：单子 AV2 只做了一件事——`treeDensity` 在山体多边形内返回 0。合回后 180 棵树里 **89 棵消失、92 棵新出现**：翠嶂上的 36 棵没了是本意，
