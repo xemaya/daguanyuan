@@ -44,7 +44,7 @@
 | 门屋 | 五间硬山，桶瓦泥鳅脊，前后檐装门，两山砖墙 | 如要求；柱高 4.2、六椽、五踩斗科高 0.72 | `plan.json` `zhengmen.main-gate`；`builder/parts/damu/building.ts` `men` 档 | ✅ AJ 起三轮精修 |
 | 匾「大观园」 | 有匾框、角花、前倾匾托、钤印；真毛笔字 | 宽 = 当心间 × 0.72 = 2.59 m；马善政楷子集字体 | `builder/parts/xiaomu/plaque.ts`；`public/fonts/MaShanZheng-plaque-subset.woff2` | ✅ AT1；**繁体「大觀園」待用户点头** |
 | 门板 | 素板门，不装门钉，一对素面铺首门环，熟铜色 | 每扇一副：板 0.15 × 0.17 m、环 Ø 0.15 m | `builder/parts/xiaomu/pushou.ts`；`building.ts` `mkLeaf` | ✅ AU2 |
-| 檐下灯笼 | 每间一盏共五盏，直径 ≥0.55 m，纸色 | 直径 0.56 m、灯身高 0.60、`LANTERN_DROP` 1.04（天花板 1.12）；五盏同一 `hangY` | `builder/parts/xiaomu/lantern.ts`；`builder/compose/scatter-rules.ts` | ✅ AU1；**当心间那盏与匾争位**（§6） |
+| 檐下灯笼 | 每间一盏共五盏，直径 ≥0.55 m，纸色 | 直径 0.56 m、灯身高 0.60、`LANTERN_DROP` 1.04（天花板 1.12）；五盏同一 `hangY` | `builder/parts/xiaomu/lantern.ts`；`builder/compose/scatter-rules.ts` | ✅ AU1；当心间那盏与匾争位，用户裁定保持（§6） |
 | 阶下高照 | 两溜落地灯杆，踏跺两侧对称，对齐台矶墁缝 | 4 根：x = 50.0 / 51.5 / 58.5 / 60.0，z = 240.2，杆脚在台矶面层，总高 3.54 m | `projects/daguanyuan/scenes/zhengmen.json` placements `gaozhao` ×4；`builder/parts/xiaomu/gaozhao.ts` | ✅ AU1 |
 | 白石台矶 | 四层石作（土衬 / 陡板 / 阶条 / 面层）有砌缝；陡板西番草 | 宽 13.76 m，锚 (55,241)；浮雕 4 mm（D-27：台矶 32 px 视张角，几何浮雕留着当尺子） | `builder/parts/qiangyuan/forecourt-terrace.ts`；`builder/parts/ornament/` | ✅ AJ1 / AO |
 | 垂带抱鼓 | 一对，坐在前踏跺两条垂带外侧的台矶面层上，鼓面相对 | `chuidai` 档 | `builder/parts/shishan/baogushi.ts` | ✅ AT2 |
@@ -87,10 +87,10 @@
 
 | 编号 | 事 | 归谁 |
 |---|---|---|
-| 当心间灯 | 五盏同高，当心间那盏挂在匾正下方被匾遮半截；建议当心间不挂（四盏） | 用户点头 |
+| 当心间灯 | 五盏同高，当心间那盏挂在匾正下方被匾遮半截 | ✅ 用户 2026-09-17 裁定保持五盏，销 |
 | 门外大路 | 台矶前只有一小片铺装舌头，往南全是草，读不出路；做园外甬道（E 档）时给铺装 | E 档 |
 | 对账门计法 | 带 basis 的 scenes placements 仍记作野生件，feral 基线已抬 40 → 43 | AD 系单 |
-| 匾文 | 「大观园」→「大觀園」（plan.json + 字集重建） | 用户点头 |
+| 匾文 | 「大观园」→「大觀園」：用户已点头；现字体缺 觀 園，须换字体并全园 31 块一起改 | AW 可派（字体待选） |
 | AE | 形制断言门第二批（五间 / 桶瓦 / 无朱粉 / 台矶层数），冻结后可焊 | 可写单 |
 | F-AJ-1 | 台矶前缘深色斜坡 | 下次动近门大路的单 |
 | 蓝缝 | 门内两扇格扇之间漏天光 | 下次动格扇的单 |
