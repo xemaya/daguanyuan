@@ -327,9 +327,9 @@ export interface BaishiGeometry {
   inscription?: { object: string; cx: number; cy: number; cz: number; width: number; cell: number };
 }
 
-function parseVariant(variant: string): { kind: 'peak' | 'group' | 'tablet'; n: number } {
-  const m = /^(peak|group|tablet)/.exec(variant);
-  const kind = (m?.[1] as 'peak' | 'group' | 'tablet' | undefined) ?? 'peak';
+function parseVariant(variant: string): { kind: 'peak' | 'group' | 'tablet' | 'skirt'; n: number } {
+  const m = /^(peak|group|tablet|skirt)/.exec(variant);
+  const kind = (m?.[1] as 'peak' | 'group' | 'tablet' | 'skirt' | undefined) ?? 'peak';
   const d = /(\d+)/.exec(variant);
   return { kind, n: d ? Number(d[1]) : 0 };
 }
@@ -438,6 +438,109 @@ function buildGroup(n: number): BaishiGeometry {
 }
 
 /* ------------------------------------------------------------------ */
+/* 石脚(单子 AV4)                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 石脚剖面:一块半埋的矮石。与峰剖面**相反**——峰是「上半身保持体量、临了才收」,
+ * 石脚是「出土就最宽、一路塌下去」,顶只剩 0.30。理由是它要读成**从土里露出来的
+ * 一截岩床**,不是一个缩小的峰:峰的剖面缩到 1.2 m 高只会得到一只白色的笋尖,
+ * 剪影上与峰同形,五块摆在峰脚等于在柱阵下面再加一圈小柱阵。
+ */
+function skirtProfile(t: number, spec: StoneSpec): number {
+  const w = spec.waist;
+  const pts: [number, number][] = [
+    [0, 1.0],
+    [0.22, 0.98],
+    [0.5, w + 0.18],
+    [0.74, w - 0.06],
+    [0.9, w * 0.62],
+    [1, 0.30],
+  ];
+  return spec.width * 0.5 * piecewise(t, pts);
+}
+
+/**
+ * 峰脚的断续石壁(`skirt3` / `skirt4` / `skirt5`,数字就是块数)。
+ *
+ * **病**(景需求文档 §6-4):峰直接从草皮里冒出来,读作石柱阵——「石为骨、土为肉」,
+ * 骨露在外面而没有肉裹着的那一段,就是峰脚。实物旁证是环秀山庄:主峰不是插在地上的,
+ * 它坐在一层层横着的石壁上,峰与地之间永远隔着几层**横的**东西。
+ *
+ * 所以这一档的三条形是冲着「横」去的,不是把峰缩小:
+ *   - **矮而横**:实测单块 2.2–4.5 m 宽 × 1.0–1.8 m 深 × 1.0–1.8 m 高(`buildBaishiGeometry`
+ *     逐块量的,不是 spec 上的标称宽——`plate` 把 X 撑开了一倍多)。宽高比 2.2–2.5,
+ *     峰是 0.3 上下,差了将近一个数量级。整件 5.7 / 6.3 / 7.3 m 宽(三 / 四 / 五块),
+ *     与一组峰的 4.2–6.1 m 同一档,一件正好顶住一组的脚。
+ *   - `plate` 拉到 1.9–2.6(峰是 1.15–1.6):从正面看是一片**横着的岩板**,不是柱。
+ *     摆放时 yaw 让板面大致顺着山脊,于是几件连起来读成一道断续的壁。
+ *   - 剖面见 `skirtProfile`:出土最宽、顶上塌掉。
+ *
+ * **半埋不在这里做**:几何仍从 y=0 起算(`buildStone` 的 `clipToGround` 照旧把
+ * y<0 削掉),埋多深由 scenes 的 `dy` 给——同一件构件在缓坡与陡坡上该埋的深浅不同,
+ * 写死在几何里就没法按落点调。落位那边取 `dy` = −(0.30…0.40)×高。
+ *
+ * 三角预算:`cell` 取 0.12(峰是 0.04–0.05)。矮石体量只有峰的十分之一,照峰的 cell
+ * 量出来一件 13–18 k 三角,比一整组峰的三分之一还多——把三角花在脚上、把预算从
+ * 峰身上抢走,本末倒置。0.12 实测**三块 1 883 / 四块 2 247 / 五块 2 384 三角**,
+ * 单件落在单子给的「≤2 k」档上下(五块超 19%,如实报,不靠降块数糊弄)。
+ */
+const SKIRT_SLOT: { x: number; z: number; height: number; width: number; lean: number }[] = [
+  { x: -1.55, z: 0.20, height: 0.86, width: 1.70, lean: 5 },
+  { x: 0.65, z: -0.40, height: 0.68, width: 1.40, lean: 8 },
+  { x: 2.60, z: 0.30, height: 0.54, width: 1.15, lean: 6 },
+  { x: -3.55, z: -0.45, height: 0.62, width: 1.28, lean: 9 },
+  { x: 4.15, z: -0.22, height: 0.48, width: 0.95, lean: 7 },
+];
+
+function buildSkirt(n: number): BaishiGeometry {
+  const count = clamp(Math.round(n), 3, 5);
+  const seed = 8701 + count * 97;
+  const rng = makeRng(seed);
+  const j = (a: number) => rangeOf(rng, -a, a);
+  const slots = SKIRT_SLOT.slice(0, count).map((s) => ({
+    ...s,
+    x: s.x + j(0.22),
+    z: s.z + j(0.30),
+    height: s.height * rangeOf(rng, 0.92, 1.1),
+    yaw: rangeOf(rng, -0.45, 0.45),
+  }));
+  // 组心:石脚也「拱」,但拱的是**峰**不是彼此——峰在 +Z 的反面(北),
+  // 所以每块朝 −Z 倾一点,顶偏向山里,像被峰压着长出来的。
+  const results: StoneResult[] = [];
+  slots.forEach((s, i) => {
+    const spec: StoneSpec = {
+      height: s.height,
+      width: s.width,
+      waist: rangeOf(rng, 0.62, 0.74),
+      holes: 0,
+      pits: 3,
+      cell: 0.09,
+      // 皱的**幅度**按 `max(0.5, height/2.6)` 给,矮石一律吃到 0.6 的下限——
+      // 照峰的 wrinkle 1.25 算出来只有 0.041 m 的位移(峰是 0.126 m),
+      // 于是一块 1.5 m 的石头在 10 m 外读成一张光板(第一版 `mound_block` 就是这么翻的车)。
+      // 2.4 把幅度提到 0.079 m,与它自己的体量成比例。
+      wrinkle: 2.4,
+      // 频率:scale 吃下限之后 (3.0/0.6)=5.0 已经比峰的 2.05 细,再乘 0.62 收到 3.1——
+      // 比峰细一档(石头越小纹路越细),又不至于碎成噪点。
+      wrinkleFreq: 0.62,
+      plate: rangeOf(rng, 1.9, 2.6),
+      moss: BAISHI_MOSS,
+      seed: seed + 17 + i * 13,
+    };
+    const built = buildStone(spec, buildPeakBalls(spec, skirtProfile));
+    const k = Math.tan((s.lean * Math.PI) / 180);
+    results.push(transformStone(built, s.x, 0, s.z, s.yaw, { kx: 0, kz: -k }));
+  });
+  const geo = mergeGeometries(
+    results.map((r) => r.geo),
+    false,
+  )!;
+  geo.computeBoundingBox();
+  return { geo, holes: results.flatMap((r) => r.holes), stones: results, groundRadius: 2.2 };
+}
+
+/* ------------------------------------------------------------------ */
 /* 题字石(单子 AM3)                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -532,6 +635,7 @@ function buildTablet(n: number): BaishiGeometry {
 export function buildBaishiGeometry(variant: string): BaishiGeometry {
   const { kind, n } = parseVariant(variant);
   if (kind === 'tablet') return buildTablet(n);
+  if (kind === 'skirt') return buildSkirt(n);
   return kind === 'group' ? buildGroup(n) : buildPeak(n);
 }
 
