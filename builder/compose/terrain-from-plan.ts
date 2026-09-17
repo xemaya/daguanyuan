@@ -922,6 +922,7 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
      *
      * 后面那串乘子原样保留：路面、铺装上不长苔（「苍苔布满的是土地」）。
      */
+    let hillMoss = 0;
     for (const hill of indexed ? hillIndex.query(x, z) : hills) {
       if (hill.mossCover <= 0) continue;
       const hm = hillMask(x, z, hill);
@@ -929,15 +930,20 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       const shade = 0.6 + 0.4 * smoothstep(0.34, 0.72, fbm2(nWear, x * 0.055 - 18.3, z * 0.055 + 7.1, 3) * 0.5 + 0.5);
       const v = hm * hill.mossCover * shade;
       if (v > moss) moss = v;
+      // 山体苔单列一份(AV-b2):给下面的露土让位用。只收 hills[].mossCover
+      // 这一路;mossInside(潇湘馆苔院)那一路不进 hillMoss,行为不动。
+      if (v > hillMoss) hillMoss = v;
     }
     moss = clamp(moss, 0, 1) * (1 - path.w * 0.85) * (1 - Math.max(cobble, slab)) * 0.85;
 
     // 露土(单子 T):草被低频洼地落到阈值以下,且草皮是兜底材质
     // (非路非铺装非沙非苔)时,地面透出真土。与 vegetation.ts 的
     // grassDensity 调同一个 grass-cover 场:草稀处就是露土处,逐点对齐。
+    // AV-b2:山体苔地让露土让位——`moss × 1.2` 只把苔 0.33–0.55 的露土压到
+    // 34–60%,土台与南坡剩一层红棕斑;山苔过 0.4 露土归零。
     const fallback = clamp(1 - sand - Math.max(cobble, slab) - dirt, 0, 1);
     const soil = clamp(
-      bareSoilAmount(grassCover.gapN(x, z)) * fallback * (1 - Math.min(1, moss * 1.2)) * 0.9,
+      bareSoilAmount(grassCover.gapN(x, z)) * fallback * (1 - Math.min(1, moss * 1.2)) * (1 - smoothstep(0.15, 0.4, hillMoss)) * 0.9,
       0,
       1,
     );
