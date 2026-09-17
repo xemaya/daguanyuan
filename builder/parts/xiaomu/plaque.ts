@@ -12,8 +12,10 @@ import { roundedBox } from '@builder/parts/sculpt';
  * 「匾」与「牌子」的分界:
  *
  *   ① **字**:原先 `bold STKaiti` 走系统字体,粗体化的印刷楷没有笔锋,
- *      而且同一份代码在没装楷体的机器上直接掉到 serif。改成内置 OFL 的
- *      **Ma Shan Zheng**(毛笔楷),字号顶到匾心高的 0.78,金字**双层描边**
+ *      而且同一份代码在没装楷体的机器上直接掉到 serif。改成内置的
+ *      **AR PL UKai**(文鼎 PL 中楷,Arphic Public License;单子 AW2 从
+ *      Ma Shan Zheng 换过来——MSZ 是简体字集,缺 32 个繁体匾字),
+ *      字号顶到匾心高的 0.78,金字**双层描边**
  *      (外圈深金 + 内圈亮金)模拟贴金的厚度。字体来源/授权/子集化见
  *      `public/fonts/README.md`,`@font-face` 在 `garden.html`。
  *   ② **框**:原先是贴在板面上的四条 0.02m 金条——那是"画上去的边",不是框。
@@ -35,8 +37,8 @@ export const PLAQUE_H_RATIO = 0.4;
 /** 前倾角。清式匾"挂"在额枋上:上沿离墙、下沿贴。 */
 export const PLAQUE_TILT_RAD = (12 * Math.PI) / 180;
 
-/** 匾额字体。子集在 `public/fonts/`,`@font-face` 在 `garden.html`。 */
-const PLAQUE_FONT = '"Ma Shan Zheng"';
+/** 匾额字体。子集在 `public/fonts/`,`@font-face` 在 `garden.html` / `viewer.html` / `fashi.html`。 */
+const PLAQUE_FONT = '"AR PL UKai"';
 /**
  * 回落链。子集里没有的字、或字体还没下载完的那一瞬间走这里——
  * **回落是静默的**,所以 `warnPlaqueGlyphGaps()` 在字体就位后会逐字复查一遍。
@@ -56,7 +58,7 @@ function ironMaterial(): THREE.MeshStandardMaterial {
  * canvas 的字体回落是**逐字**的:子集里没有「蘅」,浏览器就悄悄用系统楷体画
  * 那一个字,同一块匾上于是两种字——而屏幕上没有任何提示。CJK 字面全是
  * 1em 全角,拿 `measureText` 比宽度是量不出来的(覆盖与否宽度都一样),
- * 所以这里**画出来比像素**:同一个字分别用「Ma Shan Zheng + 回落链」和
+ * 所以这里**画出来比像素**:同一个字分别用「子集字体 + 回落链」和
  * 「只有回落链」各画一次,两张一模一样就说明前者根本没生效。
  *
  * 一块匾三五个字、一张 40×40 的离屏画布,只在字体 ready 之后跑一次。
