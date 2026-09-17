@@ -422,6 +422,8 @@ AU3 `f5278b6a`、AU2 `8b0eea6b`、AU1 `d6f6fd82` 已在 `editor`（用户没报�
 2. **苔地上仍透露土**：`soil` 项只被 `moss × 1.2` 压，苔 0.33–0.55 时露土还剩 34–60%，`gate_face` / `mound_block` 里土台与山坡有一层红棕斑，`grass_close`（苔 ≈0.7）干净。「翠」被红棕斑抵消一半——归 AV-b2。
 3. **石脚在 `mound_block` 里仍偏光滑**：agent 已把 `wrinkle` 抬到 2.4、`cell` 0.09（三角 5–6.5k / 件，超单子 2k 的预算，理由成立），中景仍读成一块灰壳，比峰身的皱少。先认，AV-b 顺手看一眼 `wrinkle` 与顶点色的对比度，不单独立项。
 
+4. **工具缺陷**：`manifest-diff --write-baseline` 不写 `frameCostMs`（AQ-b0 给 capture 加了这个字段，写基线那条路没跟上），这次由验收人从三份 manifest 手工取中位数补回；归下一次动 `tools/manifest-diff.mjs` 的单。
+
 **agent 两处按理由偏离单子，都认**：`shade` 用低频噪声代替峰距（地形场不能读 scenes，否则工具与游戏两个答案）；石脚三角超预算（2k 档读成光滑灰壳）。
 
 **结论：AV 通过。** 翠嶂第二轮收口；四镜与野生件基线由验收人抬（`perf-baseline.json` history 一行、`coverage-baseline.json` note 一句）。

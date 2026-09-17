@@ -7,22 +7,26 @@
     "gate_approach": {
       "drawCalls": 317,
       "triangles": 4665063,
-      "fps": 45
+      "fps": 45,
+      "frameCostMs": 4.2
     },
     "mound_block": {
       "drawCalls": 293,
       "triangles": 4665921,
-      "fps": 46
+      "fps": 46,
+      "frameCostMs": 4
     },
     "grass_close": {
       "drawCalls": 296,
       "triangles": 4641963,
-      "fps": 46
+      "fps": 46,
+      "frameCostMs": 7.2
     },
     "xiaoxiang": {
       "drawCalls": 246,
       "triangles": 3242702,
-      "fps": 45
+      "fps": 45,
+      "frameCostMs": 4.4
     }
   },
   "measuredAt": "2026-09-17",
