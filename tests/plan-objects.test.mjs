@@ -36,10 +36,15 @@ test('planting beds (PQ-4): closed rings, tints and density, one truth in plan.j
   }
 });
 
+/* 这条门守的是「P1 那次坐标系迁移没有把锚点搬错」,不是「这些锚点从此不许动」。
+ * 2026-09-17 单子 AV1 有意把 `cuizhang.screen-rocks` 从 (8,202) 挪到 (53,200):
+ * 门轴 x=55 上一块石头也没有,五组峰全在轴的西边(景需求文档 §6-1)。
+ * 期望值跟着落地改,改的理由与量过的数写在 plan.json 该 rock 的 layout_basis 里。
+ * **别把这条改成「读 plan 自己的值」**——那样它就永远绿,什么也守不住了。 */
 test('MVP anchor migration preserves actual P1 world positions', () => {
   for (const [region, id, expected] of [
     ['zhengmen','main-gate',[55,236]],
-    ['cuizhang','screen-rocks',[8,202]],
+    ['cuizhang','screen-rocks',[53,200]],   // AV1 有意移位,见上注
     ['qinfang_ting_qiao','three-opening-bridge',[0,152]],
     ['qinfang_ting_qiao','pavilion',[0,148]],
     ['xiaoxiangguan','main-house',[-105,98]],
