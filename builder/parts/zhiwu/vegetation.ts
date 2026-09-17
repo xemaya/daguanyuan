@@ -31,6 +31,7 @@ import {
 import { occupancyFree, occupancyDistance } from '@builder/compose/occupancy';
 import { registerObject } from '@builder/compose/roster';
 import { TERRAIN, getPlan } from '@builder/compose/terrain';
+import { getScenes } from '@builder/compose/scenes';
 import { makeGrassCoverField } from '@builder/compose/grass-cover';
 import {
   bananaClusterGeometry,
@@ -145,14 +146,16 @@ const VEG = {
  * 沁芳池岸的柳由 `plantBankWillows` 从 plan.json 的水系岸线读出来，
  * 潇湘馆后院的大株梨花单独落位。
  */
+/* 单子 AV2:翠嶂那五棵(松 (-4.9,197.8)/(19.4,201.4)/(19.4,209.2)、槐 (-2.2,208.4)、
+ * 柏 (-6.4,205.2))从这张表里删掉,搬进 `projects/daguanyuan/scenes/cuizhang.json`
+ * 的 `trees[]` 重排。理由不是「数据比代码好」这种口号:这五棵是**对着某一组峰**
+ * 落的位(松探石、槐收脚),而峰住在 scenes 里;分家两处的结果就是 AM2 把峰群
+ * 换了位置、这五棵还留在旧主组周围,谁也没发现。剩下的三棵(潇湘馆院外的槐、
+ * 正门前两株古松)各自贴着自己的建筑,留在这里不碍事;哪天它们也要跟着某个
+ * 构件走,照同一条路搬。 */
 const HERO_TREES: [number, number, string][] = [
   // x, z, species key
-  [-4.9, 197.8, 'pine-old'], // cuizhang cluster
   [-126.6, 110, 'locust'], // xiaoxiang 院外
-  [19.4, 201.4, 'pine-old'], // cuizhang cluster
-  [-2.2, 208.4, 'locust'], // cuizhang cluster
-  [19.4, 209.2, 'pine-old'], // cuizhang cluster
-  [-6.4, 205.2, 'cypress'], // cuizhang cluster
   [40.5, 244.2, 'pine-old'], // 正门前东侧
   [69.5, 244.2, 'pine-old'], // 正门前西侧
   // 潇湘馆后院：「有大株梨花兼著芭蕉」（第十七回）。在房屋台基与引泉沟之间落位。
@@ -391,7 +394,8 @@ const SPECIES: TreeDef[] = [
   },
 ];
 
-const SPECIES_INDEX: Record<string, number> = Object.fromEntries(
+/** 哪些树种真的有骨架。`builder/compose/scenes.ts` 校验点名树的种时读它（单子 AV2）。 */
+export const SPECIES_INDEX: Record<string, number> = Object.fromEntries(
   SPECIES.map((d, i) => [d.key, i]),
 );
 
@@ -1637,11 +1641,58 @@ export function buildVegetation(ctx: GameContext): void {
    * preserving the route foreground for later region-specific planting.
    */
   const treePaths = getPlan().paths;
+
+  /**
+   * 山上不撒树（单子 AV2）。
+   *
+   * 病：下面 `land` 那一项按地面标高从 0.045 升到 0.595——**地越高树越密**。
+   * 那条曲线是给「干燥的高地长林子」写的，在一座假山上它的意思变成了
+   * 「山越高树越多」：翠嶂是这一带最高的地，于是 36 棵树落在它的多边形里
+   * （全园 180 棵的 20%），21 棵挤在山脊南侧、正好挡在门与峰之间，
+   * `mound_block` 里整组峰顶盖在槐冠底下（景需求文档 §6-2）。
+   *
+   * 修法不是给翠嶂开一条特例，而是**山上的树一律点名种**：落在任何一座
+   * `plan.hills[]` 多边形内（含 3 m 羽化带）的散布点一概返回 0，山上要树就
+   * 写进 `scenes/<区>.json` 的 `trees[]`。理由：一座假山上的树是造景，
+   * 位置是被峰、被路、被视线决定的，不是被「这里地高而干」决定的——
+   * 散布器算不出「松探石」。羽化带 3 m 是把山脚那一圈也让开，
+   * 免得树贴着多边形边界排成一条沿等高线的篱笆。
+   *
+   * ⚠️ 这一改**作用于全园六座山**（翠嶂 / 大主山 / 青山 / 凸碧 / 花溆 / 稻香坡），
+   * 不只翠嶂。其余五座山现在会变秃，那是这一条的**已知代价**：它们各自的
+   * 点名种植还没做，要做时照 `scenes/cuizhang.json` 的 `trees[]` 补。
+   * 全园树数与各镜三角的前后差写在单子 AV 的回报里。
+   */
+  const planHills = (getPlan() as unknown as { hills?: { polygon: [number, number][] }[] }).hills ?? [];
+  const HILL_FEATHER = 3;
+  const hillBoxes = planHills.map((h) => {
+    const xs = h.polygon.map((q) => q[0]);
+    const zs = h.polygon.map((q) => q[1]);
+    return {
+      poly: h.polygon as unknown as Point2[],
+      minX: Math.min(...xs) - HILL_FEATHER, maxX: Math.max(...xs) + HILL_FEATHER,
+      minZ: Math.min(...zs) - HILL_FEATHER, maxZ: Math.max(...zs) + HILL_FEATHER,
+    };
+  });
+  const onPlanHill = (x: number, z: number): boolean => {
+    for (const h of hillBoxes) {
+      if (x < h.minX || x > h.maxX || z < h.minZ || z > h.maxZ) continue;
+      if (locatePoint(h.poly, [x, z]) !== 'outside') return true;
+      if (distanceToPolyline(x, z, h.poly) < HILL_FEATHER) return true;
+    }
+    return false;
+  };
+
+  /** `scenes/<区>.json` 点名的树（单子 AV2）。位置是绝对坐标，理由见 `SceneTree`。 */
+  const sceneTrees = getScenes().flatMap((sc) => sc.trees ?? []);
+
   const treeDensity = (x: number, z: number): number => {
     if (x < VEG.scatterMinX || x > VEG.scatterMaxX || z < VEG.scatterMinZ || z > VEG.scatterMaxZ) return 0;
     const m = mask.at(x, z);
     if (m < 0.55) return 0;
+    if (onPlanHill(x, z)) return 0;
     if (HERO_TREES.some(([hx,hz]) => Math.hypot(x-hx,z-hz)<2.5)) return 0;
+    if (sceneTrees.some((t) => Math.hypot(x - t.x, z - t.z) < 2.5)) return 0;
     // 区域硬约束先行:蘅芜苑「一株花木也无」、芦苇荡不长树,mix 为空即全区无树。
     const reg = regionOf(x, z);
     const rt = reg ? REGION_TREES[reg] : undefined;
@@ -1709,7 +1760,13 @@ export function buildVegetation(ctx: GameContext): void {
     }
   }
 
-  const placeTree = (x: number, z: number, speciesIdx: number) => {
+  const placeTree = (
+    x: number,
+    z: number,
+    speciesIdx: number,
+    /** 点名树给的定值（单子 AV2）；不给就走下面那条随机档。 */
+    fixed?: { scale?: number; tilt?: number; tiltAz?: number },
+  ) => {
     const b = built[speciesIdx];
     // Bigger trees deeper into the wood; the trees nearest the town are the
     // small ones, which keeps the treeline from crowding the eye line.
@@ -1717,14 +1774,18 @@ export function buildVegetation(ctx: GameContext): void {
     // A 1.75 : 1 spread on top of the species' own 2.3 : 1 height spread. The
     // old 0.82–1.08 was a 1.3 : 1 band, which is inside the range a viewer
     // reads as "the same asset".
-    const s = rangeOf(rng, 0.70, 1.22) * lerp(0.86, 1.22, edge);
+    const s = fixed?.scale ?? rangeOf(rng, 0.70, 1.22) * lerp(0.86, 1.22, edge);
+    // 随机档照抽不误,即使 fixed 覆盖了它——抽掉的是同一串 rng,不抽会让
+    // 后面所有树的随机序列整体平移,一棵点名树能把全园的树换一遍样子。
+    const rTilt = rangeOf(rng, 0.02, 0.16);
+    const rAz = rng() * Math.PI * 2;
     b.spots.push({
       x, z, s,
       yaw: rng() * Math.PI * 2,
       // Up to 9 degrees of lean, and never exactly zero. The old 4 degree cap
       // was small enough that every trunk read as vertical.
-      tilt: rangeOf(rng, 0.02, 0.16),
-      tiltAz: rng() * Math.PI * 2,
+      tilt: fixed?.tilt ?? rTilt,
+      tiltAz: fixed?.tiltAz ?? rAz,
     });
   };
 
@@ -1743,6 +1804,18 @@ export function buildVegetation(ctx: GameContext): void {
     // 不受草皮 mask 约束。
     if (ground(x, z) < VEG.minPlantY) continue;
     placeTree(x, z, SPECIES_INDEX[key]);
+  }
+
+  /* ---------------- 点名种的树(单子 AV2) ----------------------------- */
+
+  // 与 HERO_TREES 同一路 placeTree,只是位置、种、尺度、倾角从数据来。
+  // 种名合不合法由 `check:scenes` 的 `validateScenes` 拦在数据层(它读同一份
+  // SPECIES_INDEX);这里再兜一次底,免得没跑门的分支静默少一棵树。
+  for (const t of sceneTrees) {
+    const idx = SPECIES_INDEX[t.species];
+    if (idx === undefined) throw new Error(`[vegetation] scenes 点名树的种 ${t.species} 不在 SPECIES_INDEX 里(${t.tag})`);
+    if (ground(t.x, t.z) < VEG.minPlantY) continue;
+    placeTree(t.x, t.z, idx, { scale: t.scale, tilt: t.tilt, tiltAz: t.tiltAz });
   }
 
   /* ---------------- 沁芳堤柳 ---------------------------------------- */

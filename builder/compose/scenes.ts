@@ -23,6 +23,54 @@
  * `setPlan()` 同一路数。
  */
 
+import { locatePoint } from '@builder/plan/geometry';
+/**
+ * `SPECIES_INDEX` 是「哪些树种真的有骨架」的真源，在 `vegetation.ts` 里。
+ * 这条 import 与 `vegetation.ts` 里那条 `getScenes()` 构成一个**循环依赖**，
+ * 是有意为之、而且实测安全：两边在**模块初始化期都不碰对方**——`SPECIES_INDEX`
+ * 只在 `validateScenes()` 的函数体里读，`getScenes()` 只在 `buildVegetation()`
+ * 里调。两个入口（`main.ts` 先进 vegetation、`tools/check-scenes.mjs` 先进
+ * scenes）都跑过。换成在这里手抄一份种名清单才是真的坏：两份清单迟早对不上，
+ * 而对不上的那天没人知道哪一份是对的（`tools/shot-list.mjs` 头注里的同一条教训）。
+ */
+import { SPECIES_INDEX } from '@builder/parts/zhiwu/vegetation';
+
+/**
+ * **点名种的树**（单子 AV2）。
+ *
+ * 为什么它是这一层里唯一写世界绝对坐标的东西：树没有锚点。`placements[]` 的
+ * 「一律相对锚点」治的是 99-25 那笔债——房子一挪，贴着它的竹子该跟着挪；而一棵
+ * 「落在某组峰东侧五米、朝峰倾十度」的松，它的参照物是**那一组峰**，峰是
+ * `named[]`/`placements[]` 上的构件，不是 plan 的可锚对象（plan 的 `rocks[]` 只有
+ * 一个点代表整座翠嶂）。拿 `cuizhang.screen-rocks` 当锚点写 dx/dz 会假装它跟着
+ * 那个点走，而六组峰各在各的位置上——那是一条**会骗人的**相对坐标。老的
+ * `HERO_TREES` 本来就是绝对坐标写在 `.ts` 里，这里只是把它搬进数据、并要求写 basis。
+ *
+ * 校验（`validateScenes`）：种在 `SPECIES_INDEX` 里、坐标落在本区多边形内、
+ * 有 tag 有 basis。**「峰前 6 m 内不种」「山上不超过 12 棵」这类判据不在这里**——
+ * 那是 `tools/tree-census.mjs` 从**跑起来的世界**里数出来的，数据层看不见散布器
+ * 会不会自己在那儿长一棵。
+ */
+export interface SceneTree {
+  /** 世界绝对坐标（见上：树没有锚点）。 */
+  x: number;
+  z: number;
+  /** `vegetation.ts` 的 `SPECIES_INDEX` 键。 */
+  species: string;
+  /** 缺省走散布器那条随机尺度；点名树给定值，免得改一次种子它就换个高矮。 */
+  scale?: number;
+  /** 倾角（弧度）。 */
+  tilt?: number;
+  /**
+   * 倾向的方位。约定与 `vegetation.ts` 组装实例矩阵那一段一致：
+   * 树顶倒向 `(-sin(tiltAz), cos(tiltAz))`。要倒向一点 (px,pz)，
+   * 取 `tiltAz = atan2(-(px-x), pz-z)`。
+   */
+  tiltAz?: number;
+  tag: string;
+  basis: string;
+}
+
 export interface ScenePlacement {
   part: string;
   variant?: string;
@@ -104,6 +152,7 @@ export interface RegionScene {
   region: string;
   $comment?: string;
   named?: SceneNamed[];
+  trees?: SceneTree[];
   placements?: ScenePlacement[];
   clearances?: SceneClearance[];
   accountedFor?: SceneAccountedFor[];
@@ -114,6 +163,8 @@ export interface RegionScene {
 interface AnchorablePlan {
   regions: {
     id: string;
+    /** 区轮廓。点名树的坐标要落在它里面（单子 AV2）。 */
+    polygon?: [number, number][];
     buildings?: { id: string }[];
     rocks?: { id: string }[];
     linears?: { id: string }[];
@@ -182,6 +233,19 @@ export function validateScenes(scenes: RegionScene[], plan: unknown): string[] {
       for (const f of ABSOLUTE_FIELDS)
         if (f in (n as unknown as Record<string, unknown>))
           fails.push(`${tag}：写了 ${f}——点名件的位置从 plan 读，不许在这里覆盖世界绝对坐标`);
+    }
+
+    const regionPoly = p.regions.find((r) => r.id === scene.region)?.polygon;
+    for (const [i, t] of (scene.trees ?? []).entries()) {
+      const tag = `${where} trees[${i}]`;
+      if (!t.species) fails.push(`${tag}：缺 species`);
+      else if (!(t.species in SPECIES_INDEX))
+        fails.push(`${tag}：species ${t.species} 不在 vegetation.ts 的 SPECIES_INDEX 里——骨架没做的种不许点名，落代关系写进 knowledge/docs/plants/00-catalog.md`);
+      if (!Number.isFinite(t.x) || !Number.isFinite(t.z)) fails.push(`${tag}：x/z 必须是有限数`);
+      else if (regionPoly && locatePoint(regionPoly, [t.x, t.z]) === 'outside')
+        fails.push(`${tag}：(${t.x},${t.z}) 落在区 ${scene.region} 的多边形外`);
+      if (!t.tag) fails.push(`${tag}：缺 tag——点名树要能在回报与普查里被指名道姓`);
+      if (!t.basis) fails.push(`${tag}：缺 basis——种一棵树在哪、朝哪倾是一次取舍，写出来就行，不写不许进`);
     }
 
     for (const [i, pl] of (scene.placements ?? []).entries()) {
