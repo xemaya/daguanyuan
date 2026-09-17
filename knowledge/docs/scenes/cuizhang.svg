@@ -34,6 +34,7 @@
 <polygon points="-577.1,-861.0 -450.3,-813.4 -411.1,-735.0 -395.2,-655.7 -395.2,-567.6 -378.9,-494.4 -346.3,-461.7 -341.7,-466.3 -373.1,-497.6 -388.8,-568.4 -388.8,-656.3 -404.9,-737.0 -445.7,-818.6 -574.9,-867.0 -577.1,-861.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
 <polygon points="-675.2,-2132.0 -636.8,-2132.0 -636.8,-1848.0 -675.2,-1848.0 -675.2,-2132.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
 <polygon points="88.0,240.0 176.0,112.0 464.0,64.0 720.0,88.0 944.0,96.0 1072.0,128.0 1168.0,176.0 1136.0,288.0 912.0,352.0 576.0,344.0 288.0,344.0 96.0,328.0 88.0,240.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="88.0" y="236" fill="#6a7a4a" font-size="10">hill.cuizhang 高 4 m</text>
+<polygon points="1032.0,192.0 1008.6,248.6 952.0,272.0 895.4,248.6 872.0,192.0 895.4,135.4 952.0,112.0 1008.6,135.4 1032.0,192.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="1032.0" y="188" fill="#6a7a4a" font-size="10">hill.cuizhang.zhutai 高 2 m</text>
 <polygon points="-1272.0,-3008.0 -1136.0,-3232.0 -832.0,-3312.0 -480.0,-3296.0 -208.0,-3200.0 -32.0,-3008.0 -80.0,-2816.0 -336.0,-2704.0 -688.0,-2688.0 -1008.0,-2752.0 -1216.0,-2848.0 -1272.0,-3008.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-1272.0" y="-3012" fill="#6a7a4a" font-size="10">hill.dazhushan 高 26 m</text>
 <polygon points="-952.0,-1152.0 -832.0,-1280.0 -592.0,-1328.0 -368.0,-1296.0 -232.0,-1184.0 -272.0,-1040.0 -496.0,-968.0 -736.0,-984.0 -896.0,-1040.0 -952.0,-1152.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-952.0" y="-1156" fill="#6a7a4a" font-size="10">hill.qingshan 高 14 m</text>
 <polygon points="1688.0,-816.0 1744.0,-992.0 1936.0,-1048.0 2160.0,-1008.0 2336.0,-864.0 2384.0,-608.0 2320.0,-400.0 2112.0,-288.0 1872.0,-336.0 1728.0,-512.0 1688.0,-816.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="1688.0" y="-820" fill="#6a7a4a" font-size="10">hill.tubi 高 18 m</text>
@@ -52,27 +53,46 @@
 <text x="1024.0" y="475" fill="#444" font-size="9">zhengmen.flanking-wall.east</text>
 <polyline points="256.0,240.0 208.0,176.0" fill="none" stroke="#6a8aa0" stroke-width="4"/>
 <text x="256.0" y="235" fill="#6a8aa0" font-size="9">cuizhang.creek-crossing</text>
-<polygon points="592,202 598,208 592,214 586,208" fill="#8a8f96"/><text x="600" y="212" fill="#4a4f56">screen-rocks (8,202)</text>
+<polygon points="952,186 958,192 952,198 946,192" fill="#8a8f96"/><text x="960" y="196" fill="#4a4f56">screen-rocks (53,200)</text>
 <polygon points="256,186 262,192 256,198 250,192" fill="#8a8f96"/><text x="264" y="196" fill="#4a4f56">rock-02 (-34,200)</text>
 <polygon points="232,202 238,208 232,214 226,208" fill="#8a8f96"/><text x="240" y="212" fill="#4a4f56">rock-03 (-37,202)</text>
 <polygon points="1120,234 1126,240 1120,246 1114,240" fill="#8a8f96"/><text x="1128" y="244" fill="#4a4f56">rock-04 (74,206)</text>
-<rect x="574.6" y="192.6" width="34.9" height="30.7" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
-<circle cx="542.4" cy="228.0" r="4" fill="#5a6e8a"/>
-<circle cx="627.2" cy="185.6" r="4" fill="#5a6e8a"/>
-<text x="548.4" y="224" fill="#3a4e6a" font-size="9">taihu:peak2 (1.8,204.5)</text>
-<text x="633.2" y="181.6" fill="#3a4e6a" font-size="9">taihu:edge3 (12.4,199.2)</text>
+<rect x="929.0" y="177.4" width="45.9" height="29.1" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="184.4" y="222.1" width="47.2" height="51.8" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="365.4" y="212.8" width="37.1" height="38.4" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="809.5" y="159.7" width="45.0" height="40.6" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="1072.6" y="198.1" width="30.7" height="39.0" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="570.8" y="149.3" width="42.4" height="45.4" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="241.6" y="177.0" width="28.8" height="30.1" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<circle cx="924.0" cy="219.2" r="4" fill="#5a6e8a"/>
+<circle cx="988.8" cy="216.0" r="4" fill="#5a6e8a"/>
+<text x="930" y="215.2" fill="#3a4e6a" font-size="9">taihu:peak2 (49.5,203.4)</text>
+<text x="994.8" y="212" fill="#3a4e6a" font-size="9">taihu:edge3 (57.6,203.0)</text>
 <circle cx="208.0" cy="248.0" r="4" fill="#5a6e8a"/>
 <circle cx="384.0" cy="232.0" r="4" fill="#5a6e8a"/>
 <circle cx="832.0" cy="180.0" r="4" fill="#5a6e8a"/>
 <circle cx="1088.0" cy="217.6" r="4" fill="#5a6e8a"/>
-<text x="628" y="235.4" fill="#3a4e6a" font-size="9" text-anchor="middle">baishi ×4</text>
-<circle cx="488.8" cy="174.4" r="6" fill="#7fae5a" opacity="0.8"/><text x="495.8" y="178.4" fill="#4a7a2a" font-size="9">pine-old</text>
-<circle cx="683.2" cy="203.2" r="6" fill="#7fae5a" opacity="0.8"/><text x="690.2" y="207.2" fill="#4a7a2a" font-size="9">pine-old</text>
-<circle cx="510.4" cy="259.2" r="6" fill="#7fae5a" opacity="0.8"/><text x="517.4" y="263.2" fill="#4a7a2a" font-size="9">locust</text>
-<circle cx="683.2" cy="265.6" r="6" fill="#7fae5a" opacity="0.8"/><text x="690.2" y="269.6" fill="#4a7a2a" font-size="9">pine-old</text>
-<circle cx="476.8" cy="233.6" r="6" fill="#7fae5a" opacity="0.8"/><text x="483.8" y="237.6" fill="#4a7a2a" font-size="9">cypress</text>
+<circle cx="592.0" cy="172.0" r="4" fill="#5a6e8a"/>
+<circle cx="946.4" cy="218.4" r="4" fill="#5a6e8a"/>
+<circle cx="979.2" cy="209.6" r="4" fill="#5a6e8a"/>
+<circle cx="828.8" cy="208.8" r="4" fill="#5a6e8a"/>
+<circle cx="593.6" cy="207.2" r="4" fill="#5a6e8a"/>
+<circle cx="380.8" cy="263.2" r="4" fill="#5a6e8a"/>
+<circle cx="206.4" cy="282.4" r="4" fill="#5a6e8a"/>
+<circle cx="1089.6" cy="249.6" r="4" fill="#5a6e8a"/>
+<circle cx="164.0" cy="273.6" r="4" fill="#5a6e8a"/>
+<circle cx="1118.4" cy="212.0" r="4" fill="#5a6e8a"/>
+<text x="672.2" y="242.7" fill="#3a4e6a" font-size="9" text-anchor="middle">baishi ×14</text>
 <circle cx="852.0" cy="545.6" r="6" fill="#7fae5a" opacity="0.8"/><text x="859" y="549.6" fill="#4a7a2a" font-size="9">pine-old</text>
 <circle cx="1084.0" cy="545.6" r="6" fill="#7fae5a" opacity="0.8"/><text x="1091" y="549.6" fill="#4a7a2a" font-size="9">pine-old</text>
+<circle cx="344.0" cy="222.4" r="6" fill="#4f8a3a" opacity="0.9"/><text x="351" y="226.4" fill="#2f6a1a" font-size="9">pine-old ↗10°</text>
+<circle cx="552.0" cy="162.4" r="6" fill="#4f8a3a" opacity="0.9"/><text x="559" y="166.4" fill="#2f6a1a" font-size="9">pine-old ↗9°</text>
+<circle cx="872.0" cy="170.4" r="6" fill="#4f8a3a" opacity="0.9"/><text x="879" y="174.4" fill="#2f6a1a" font-size="9">pine-old ↗11°</text>
+<circle cx="912.0" cy="182.4" r="6" fill="#4f8a3a" opacity="0.9"/><text x="919" y="186.4" fill="#2f6a1a" font-size="9">pine-old ↗9°</text>
+<circle cx="1124.0" cy="192.0" r="6" fill="#4f8a3a" opacity="0.9"/><text x="1131" y="196" fill="#2f6a1a" font-size="9">pine-old ↗11°</text>
+<circle cx="120.0" cy="296.0" r="6" fill="#4f8a3a" opacity="0.9"/><text x="127" y="300" fill="#2f6a1a" font-size="9">locust ↗4°</text>
+<circle cx="176.0" cy="168.0" r="6" fill="#4f8a3a" opacity="0.9"/><text x="183" y="172" fill="#2f6a1a" font-size="9">locust ↗3°</text>
+<circle cx="1134.4" cy="280.0" r="6" fill="#4f8a3a" opacity="0.9"/><text x="1141.4" y="284" fill="#2f6a1a" font-size="9">locust ↗3°</text>
 <circle cx="968.0" cy="544.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="968.0" y="547.5" fill="#b0402a" font-size="9" text-anchor="middle">1</text><text x="977" y="556" fill="#b0402a" font-size="9">正门</text>
 <circle cx="848.0" cy="400.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="848.0" y="403.5" fill="#b0402a" font-size="9" text-anchor="middle">2</text><text x="857" y="412" fill="#b0402a" font-size="9">迎面翠嶂</text>
 <circle cx="256.0" cy="240.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="256.0" y="243.5" fill="#b0402a" font-size="9" text-anchor="middle">3</text><text x="265" y="252" fill="#b0402a" font-size="9">镜面白石·曲径通幽处</text>
@@ -85,6 +105,8 @@
 <text x="597" y="271" fill="#2a6ab0" font-size="9">mound_block</text>
 <line x1="401.0" y1="243.9" x2="368.3" y2="221.0" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="401.0" cy="243.9" r="3" fill="#2a6ab0"/>
 <text x="406" y="254.9" fill="#2a6ab0" font-size="9">mound_west</text>
+<line x1="968.0" y1="488.0" x2="968.0" y2="448.0" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="968.0" cy="488.0" r="3" fill="#2a6ab0"/>
+<text x="973" y="499" fill="#2a6ab0" font-size="9">gate_face</text>
 <line x1="264.0" y1="228.0" x2="260.5" y2="212.4" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="264.0" cy="228.0" r="2" fill="#2a6ab0"/>
 <text x="0" y="606" fill="#666" font-size="9">■ 建筑锚点  ◆ plan 岩石锚点  ● scenes 散置件  ● 手放树(HERO_TREES)  ○ 十七回游线节点  ─ 机位(短线=朝向;小点=贴脸 cu_* 机位,名单见文档)  虚线框=占地登记  棕线=旧路基</text>
 </svg>

@@ -98,8 +98,11 @@ function draw(regionId) {
       out.push(`<text x="${+X(cx)}" y="${+Y(cz) + 16}" fill="#3a4e6a" font-size="9" text-anchor="middle">${esc(part)} ×${list.length}</text>`);
     } else for (const { px, pz, label } of list) out.push(`<text x="${+X(px) + 6}" y="${+Y(pz) - 4}" fill="#3a4e6a" font-size="9">${esc(label)} (${px.toFixed(1)},${pz.toFixed(1)})</text>`);
   }
-  // 手放树
+  // 手放树(vegetation.ts 的 HERO_TREES)与**点名种的树**(scenes 的 trees[],单子 AV2)。
+  // 两处都要画:AV2 之后翠嶂的八棵在 scenes 里,只读 HERO_TREES 的话这张平面会
+  // 画出一座一棵树也没有的山——而它是「现在摆成了什么」的快照,不许少画。
   for (const [x, z, sp] of heroTrees) if (inFrame(x, z)) out.push(`<circle cx="${X(x)}" cy="${Y(z)}" r="6" fill="#7fae5a" opacity="0.8"/><text x="${+X(x) + 7}" y="${+Y(z) + 4}" fill="#4a7a2a" font-size="9">${esc(sp)}</text>`);
+  for (const t of scene.trees ?? []) if (inFrame(t.x, t.z)) out.push(`<circle cx="${X(t.x)}" cy="${Y(t.z)}" r="6" fill="#4f8a3a" opacity="0.9"/><text x="${+X(t.x) + 7}" y="${+Y(t.z) + 4}" fill="#2f6a1a" font-size="9">${esc(t.species)}${t.tilt ? ` ↗${(t.tilt * 180 / Math.PI).toFixed(0)}°` : ''}</text>`);
   // 十七回游线节点
   const route = (plan.narrativeRoutes ?? []).find((r) => r.id === 'ch17');
   for (const n of route?.nodes ?? []) if (inFrame(n.at[0], n.at[1])) out.push(`<circle cx="${X(n.at[0])}" cy="${Y(n.at[1])}" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="${X(n.at[0])}" y="${+Y(n.at[1]) + 3.5}" fill="#b0402a" font-size="9" text-anchor="middle">${n.order}</text><text x="${+X(n.at[0]) + 9}" y="${+Y(n.at[1]) + 12}" fill="#b0402a" font-size="9">${esc(n.name)}</text>`);

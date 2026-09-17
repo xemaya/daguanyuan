@@ -25,6 +25,7 @@
 <polygon points="-1185.1,-1149.0 -1058.3,-1101.4 -1019.1,-1023.0 -1003.2,-943.7 -1003.2,-855.6 -986.9,-782.4 -954.3,-749.7 -949.7,-754.3 -981.1,-785.6 -996.8,-856.4 -996.8,-944.3 -1012.9,-1025.0 -1053.7,-1106.6 -1182.9,-1155.0 -1185.1,-1149.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
 <polygon points="-1283.2,-2420.0 -1244.8,-2420.0 -1244.8,-2136.0 -1283.2,-2136.0 -1283.2,-2420.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
 <polygon points="-520.0,-48.0 -432.0,-176.0 -144.0,-224.0 112.0,-200.0 336.0,-192.0 464.0,-160.0 560.0,-112.0 528.0,0.0 304.0,64.0 -32.0,56.0 -320.0,56.0 -512.0,40.0 -520.0,-48.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-520.0" y="-52" fill="#6a7a4a" font-size="10">hill.cuizhang 高 4 m</text>
+<polygon points="424.0,-96.0 400.6,-39.4 344.0,-16.0 287.4,-39.4 264.0,-96.0 287.4,-152.6 344.0,-176.0 400.6,-152.6 424.0,-96.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="424.0" y="-100" fill="#6a7a4a" font-size="10">hill.cuizhang.zhutai 高 2 m</text>
 <polygon points="-1880.0,-3296.0 -1744.0,-3520.0 -1440.0,-3600.0 -1088.0,-3584.0 -816.0,-3488.0 -640.0,-3296.0 -688.0,-3104.0 -944.0,-2992.0 -1296.0,-2976.0 -1616.0,-3040.0 -1824.0,-3136.0 -1880.0,-3296.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-1880.0" y="-3300" fill="#6a7a4a" font-size="10">hill.dazhushan 高 26 m</text>
 <polygon points="-1560.0,-1440.0 -1440.0,-1568.0 -1200.0,-1616.0 -976.0,-1584.0 -840.0,-1472.0 -880.0,-1328.0 -1104.0,-1256.0 -1344.0,-1272.0 -1504.0,-1328.0 -1560.0,-1440.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-1560.0" y="-1444" fill="#6a7a4a" font-size="10">hill.qingshan 高 14 m</text>
 <polygon points="1080.0,-1104.0 1136.0,-1280.0 1328.0,-1336.0 1552.0,-1296.0 1728.0,-1152.0 1776.0,-896.0 1712.0,-688.0 1504.0,-576.0 1264.0,-624.0 1120.0,-800.0 1080.0,-1104.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="1080.0" y="-1108" fill="#6a7a4a" font-size="10">hill.tubi 高 18 m</text>
@@ -58,6 +59,8 @@
 <line x1="360.0" y1="384.0" x2="360.0" y2="64" stroke="#b0402a" stroke-width="1" stroke-dasharray="5 3"/><text x="364" y="96" fill="#b0402a" font-size="9">X-04 轴线 x=55</text>
 <line x1="379.2" y1="264.8" x2="376.0" y2="224.9" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="379.2" cy="264.8" r="3" fill="#2a6ab0"/>
 <text x="384.2" y="275.8" fill="#2a6ab0" font-size="9">gate_approach</text>
+<line x1="360.0" y1="200.0" x2="360.0" y2="160.0" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="360.0" cy="200.0" r="3" fill="#2a6ab0"/>
+<text x="365" y="211" fill="#2a6ab0" font-size="9">gate_face</text>
 <line x1="360.0" y1="244.8" x2="360.0" y2="204.8" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="360.0" cy="244.8" r="3" fill="#2a6ab0"/>
 <text x="365" y="255.8" fill="#2a6ab0" font-size="9">gate_plaque</text>
 <line x1="360.0" y1="236.8" x2="360.0" y2="220.8" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="360.0" cy="236.8" r="2" fill="#2a6ab0"/>
