@@ -41,6 +41,7 @@ BASE=/daguanyuan/ npm run build   # 部署到 hub 子路径
 
 - 改建筑推导 → `knowledge/docs/fashi/README.md`、`knowledge/docs/qingshi/README.md`、`knowledge/docs/qingshi/tiers.md`
 - 改园子布局 → `knowledge/docs/plan/README.md`、`knowledge/docs/plan/04-conflicts.md`（下游只读这篇判决书）
+- 动某一个景 → `knowledge/docs/scenes/<景>.md`（该是什么 / 现在是什么 / 怎么验；开单前读、收工必改）
 - 执行 P0 剩余任务 → `docs/superpowers/plans/2026-09-10-p0-skeleton-migration.md`
 - 执行 P1 → `docs/superpowers/plans/2026-09-10-p1-foundation.md`（计划）与 `-p1-task-orders.md`（分派单）
 
