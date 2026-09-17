@@ -1,6 +1,9 @@
 // tools/tree-census.mjs — 数一座山上有几棵树、几株灌木、离每组峰多近。
 //
-// 用法:node tools/tree-census.mjs --url http://127.0.0.1:5177/garden.html [--hill hill.cuizhang]
+// 用法:node tools/tree-census.mjs --url http://127.0.0.1:5177/garden.html
+//        [--hill hill.cuizhang] [--ridge 202] [--json]
+//   --ridge  「山脊在哪」的 z,只影响最后那行「脊南 / 脊北」的分法(缺省 202)。
+//   --json   只吐那一行 JSON,不吐散文——给脚本与回报用,免得靠 tail/grep 去捞。
 //
 // 从跑着的世界里把 Trunk_* / Bush_* 的实例矩阵全解出来(与 tools/shot-list.mjs
 // `mound_west` 注释里那次手工普查同一路数),按 plan.json 的山体多边形分内外,
@@ -13,11 +16,16 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const args = { url: 'http://127.0.0.1:5173/garden.html', hill: 'hill.cuizhang' };
+const args = { url: 'http://127.0.0.1:5173/garden.html', hill: 'hill.cuizhang', ridge: 202, json: false };
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === '--url') args.url = process.argv[++i];
   else if (process.argv[i] === '--hill') args.hill = process.argv[++i];
+  else if (process.argv[i] === '--ridge') args.ridge = Number(process.argv[++i]);
+  else if (process.argv[i] === '--json') args.json = true;
 }
+if (!Number.isFinite(args.ridge)) { console.error('--ridge 需要一个数'); process.exit(2); }
+/** 散文行走这里;`--json` 下全部闭嘴,只留最后那行 JSON。 */
+const say = args.json ? () => {} : (...a) => console.log(...a);
 
 const plan = JSON.parse(readFileSync(resolve(ROOT, 'projects/daguanyuan/plan.json'), 'utf8'));
 const hill = plan.hills.find((h) => h.id === args.hill);
@@ -37,11 +45,18 @@ function inside(poly, x, z) {
 // 峰组:named 里绑 baishi 的锚点 + placements 里的 baishi 件(锚点 + dx/dz)。
 const anchors = new Map();
 for (const r of plan.regions) for (const k of r.rocks ?? []) anchors.set(k.id, [k.x, k.z]);
+// 「峰」与「石脚」要分开(单子 AV5)。判据说的是「任一组**峰**南侧 6 m 内的树」——
+// 那一条问的是「有没有树挡在门与峰之间」。AV4 之后 scenes 里还多了一档 `skirt*`:
+// 半埋的矮岩板,露头一米出头、宽三四米,它挡不住任何视线,却正好摆在峰脚朝门那一侧。
+// 把它算成「峰」会让判据在任何合理的布局下都失败(峰脚前想种任何东西都不行),
+// 那是判据被工具改写,不是布局出了问题。所以 skirt 照样列出来、照样数近旁的树,
+// **但不计入 peakSouth6m**;它在判据写下的时候还不存在。
+const isPeak = (v) => /^(group|peak)/.test(v ?? '');
 const groups = [];
-for (const n of scene.named ?? []) if (n.part === 'baishi' && anchors.has(n.object)) groups.push({ tag: `${n.variant}(named)`, at: anchors.get(n.object) });
+for (const n of scene.named ?? []) if (n.part === 'baishi' && anchors.has(n.object)) groups.push({ tag: `${n.variant}(named)`, peak: isPeak(n.variant), at: anchors.get(n.object) });
 for (const p of scene.placements ?? []) if (p.part === 'baishi' && anchors.has(p.anchor)) {
   const a = anchors.get(p.anchor);
-  groups.push({ tag: p.variant, at: [a[0] + (p.dx ?? 0), a[1] + (p.dz ?? 0)] });
+  groups.push({ tag: p.variant, peak: isPeak(p.variant), at: [a[0] + (p.dx ?? 0), a[1] + (p.dz ?? 0)] });
 }
 
 const browser = await chromium.launch({ headless: true, args: ['--use-gl=angle', '--use-angle=metal', '--enable-gpu', '--enable-unsafe-webgpu', '--ignore-gpu-blocklist'] });
@@ -60,6 +75,9 @@ const data = await page.evaluate(() => {
       }
     }
     if (/Wisteria|Moss_patches/.test(o.name)) out.named[o.name] = { count: o.count ?? 1 };
+    // ⚠️ 实例被 ClusteredInstancePool 按空间格切成 `名字@格号` 的多个 mesh,
+    // 所以「藤萝几根」不能按单一名字取——单子 AV3 落地时就在这儿读出过 0,
+    // 而世界里实有 18 根。按前缀累加。
   });
   return out;
 });
@@ -70,17 +88,30 @@ const onHill = data.trees.filter((t) => inside(poly, t[1], t[2]));
 const bushOnHill = data.bushes.filter((b) => inside(poly, b[1], b[2]));
 const bySp = {};
 for (const t of onHill) bySp[t[0].replace(/@.*/, '')] = (bySp[t[0].replace(/@.*/, '')] || 0) + 1;
-console.log(`trees total ${data.trees.length}, on ${args.hill} ${onHill.length}  ${JSON.stringify(bySp)}`);
-console.log(`bushes total ${data.bushes.length}, on hill ${bushOnHill.length}`);
-console.log(`named: ${JSON.stringify(data.named)}`);
+const sumNamed = (re) => Object.entries(data.named).filter(([k]) => re.test(k)).reduce((a, [, v]) => a + v.count, 0);
+say(`trees total ${data.trees.length}, on ${args.hill} ${onHill.length}  ${JSON.stringify(bySp)}`);
+say(`bushes total ${data.bushes.length}, on hill ${bushOnHill.length}`);
+say(`named: ${JSON.stringify(data.named)}`);
+say(`wisteria 合计 ${sumNamed(/^Wisteria/)} 根、moss 贴片合计 ${sumNamed(/^Moss_patches/)} 片(按名字前缀累加,实例被空间分格切成多个 mesh)`);
 // 世界 +Z 朝南:门在 z=236,峰在 z≈202,「峰南侧」= z 比峰大 = 挡在门与峰之间。
 let southViolations = 0;
 for (const grp of groups) {
   const near = data.trees.filter((t) => Math.hypot(t[1] - grp.at[0], t[2] - grp.at[1]) < 6);
   const south = near.filter((t) => t[2] > grp.at[1]);
-  southViolations += south.length;
-  console.log(`${grp.tag} @(${grp.at[0]},${grp.at[1]}): 6m 内 ${near.length} 棵, 其中南侧(挡门) ${south.length}  ` + near.map((t) => `${t[0].replace(/@.*/, '')}(${t[1]},${t[2]}) d=${Math.hypot(t[1] - grp.at[0], t[2] - grp.at[1]).toFixed(1)}`).join(' | '));
+  if (grp.peak) southViolations += south.length;
+  say(`${grp.peak ? '峰' : '脚'} ${grp.tag} @(${grp.at[0].toFixed(1)},${grp.at[1].toFixed(1)}): 6m 内 ${near.length} 棵, 其中南侧(挡门) ${south.length}${grp.peak ? '' : '(石脚,不计判据)'}  ` + near.map((t) => `${t[0].replace(/@.*/, '')}(${t[1]},${t[2]}) d=${Math.hypot(t[1] - grp.at[0], t[2] - grp.at[1]).toFixed(1)}`).join(' | '));
 }
-const ridgeZ = 202;
-console.log(`on-hill trees south of ridge z>${ridgeZ} (between gate and ridge): ${onHill.filter((t) => t[2] > ridgeZ).length}, north: ${onHill.filter((t) => t[2] <= ridgeZ).length}`);
-console.log(JSON.stringify({ treesOnHill: onHill.length, bushesOnHill: bushOnHill.length, peakSouth6m: southViolations, wisteria: data.named['Wisteria_cuizhang']?.count ?? 0 }));
+const ridgeZ = args.ridge;
+say(`on-hill trees south of ridge z>${ridgeZ} (between gate and ridge): ${onHill.filter((t) => t[2] > ridgeZ).length}, north: ${onHill.filter((t) => t[2] <= ridgeZ).length}`);
+console.log(JSON.stringify({
+  hill: args.hill,
+  ridge: ridgeZ,
+  treesTotal: data.trees.length,
+  treesOnHill: onHill.length,
+  treesBySpecies: bySp,
+  bushesTotal: data.bushes.length,
+  bushesOnHill: bushOnHill.length,
+  peakSouth6m: southViolations,
+  wisteria: sumNamed(/^Wisteria/),
+  mossPatches: sumNamed(/^Moss_patches/),
+}));

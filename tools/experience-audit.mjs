@@ -163,7 +163,70 @@ function auditFramedView(plan, entry) {
   return fails;
 }
 
-function auditApproachAxis(plan, entry) {
+/**
+ * 只量不判的参照点:射线到最近一组**白石**的夹角(单子 AV5)。
+ *
+ * 为什么要它:X-04 问的是「穿门而入,迎面有没有东西挡着」,而它的判法落在
+ * **土山多边形**上——多边形从 AM2 起没动过,石头摆在哪它一概不知。于是 2026-09-17
+ * 复走时 `gate_face`(门内北望)拍出来一块石头也没有,X-04 却一直是绿的
+ * (景需求文档 §6-1)。这个函数把「石头在不在正前方」也量出来。
+ *
+ * **它不进门,也不改 X-04 的 status。** 观感迭代期不加门(docs/DECISIONS.md):
+ * 这一轮正在挪石头,焊一条阈值上去只会逼下一个人去调松它,或者把当下这个
+ * 形态当成期望值焊死。「迎面有没有石头」这一轮由 `gate_face` 的图判,
+ * 这里只负责把数打印出来,让下一轮能看见它往哪边走。
+ *
+ * 包络不现场建几何(那要把 three 与 metaball 拖进 check:plan,每跑一次多一秒多),
+ * 而是读 scenes 的 `clearances[]`——那张表里的 hx/hz 正是同一批构件量出来的
+ * 世界包围盒(单子 AV2 逐条用 buildBaishiGeometry 量的,basis 里写着)。
+ * 认不出包络的件退化成一个点,不假装知道它多大。
+ */
+function measureRocks(plan, entry, loadScene) {
+  const at = entry.at ?? entry.path?.[1];
+  const dir = entry.path ? [entry.path[1][0] - entry.path[0][0], entry.path[1][1] - entry.path[0][1]] : null;
+  if (!at || !dir) return null;
+  const dl = Math.hypot(...dir);
+  if (!(dl > 0)) return null;
+  const regions = entry.rocksIn ?? plan.regions.map((r) => r.id);
+  let best = null;
+  for (const regionId of regions) {
+    const scene = loadScene?.(regionId);
+    if (!scene) continue;
+    const anchors = new Map();
+    const r = plan.regions.find((x) => x.id === regionId);
+    for (const k of r?.rocks ?? []) anchors.set(k.id, [k.x, k.z]);
+    const items = [];
+    for (const n of scene.named ?? [])
+      if (n.part === 'baishi' && /^(group|peak)/.test(n.variant ?? '') && anchors.has(n.object))
+        items.push({ tag: `${regionId}/${n.variant}`, anchor: n.object, dx: 0, dz: 0, at: anchors.get(n.object) });
+    for (const pl of scene.placements ?? [])
+      if (pl.part === 'baishi' && /^(group|peak)/.test(pl.variant ?? '') && anchors.has(pl.anchor)) {
+        const a = anchors.get(pl.anchor);
+        items.push({ tag: `${regionId}/${pl.variant}`, anchor: pl.anchor, dx: pl.dx, dz: pl.dz, at: [a[0] + pl.dx, a[1] + pl.dz] });
+      }
+    for (const it of items) {
+      const c = (scene.clearances ?? []).find(
+        (q) => q.anchor === it.anchor && Math.abs((q.dx ?? 0) - it.dx) < 0.01 && Math.abs((q.dz ?? 0) - it.dz) < 0.01,
+      );
+      const hx = c?.hx ?? 0, hz = c?.hz ?? 0;
+      const pts = hx > 0 || hz > 0
+        ? [[it.at[0] - hx, it.at[1] - hz], [it.at[0] - hx, it.at[1] + hz], [it.at[0] + hx, it.at[1] - hz], [it.at[0] + hx, it.at[1] + hz], it.at]
+        : [it.at];
+      for (const q of pts) {
+        const b = [q[0] - at[0], q[1] - at[1]];
+        const bl = Math.hypot(...b);
+        if (bl < 1e-9) continue;
+        const deg = (Math.acos(Math.max(-1, Math.min(1, (dir[0] * b[0] + dir[1] * b[1]) / (dl * bl)))) * 180) / Math.PI;
+        // 只认前方的:射线是「走出门的去向」,身后的石头不算迎面。
+        if (deg > 90) continue;
+        if (!best || deg < best.deg) best = { deg, tag: it.tag, dist: bl, boxed: hx > 0 || hz > 0 };
+      }
+    }
+  }
+  return best;
+}
+
+function auditApproachAxis(plan, entry, loadScene) {
   const fails = [];
   const path = entry.path;
   if (!Array.isArray(path) || path.length !== 2) return [`${label(entry)} approach_axis 需 path:[[起],[讫]] 给行进方向`];
@@ -191,7 +254,12 @@ function auditApproachAxis(plan, entry) {
     if (deg > threshold)
       fails.push(`${label(entry)} 在 (${at}) 行进方向与 ${target.label} 方位夹角 ${deg.toFixed(1)}° 超过阈值 ${threshold}°`);
   }
-  return fails;
+  // 只量不判(单子 AV5):同一条射线打到最近一组白石的夹角,附在 detail 里打印。
+  const rocks = measureRocks(plan, entry, loadScene);
+  const note = rocks
+    ? `参照·白石(只量不判):最近一组 ${rocks.tag},夹角 ${rocks.deg.toFixed(1)}°、距 ${rocks.dist.toFixed(1)} m${rocks.boxed ? '(按 clearances 登记的世界包围盒取最近角)' : '(该件未登记占地,按落位点算)'}`
+    : null;
+  return { fails, note };
 }
 
 const distanceToSegment = (p, a, b) => {
@@ -301,11 +369,16 @@ export function auditExperience(plan, { loadScene } = {}) {
       results.push({ id: entry.id, type: entry.type, status: entry.status, pass: false, detail: shapeFails.join(';') || '验法未实现' });
       continue;
     }
-    const assertFails = AUDITORS[entry.type](plan, entry, read);
+    // 验法可以返回 string[](只有失败),也可以返回 { fails, note }——note 是
+    // 「只量不判」的参照数(单子 AV5),跟着 detail 打印出来,既不进 fails 也不改 pass。
+    const raw = AUDITORS[entry.type](plan, entry, read);
+    const assertFails = Array.isArray(raw) ? raw : raw.fails;
+    const note = Array.isArray(raw) ? null : raw.note;
     fails.push(...assertFails);
     results.push({
       id: entry.id, type: entry.type, status: entry.status, pass: assertFails.length === 0,
-      detail: assertFails.length ? assertFails.join(';') : '断言通过',
+      detail: (assertFails.length ? assertFails.join(';') : '断言通过') + (note ? ` | ${note}` : ''),
+      ...(note ? { note } : null),
     });
   }
   return { fails, results };
