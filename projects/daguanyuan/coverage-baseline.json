@@ -9,8 +9,8 @@
   ],
   "builtCoverage": "17/23",
   "knownGaps": 80,
-  "feral": 40,
-  "note": "AD 首测 10/23、feral 44；单子 Y 接管点名件后 12/23；单子 Z 让植被自报(+2 花池)、并把三条「实体在别处」显式记账后 17/23，feral 降到 40(四盏灯改由规则生成)。",
+  "feral": 43,
+  "note": "AD 首测 10/23、feral 44；单子 Y 接管点名件后 12/23；单子 Z 让植被自报(+2 花池)、并把三条「实体在别处」显式记账后 17/23，feral 降到 40(四盏灯改由规则生成)。2026-09-17 验收人(AU 验收)抬到 43：多出的四件是阶下两溜高照 gaozhao:default(scenes/zhengmen.json placements，07-69/07-70 有原文、有 basis)，量自 shots/AU/verify-four；带 basis 的 placements 仍被记作野生件是对账门自己的计法问题，记在 detail-review-response §18。",
   "terrain": {
     "$comment": "单子 AA 的判据(spec §3):区数涨了,这两个数不许变差。改之前 splat 是写死的 1024²「一张盖全场」,窗口一大就摊薄——4 区 26.4、19 区 50.2 cm/texel,精度掉一半且是必然的。现在按窗口算边长,精度与区数解耦。",
     "cell": 0.48,

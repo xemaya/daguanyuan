@@ -1,7 +1,7 @@
 # 正门（zhengmen）——景需求文档
 
 > 状态：**观感冻结**（`docs/DECISIONS.md` D-28，2026-09-16 用户拍板）。冻结后只收 bug、形制断言门（AE）、匾文繁体化。
-> 单子 AU 三件（两溜高照 / 铺首门环 / 门前青草）已合回 `editor`（`f5278b6a` `8b0eea6b` `d6f6fd82`），**待验收**。
+> 单子 AU 三件（两溜高照 / 铺首门环 / 门前青草）已合回并验收（`docs/reviews/2026-09-15-detail-review-response.md` §18，2026-09-17）；**冻结日期 2026-09-17**。
 > 平面：[zhengmen.svg](zhengmen.svg)。考据：`knowledge/docs/qingshi/tiers.md` §1、`07-honglou.md` 07-01 / 07-02 / 07-70。
 
 ## 1 一句话
@@ -43,8 +43,8 @@
 |---|---|---|---|---|
 | 门屋 | 五间硬山，桶瓦泥鳅脊，前后檐装门，两山砖墙 | 如要求；柱高 4.2、六椽、五踩斗科高 0.72 | `plan.json` `zhengmen.main-gate`；`builder/parts/damu/building.ts` `men` 档 | ✅ AJ 起三轮精修 |
 | 匾「大观园」 | 有匾框、角花、前倾匾托、钤印；真毛笔字 | 宽 = 当心间 × 0.72 = 2.59 m；马善政楷子集字体 | `builder/parts/xiaomu/plaque.ts`；`public/fonts/MaShanZheng-plaque-subset.woff2` | ✅ AT1；**繁体「大觀園」待用户点头** |
-| 门板 | 素板门，不装门钉，一对素面铺首门环，熟铜色 | AU2 已合回 | `builder/parts/xiaomu/pushou.ts`；`building.ts` `mkLeaf` | 待验收 |
-| 檐下灯笼 | 每间一盏共五盏，直径 ≥0.55 m，纸色 | 直径 0.56 m，规则 `where.perBay:['men']` | `builder/parts/xiaomu/lantern.ts`；`builder/compose/scatter-rules.ts` | 待验收（AU1） |
+| 门板 | 素板门，不装门钉，一对素面铺首门环，熟铜色 | 每扇一副：板 0.15 × 0.17 m、环 Ø 0.15 m | `builder/parts/xiaomu/pushou.ts`；`building.ts` `mkLeaf` | ✅ AU2 |
+| 檐下灯笼 | 每间一盏共五盏，直径 ≥0.55 m，纸色 | 直径 0.56 m、灯身高 0.60、`LANTERN_DROP` 1.04（天花板 1.12）；五盏同一 `hangY` | `builder/parts/xiaomu/lantern.ts`；`builder/compose/scatter-rules.ts` | ✅ AU1；**当心间那盏与匾争位**（§6） |
 | 阶下高照 | 两溜落地灯杆，踏跺两侧对称，对齐台矶墁缝 | 4 根：x = 55 ± 3.47、55 ± 5.01，z = 240.2 | `projects/daguanyuan/scenes/zhengmen.json` placements `gaozhao` ×4；`builder/parts/xiaomu/gaozhao.ts` | 待验收（AU1） |
 | 白石台矶 | 四层石作（土衬 / 陡板 / 阶条 / 面层）有砌缝；陡板西番草 | 宽 13.76 m，锚 (55,241)；浮雕 4 mm（D-27：台矶 32 px 视张角，几何浮雕留着当尺子） | `builder/parts/qiangyuan/forecourt-terrace.ts`；`builder/parts/ornament/` | ✅ AJ1 / AO |
 | 垂带抱鼓 | 一对，坐在前踏跺两条垂带外侧的台矶面层上，鼓面相对 | `chuidai` 档 | `builder/parts/shishan/baogushi.ts` | ✅ AT2 |
