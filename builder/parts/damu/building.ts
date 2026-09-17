@@ -1689,13 +1689,43 @@ export function buildBuilding(opts: BuildingOptions): BuildingResult {
       });
       return leaf;
     };
-    const openAng = doorOpen ? Math.PI / 2 - 0.06 : 0.04;
+    /**
+     * 门扇开度。**60°,不是全开**(用户 2026-09-16 裁定,单子 AU2)。
+     *
+     * 原先是 `π/2 − 0.06`(≈84°):门扇几乎贴平在门道两侧,外皮法线转到 ±X,
+     * 于是**正对门道的机位只看得见两扇门的内皮(穿带面)**——铺首门环钉在外皮
+     * 是形制,不能为了露脸挪到里面,所以只能让门少开一点。
+     * 60° 下两只门环正面清清楚楚,门也更读得出是"开着的门"而不是贴在门道两侧的板。
+     *
+     * 代价:门道净宽从 2.50m(84° 的门扇尖间距)收到 **1.41m**(尖在 z≈1.20m 处),
+     * 仍然过得去(playtest 的「穿门直行」走的就是这条线)。
+     */
+    const openAng = doorOpen ? (60 * Math.PI) / 180 : 0.04;
     hingedPanel(mkLeaf(1), gw2, cx0 + jambW, 1, platH + sillH2 + doorH / 2, 0, openAng);
     hingedPanel(mkLeaf(-1), gw2, cx1 - jambW, -1, platH + sillH2 + doorH / 2, 0, openAng);
     if (doorOpen) {
-      // 全开的门扇贴立在门道两侧,各是一条顺 Z 的薄阻挡,不占中路。
-      for (const sx of [-1, 1]) {
-        blockers.push({ cx: sx * (Math.abs(cx0) - jambW), cz: gw2 / 2, hx: 0.04, hz: gw2 / 2, minY: platH + sillH2, h: platH + sillH2 + doorH });
+      /*
+       * 开着的门扇各是一片**斜着的**薄板,挡板必须跟着门扇的实际角度走。
+       *
+       * ⚠️ 旧版把它们写死成「顺 Z 的薄片贴在门道两侧」(`cz: gw2/2, hx: 0.04, hz: gw2/2`)
+       * ——那是 84° 全开时的样子。开度一改,挡板就与看得见的门扇对不上,
+       * 人会从门扇里穿过去。所以这里从 `hingedPanel` 的同一组数推,不再抄形状:
+       *   门扇中心 = 铰点 + (side·gw2/2, 0, 0) 绕 Y 转 −side·openAng,
+       *   即 (hingeX + side·(gw2/2)·cos, (gw2/2)·sin);
+       *   半长 gw2/2 沿门扇自身的长轴,`rot` 与 `pivot.rotation.y` 同号同值。
+       */
+      const halfLen = gw2 / 2;
+      for (const side of [1, -1] as const) {
+        const hingeX = side === 1 ? cx0 + jambW : cx1 - jambW;
+        blockers.push({
+          cx: hingeX + side * halfLen * Math.cos(openAng),
+          cz: halfLen * Math.sin(openAng),
+          hx: halfLen,
+          hz: 0.045,
+          rot: -side * openAng,
+          minY: platH + sillH2,
+          h: platH + sillH2 + doorH,
+        });
       }
     } else {
       blockers.push({ cx: 0, cz: 0, hx: openW / 2, hz: 0.04, minY: platH + sillH2, h: platH + sillH2 + doorH });
