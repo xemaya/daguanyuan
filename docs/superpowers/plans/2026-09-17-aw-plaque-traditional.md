@@ -11,7 +11,8 @@
 
 ## 裁定（派单前填）
 
-- **字体**：**（待用户：C AR PL UKai 文鼎中楷 / B LXGW WenKai TC 霞鹜文楷 / D Yuji Syuku 日文毛笔 + 用 WenKai 补 5 字合成一个文件）**。
+- **字体**：**用户 2026-09-17 选定 C = AR PL UKai（文鼎 PL 中楷）**。来源：Debian 源包 `fonts-arphic-ukai_0.2.20080216.2.orig.tar.bz2`（http://deb.debian.org/debian/pool/main/f/fonts-arphic-ukai/ ），取 `ukai.ttc` 第 0 个字面；许可证 Arphic Public License 原文随包附带，抄进 `public/fonts/`。
+- **与 AV-b 合派**（用户 2026-09-17）：同一个 agent 先做 AW（小、独立、先见效），再做 AV-b1 / AV-b2；两张单子各自的文件域与判据不变，回报分开写。
   验收人建议 **C**：楷書有顿笔、结构像真匾，83 字全有，Arphic Public License 允许再分发与子集化（要附许可证原文）；字重偏细，`plaque.ts` 的双层描边会补回来，收工用 `cu_gate_plaque` 判。
   B 是最稳的备选（OFL、Medium 字重），但笔味最弱；D 笔味最强，代价是五块匾里各有一个字换了另一款字体的写法。
 
