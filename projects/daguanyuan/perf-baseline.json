@@ -5,32 +5,28 @@
   "fpsTarget": 45,
   "shots": {
     "gate_approach": {
-      "drawCalls": 271,
-      "triangles": 4020205,
-      "fps": 47,
-      "frameCostMs": 3.5
+      "drawCalls": 317,
+      "triangles": 4665063,
+      "fps": 45
     },
     "mound_block": {
-      "drawCalls": 267,
-      "triangles": 4211480,
-      "fps": 48,
-      "frameCostMs": 3.9
+      "drawCalls": 293,
+      "triangles": 4665921,
+      "fps": 46
     },
     "grass_close": {
-      "drawCalls": 270,
-      "triangles": 4174790,
-      "fps": 47,
-      "frameCostMs": 5.6
+      "drawCalls": 296,
+      "triangles": 4641963,
+      "fps": 46
     },
     "xiaoxiang": {
-      "drawCalls": 225,
-      "triangles": 2967908,
-      "fps": 46,
-      "frameCostMs": 3.8
+      "drawCalls": 246,
+      "triangles": 3242702,
+      "fps": 45
     }
   },
-  "measuredAt": "2026-09-16",
-  "commit": "ca6bf07226bda8fada628957fdddaf4627a14f73",
+  "measuredAt": "2026-09-17",
+  "commit": "66f161daed03b6bc0654f460968805ec008bba3b",
   "history": [
     {
       "date": "2026-09-15",
@@ -103,6 +99,14 @@
       "bought": "合并两条独立分支：AQ-c 的残余合批优化 + AM 的翠嶂重做(白石峰群/题字石/苔藓)——AM 在自己分支上量的账全是相对 AQ-b1(AQ-c 之前)算的,这是两支代码第一次真正一起跑,mound_block 的 +6.96% 正是峰群几何第一次落进 AQ-c 优化后的世界里的真实成本",
       "by": "AM 施工 agent 自报;验收人(Claude)2026-09-16 在 5177 复拍四镜逐位一致后认可",
       "note": "三次独立进程连拍(shots/merge-final、merge-final2、merge-final3),drawCalls/triangles 三次逐位相同;fps/frameCostMs 取三次中位数。mound_block 单镜 +6.96% 超 ±3%——如实抬线,不是回归,是两支功能第一次合体的真实买入(峰群 276k 三角 vs AQ-c 优化前的旧土岭,合并后两边效果都在);其余三镜在 ±3% 内。"
+    },
+    {
+      "date": "2026-09-17",
+      "order": "AV(翠嶂第二轮)",
+      "shots": "gate_approach 4020205→4665063(+644858/+16.0%,calls 271→317), mound_block 4211480→4665921(+454441/+10.8%,calls 267→293), grass_close 4174790→4641963(+467173/+11.2%,calls 270→296), xiaoxiang 2967908→3242702(+274794/+9.3%,calls 225→246)",
+      "bought": "主组上轴(group9 五块最高)+ 土台 + 九件石脚 + 新补一组峰 + 八棵点名松槐 + 全园灌木(0→350)+ 藤萝 14 根 + 苔地。按视锥逐类数三角(验收 §19):gate_approach 合批静态件 +182k / 树 +60k / 灌木 +30k,是这一单要的四件;xiaoxiang 的 +9.3% 是 Bridson 散布全园重洗(P-28)把 13 棵树洗进潇湘馆视锥,不是买的——AV-b1 修散布稳定性后这一镜应回落,届时重写。",
+      "by": "验收人(Claude)2026-09-17 在 5177 三次独立进程连拍(shots/AV/verify-four、-2、-3)取中位数,drawCalls/triangles 三次逐位相同",
+      "note": "四镜全超 ±3%(+9.3%~+16.0%),如实抬线。fps 45–46 贴着目标 45、frameCostMs 4.0–4.5:翠嶂这一轮把四镜余量吃光,下一次买细节之前先做 AV-b 的回收。"
     }
   ]
 }

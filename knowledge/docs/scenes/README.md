@@ -42,6 +42,6 @@
 | 景 | 文档 | 状态 |
 |---|---|---|
 | 正门 | [zhengmen.md](zhengmen.md) | 观感冻结（`D-28`，2026-09-17），AU 已验收 |
-| 翠嶂 | [cuizhang.md](cuizhang.md) | 第一轮 AM 已验收；第二轮 AV 单子已写可派（`docs/superpowers/plans/2026-09-17-av-cuizhang-green.md`） |
+| 翠嶂 | [cuizhang.md](cuizhang.md) | AM、AV 两轮已验收（2026-09-17）；尾账 AV-b 可派 |
 | 沁芳亭桥 | 未写 | 动 D3/D4 之前补 |
 | 潇湘馆 | 未写 | 动 AL 之前补 |
