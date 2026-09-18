@@ -5,32 +5,32 @@
   "fpsTarget": 45,
   "shots": {
     "gate_approach": {
-      "drawCalls": 317,
-      "triangles": 4665063,
+      "drawCalls": 310,
+      "triangles": 4540551,
       "fps": 45,
-      "frameCostMs": 4.2
+      "frameCostMs": 3.9
     },
     "mound_block": {
       "drawCalls": 293,
-      "triangles": 4665921,
+      "triangles": 4430711,
       "fps": 46,
-      "frameCostMs": 4
+      "frameCostMs": 3.8
     },
     "grass_close": {
-      "drawCalls": 296,
-      "triangles": 4641963,
+      "drawCalls": 303,
+      "triangles": 4563365,
       "fps": 46,
-      "frameCostMs": 7.2
+      "frameCostMs": 6.1
     },
     "xiaoxiang": {
-      "drawCalls": 246,
-      "triangles": 3242702,
-      "fps": 45,
-      "frameCostMs": 4.4
+      "drawCalls": 251,
+      "triangles": 3145172,
+      "fps": 44,
+      "frameCostMs": 4.3
     }
   },
-  "measuredAt": "2026-09-17",
-  "commit": "66f161daed03b6bc0654f460968805ec008bba3b",
+  "measuredAt": "2026-09-18",
+  "commit": "dd3222ff66ca3e3916686f4a9fa4779769f96d34",
   "history": [
     {
       "date": "2026-09-15",
@@ -111,6 +111,14 @@
       "bought": "主组上轴(group9 五块最高)+ 土台 + 九件石脚 + 新补一组峰 + 八棵点名松槐 + 全园灌木(0→350)+ 藤萝 14 根 + 苔地。按视锥逐类数三角(验收 §19):gate_approach 合批静态件 +182k / 树 +60k / 灌木 +30k,是这一单要的四件;xiaoxiang 的 +9.3% 是 Bridson 散布全园重洗(P-28)把 13 棵树洗进潇湘馆视锥,不是买的——AV-b1 修散布稳定性后这一镜应回落,届时重写。",
       "by": "验收人(Claude)2026-09-17 在 5177 三次独立进程连拍(shots/AV/verify-four、-2、-3)取中位数,drawCalls/triangles 三次逐位相同",
       "note": "四镜全超 ±3%(+9.3%~+16.0%),如实抬线。fps 45–46 贴着目标 45、frameCostMs 4.0–4.5:翠嶂这一轮把四镜余量吃光,下一次买细节之前先做 AV-b 的回收。"
+    },
+    {
+      "date": "2026-09-18",
+      "order": "AW + AV-b",
+      "shots": "gate_approach 4665063→4540551(−2.7%,calls 317→310), mound_block 4665921→4430711(−5.0%,calls 293→293), grass_close 4641963→4563365(−1.7%,calls 296→303), xiaoxiang 3242702→3145172(−3.0%,calls 246→251)",
+      "bought": "没有买细节,是回收:AV-b1 树散布改「先撒后筛」(P-28),树 183→174、灌木整体重铺一次(350→355,山上 47→41);AW 只换匾字贴图,三角零变化。mound_block −5.0% 与 xiaoxiang −3.0% 是重铺的副产物,两镜双向越过 ±3% 所以重写基线;xiaoxiang 没回到 AV 前的 2967908(哈希筛是同一密度场上另一套点集,视锥内约 44 棵 vs AV 前 36),这一点验收 §20 认了。",
+      "by": "验收人(Claude)2026-09-18 在 5177 三次独立进程连拍(shots/AW/verify-four、-2、-3)取中位数,drawCalls/triangles 逐位相同",
+      "note": "fps 44–46 贴着目标 45,frameCostMs 4.2–4.6;余量仍然吃光,下一次买细节前先做回收。"
     }
   ]
 }

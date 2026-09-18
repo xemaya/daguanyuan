@@ -36,7 +36,7 @@
 | nuanxiangwu.liaofeng-house / nuanxiang-house / west-street-gate | 蓼风轩 / 暖香坞 / 穿云/度月 | 蓼風軒 / 暖香塢 / 穿雲/度月 | |
 | qinfangzha.sluice-bridge | 沁芳闸 | 沁芳閘 | |
 | liaoting_huaxu.water-cave | 蓼汀花溆 | 蓼汀花漵 | ⚠️ 「漵」底本用字核一下 |
-| luxueguang.reed-hall | 芦雪广 | 蘆雪廣 | ⚠️ 底本「蘆雪廣」，另有「蘆雪庵」异文，停下来问 |
+| luxueguang.reed-hall | 芦雪广 | **蘆雪广** | ⚠️ 验收人 2026-09-18 核底本（维基文库第五十回回目「蘆雪广爭聯即景詩」，采庚辰本）：**「广」读 yǎn，是本字不是「廣」的简化，不得转成「廣」**。本表初稿写「蘆雪廣」是验收人的错，施工按表落成「蘆雪廣」后由验收人改回「蘆雪广」（§20）。异文：戚序/王府「庵」、梦觉/程甲「亭」、列藏「廬」，不取 |
 | jiayintang.main-hall | 嘉荫堂 | 嘉蔭堂 | |
 | huajia_huapu.mudan-pavilion / hongxiang-hall | 牡丹亭 / 红香圃 | 牡丹亭 / 紅香圃 | |
 
