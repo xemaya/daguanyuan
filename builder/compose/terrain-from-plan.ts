@@ -941,9 +941,18 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     // grassDensity 调同一个 grass-cover 场:草稀处就是露土处,逐点对齐。
     // AV-b2:山体苔地让露土让位——`moss × 1.2` 只把苔 0.33–0.55 的露土压到
     // 34–60%,土台与南坡剩一层红棕斑;山苔过 0.4 露土归零。
+    //
+    // 5d(单子 AL 第 0 件):阈值从 smoothstep(0.15, 0.4) 收到 (0.03, 0.12)。
+    // AV-b2 那一版只治了土台顶(hillMoss 0.4+),**治不到土台南脚**:z≈211–217
+    // 那一带是翠嶂主体多边形的南沿,hillMask 只有 0.3–0.4、hillMoss ≈ 0.13–0.22,
+    // 正落在 0.15 的起点上下,露土几乎没被压——`gate_face` 里正对门那片
+    // splat 网格状红棕斑就是它(shots/AL-before/gate_face.png、patch_close.png)。
+    // 取「阈值下移」而不是「hillMask × (mossCover>0) 当开关」那条:开关式
+    // 一刀切会把山脚羽化带上**本来就该有**的零星露土也一起抹掉(山苔在那里
+    // 只有零点零几),而这一条仍然是按实际苔量连续让位,苔浓露土退、苔尽露土留。
     const fallback = clamp(1 - sand - Math.max(cobble, slab) - dirt, 0, 1);
     const soil = clamp(
-      bareSoilAmount(grassCover.gapN(x, z)) * fallback * (1 - Math.min(1, moss * 1.2)) * (1 - smoothstep(0.15, 0.4, hillMoss)) * 0.9,
+      bareSoilAmount(grassCover.gapN(x, z)) * fallback * (1 - Math.min(1, moss * 1.2)) * (1 - smoothstep(0.03, 0.12, hillMoss)) * 0.9,
       0,
       1,
     );
