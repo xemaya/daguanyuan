@@ -200,7 +200,9 @@ mound_block     293 calls  4430711 tris  46 fps（基线）
 - `X-03` / `X-05` status 不变，`X-05` 比例落区间；`AF` 门 0 条；对账门不降；
 - 判据逐行量：竹分箱、花池株数、院内野花数、卵石横向计数、路偏离量、苔草系数；
 - 图：`cu_xx_path` / `xx_court_gaze` / `moon_gate` / `xiaoxiang` 前后同机位，拷到主检出 `shots/AL/`；
-- **收工必须改 `knowledge/docs/scenes/xiaoxiangguan.md`** 的 §4 / §5 现状列与 §6 台账（只许写量过的数），并补画平面（`make-sketch.mjs` 现在只认翠嶂/正门，加本景）。
+- **收工必须改 `knowledge/docs/scenes/xiaoxiangguan.md`** 的 §4 / §5 现状列与 §6 台账（只许写量过的数）。
+  **平面不归你**：`knowledge/docs/scenes/xiaoxiangguan.svg` 已经画好（2026-09-21），路弯了、竹补了之后由**验收人**重画——
+  `make-sketch.mjs` 在 `knowledge/docs/scenes/` 下，不在你的文件域里，别碰。
 
 ## 回报
 

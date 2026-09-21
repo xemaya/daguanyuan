@@ -75,5 +75,5 @@
 <line x1="394.4" y1="264.0" x2="381.7" y2="254.3" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="394.4" cy="264.0" r="2" fill="#2a6ab0"/>
 <line x1="382.4" y1="302.9" x2="382.4" y2="286.9" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="382.4" cy="302.9" r="2" fill="#2a6ab0"/>
 <line x1="379.2" y1="211.2" x2="379.2" y2="195.2" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="379.2" cy="211.2" r="2" fill="#2a6ab0"/>
-<text x="0" y="446" fill="#666" font-size="9">■ 建筑锚点  ◆ plan 岩石锚点  ● scenes 散置件  ● 手放树(HERO_TREES)  ○ 十七回游线节点  ─ 机位(短线=朝向;小点=贴脸 cu_* 机位,名单见文档)  虚线框=占地登记  棕线=旧路基</text>
+<text x="0" y="446" fill="#666" font-size="9">■ 建筑锚点  ◆ plan 岩石锚点  ● scenes 散置件  ● 手放树(HERO_TREES)  ○ 十七回游线节点  ─ 机位(短线=朝向;小点=贴脸 cu_* 机位,名单见文档)  虚线框=占地登记  棕线=plan 路径(翠嶂那张是旧路基,潇湘馆那张是院内甬路)</text>
 </svg>

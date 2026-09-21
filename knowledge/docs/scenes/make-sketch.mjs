@@ -20,6 +20,10 @@ const { SHOTS } = await import(resolve(ROOT, 'tools/shot-list.mjs'));
 const FRAMES = {
   zhengmen: { minX: 10, maxX: 100, minZ: 212, maxZ: 266, shots: /^(gate_|cu_gate|cu_baogushi|cu_wall|cu_terrace|cu_lattice|cu_scroll|cu_tiaohuan$|mound_block|gate_face)/ },
   cuizhang: { minX: -66, maxX: 92, minZ: 176, maxZ: 250, shots: /^(mound_|cu_inscription|gate_face|gate_approach)/ },
+  // 潇湘馆那张按院墙折线取框(x[−132,−91] z[66,120])四边各放 5 m,
+  // 甬路北端 (−105,124) 与门外视点 (−105,122)、(−94,124) 都要在框内,否则
+  // 「人从哪来、第一眼看什么」这一层就画不出来——那正是 D-29 要这张图解决的事。
+  xiaoxiangguan: { minX: -137, maxX: -86, minZ: 61, maxZ: 129, shots: /^(moon_gate|xiaoxiang$|cu_xx_path|xx_court_gaze|cu_xiaoxiang)/ },
 };
 
 const heroTrees = (() => {
@@ -42,13 +46,16 @@ function draw(regionId) {
   const scene = JSON.parse(readFileSync(resolve(ROOT, `projects/daguanyuan/scenes/${regionId}.json`), 'utf8'));
   const S = 8; // px / m
   const W = (F.maxX - F.minX) * S, H = (F.maxZ - F.minZ) * S;
+  // 画布宽度取 max(W, 标题所需):潇湘馆那张框只有 51 m 宽(408 px),
+  // 标题一行要 ~500 px,不给下限标题会被裁掉半句。只影响窄框。
+  const CW = Math.max(W, 520);
   const X = (x) => ((x - F.minX) * S).toFixed(1);
   const Y = (z) => ((z - F.minZ) * S).toFixed(1); // 世界 +Z 朝南,画面向下=南
   const pts = (poly) => poly.map(([x, z]) => `${X(x)},${Y(z)}`).join(' ');
   const inFrame = (x, z) => x >= F.minX && x <= F.maxX && z >= F.minZ && z <= F.maxZ;
   const out = [];
-  out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W + 40}" height="${H + 60}" viewBox="-20 -40 ${W + 40} ${H + 60}" font-family="'PingFang SC','Noto Sans CJK SC',sans-serif" font-size="11">`);
-  out.push(`<rect x="-20" y="-40" width="${W + 40}" height="${H + 60}" fill="#fbfaf6"/>`);
+  out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${CW + 40}" height="${H + 60}" viewBox="-20 -40 ${CW + 40} ${H + 60}" font-family="'PingFang SC','Noto Sans CJK SC',sans-serif" font-size="11">`);
+  out.push(`<rect x="-20" y="-40" width="${CW + 40}" height="${H + 60}" fill="#fbfaf6"/>`);
   out.push(`<text x="0" y="-22" font-size="14" font-weight="bold">${esc(region.name)}(${regionId})— 现状平面,1 px = ${(1 / S).toFixed(3)} m,上=北(−Z)</text>`);
   // 网格 10 m
   for (let x = Math.ceil(F.minX / 10) * 10; x <= F.maxX; x += 10) out.push(`<line x1="${X(x)}" y1="0" x2="${X(x)}" y2="${H}" stroke="#e6e2d8" stroke-width="0.5"/><text x="${X(x)}" y="-6" fill="#999" font-size="9" text-anchor="middle">x${x}</text>`);
@@ -75,7 +82,15 @@ function draw(regionId) {
   }
   // 建筑 / 岩石锚点
   // 墙类建筑的锚点落在墙线上,标签抬到线上方,免得和同一条线上的门屋标签叠字。
-  for (const b of region.buildings ?? []) if (b.x != null) { const lift = b.kind === 'wall' ? -10 : 4; out.push(`<rect x="${+X(b.x) - 5}" y="${+Y(b.z) - 5}" width="10" height="10" fill="#7a4a2a"/><text x="${+X(b.x) + 8}" y="${+Y(b.z) + lift}" fill="#5a3a1a" font-weight="bold">${esc(b.name)} (${b.x},${b.z})</text>`); }
+  // 挨得近的两件(潇湘馆甬路东西两个花池只隔 2.5 m)标签会摞成一团:
+  // 按「前面有几个邻居」把标签逐行往下错开,错的是标签不是锚点。
+  const drawn = [];
+  for (const b of region.buildings ?? []) if (b.x != null) {
+    const near = drawn.filter((d) => Math.hypot(d[0] - b.x, d[1] - b.z) < 5).length;
+    const lift = (b.kind === 'wall' ? -10 : 4) + near * 12;
+    drawn.push([b.x, b.z]);
+    out.push(`<rect x="${+X(b.x) - 5}" y="${+Y(b.z) - 5}" width="10" height="10" fill="#7a4a2a"/><text x="${+X(b.x) + 8}" y="${+Y(b.z) + lift}" fill="#5a3a1a" font-weight="bold">${esc(b.name)} (${b.x},${b.z})</text>`);
+  }
   for (const k of region.rocks ?? []) out.push(`<polygon points="${+X(k.x)},${+Y(k.z) - 6} ${+X(k.x) + 6},${+Y(k.z)} ${+X(k.x)},${+Y(k.z) + 6} ${+X(k.x) - 6},${+Y(k.z)}" fill="#8a8f96"/><text x="${+X(k.x) + 8}" y="${+Y(k.z) + 4}" fill="#4a4f56">${esc(k.id.replace(regionId + '.', ''))} (${k.x},${k.z})</text>`);
   // scenes 散置件(锚点+dx/dz)与占地
   for (const c of scene.clearances ?? []) {
@@ -120,7 +135,7 @@ function draw(regionId) {
     out.push(`<line x1="${X(s.pos[0])}" y1="${Y(s.pos[2])}" x2="${X(s.pos[0] + fx * len)}" y2="${Y(s.pos[2] + fz * len)}" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="${X(s.pos[0])}" cy="${Y(s.pos[2])}" r="${closeup ? 2 : 3}" fill="#2a6ab0"/>`);
     if (!closeup) out.push(`<text x="${+X(s.pos[0]) + 5}" y="${+Y(s.pos[2]) + 11}" fill="#2a6ab0" font-size="9">${s.id}</text>`);
   }
-  out.push(`<text x="0" y="${H + 14}" fill="#666" font-size="9">■ 建筑锚点  ◆ plan 岩石锚点  ● scenes 散置件  ● 手放树(HERO_TREES)  ○ 十七回游线节点  ─ 机位(短线=朝向;小点=贴脸 cu_* 机位,名单见文档)  虚线框=占地登记  棕线=旧路基</text>`);
+  out.push(`<text x="0" y="${H + 14}" fill="#666" font-size="9">■ 建筑锚点  ◆ plan 岩石锚点  ● scenes 散置件  ● 手放树(HERO_TREES)  ○ 十七回游线节点  ─ 机位(短线=朝向;小点=贴脸 cu_* 机位,名单见文档)  虚线框=占地登记  棕线=plan 路径(翠嶂那张是旧路基,潇湘馆那张是院内甬路)</text>`);
   out.push('</svg>');
   writeFileSync(resolve(HERE, `${regionId}.svg`), out.join('\n'));
   console.log(`wrote knowledge/docs/scenes/${regionId}.svg`);

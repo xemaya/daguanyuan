@@ -5,7 +5,9 @@
 > **§5 现状列的每一个数都是 2026-09-21 在跑着的世界里量的**（实例普查脚本按 mesh 名解 InstancedMesh 世界矩阵，
 > 与 `tools/tree-census.mjs` 同一路数；地表读数走 `world.ctx.collision.surfaceAt`）。当时 HEAD `ad999467`，
 > 四镜读数与 `perf-baseline.json` 逐位相同，基线干净。
-> 平面：**未画**（`make-sketch.mjs` 目前只认翠嶂 / 正门，AL 收工时补）。
+> 平面：[xiaoxiangguan.svg](xiaoxiangguan.svg)（2026-09-21 补，`node knowledge/docs/scenes/make-sketch.mjs xiaoxiangguan`；
+> 只读 plan / scenes / shot-list / HERO_TREES，不算几何）。**图上一眼可见的就是本景第一病**：七丛竹全挤在正房前后（z 90–110），
+> 甬路从 z=124 直插到 z=99，**z 110–124 那一段两边什么都没有**。
 > 考据：`knowledge/docs/qingshi/xiaoxiangguan.md`；规则 07-07 / 07-08 / 07-41。
 
 ## 1 一句话
