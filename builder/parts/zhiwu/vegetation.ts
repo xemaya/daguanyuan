@@ -197,6 +197,38 @@ const REGION_TREES: Record<string, { mix: string[]; density: number }> = {
   huajia_huapu: { mix: ['pear'], density: 0.5 },
 };
 
+/**
+ * **按区调通用野花**（单子 AL4）。0 = 这个区一株草甸野花都不长，1 = 照旧。
+ * 没写的区默认 1，行为一个字不动。
+ *
+ * 为什么要有它：下面那个野花散布器的 `density` **完全不认区**——它那两项
+ * `green` / `skirt` 还是 pallet-town 的镇中心坐标（`smoothstep(16,4,hypot(x,z-6))`
+ * 那一段，`P` 系列遗留，本单不顺手改，标准动作第 13 条，记在回报里）。于是
+ * 潇湘馆院内长出 142 株草甸野花，而 `07-41` 那一段只点了竹、苔、石子三样，
+ * `07-07` 加梨与蕉——**没有草甸野花**。
+ *
+ * ⚠️ 系数**不是乘进 `density` 的**。`poissonScatter` 的非 hash 档是
+ * `dens <= 0.001 || rng() > dens`：密度一旦被乘成 0，那一发顺序 `rng` 就不吃了，
+ * 整条飞镖流后移，**全园野花重洗一遍**（`P-28`，AV2 那次 89 棵消失 / 92 棵新出现
+ * 就是这么来的）。而本单的判据写着「院外照旧」。所以系数落在**撒完点之后的
+ * 逐株筛子**上，用坐标哈希判、不吃 rng：院内的筛掉，院外的一株不动。
+ */
+/**
+ * 花池里那朵花的花冠尺度（单子 AL4，用户 2026-09-21 拍板 `D-30`「改素色**小**花」）。
+ *
+ * 花池与自然散布共用同一个 `flowerGeometry`，而那朵花是按「草甸里隔几米一丛」
+ * 画的：`cu_xx_path` 贴脸实测花冠直径约 0.4m，在 1.0m 净宽的羊肠路边上，
+ * 三朵就横满半条路，读成「草地雏菊」。0.62 把它收到约 0.25m——路边花池里的
+ * 素花，不是草地上的大雏菊。只作用在花池那一档，自然散布的花一个字不动。
+ */
+const BED_FLOWER_SCALE = 0.62;
+
+const REGION_GROUND_FLOWERS: Record<string, number> = {
+  // 07-41「土地下蒼苔布滿，中間羊腸一條石子漫的路」+ 兩邊翠竹——竹、苔、石子三样；
+  // 07-07 再加大株梨花与芭蕉。原文没有草甸野花，这一景的性格是「幽」。
+  xiaoxiangguan: 0,
+};
+
 /** 区域之外的背景混交：园子里不出橡/桦/梣/枫那一套温带森林。 */
 const FALLBACK_MIX = ['elm', 'elm', 'locust', 'cypress', 'pine-old'];
 
@@ -2918,6 +2950,13 @@ export function buildVegetation(ctx: GameContext): void {
         const x = d.x + Math.cos(a) * r;
         const z = d.z + Math.sin(a) * r;
         if (mask.at(x, z) < 0.7) continue;
+        // 按区调（单子 AL4）：坐标哈希当筛子，**不吃 rng**，也不动上面的
+        // `density`——理由见 `REGION_GROUND_FLOWERS` 的头注（`P-28`）。
+        // 放在这里而不是 drift 那一层：drift 被 `continue` 掉会让后面每一丛的
+        // 颜色与株数都错位，位置虽然没变，院外的花也算被动过了。
+        const reg = regionOf(x, z);
+        const gf = reg ? REGION_GROUND_FLOWERS[reg] ?? 1 : 1;
+        if (gf <= 0 || (gf < 1 && scatterHash01(x + 13.7, z - 21.3) >= gf)) continue;
         buckets[which].push({ x, z });
       }
     }
@@ -3163,7 +3202,7 @@ export function buildVegetation(ctx: GameContext): void {
           );
           for (let i = 0; i < list.length; i++) {
             const s = list[i];
-            const sc = rangeOf(fRng, 0.8, 1.45);
+            const sc = rangeOf(fRng, 0.8, 1.45) * BED_FLOWER_SCALE;
             euler.set(rangeOf(fRng, -0.16, 0.16), fRng() * Math.PI * 2, rangeOf(fRng, -0.16, 0.16), 'ZYX');
             q.setFromEuler(euler);
             pos3.set(s.x, ground(s.x, s.z) - 0.01, s.z);

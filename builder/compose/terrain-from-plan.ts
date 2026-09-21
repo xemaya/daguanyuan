@@ -895,13 +895,25 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
 
     // 苍苔布满的是「土地」：路面与铺装上不长苔，路缝墙根才留一点。
     let moss = 0;
+    /** 院内(mossInside)那一路单独留一份:它与山体苔要分开定标,见下面 mossGain。 */
+    let courtMoss = 0;
     for (const mp of mossPolys) {
       if (!inBBox(x, z, mp, 0.2)) continue;
       const d = signedDist(x, z, mp);
       if (d >= 0) continue;
       const patch = fbm2(nWear, x * 0.045 + 4.7, z * 0.045 - 1.9, 3) * 0.5 + 0.5;
-      const m = smoothstep(0, 1.1, -d) * (0.30 + 0.70 * patch);
+      /*
+       * 单子 AL4:底数从 0.30 抬到 0.55(幅度 0.70→0.45,上限仍是 1.0)。
+       * 07-41 是「土地下**蒼苔布滿**」,不是「有几处苔斑」。旧取值让 `patch`
+       * 噪声最低处的苔只有 0.30,再乘下面的 0.85、再乘着色器里那条
+       * `mossPatch`(0.45~1.00)——最淡处 mossAmt 只有 0.115,地面 88% 还是草皮
+       * 贴图,`xx_court_gaze` / `moon_gate` 里一眼就是亮绿草坪。
+       * **抬底不抬顶**是为了「成斑不刷漆」:0.55~1.00 这个幅度乘上 mossPatch
+       * 之后落在 0.25~1.00,浓淡还在,只是最淡处也已经是苔而不是草。
+       */
+      const m = smoothstep(0, 1.1, -d) * (0.55 + 0.45 * patch);
       if (m > moss) moss = m;
+      if (m > courtMoss) courtMoss = m;
     }
     /*
      * 山体苔地（单子 AV3；用户 2026-09-17 拍板「山体地表从草坪改成偏暗的苔地」）。
@@ -934,7 +946,15 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       // 这一路;mossInside(潇湘馆苔院)那一路不进 hillMoss,行为不动。
       if (v > hillMoss) hillMoss = v;
     }
-    moss = clamp(moss, 0, 1) * (1 - path.w * 0.85) * (1 - Math.max(cobble, slab)) * 0.85;
+    /*
+     * 苔的总强度分两档(单子 AL4):
+     *   - 院内(`mossInside`,全园只有潇湘馆院墙一条)抬到 **1.00**;
+     *   - 山体(`hills[].mossCover`,翠嶂)仍是 **0.85** 一个字不动——那是单子 AV3
+     *     按用户拍板定的档,本单的文件域只到潇湘馆,改它就是「别处被波及」。
+     * 两者在空间上不重叠,所以「谁赢了用谁的档」不会含混。
+     */
+    const mossGain = courtMoss >= hillMoss ? 1.0 : 0.85;
+    moss = clamp(moss, 0, 1) * (1 - path.w * 0.85) * (1 - Math.max(cobble, slab)) * mossGain;
 
     // 露土(单子 T):草被低频洼地落到阈值以下,且草皮是兜底材质
     // (非路非铺装非沙非苔)时,地面透出真土。与 vegetation.ts 的
@@ -958,6 +978,17 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     );
     // 苔多草稀：苔化的地面把草皮权重让出来一点，院内读成苔地而不是草坪。
     // 露土再从草皮里扣——土是从草里露出来的，不是盖在草上的一层。
+    //
+    // ⚠️ 单子 AL4 查明:**这一行对画面没有作用**,所以那个 0.55 没动。
+    // `masks().grass` 根本没有进 splat——`bakeSplatMainData` 只写
+    // dirt / cobble+slab / sand+moss / wear 四样,着色器里草皮的权重是
+    // `1 − dirt − pave − sand` **算出来的**(nodes/terrain.ts 的 `wgt.x`),
+    // 不是这里给的。全仓 `masks().grass` 的消费者只有 `tools/terrain-slice.mjs`
+    // 与 `tools/verify-connection-parts.mjs` 两个工程视图。
+    // 「院内读成苔地」真正的旋钮是上面的 `moss`(它进 splat 的 B 通道、
+    // 在着色器里乘 `mossPatch` 后把草皮混成苔绿);把 0.55 抬到 0.85 只会
+    // 让人以为调过了。景需求文档 §5 把病因记在这一行上,是记错了地方,
+    // 收工时一并改掉。
     const grassOut = clamp(grass * (1 - moss * 0.55) - soil, 0, 1);
 
     // 湿痕(单子 T):水线 ±1.2m 之内,还要高程贴近水面(0,terrain.ts 的
