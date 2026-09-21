@@ -13,6 +13,9 @@ import '../tests/ts-resolver.mjs';
 const { validateScenes } = await import('../builder/compose/scenes.ts');
 const { SCATTER_RULES, ruleCoverage, validateRules } = await import('../builder/compose/scatter-rules.ts');
 const { buildOccupancy } = await import('../builder/compose/occupancy.ts');
+const { alongPathScatter } = await import('../builder/compose/scatter-along-path.ts');
+const { makeTerrainField } = await import('../builder/compose/terrain-from-plan.ts');
+const { SEED } = await import('../builder/compose/config.ts');
 
 const dir = resolve('projects/daguanyuan/scenes');
 const plan = JSON.parse(readFileSync(resolve('projects/daguanyuan/plan.json'), 'utf8'));
@@ -60,6 +63,35 @@ for (const scene of scenes)
 console.log(`\n手写落位与占位场的冲突  ${intruders.length} 处`);
 for (const i of intruders)
   console.log(`  撞  ${i.region}/${i.pl.part}:${i.pl.variant ?? 'default'} 陷进占位 ${(-i.d).toFixed(2)}m（@ ${i.x.toFixed(1)}, ${i.z.toFixed(1)}，锚 ${i.pl.anchor}）`);
+
+/* 单子 AL3 · 接缝②:`scatters[]` 只写条件不写坐标,那就得有人能当场回答
+ * **「这条条件会落多少个点」**——写得出来、落不下去的契约等于没有契约。
+ *
+ * 算的是 builder/compose/scatter-along-path.ts 里那一个函数,与游戏里同一份
+ * (它是纯函数:只吃 plan / scenes / 占位场 / 一个地表材质回调,不碰 three),
+ * 所以这道门报的数就是世界里长出来的数,不是另算一遍的近似。
+ * 地表材质用 makeTerrainField 现场建一个——「不许压到路面」这一条要它。 */
+{
+  const fullField = buildOccupancy(plan, built, scenes);
+  const terrain = makeTerrainField(plan, { seed: SEED });
+  const runs = alongPathScatter(plan, scenes, built, {
+    occupancy: fullField,
+    surface: terrain.surface,
+    solidRadius: 1.1,
+    footRadius: 0.55,
+    buildingPad: 0.25,
+  });
+  console.log(`\n沿路散布(scatters 的 along-path)  ${runs.length} 条`);
+  for (const r of runs) {
+    const rj = r.rejected;
+    console.log(
+      `  沿  ${r.region}/${r.rule.part} 沿 ${r.rule.path} 两侧各偏 ${r.rule.offset_m}m、丛距 ${r.rule.pitch_m}m` +
+        `  → 试 ${r.tried} 点,落 ${r.seeds.length} 丛` +
+        `(出界 ${rj.outside} / 进墙 ${rj.wall} / 进房 ${rj.building} / 压路面 ${rj.paving})`,
+    );
+  }
+  if (!runs.length) console.log('      (没有 along-path 规则——这一行是给接缝② 的第一个消费者留的)');
+}
 
 /* 目标 2 的判据(spec §0)：**新做一个构件，不去任何一张表里逐区手写，就有区
  * 吃到；`check:scenes` 能当场列出它会出现在哪几个区。** 下面这张表就是那句话。

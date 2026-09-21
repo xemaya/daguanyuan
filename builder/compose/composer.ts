@@ -11,10 +11,12 @@ import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
 import { getPlan, builtRegions } from './terrain';
-import { sceneFor, type SceneNamed } from './scenes';
+import { sceneFor, getScenes, type SceneNamed } from './scenes';
 import { getRoster, registerObject } from './roster';
 import { rulesForRegion, type StyledRegion } from './scatter-rules';
-import { occupancyDistance } from './occupancy';
+import { occupancyDistance, getOccupancy } from './occupancy';
+import { alongPathScatter } from './scatter-along-path';
+import { buildBambooRow } from '@builder/parts/zhiwu/bamboo';
 import { locatePoint } from '@builder/plan/geometry';
 import { makeRng } from '@engine/core/Noise';
 import { SEED } from './config';
@@ -525,6 +527,116 @@ function scatterPlacements(ctx: GameContext, ground: (x: number, z: number) => n
   return out;
 }
 
+/**
+ * 单子 AL3 · 接缝②的第一个消费者:`scenes/<region>.json` 的 `scatters[]`。
+ *
+ * 几何那一半在 `scatter-along-path.ts`(纯函数,`check:scenes` 读同一份,
+ * 那边的头注说了为什么要分开);这里只管**把算出来的点变成竹子**。
+ *
+ * ⚠️ **整条竹夹路必须是一个构件。** `bamboo` 的每个 part 是 4 个 InstancedMesh,
+ * 而 `assembleStatic` 不合并 InstancedMesh(竹子带 `update`,根本不进静态批)。
+ * 22 丛各自走一遍 `buildPart('bamboo','clump')` 就是 **88 个 draw call**,
+ * 潇湘馆那一镜的 251 会直接顶到 340。所以走 `buildBambooRow`:整列所有丛塞进
+ * 同一组四个 mesh,**整条路 4 个 draw call**(`grove` 早就是这么干的)。
+ *
+ * 名册与碰撞按**丛**登记,不按整件:
+ * - `AF` 门(`auditSolidVsWall`)是逐条名册记录去问墙的,整件登记一条就等于
+ *   只查了一个点,那道门会变成摆设——上一轮被用户抓到的正是竹子穿墙。
+ * - `variant` 写 `clump` 不是 `row`:`SOLID_RADIUS` 那张表在 `occupancy.ts`
+ *   (不在本单文件域),表里 `bamboo:clump` = 1.1m 正是「spread 0.55 + 竿在
+ *   4~6m 高上的倾斜横移 0.55」,而这一列的丛就是这个尺寸的丛——写 `clump`
+ *   是照实说,不是绕过门。
+ * - `ruleId` 一给,对账门就把它们记进「规则生成」而不是野生件(coverage 三分法)。
+ */
+function buildBambooRows(
+  ctx: GameContext,
+  ground: (x: number, z: number) => number,
+  group: THREE.Group,
+  updaters: ((dt: number, t: number) => void)[],
+): void {
+  const field = getOccupancy();
+  if (!field) return;
+  const runs = alongPathScatter(plan(), getScenes(), [...builtRegions()], {
+    occupancy: field,
+    surface: ctx.collision.surfaceAt,
+    // 与 `occupancy.ts` 的 SOLID_RADIUS['bamboo:clump'] 同一个数,同一个来处。
+    solidRadius: 1.1,
+    // 竿脚散布半径的上限(下面 seeds 里 spread ≤ 0.55),问铺装用。
+    footRadius: 0.55,
+    // 檐口外包络之外再让 0.25m:竹梢探到檐下是江南园林的常景(竹影上窗纱),
+    // 不该让开一整圈;真正不许的是竿脚顶着台明,那由 solidRadius 那 1.1m 管。
+    buildingPad: 0.25,
+  });
+  for (const run of runs) {
+    if (run.rule.part !== 'bamboo' || !run.seeds.length) continue;
+    // 8–14 竿、4–6m 高、spread 0.4–0.55:单子 AL3 定的形态区间。按里程与序号
+    // 取值而不是再开一条 rng 流——整列的高矮胖瘦跟着路走,不跟着遍历顺序走。
+    const seeds = run.seeds.map((s, i) => ({
+      x: s.x,
+      z: s.z,
+      y: ground(s.x, s.z),
+      culms: 8 + ((i * 5 + Math.round(s.s * 3)) % 7),
+      spread: 0.4 + ((i * 3 + 1) % 4) * 0.05,
+      hMin: 4.0 + ((i * 7) % 3) * 0.2,
+      hMax: 5.4 + ((i * 5) % 4) * 0.15,
+      leanAz: s.leanAz,
+    }));
+    const row = buildBambooRow(seeds);
+    // 种子已经是世界坐标(见 buildBambooRow 头注),整件零变换落位。
+    row.root.position.set(0, 0, 0);
+    row.root.name = `竹夹路:${run.rule.path}`;
+    group.add(row.root);
+    if (row.update) updaters.push(row.update);
+
+    /*
+     * 远距离收起来。**这一条是量出来的,不是顺手加的**:
+     * A/B 实测(shots/AL3-try1 vs shots/AL3-ab-noshadow),竹夹路让 gate_approach
+     * +315k 三角、mound_block +321k、grass_close +321k——三镜离潇湘馆 141~210m,
+     * 院墙与翠嶂挡得严严实实,一根竹子也看不见。关掉投影这三镜**一个三角都不降**,
+     * 所以不是影子 pass:是视锥真的把院子框进去了(gate_approach 在 250m 外,
+     * 1600×900 的水平视野半角 45.8°,横向能框到 ±256m,院子在 160m 处),
+     * 而 three 没有遮挡剔除。
+     *
+     * 120m 一刀切:四镜里最近的 grass_close 在 141m,全部剔得掉;院外真看得见竹的
+     * 地方(X-05 的视点在 12m、pond_reveal 在 112m)都在里面。这比园子里既有的
+     * 尺子宽得多——`VEG.drawDist` 给灌木杂草的是 21~42m(vegetation.ts),
+     * 硬切距离本来就是这个项目收前景植被的常规手段。
+     *
+     * ⚠️ 只收这一列新竹。**七丛点名竹照旧**——它们在基线里,这一单不动它们的
+     * 成本归属;同一条账等下一单一起算(回报里点名)。
+     */
+    const cx = seeds.reduce((a, s) => a + s.x, 0) / seeds.length;
+    const cz = seeds.reduce((a, s) => a + s.z, 0) / seeds.length;
+    const CULL_DIST = 120;
+    ctx.tick(() => {
+      const dx = ctx.camera.position.x - cx;
+      const dz = ctx.camera.position.z - cz;
+      row.root.visible = dx * dx + dz * dz < CULL_DIST * CULL_DIST;
+    });
+    const ruleId = `along-path:${run.rule.path}`;
+    for (const [i, s] of run.seeds.entries()) {
+      const y = ground(s.x, s.z);
+      registerObject({
+        id: `${ruleId}#${i}`,
+        name: '竹夹路一丛',
+        part: 'bamboo',
+        variant: 'clump',
+        position: [s.x, y, s.z],
+        yaw: 0,
+        planId: null,
+        ruleId,
+        size: null,
+        basis: run.rule.basis,
+      });
+      // 碰撞半径与 `registerColliders` 里 `bamboo:clump` 那一条一致。
+      ctx.collision.addCircle(s.x, s.z, 0.4, y, y + 2, '竹');
+    }
+    console.info(
+      `[garden] 竹夹路 ${run.rule.path}: 试 ${run.tried} 点,落 ${run.seeds.length} 丛` +
+        `(出界 ${run.rejected.outside} / 进墙 ${run.rejected.wall} / 进房 ${run.rejected.building} / 压路面 ${run.rejected.paving})`,
+    );
+  }
+}
 /** 稳定的字符串散列,给每条「区×规则」一个确定的种子。 */
 function hashString(s: string): number {
   let h = 2166136261;
@@ -761,6 +873,10 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
       }
     }
   }
+  // 单子 AL3:竹夹路。放在静态合批之前,和灯笼/抱鼓石同一档「主循环之后再长出来
+  // 的东西」;它带 update(风),进 group 不进 staticGroup。
+  buildBambooRows(ctx, ground, group, updaters);
+
   const merged = assembleStatic(staticGroup);
   merged.name = 'GardenStatic';
   group.add(merged);
