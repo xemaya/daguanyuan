@@ -535,48 +535,120 @@ export function roofTileMaps(key: string, tint: number, rows = 14, size = 1024):
   };
 }
 
-/** Cobble / flagstone for the lab forecourt. */
+/**
+ * 石子漫（单子 AL1）——**密铺的小卵石**，不是乱石板。
+ *
+ * 这张贴图全园只有一处在用：潇湘馆院内甬路（`splat.ts` 的 G < 0.5 一档；
+ * 近门大路走 `slab`）。原文是第四十回「中間羊腸一條**石子漫**的路」（07-41），
+ * 说的是三到六厘米的卵石一颗挨一颗墁出来的路面。
+ *
+ * **改这张图之前的它是什么样**：单层 `worley(u, v, 9, 11)` + `f2 − f1` 取边，
+ * 读出来是**大块龟背纹乱石板**——9 窝铺 1.25 m（世界周期见下），一块 14 cm，
+ * 而且因为只有一条黑边、石面内部全平，眼睛把相邻几块并成更大的板，
+ * `cu_xx_path` 贴脸实测 1.0 m 净宽里横着只数得出 3–4 块。
+ *
+ * **世界周期**：`builder/compose/nodes/terrain.ts` 的 `uvC = tXZ × 0.80`，
+ * 一张贴图正好铺 **1.25 m**。所以「一颗石子多大」= 1.25 / 窝数：
+ * 19 窝 → 6.6 cm、26 窝 → 4.8 cm、35 窝 → 3.6 cm，落在「卵石 3–6 cm」里；
+ * 1.0 m 净宽横着数得出 15（最粗一层）到 28（最细一层）颗。
+ *
+ * **为什么不是单层**：`TerrainMaterials.ts` 头注那一条教训原样适用——
+ * 单层 Worley 是一张**点阵**，每窝一样大，只要在某个视距上一窝约等于一像素，
+ * 眼睛就锁住那个格子，密铺卵石立刻读成网格。所以：
+ *   ① 三层互质窝数（19/26/35），没有单一主波长；
+ *   ② 一层低频选择噪声在三层之间交叉淡入，**粒径本身沿路面漂移**；
+ *   ③ 每颗石子的半径由它自己的 cell id 抽，同一层里也不是一窝一个同样的圆。
+ *
+ * **法线**：每颗石子是一个抛物面穹顶（`1 − t²`），不是平面加一条黑边——
+ * 「石子漫」的手感全在每颗石头的圆凸上。石子比原来小四倍，同样的落差会让
+ * 梯度陡四倍，所以振幅与 `strength` 一起下调（2.4 → 1.6），免得法线削平成一片噪。
+ *
+ * **石缝是灰浆不是黑线**：缝色取 `0x7b766c`（比石面暗一档的暖灰），
+ * 不是原来那种能把路面读成石板屋顶的深缝。
+ */
 export function cobbleMaps(size = 1024): MaterialMaps {
-  const stone = (u: number, v: number) => {
-    const w = worley(u, v, 9, 11);
-    const edge = smoothstep(0.0, 0.09, w.f2 - w.f1);
-    const jitter = ((w.id % 1000) / 1000) * 0.3;
-    return { edge, jitter };
+  /** 三层卵石。`cells` 是一张贴图（= 世界 1.25 m）里的窝数。 */
+  const LAYERS = [
+    { cells: 19, seed: 31, rad: 0.46 },
+    { cells: 26, seed: 97, rad: 0.44 },
+    { cells: 35, seed: 173, rad: 0.42 },
+  ];
+
+  /**
+   * 返回这一点的石面高度 `h`（0 = 缝底，1 = 石顶）与压住它的那颗石子的 id。
+   * 三层各算一颗穹顶，按选择噪声给的权重取最高的那一颗——「谁露在上面」。
+   */
+  const pebble = (u: number, v: number): { h: number; id: number } => {
+    // 选择器：两个周期跨过一张贴图 ≈ 世界里 0.6 m 的粒径漂移。
+    const sel = clamp(tileableFbm(NOISE.stone, u + 0.37, v + 0.81, 2, 2) * 1.8 + 0.5, 0, 1);
+    let h = 0;
+    let id = 0;
+    for (let i = 0; i < LAYERS.length; i++) {
+      // 三个权重峰分别落在 sel = 0 / 0.5 / 1，互相交叠，任何一处都至少有两层在场。
+      const w = clamp(1.25 - Math.abs(sel - i * 0.5) * 1.7, 0, 1);
+      if (w <= 0.01) continue;
+      const L = LAYERS[i];
+      const c = worley(u, v, L.cells, L.seed);
+      const rad = L.rad * (0.72 + (((c.id >>> 9) % 811) / 811) * 0.5);
+      const t = clamp(c.f1 / rad, 0, 1);
+      const dome = (1 - t * t) * w; // 抛物面穹顶：鼓在中间，边上落回缝里
+      if (dome > h) {
+        h = dome;
+        id = c.id;
+      }
+    }
+    return { h, id };
   };
+
   return {
-    map: cached(recipeKey('cobble.albedo', size), () =>
+    map: cached(recipeKey('cobble.albedo', size, 'shiziman'), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
-          const { edge, jitter } = stone(u, v);
-          const n = tileableFbm(NOISE.stone, u, v, 44, 4) * 0.5 + 0.5;
-          const c = mixHex(0x9d9a92, 0xcfccc3, clamp(n * 0.7 + jitter, 0, 1));
-          const mortar = mixHex(0x6b6862, 0x827e77, n);
+          const { h, id } = pebble(u, v);
+          // 一颗一色：卵石本来就是捡来的，青、灰、赭混着墁。
+          const tone = ((id >>> 3) % 1009) / 1009;
+          const warm = ((id >>> 17) % 733) / 733;
+          const grit = tileableFbm(NOISE.stone, u * 2.2, v * 2.2, 52, 4) * 0.5 + 0.5;
+          const stone = mixHex(0x8c8a83, 0xc8c4b8, clamp(tone * 0.85 + grit * 0.25, 0, 1));
+          const tinted: [number, number, number] = [
+            stone[0] * (0.95 + warm * 0.1),
+            stone[1] * (0.97 + warm * 0.05),
+            stone[2] * (1.04 - warm * 0.11),
+          ];
+          // 缝：灰浆/泥，比石面暗一档，**不是黑线**。
+          const mortar = mixHex(0x6f6a60, 0x877f72, grit);
+          // 石顶到缝底的过渡带只有几个像素宽，缝才不会糊成一圈阴影。
+          const k = smoothstep(0.015, 0.2, h);
+          // 石子自己也有明暗：顶上受光、朝缝那一侧暗一点。
+          const shade = 0.86 + smoothstep(0.1, 0.85, h) * 0.18;
           return [
-            lerp(mortar[0], c[0], edge),
-            lerp(mortar[1], c[1], edge),
-            lerp(mortar[2], c[2], edge),
+            lerp(mortar[0], tinted[0] * shade, k),
+            lerp(mortar[1], tinted[1] * shade, k),
+            lerp(mortar[2], tinted[2] * shade, k),
           ];
         },
       }),
     ),
-    normalMap: cached(recipeKey('cobble.normal', size, 2.4), () =>
+    normalMap: cached(recipeKey('cobble.normal', size, 1.6, 'shiziman'), () =>
       bakeNormalMap(
         {
           size,
           height: (u, v) => {
-            const { edge } = stone(u, v);
-            const n = tileableFbm(NOISE.stone, u, v, 60, 3) * 0.5 + 0.5;
-            return clamp(edge * 0.85 + n * 0.15, 0, 1);
+            const { h } = pebble(u, v);
+            const grain = tileableFbm(NOISE.stone, u * 3, v * 3, 90, 3) * 0.5 + 0.5;
+            // 0.06 的底让缝里不是一刀切的平底；石面自带一点麻点。
+            return clamp(0.06 + h * 0.74 + grain * 0.08, 0, 1);
           },
         },
-        2.4,
+        1.6,
       ),
     ),
-    roughnessMap: cached(recipeKey('cobble.rough', 512), () =>
+    roughnessMap: cached(recipeKey('cobble.rough', 512, 'shiziman'), () =>
       bakeScalarMap(512, (u, v) => {
-        const { edge } = stone(u, v);
-        return clamp(0.62 + (1 - edge) * 0.28, 0, 1);
+        const { h } = pebble(u, v);
+        // 踩亮的石顶略滑，缝里的浆土粗。
+        return clamp(0.86 - smoothstep(0.1, 0.9, h) * 0.24, 0, 1);
       }),
     ),
   };
