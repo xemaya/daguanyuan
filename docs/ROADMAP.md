@@ -31,6 +31,9 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 **2026-09-17 工作方法定稿**：`docs/WORKFLOW.md`（角色 / 六步 / 验收清单 / 派单模板 / 经验），新 session 从它读起。
 
 **2026-09-17 新增一层**：景需求文档 `knowledge/docs/scenes/`（`D-29`）。正门、翠嶂两页已写；翠嶂第二轮 **AV** 的需求与判据在 `knowledge/docs/scenes/cuizhang.md` §7；用户 2026-09-17 拍板（树十棵量级 / 地表改苔地），单子 AV 已合回并验收（§19）；收尾 AV-b 可派。AU 三件已合回并验收（§18），正门 2026-09-17 冻结。**2026-09-18**：AW（匾文繁体 + UKai 字体）与 AV-b（散布先撒后筛 / 苔地露土）合回并验收（§20），四镜基线重写；剩一行补丁 5d。
+**2026-09-21**：用户拍板下一轮主轨 = **潇湘馆 AL**。验收人做完诊断（§21）：AL 原稿的数全部过期（竹实测 2518 竿不是 200，病是位置不是数量；
+「撤野花」瞄错靶，路边 88 株是 PQ-4 的花池不是野花），**景需求文档 `knowledge/docs/scenes/xiaoxiangguan.md` 已写、AL 已按它重写、5d 并进去当第 0 件**。
+用户拍板 `D-30`（花池减量改素 / 路牙压低压窄）。加了两个判据机位 `cu_xx_path` / `xx_court_gaze`。**AL 可派。**
 
 **既定优化动作还差什么**（按先后）：
 
@@ -41,12 +44,12 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | 1c | **正门收尾三件**（两溜高照 + 铺首门环 + 门前青草），做完冻结（`D-28`） | **AU** `docs/superpowers/plans/2026-09-16-au-gate-freeze.md` | 小中 | ✅ 合回并验收（§18），**正门 2026-09-17 冻结** |
 | 2 | 裙板 / 鼓面的浮雕（D-27 丙的另外两个落点，用 AS 的贴图版管线） | 未写 | 小中 | 可写 |
 | 3 | 接触区样板：潇湘馆墙脚—石基—竹丛，潮痕/苔/落叶同一场（codex §6） | AR，未写 | 中 | 与 AL 合并考虑 |
-| 4 | 潇湘馆：竹夹路 + 苍苔 + 石子漫 + 羊肠路 | **AL** 已写 | 中 | 等 AT / AM 合回 |
+| 4 | 潇湘馆：竹夹路 + 苍苔 + 石子漫 + 羊肠路 + 路边收拾（花池 / 路牙，`D-30`） | **AL** `docs/superpowers/plans/2026-09-15-al-xiaoxiang-bamboo-path.md` **2026-09-21 按诊断重写** | 中 | **可派**（下一轮主轨，含第 0 件 5d）；依据 `knowledge/docs/scenes/xiaoxiangguan.md` |
 | 5 | 翠嶂：土岭换白石峰群 + 题字石 | **AM** | 大 | ✅ 合回并验收（§16）；**东侧 15 条视线裸露**记为扩区前置 |
 | 5b | **翠嶂第二轮**：主组上轴 + 石脚 + 树改种的 + 三层绿（苔地 / 灌丛 / 藤萝） | **AV** `docs/superpowers/plans/2026-09-17-av-cuizhang-green.md` | 大 | ✅ 合回并验收（§19）；四镜抬线 +9~17%，余量吃光 |
 | 1d | **匾文繁体化 + 换楷书字体**（全园 31 块；现字体缺 32 个繁体字） | **AW** `docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md` | 小 | ✅ 合回并验收（§20）；「蘆雪广」验收人改回本字 |
 | 5c | **AV-b 收尾三件**：散布先撒后筛（P-28，潇湘馆那一镜应回落）、苔地露土让位；当心间灯用户裁定保持五盏，不做 | **AV-b** `docs/superpowers/plans/2026-09-17-avb-cuizhang-followup.md` | 小 | ✅ 合回并验收（§20）：AV-b1 通过（独立复现），AV-b2 部分 |
-| 5d | **AV-b2 补**：土台南脚露土阈值一行（`terrain-from-plan.ts` `smoothstep(0.15,0.4,hillMoss)` → `(0.03,0.12)` 或按 `hillMask` 开关），判据 `gate_face` 无红棕斑 | 未写单，一行 | 微 | **可派**（派单命令直接写这一行） |
+| 5d | **AV-b2 补**：土台南脚露土阈值一行（`terrain-from-plan.ts:946` `smoothstep(0.15,0.4,hillMoss)` → `(0.03,0.12)` 或按 `hillMask` 开关），判据 `gate_face` 无红棕斑 | 并进 **AL** 当第 0 件 | 微 | **可派**（随 AL 一起） |
 | 6 | 沁芳 D3/D4（桥亭、收窄水面）；E4 门前古松 | 未写 | 大 / 小 | AL 之后（D5 高照杆已并进 AU） |
 | 7 | 判断题 E3 / E5 / E6；**AE 形制断言门：正门冻结后可焊**；接缝⑤ AB、AC | — | — | AU 之后 |
 | 8 | 植物枝序、水面反射（codex §7，评审自己排最后） | 未写 | 中 | 最后 |
@@ -59,7 +62,7 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | 轨 | 单子 | 区 | 状态 | 与别轨的文件重叠 |
 |---|---|---|---|---|
 | 1 | **AJ** `docs/superpowers/plans/2026-09-15-aj-gate-refine.md` | 正门 | ✅ 合回并验收 | `forecourt-terrace` / `baogushi` / `composer` / `building` |
-| 2 | **AL** `docs/superpowers/plans/2026-09-15-al-xiaoxiang-bamboo-path.md` | 潇湘馆 | 已写、待派 | `plan.json paths[]` 一条、`projects/daguanyuan/scenes/xiaoxiangguan.json`、`bamboo.ts`、`vegetation.ts` 野花段、`cobbleMaps` |
+| 2 | **AL** `docs/superpowers/plans/2026-09-15-al-xiaoxiang-bamboo-path.md` | 潇湘馆 | **2026-09-21 重写、可派** | `plan.json paths[]` 一条、`projects/daguanyuan/scenes/xiaoxiangguan.json`、`bamboo.ts`、`vegetation.ts` 野花段、`cobbleMaps` |
 | 3 | **AM** `docs/superpowers/plans/2026-09-15-am-cuizhang-rebuild.md` | 翠嶂 | 已写、待派 | `plan.json hills[]` 一条、`projects/daguanyuan/scenes/cuizhang.json`、`shishan/`、规则表追加 07-77/78 |
 | — | **AK** `docs/superpowers/plans/2026-09-15-ak-perf-baseline.md` | 工具 | 已写、待派 | 只有 `manifest-diff.mjs` + 新基线文件，零重叠 |
 | — | **AN** `docs/superpowers/plans/2026-09-15-an-see-detail-first.md` | 后期/材质 | AN1 可派；AN2 等 AJ | AN1 只有 `PostFX.ts` / `grade.ts`；AN2 是 `materials.ts` / `wall.ts` |
