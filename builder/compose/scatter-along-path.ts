@@ -41,6 +41,12 @@ export interface AlongPathScatter {
   sides?: string;
   /** 抖动幅度（米）。**只沿路抖、只向外抖**，见下面 `jitter` 那一段。 */
   jitter_m?: number;
+  /**
+   * 视线让位（单子 AL-b b4，`D-32` ①）：丛心离「`from` → `to` 这条视线段」不足 `clear_m`
+   * 的不种。`from` / `to` 写 plan 里建筑的 id（取它的 x/z），**不写坐标**——
+   * 月洞门或正房挪了，缝跟着走。透视缝净宽 ≈ 2 × `clear_m`。
+   */
+  sightline?: { from: string; to: string; clear_m: number };
   basis?: string;
 }
 
@@ -64,7 +70,7 @@ export interface AlongPathResult {
   seeds: AlongPathSeed[];
   /** 一共试了几个点（站 × 侧）。 */
   tried: number;
-  rejected: { outside: number; wall: number; building: number; paving: number };
+  rejected: { outside: number; wall: number; building: number; paving: number; sightline: number };
 }
 
 interface PathLite {
@@ -76,7 +82,17 @@ interface PlanLite {
   regions: {
     id: string;
     linears?: { id: string; points?: [number, number][] }[];
+    buildings?: { id: string; x: number; z: number }[];
   }[];
+}
+
+/** 点到线段的距离。 */
+function distToSegment(x: number, z: number, a: Point2, b: Point2): number {
+  const ex = b[0] - a[0];
+  const ez = b[1] - a[1];
+  const l2 = ex * ex + ez * ez;
+  const t = l2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((x - a[0]) * ex + (z - a[1]) * ez) / l2));
+  return Math.hypot(x - (a[0] + ex * t), z - (a[1] + ez * t));
 }
 
 /** 点到闭合环各边的最短距离（不分内外）。 */
@@ -152,6 +168,19 @@ export function alongPathScatter(
             if (l.id === rule.within && l.points && l.points.length > 2) within = l.points as Point2[];
       }
 
+      let sight: { a: Point2; b: Point2; clear: number } | null = null;
+      if (rule.sightline) {
+        const find = (id: string): Point2 | null => {
+          for (const r of p.regions) for (const b of r.buildings ?? []) if (b.id === id) return [b.x, b.z];
+          return null;
+        };
+        const a = find(rule.sightline.from);
+        const b = find(rule.sightline.to);
+        // 引用解析不出来就当场抛：让位条件悄悄失效，比报错更糟（缝没了、门还是绿的）。
+        if (!a || !b) throw new Error(`along-path sightline 引用的建筑不存在：${rule.sightline.from} → ${rule.sightline.to}`);
+        sight = { a, b, clear: rule.sightline.clear_m };
+      }
+
       const sides = rule.sides === 'left' ? [1] : rule.sides === 'right' ? [-1] : [1, -1];
       const jitter = rule.jitter_m ?? 0;
       const res: AlongPathResult = {
@@ -159,7 +188,7 @@ export function alongPathScatter(
         rule,
         seeds: [],
         tried: 0,
-        rejected: { outside: 0, wall: 0, building: 0, paving: 0 },
+        rejected: { outside: 0, wall: 0, building: 0, paving: 0, sightline: 0 },
       };
 
       // 累计里程表：一次走完折线，之后按里程取点。
@@ -211,6 +240,10 @@ export function alongPathScatter(
 
           if (within && !inRing(x, z, within)) {
             res.rejected.outside++;
+            continue;
+          }
+          if (sight && distToSegment(x, z, sight.a, sight.b) < sight.clear) {
+            res.rejected.sightline++;
             continue;
           }
           if (env.occupancy.wallIntrusion(x, z, env.solidRadius)) {

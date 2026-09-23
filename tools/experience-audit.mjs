@@ -14,8 +14,16 @@
  * (山脊高程 vs 建筑顶部、竹竿高度 vs 屋檐,见 ART_DIRECTION §5.5 的告诫)。
  * 条目的 note/limitation 字段负责把这一点写进数据。
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { segmentLocations, segmentRelation } from '../builder/plan/geometry.ts';
+/* 单子 AL-b b4:filtered_view 要数到 `scatters[]` 落的丛,就得当场算落点——
+ * 与 tools/check-scenes.mjs 同一套调用(纯函数,node 与游戏同一份)。
+ * 那几个模块用了 `@builder` 别名,要先挂 ts-resolver 再动态 import。 */
+import '../tests/ts-resolver.mjs';
+const { alongPathScatter } = await import('../builder/compose/scatter-along-path.ts');
+const { buildOccupancy } = await import('../builder/compose/occupancy.ts');
+const { makeTerrainField } = await import('../builder/compose/terrain-from-plan.ts');
+const { SEED } = await import('../builder/compose/config.ts');
 
 export const EXPERIENCE_TYPES = [
   'occlusion', 'approach_axis', 'framed_view', 'filtered_view', 'flanked_view',
@@ -269,6 +277,38 @@ const distanceToSegment = (p, a, b) => {
   return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dz);
 };
 
+/**
+ * 某区 along-path 规则的落点(AL-b b4)。建成区 = 能读到的全部落位清单的区,
+ * 与 check:scenes 同口径;注入了 loadScene(测试)时只拿那一份,占位场也只由它建。
+ * 地形场建一次要几秒,按 plan 对象缓存。
+ */
+const terrainCache = new WeakMap();
+function alongPathSeeds(plan, sceneId, scene, loadScene) {
+  let scenes = [scene];
+  if (loadScene === defaultLoadScene) {
+    const dir = new URL('../projects/daguanyuan/scenes/', import.meta.url);
+    scenes = readdirSync(dir).filter((f) => f.endsWith('.json')).sort()
+      .map((f) => (f === `${sceneId}.json` ? scene : loadScene(f.replace(/\.json$/, ''))))
+      .filter(Boolean);
+  }
+  const built = scenes.map((s) => s.region);
+  let terrain = terrainCache.get(plan);
+  if (!terrain) { terrain = makeTerrainField(plan, { seed: SEED }); terrainCache.set(plan, terrain); }
+  const runs = alongPathScatter(plan, scenes, built, {
+    occupancy: buildOccupancy(plan, built, scenes),
+    surface: terrain.surface,
+    solidRadius: 1.1,
+    footRadius: 0.55,
+    buildingPad: 0.25,
+  });
+  return runs.filter((run) => run.region === sceneId).flatMap((run) => run.seeds);
+}
+
+function defaultLoadScene(id) {
+  try { return JSON.parse(readFileSync(new URL(`../projects/daguanyuan/scenes/${id}.json`, import.meta.url), 'utf8')); }
+  catch { return null; }
+}
+
 function auditFilteredView(plan, entry, loadScene) {
   const fails = [];
   const spec = entry.filters;
@@ -284,6 +324,19 @@ function auditFilteredView(plan, entry, loadScene) {
     return { center: [anchor.point[0] + p.dx, anchor.point[1] + p.dz], r };
   });
   if (disks.some((d) => !d)) return [`${label(entry)} 有 ${spec.part} 散布件锚点解析失败或 variant 未给半径`];
+  /*
+   * 单子 AL-b b4 · 修尺子:原来只数 `scene.placements`,AL3 用 `scatters[]`(along-path)
+   * 落的竹夹路一丛都数不到,门报 0.25、是绿的,而眼睛看到的是正房被整片挡住(`D-32` ①)。
+   * 现在把 along-path 的落点也算成遮挡盘:落点与 `check:scenes` 同一个函数、同一组参数
+   * (solidRadius 1.1 / footRadius 0.55 / buildingPad 0.25,地表走 makeTerrainField)。
+   * 半径取 `radius_m.clump`——`buildBambooRow` 的每一丛就是一个 clump 的长法。
+   */
+  const scatterRules = (scene.scatters ?? []).filter((r) => r.rule === 'along-path' && r.part === spec.part);
+  if (scatterRules.length) {
+    const r = spec.radius_m.clump;
+    if (!Number.isFinite(r) || r <= 0) return [`${label(entry)} scatters[] 有 ${spec.part} 沿路散布,但 radius_m 未给 clump 半径`];
+    for (const seed of alongPathSeeds(plan, spec.scene, scene, loadScene)) disks.push({ center: [seed.x, seed.z], r });
+  }
   const range = entry.ratio;
   if (!Array.isArray(range) || range.length !== 2 || !(range[0] >= 0) || !(range[1] <= 1) || range[0] >= range[1])
     return [`${label(entry)} ratio 须为 [下界,上界] 且 0≤下界<上界≤1`];
@@ -357,10 +410,7 @@ export function validateExperienceEntry(entry, seen = new Set()) {
  * loadScene(sceneId) 可注入(测试用);缺省读 projects/daguanyuan/scenes/。
  */
 export function auditExperience(plan, { loadScene } = {}) {
-  const read = loadScene ?? ((id) => {
-    try { return JSON.parse(readFileSync(new URL(`../projects/daguanyuan/scenes/${id}.json`, import.meta.url), 'utf8')); }
-    catch { return null; }
-  });
+  const read = loadScene ?? defaultLoadScene;
   const fails = [], results = [], seen = new Set();
   for (const entry of plan.experience ?? []) {
     const shapeFails = validateExperienceEntry(entry, seen);
