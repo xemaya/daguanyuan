@@ -53,9 +53,11 @@ const SHOTS = [
   { at: [0, 2.2, 153], yaw: 0.0, pitch: 0.06, hold: 1.6, travel: 2.4, say: '沁芳亭' },
   { at: [-40, 2.0, 126], yaw: 1.25, pitch: 0.0, hold: 1.2, travel: 4.2, say: '沿溪向西' },
   { at: [-100, 1.9, 126], yaw: 1.55, pitch: 0.02, hold: 1.2, travel: 3.6, say: '潇湘馆院外' },
-  { at: [-105, 1.9, 124], yaw: 3.14, pitch: 0.10, hold: 1.8, travel: 1.6, say: '粉垣月洞门·题「潇湘馆」' },
-  { at: [-105, 1.8, 112], yaw: 3.14, pitch: 0.0, hold: 1.4, travel: 2.6, say: '翠竹夹路' },
-  { at: [-105, 1.8, 103], yaw: 3.14, pitch: 0.06, hold: 2.2, travel: 2.0, say: '正房阶前' },
+  // 2026-09-23 验收 AL 时改:这三站原来 yaw 3.14,按上面的约定是**朝南**——月洞门那一站拍的是院外野地、
+  // 门匾(挂在门南面)一次都没进画,「正房阶前」背对正房。改朝北;后两站落到 AL2 的羊肠折线上。
+  { at: [-105, 1.9, 125.5], yaw: 0, pitch: 0.10, hold: 1.8, travel: 1.6, say: '粉垣月洞门·题「潇湘馆」' },
+  { at: [-106.6, 1.8, 116.5], yaw: -0.3, pitch: -0.02, hold: 1.4, travel: 2.6, say: '翠竹夹路' },
+  { at: [-103.3, 1.8, 107], yaw: 0.15, pitch: 0.06, hold: 2.2, travel: 2.4, say: '正房阶前' },
 ];
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -84,6 +86,8 @@ const context = await browser.newContext({
   recordVideo: { dir: tmpDir, size: { width: args.width, height: args.height } },
 });
 const page = await context.newPage();
+// 录像从开页就开始录,前面几十秒是建世界的加载画面(09-23 那条 85 s 里 30 s 是加载);记下开录时刻,转码时剪掉。
+const recordStart = Date.now();
 page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
 
 console.log(`[record] ${args.url}`);
@@ -113,6 +117,8 @@ const place = (pos, yaw, pitch) =>
 const STEP = 1000 / 30; // 运镜按 30 步/秒下发,录像自己按合成器的节奏取帧
 let prev = SHOTS[0];
 await place(prev.at, prev.yaw, prev.pitch);
+await page.waitForTimeout(300);
+const trimSec = ((Date.now() - recordStart) / 1000).toFixed(2);
 
 for (let i = 0; i < SHOTS.length; i++) {
   const s = SHOTS[i];
@@ -150,7 +156,7 @@ rmSync(tmpDir, { recursive: true, force: true });
 
 const mp4 = join(outDir, `${args.tag}.mp4`);
 try {
-  execFileSync('ffmpeg', ['-y', '-i', finalWebm, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', mp4], {
+  execFileSync('ffmpeg', ['-y', '-ss', trimSec, '-i', finalWebm, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', mp4], {
     stdio: ['ignore', 'ignore', 'pipe'],
   });
   console.log(`[record] → ${args.out}/${args.tag}.mp4`);

@@ -6,6 +6,21 @@
 
 ---
 
+## P-33 AV-b1 只把树改成先撒后筛，灌木还是 Bridson——改一条潇湘馆的路，正门的灌木换了一半
+
+**症状**：单子 AL2 只改了 `plan.json` 里潇湘馆甬路的折线。验收人逐步拍图时发现 `gate_face`（正门，**D-28 已冻结**）左前那丛大灌木没了，
+`gate_approach` / `gate_face` draw call 各 +7。`tree-census --dump` 前后逐株 diff：树 174 棵一棵不动，**灌木 355 丛只有 62 丛原位，293 丛换了位置，正门 60 m 内 61 丛**。
+施工 agent 拍的 before/after 里 `gate_face` 本来就看得出，回报没提。
+
+**根因**：`builder/parts/zhiwu/vegetation.ts` 撒灌木丛心仍是带 `density` 的 `poissonScatter`（Bridson），且与丛内株位、分桶共用一条顺序 `rng`。
+路一改，潇湘馆附近 `mask` / `ground` 变了 → 拒点变了 → 活动表与 rng 序列从那一点起全变（`P-28` 同一个病）。AV-b1 当时只修了树（`copse`）。
+
+**修法**：灌木丛心走 `poissonScatter` 的先撒后筛档（`engine/scatter/poisson.ts`），丛内株位用丛心坐标哈希派生的局部 rng，不再吃全局序列。
+**教训**：`P-28` 的教训要按「散布层」逐层核，不能修了一层就当病没了——草、三叶草、落叶、苔片、野花也各有一个 `poissonScatter`，改之前逐个查是不是稳定档。
+**验法**：任何动 `plan.json` 几何的单子，收工前后各 `tree-census --dump` 一份，灌木那一栏也要 diff。
+
+---
+
 ## P-32 manifest 的几何 sha 取决于「哪些 mesh 被画过」
 
 **症状**：AX3 的几何、变换逐项数值相同，manifest 的几何 sha 却变了。
