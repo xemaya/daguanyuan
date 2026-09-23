@@ -3,7 +3,7 @@ import { bindUniforms } from '@engine/render/nodes/bindings';
 import { terrainNodes } from './nodes/terrain';
 import * as THREE from 'three/webgpu';
 import { terrainWindow } from '@builder/plan/window';
-import { buildTerrainChunks } from '@engine/render/TerrainChunks';
+import { buildTerrainChunks, TerrainLod, TERRAIN_LOD_HYSTERESIS, type TerrainLodLevel } from '@engine/render/TerrainChunks';
 import type { GameContext } from '@engine/core/Context';
 import { grassTurfMaps, cobbleMaps, type MaterialMaps } from '@engine/core/TextureLab';
 import {
@@ -118,6 +118,21 @@ const PAD = 15;
 const CELL = 0.48;
 
 /**
+ * 单子 AX1:粗档步长,以 CELL 为单位——0.48 / 0.96 / 1.92 / 3.84 m。
+ * 粗档的顶点就是 L0 格点的子集(同一份顶点缓冲),所以 CELL 仍是 L0 的精度本身。
+ * 切到哪一档不在这里定:按每块每档量出来的最大误差,投影 < 1 px 才切(TerrainLod)。
+ */
+const LOD_STEPS = [2, 4, 8] as const;
+/**
+ * 每档的误差预算:一格边长的 1/16(0.06 / 0.12 / 0.24 m)。超预算的粗格留在 L0,
+ * 所以驳岸、台基边这种陡坎只钉住自己那几格,不把整块钉在 L0(见 lodTriangles)。
+ * 它**不是切档阈值**——切档仍按每块每档量出来的误差、投影 < 1 px 现算;预算只决定
+ * 粗档多早能接管:按 1600×900、FOV 62° 折算,各档最晚在 45 / 90 / 180 m 接管,
+ * 也就是每一档在自己一格投影到约 16 px 时接管。边长按比例涨,预算也按比例涨。
+ */
+const LOD_BUDGET = (step: number): number => (CELL * step) / 16;
+
+/**
  * splat 每个纹素多少米——**单子 AA 的核心判据**。
  *
  * 以前 splat 是写死的 1024²「一张盖全场」。窗口一大,纹素密度就跟着摊薄:
@@ -184,6 +199,30 @@ function sharpen(maps: MaterialMaps): MaterialMaps {
     }
   }
   return maps;
+}
+
+/**
+ * 单子 AX1 的自报:各档格距、全窗口三角、每块最大误差的分布,以及按参考视口
+ * (1600×900、当前相机 FOV)算出来的切档距离分布。manifest 里就是这一段。
+ */
+function lodReport(chunks: THREE.Mesh[], FOV: number) {
+  const REF_HEIGHT = 900;
+  const p11 = 1 / Math.tan((FOV / 2) * Math.PI / 180);
+  const quant = (a: number[]) => { const v = [...a].sort((x, y) => x - y); const q = (f: number) => v.length ? v[Math.min(v.length - 1, Math.floor(f * v.length))] : 0; return { min: v[0] ?? 0, median: q(0.5), p90: q(0.9), max: v[v.length - 1] ?? 0 }; };
+  const round = (o: Record<string, number>, d: number) => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, Number(x.toFixed(d))]));
+  return {
+    reference: { viewport: [1600, REF_HEIGHT], fov: FOV, maxPixels: 1, hysteresis: TERRAIN_LOD_HYSTERESIS },
+    levels: [1, ...LOD_STEPS].map((step, i) => {
+      const lv = chunks.map((c) => (c.userData.lod as TerrainLodLevel[]).find((l) => l.step === step)).filter((l): l is TerrainLodLevel => !!l);
+      const errs = lv.map((l) => l.maxError);
+      return {
+        level: i, step, cell: Number((CELL * step).toFixed(2)), chunks: lv.length,
+        triangles: lv.reduce((n, l) => n + l.triangles, 0),
+        maxErrorM: round(quant(errs), 3),
+        switchDistanceM: round(quant(errs.map((e) => e * (REF_HEIGHT / 2) * p11)), 1),
+      };
+    }),
+  };
 }
 
 export function buildTerrain(ctx: GameContext): void {
@@ -266,9 +305,14 @@ export function buildTerrain(ctx: GameContext): void {
   const terrain = new THREE.Group();
   terrain.name = 'Terrain';
   const chunks = timed('mesh', () => buildTerrainChunks(field, TERRAIN, 64, {
-    segX: TERRAIN.segX, segZ: TERRAIN.segZ, material: mat,
+    segX: TERRAIN.segX, segZ: TERRAIN.segZ, material: mat, lodSteps: LOD_STEPS, lodBudget: LOD_BUDGET,
   }));
   terrain.add(...chunks);
+  for (const chunk of chunks) for (const level of (chunk.userData.lod as TerrainLodLevel[]).slice(1)) terrain.add(level.mesh);
+  const lod = new TerrainLod(chunks);
+  const canvas = ctx.engine.renderer.domElement;
+  // 挂在 world 的 tick 上(engine.add 的 world-sys 里、player-sys 之后),读到的是这一帧的相机。
+  ctx.tick(() => lod.update(ctx.camera, canvas.height));
   ctx.scene.add(terrain);
   terrain.userData.chunkCount = chunks.length;
   terrain.userData.buildTimings = timings;
@@ -282,6 +326,7 @@ export function buildTerrain(ctx: GameContext): void {
     window: [TERRAIN.width, TERRAIN.depth],
     vertices: TERRAIN.segX * TERRAIN.segZ,
     chunks: chunks.length,
+    lod: lodReport(chunks, ctx.camera.fov),
   };
 
   // ---- perimeter blockers ---------------------------------------------
