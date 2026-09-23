@@ -37,10 +37,17 @@ try {
   if (await page.locator('#app pre').count()) throw new Error(await page.locator('#app pre').textContent());
   const report = { url, far, buildMs: await page.evaluate(() => window.__GAME__.world.buildDurationMs), shots: {} };
   for (const s of shots) {
-    report.shots[s.id] = await page.evaluate(({ s, far }) => {
-      const g = window.__GAME__, T = g.THREE, root = g.world.root;
+    // 传送后先让引擎跑几帧再数:InstanceCuller、簇池、地形分档、小件剔除都是每帧按相机更新的,
+    // 同一个 evaluate 里传送完立刻数,数到的是**上一个机位**的剔除状态(单子 AX 回报「尺子的坑」1,
+    // 开工基线的 xiaoxiang Garden 因此少报了 30%)。
+    await page.evaluate(s => {
+      const g = window.__GAME__, T = g.THREE;
       g.player.teleport(new T.Vector3(...s.pos), s.yaw); g.player.state.pitch = s.pitch;
       g.player.update(1 / 60); g.player.update(1 / 60);
+    }, s);
+    await page.evaluate(() => new Promise(r => { let n = 0; const tick = () => ++n >= 8 ? r() : requestAnimationFrame(tick); requestAnimationFrame(tick); }));
+    report.shots[s.id] = await page.evaluate(({ s, far }) => {
+      const g = window.__GAME__, T = g.THREE, root = g.world.root;
       const cam = g.engine.camera; cam.updateMatrixWorld(true);
       const fr = new T.Frustum().setFromProjectionMatrix(new T.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
       const sph = new T.Sphere(), cats = {};
