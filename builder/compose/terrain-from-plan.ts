@@ -873,11 +873,30 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     // 广场被刷成 `dirt=1`。用户看到的「门前黄土地」主要是这一片，不是羽化土肩。
     // 高程仍旧由 `path` 决定（动它会改地形高度），这里只决定地表材质。
     const paved = path.paving ? path : pathBlend(x, z, true);
-    if (paved.paving && paved.w > 0.001 && paved.d < Infinity) {
-      const pave = smoothstep(paved.hw + paved.feather * 0.4, paved.hw - 0.22, paved.d) * paved.w;
+    if (paved.paving && paved.d < Infinity) {
+      /*
+       * 单子 AL-b b1：石面边缘贴住路牙内沿。原来石面用的是 `pathBlend` 的距离——
+       * 查询点先过 `warp2`（粗项 0.35 m、波长约 22 m）、半宽还带呼吸噪声，
+       * 而 `luya` 的路牙是沿**同一条样条**不带 warp 固定偏 `hw + 0.10`。粗 warp 把整条石带
+       * 相对样条横推 0.1–0.2 m，于是一侧压牙、另一侧留草缝（验收人量到的「弯内 0.36–0.44、
+       * 弯外 0.72–0.78」里，一部分是这个，另一部分是那把尺子从折线弦中点量、路牙却在样条上）。
+       * 这里改用**不 warp、不呼吸**的样条距离，边缘落在 `hw + PAVE_SHOULDER`：
+       * 0.5 的过渡点在内沿里 1 cm，软边整段压在 8 cm 宽的牙底下。
+       * `PAVE_SHOULDER` 必须等于 `builder/parts/pudi/luya.ts` 的 `CURB_SHOULDER`（0.10）。
+       * 土肩与草舌仍按 warp 过的 `path.w` 走——牙外那一侧照旧是不规则的草边。
+       */
+      const PAVE_SHOULDER = 0.10;
+      let cd = Infinity, chw = 0;
+      for (const p of pathProfiles) {
+        if (p.paving !== paved.paving) continue;
+        const r = pathQuery(x, z, p);
+        if (r && r.d < cd) { cd = r.d; chw = p.hw; }
+      }
+      const edge = chw + PAVE_SHOULDER - 0.01;
+      const pave = cd < Infinity ? smoothstep(edge + 0.07, edge - 0.07, cd) : 0;
       if (paved.paving === 'cobble') cobble = pave * 0.92;
       else slab = pave * 0.92;
-      dirt = 0;
+      if (paved.w > 0.001 || pave > 0) dirt = 0;
     }
 
     // 官式地面区不刷荒土（见 `formalGround` 头注）。
