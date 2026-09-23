@@ -2,7 +2,7 @@ import { applyCanopyShadow } from './foliage-materials';
 import {allPlanLinears} from '@builder/plan/linears';
 import * as THREE from 'three';
 import { positionWorld, vec2, vec3, mix, add, mx_fractal_noise_float } from 'three/tsl';
-import { BoundsIndex } from '@engine/scatter/cluster';
+import { BoundsIndex, polygonNearIndex } from '@engine/scatter/cluster';
 import {compileCorridor} from '@builder/plan/corridor-path';
 import {compileBridgePath} from '@builder/plan/bridge-path';
 import {locatePoint,type Point2} from '@builder/plan/geometry';
@@ -28,7 +28,7 @@ import {
   setFlex,
   bakeCanopyShading,
 } from './foliage-materials';
-import { occupancyFree, occupancyDistance } from '@builder/compose/occupancy';
+import { occupancyFree, occupancyDistance, getOccupancy, type OccupancyField } from '@builder/compose/occupancy';
 import { baishiCrownPoints } from '@builder/parts/shishan/baishi';
 import { registerObject } from '@builder/compose/roster';
 import { TERRAIN, getPlan } from '@builder/compose/terrain';
@@ -479,7 +479,34 @@ function makePlantMask(ctx: GameContext): DensityMask {
  *  clearances),不再是本文件里的手抄副本。函数名与签名保持不变——16 处调用
  *  点一个都不用改,换的是真源不是用法。 */
 function outsideBuildings(x: number, z: number, pad = 0): number {
+  if (pad <= NEAR_PAD_MAX && !nearOccupant(x, z)) return 1;
   return occupancyFree(x, z, pad);
+}
+
+/**
+ * 单子 AX2:占位查询的空间预筛——**只是缓存,结果逐位不变**。
+ *
+ * `occupancyFree` 对全园每块占位多边形线性扫(19 区时草散布里 1.47M 次调用、15.5 s)。
+ * 它取的是 `min(smoothstep(-0.35, 0.35, 距离 − pad))`:离所有多边形都超过 0.35 + pad 的点,
+ * 每一项都恰好是 1(smoothstep 夹到 1,`t*t*(3-2t)` 在 t=1 时逐位得 1),结果就是 1。
+ * 所以先用包围盒(外扩 0.35 + 本文件用到的最大 pad)的格子索引问「附近有没有占位」:
+ * 没有就直接回 1;有就照旧整份去算。算的函数、顺序、提前返回都还是 occupancy.ts 那一份。
+ * 包围盒到点的距离 ≤ 点到多边形的距离,所以预筛只会多放行、不会漏。
+ *
+ * 更顺的位置是在 `occupancy.ts` 的 `free()` 里建索引,但那个文件不在本单的文件域里,
+ * 记在回报里。占位场按对象身份缓存:热重载换了一份就重建。
+ */
+const NEAR_PAD_MAX = 1.4;
+let nearCache: { field: OccupancyField | undefined; near: ((x: number, z: number) => boolean) | null } = { field: undefined, near: null };
+function nearOccupant(x: number, z: number): boolean {
+  const field = getOccupancy();
+  if (nearCache.field !== field) {
+    // free() 不读墙体带(occupancy.ts 文件头第 2 条),所以预筛也只收房子与净空。
+    const polys = field ? field.occupants().filter((o) => o.kind !== 'wall').map((o) => o.polygon) : null;
+    nearCache = { field, near: polys ? polygonNearIndex(polys, 0.35 + NEAR_PAD_MAX + 0.01) : null };
+  }
+  // 没注入占位场:occupancyFree 自己回 1,这里交给它。
+  return !nearCache.near || nearCache.near(x, z);
 }
 
 /* ------------------------------------------------------------------ */

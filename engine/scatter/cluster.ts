@@ -46,6 +46,21 @@ export class BoundsIndex<T> {
   }
 }
 
+/**
+ * 单子 AX2:「这一点附近有没有多边形」的格子预筛。包围盒外扩 `margin` 进 `BoundsIndex`,
+ * 查到的是**超集**(格子粒度、包围盒比多边形大),所以只可能多放行、不可能漏。
+ * 用它把「远离所有多边形时结果恒定」的场函数短路掉,短路后的结果与不短路逐位相同。
+ */
+export function polygonNearIndex(polygons: readonly (readonly (readonly [number,number])[])[], margin: number, cellSize = 16): (x:number,z:number)=>boolean {
+  const index=new BoundsIndex<true>(cellSize);
+  for(const poly of polygons){
+    let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+    for(const [x,z] of poly){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);}
+    index.add({minX,maxX,minZ,maxZ},true,margin);
+  }
+  return (x,z)=>index.query(x,z).length>0;
+}
+
 export interface Cluster<T> {
   key: string;
   center: {x:number;y:number;z:number};
