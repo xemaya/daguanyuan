@@ -29,7 +29,7 @@
 <polygon points="-728.0,-552.0 -552.0,-600.0 -392.0,-552.0 -360.0,-440.0 -472.0,-360.0 -648.0,-376.0 -728.0,-552.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-728.0" y="-556" fill="#6a7a4a" font-size="10">hill.daoxiang-slope 高 7 m</text>
 <polygon points="-8.0,-24.0 496.0,-24.0 496.0,88.0 576.0,88.0 576.0,408.0 400.0,408.0 400.0,512.0 136.0,512.0 136.0,456.0 -64.0,456.0 -64.0,104.0 -8.0,104.0 -8.0,-24.0" fill="none" stroke="#b08a5a" stroke-width="1" stroke-dasharray="6 3"/><text x="-8.03" y="-12" fill="#8a6a3a" font-size="10">xiaoxiangguan 区(标高 1 m)</text>
 <polyline points="344.0,504.0 256.0,488.0 256.0,504.0 104.0,504.0 8.0,440.0" fill="none" stroke="#c9a87a" stroke-width="3" stroke-linejoin="round" opacity="0.8"/>
-<polyline points="256.0,504.0 256.0,472.0 256.0,408.0 256.0,344.0 256.0,304.0" fill="none" stroke="#c9a87a" stroke-width="3" stroke-linejoin="round" opacity="0.8"/>
+<polyline points="256.0,504.0 256.0,472.0 244.7,456.0 240.0,440.0 244.7,424.0 256.0,408.0 265.4,387.2 271.2,366.4 271.2,345.6 265.4,324.8 256.0,304.0" fill="none" stroke="#c9a87a" stroke-width="3" stroke-linejoin="round" opacity="0.8"/>
 <polyline points="144.0,472.0 368.0,472.0 368.0,40.0 40.0,40.0 40.0,408.0 144.0,408.0 144.0,472.0" fill="none" stroke="#444" stroke-width="3"/>
 <text x="144.0" y="467" fill="#444" font-size="9">xiaoxiangguan.courtyard-wall</text>
 <polyline points="168.0,456.0 168.0,376.0 88.0,376.0 88.0,184.0 168.0,184.0" fill="none" stroke="#888" stroke-width="4"/>
