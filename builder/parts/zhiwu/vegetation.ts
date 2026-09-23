@@ -2235,31 +2235,48 @@ export function buildVegetation(ctx: GameContext): void {
    * 2 463 株、山上 202 株**——判据要的是 40–60。收到现在这一档是量出来的，
    * 不是估的：前后两次普查的数写在单子 AV 的回报里。
    */
-  const bushSpots: Spot[] = [];
+  /*
+   * 单子 AL-b b0（`P-33`，`D-32` ③）：灌木走「先撒后筛」档，与树的 copse 同一档。
+   * 原来丛心是带 `density` 的 Bridson、丛内株位与分桶又吃共享顺序 `rng`——AL2 只改了
+   * 潇湘馆一条路，全园 355 丛里 293 丛换了位置，正门 60 m 内 61 丛。现在：
+   *   - 丛心：专用 rng 撒飞镖（每次恰好 2 发，飞镖流全园稳定），留不留看坐标哈希；
+   *   - 丛内株数 / 散开半径 / 株位 / 分桶 / 每株体量朝向：全部由**坐标哈希派生的局部 rng**给，
+   *     不再碰共享 `rng`（共享流在这一段之后已无消费者，所以这一改不连带别的散布层）。
+   * 筛后总量靠 `tries` 定，不动 `bushDensity`（密度是「长在哪」，飞镖数是「长多少」）：
+   * 先撒后筛与旧档期望通过率相同，但同样 26000 发实测筛后只有 316 丛（山上 36）；
+   * 32000 → 339、36000 → 366、**34000 → 352**（山上 36），取 34000 对齐改前的 354。
+   * 加飞镖只在流尾追加候选，前 26000 发的丛心不变。
+   * 稳定性实验（单子 AL-b b0 判据）：`court-path` 中点挪 0.5 m，`tree-census --dump` 前后
+   * 灌木 352 → 352、逐株 0 差异；同一实验下旧代码是 354 → 347、逐株全变。
+   */
+  const spotRng = (x: number, z: number, salt: number) =>
+    makeRng((ctx.seed ^ salt ^ Math.floor(scatterHash01(x, z) * 4294967296)) >>> 0);
+  const bushSpots: (Spot & { bucket: number })[] = [];
   {
     const centres = poissonScatter({
       minX: VEG.scatterMinX, maxX: VEG.scatterMaxX,
       minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
-      radius: 8.5, tries: 26000, density: bushDensity, rng,
+      radius: 8.5, tries: 34000, density: bushDensity, rng: makeRng(ctx.seed ^ 0xb05b), filterByHash: true,
     });
     const MIN_SEP2 = 0.95 * 0.95;
     for (const c of centres) {
-      const n = 3 + Math.floor(rng() * 4);
-      const spread = rangeOf(rng, 1.1, 2.6);
+      const cRng = spotRng(c.x, c.z, 0xb0c0);
+      const n = 3 + Math.floor(cRng() * 4);
+      const spread = rangeOf(cRng, 1.1, 2.6);
       for (let i = 0; i < n; i++) {
-        const a = rng() * Math.PI * 2;
-        const r = i === 0 ? 0 : spread * Math.pow(rng(), 0.6);
+        const a = cRng() * Math.PI * 2;
+        const r = i === 0 ? 0 : spread * Math.pow(cRng(), 0.6);
         const x = c.x + Math.cos(a) * r;
         const z = c.z + Math.sin(a) * r;
         if (bushDensity(x, z) <= 0.02) continue;
         if (bushSpots.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < MIN_SEP2)) continue;
-        bushSpots.push({ x, z });
+        bushSpots.push({ x, z, bucket: Math.floor(scatterHash01(x + 0.5, z - 0.5) * 3) % 3 });
       }
     }
   }
 
   const bushBuckets: { x: number; z: number }[][] = [[], [], []];
-  for (const s of bushSpots) bushBuckets[Math.floor(rng() * 3) % 3].push(s);
+  for (const s of bushSpots) bushBuckets[s.bucket].push(s);
 
   bushBuckets.forEach((spots, bi) => {
     if (spots.length === 0) return;
@@ -2269,16 +2286,18 @@ export function buildVegetation(ctx: GameContext): void {
     leaves.geometry.setAttribute('aWind', mesh.geometry.getAttribute('aWind'));
     for (let i = 0; i < spots.length; i++) {
       const s = spots[i];
-      const sc = rangeOf(bRng, 0.62, 1.12);
-      euler.set(rangeOf(bRng, -0.09, 0.09), bRng() * Math.PI * 2, rangeOf(bRng, -0.09, 0.09), 'ZYX');
+      // 每株体量/朝向/色偏用本株坐标派生的 rng（AL-b b0）：桶里少一株，别的株不变样。
+      const pRng = spotRng(s.x, s.z, 0xb0d0);
+      const sc = rangeOf(pRng, 0.62, 1.12);
+      euler.set(rangeOf(pRng, -0.09, 0.09), pRng() * Math.PI * 2, rangeOf(pRng, -0.09, 0.09), 'ZYX');
       q.setFromEuler(euler);
       pos3.set(s.x, ground(s.x, s.z) - 0.14 * sc, s.z);
-      scl.set(sc * rangeOf(bRng, 0.9, 1.15), sc * rangeOf(bRng, 0.82, 1.1), sc * rangeOf(bRng, 0.9, 1.15));
+      scl.set(sc * rangeOf(pRng, 0.9, 1.15), sc * rangeOf(pRng, 0.82, 1.1), sc * rangeOf(pRng, 0.9, 1.15));
       m4.compose(pos3, q, scl);
       mesh.setMatrixAt(i, m4);
       leaves.setMatrixAt(i, m4);
-      const warm = rangeOf(bRng, -1, 1);
-      col.setRGB(1 + warm * 0.08, 1 + rangeOf(bRng, -0.05, 0.05), 1 - warm * 0.1);
+      const warm = rangeOf(pRng, -1, 1);
+      col.setRGB(1 + warm * 0.08, 1 + rangeOf(pRng, -0.05, 0.05), 1 - warm * 0.1);
       mesh.setColorAt(i, col);
       leaves.setColorAt(i, col);
     }
