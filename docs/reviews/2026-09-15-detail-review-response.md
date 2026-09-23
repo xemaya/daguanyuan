@@ -520,7 +520,7 @@ AL 的五个提交（`9a6459c3` 5d → `67a37556` AL1+AL2 → `3fd8eda7` AL3 →
 | HEAD（+AX） | 247 / 3653k | 264 / 3796k | 279 / 4452k | 313 / 4242k | 282 / 4124k |
 
 → 对基线：`xiaoxiang` **+16.1%**（AL3 买 +19.7%，AX 回吐 101k）、`gate_approach` −6.6%、`mound_block` −5.2%、`grass_close` −3.5%（后三镜是 AX 的账，AL 在它们上 ≤ +0.2%）。
-fps 三次中位数：`gate_approach` 43、`mound_block` 46、`grass_close` 45、`xiaoxiang` **44**（< 45 目标）。
+fps 三次中位数：`gate_approach` 45、`mound_block` 46、`grass_close` 45、`xiaoxiang` **44**（< 45 目标）。
 
 **判据表**（`knowledge/docs/scenes/xiaoxiangguan.md` §7）：
 
@@ -560,4 +560,9 @@ fps 三次中位数：`gate_approach` 43、`mound_block` 46、`grass_close` 45�
 4. 院内草坪：给 `surface()` 加「苔」档（动脚下序列与 playtest）/ **按区压草与三叶草**（照 AL4 野花的区系数做法，走坐标哈希筛子，不动 rng）。建议后者。
 
 **结论**：AL1 / AL2 / AL3 的形与量**通过**；AL4 半通过（花池、路牙、野花过，苔地没过——病根在单子文件域外，agent 如实报了）；5d 部分通过。
-四道判断题等用户，基线**暂不抬**。尾账（路牙脱开、灌木稳定化、土丘、5d 余斑、院内压草、X-05 透视缝）合成一张 **AL-b**。
+四道判断题等用户，基线**暂不抬**。
+
+**同日裁定（`D-32`）**：四条全取建议档。基线已按 HEAD 三次中位数重写（history 第 12 行，`frameCostMs` 手工补回）；尾账单 **AL-b** 已写（`docs/superpowers/plans/2026-09-23-alb-xiaoxiang-followup.md`），验收人的普查脚本转正为 `tools/xiaoxiang-census.mjs`。
+**⚠️ 写单时发现**：X-05 登记视点是 (−94,124)，不在月洞门轴上，透视缝未必能把它压进 0.5；单子写明超了就停下回报。
+
+尾账（路牙脱开、灌木稳定化、土丘、5d 余斑、院内压草、X-05 透视缝）合成一张 **AL-b**。

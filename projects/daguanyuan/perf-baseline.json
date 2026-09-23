@@ -5,32 +5,32 @@
   "fpsTarget": 45,
   "shots": {
     "gate_approach": {
-      "drawCalls": 310,
-      "triangles": 4540551,
+      "drawCalls": 313,
+      "triangles": 4241509,
       "fps": 45,
       "frameCostMs": 3.9
     },
     "mound_block": {
-      "drawCalls": 293,
-      "triangles": 4430711,
+      "drawCalls": 287,
+      "triangles": 4200307,
       "fps": 46,
-      "frameCostMs": 3.8
+      "frameCostMs": 3.5
     },
     "grass_close": {
-      "drawCalls": 303,
-      "triangles": 4563365,
-      "fps": 46,
-      "frameCostMs": 6.1
+      "drawCalls": 302,
+      "triangles": 4405081,
+      "fps": 45,
+      "frameCostMs": 6.2
     },
     "xiaoxiang": {
-      "drawCalls": 251,
-      "triangles": 3145172,
+      "drawCalls": 247,
+      "triangles": 3653018,
       "fps": 44,
-      "frameCostMs": 4.3
+      "frameCostMs": 4.1
     }
   },
-  "measuredAt": "2026-09-18",
-  "commit": "dd3222ff66ca3e3916686f4a9fa4779769f96d34",
+  "measuredAt": "2026-09-23",
+  "commit": "67da19a3dd02c9bf7b109d6c57a74d7b5f238688",
   "history": [
     {
       "date": "2026-09-15",
@@ -119,6 +119,14 @@
       "bought": "没有买细节,是回收:AV-b1 树散布改「先撒后筛」(P-28),树 183→174、灌木整体重铺一次(350→355,山上 47→41);AW 只换匾字贴图,三角零变化。mound_block −5.0% 与 xiaoxiang −3.0% 是重铺的副产物,两镜双向越过 ±3% 所以重写基线;xiaoxiang 没回到 AV 前的 2967908(哈希筛是同一密度场上另一套点集,视锥内约 44 棵 vs AV 前 36),这一点验收 §20 认了。",
       "by": "验收人(Claude)2026-09-18 在 5177 三次独立进程连拍(shots/AW/verify-four、-2、-3)取中位数,drawCalls/triangles 逐位相同",
       "note": "fps 44–46 贴着目标 45,frameCostMs 4.2–4.6;余量仍然吃光,下一次买细节前先做回收。"
+    },
+    {
+      "date": "2026-09-23",
+      "order": "AL + AX",
+      "shots": "gate_approach 4540551→4241509, mound_block 4430711→4200307, grass_close 4563365→4405081, xiaoxiang 3145172→3653018",
+      "bought": "AL3 竹夹路整列(xiaoxiang +620k,无竹竿 LOD);AX1/AX3 远处地形分档与小件剔除(三镜 −3.5~−6.6%,xiaoxiang 回吐 101k)",
+      "by": "验收人(Claude)",
+      "note": "逐提交 worktree 分步拍图归因(shots/AL-steps,§22);用户 2026-09-23 裁定现在抬(D-32);xiaoxiang fps 中位 44 < 45,竹竿 LOD 单子排在稻香村前;frameCostMs 手工补(write-baseline 仍丢该字段)"
     }
   ]
 }
