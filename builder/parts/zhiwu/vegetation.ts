@@ -1530,7 +1530,13 @@ export function buildVegetation(ctx: GameContext): void {
   const group = new THREE.Group();
   group.name = 'Vegetation';
   ctx.scene.add(group);
+  // 单子 AX2-0:「植树」往下再拆一层,量的是每一段从上一个 mark 到这里的墙钟时间。
+  // 只量不改:不碰任何规则、随机数与遍历顺序。结果挂在 group.userData.buildTimings。
+  const buildTimings: [string, number][] = [];
+  let markAt = performance.now();
+  const mark = (label: string): void => { const now = performance.now(); buildTimings.push([label, now - markAt]); markAt = now; };
 
+  mark('setup(mask/草被场)');
   /* ---------------- materials -------------------------------------- */
 
   /**
@@ -1664,6 +1670,7 @@ export function buildVegetation(ctx: GameContext): void {
    */
 
 
+  mark('materials');
   /* ---------------- species geometry ------------------------------- */
 
   const built = SPECIES.map((def, i) => ({
@@ -1675,6 +1682,7 @@ export function buildVegetation(ctx: GameContext): void {
     spots: [] as { x: number; z: number; s: number; yaw: number; tilt: number; tiltAz: number }[],
   }));
 
+  mark('species geometry');
   /* ---------------- tree placement --------------------------------- */
 
   /**
@@ -1928,6 +1936,7 @@ export function buildVegetation(ctx: GameContext): void {
     placeTree(x, z, SPECIES_INDEX[key]);
   }
 
+  mark('tree placement');
   /* ---------------- 点名种的树(单子 AV2) ----------------------------- */
 
   // 与 HERO_TREES 同一路 placeTree,只是位置、种、尺度、倾角从数据来。
@@ -1975,6 +1984,7 @@ export function buildVegetation(ctx: GameContext): void {
     }
   }
 
+  mark('named trees + 堤柳');
   /* ---------------- tree instancing -------------------------------- */
 
   const culler = new ClusteredInstancePool(group);
@@ -2118,6 +2128,7 @@ export function buildVegetation(ctx: GameContext): void {
     culler.add([trunkMesh, canopyMesh, fringeMesh], { skipShadow: [fringeMesh], cellSize: 128 });
   }
 
+  mark('tree instancing');
   /* ---------------- bushes ----------------------------------------- */
 
   const bushGeos = [
@@ -2274,6 +2285,7 @@ export function buildVegetation(ctx: GameContext): void {
     culler.add([mesh, leaves], { skipShadow: [leaves], maxDist: 30, cellSize: 20 });
   });
 
+  mark('bushes');
   /* ---------------- 点名种植(PQ-5c) --------------------------------- */
 
   /**
@@ -2462,6 +2474,7 @@ export function buildVegetation(ctx: GameContext): void {
     }
   }
 
+  mark('点名种植');
   /* ---------------- forest floor ------------------------------------ */
 
   /**
@@ -2634,6 +2647,7 @@ export function buildVegetation(ctx: GameContext): void {
     });
   }
 
+  mark('forest floor');
   /* ---------------- ground cover ----------------------------------- */
 
 
@@ -2772,6 +2786,7 @@ export function buildVegetation(ctx: GameContext): void {
     }
   }
 
+  mark('grass setup + lattice scatter');
   // Contact detail: a thicker ruff of grass at the foot of every trunk so
   // nothing appears to be pushed through the ground (ART_DIRECTION §2.5).
   {
@@ -2843,6 +2858,7 @@ export function buildVegetation(ctx: GameContext): void {
     }, VEG.drawDist.grass);
   });
 
+  mark('grass ruff + chunk register');
   // ---- clover ------------------------------------------------------
   {
     const cloverGeo = cloverGeometry(ctx.seed ^ 0xc10e);
@@ -2917,6 +2933,7 @@ export function buildVegetation(ctx: GameContext): void {
     }
   }
 
+  mark('clover');
   // ---- flowers -----------------------------------------------------
   {
     const petal = petalMaps();
@@ -3225,6 +3242,7 @@ export function buildVegetation(ctx: GameContext): void {
     }
   }
 
+  mark('flowers');
   // ---- weeds / ferns ----------------------------------------------
   {
     const wRng = makeRng(ctx.seed ^ 0x3e2d);
@@ -3305,11 +3323,13 @@ export function buildVegetation(ctx: GameContext): void {
     });
   }
 
+  mark('weeds');
   /* ---------------- culling ----------------------------------------- */
 
   // Prime the spawn neighbourhood before reporting world build complete. Three's
   // per-camera frustum tests retain off-screen casters in the shadow camera.
   culler.update(ctx.camera);
+  mark('culler prime(出生点附近按需簇现建)');
   ctx.tick(() => culler.update(ctx.camera));
   group.userData.vegDebug = {
     setCulling: (on: boolean) => culler.setEnabled(on),
@@ -3317,6 +3337,7 @@ export function buildVegetation(ctx: GameContext): void {
     setDistanceCulling: (on: boolean) => culler.setDistanceCulling(on),
     stats: () => culler.stats(),
   };
+  group.userData.buildTimings = buildTimings;
   group.userData.treePlacements = treeBases;
   group.userData.naturalTreeCount = treeSpots.length;
   group.userData.grassCoverage = { denseChunks: denseChunks.filter(Boolean).length,
