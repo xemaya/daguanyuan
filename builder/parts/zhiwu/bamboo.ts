@@ -198,7 +198,8 @@ function moundGeometry(rng: () => number, R: number, H: number, cx: number, cz: 
       const rad = f * R * wob;
       const x = Math.cos(a) * rad;
       const z = Math.sin(a) * rad;
-      const dome = 1 - smoothstep(0.38, 1, f);
+      // 边缘淡出加宽(AL-b b2):0.38 → 0.2,裙脚更缓,不再是一圈陡边的饼。
+      const dome = 1 - smoothstep(0.2, 1, f);
       const n = tileableFbm(NOISE.soil, x * 0.35 + seed, z * 0.35, 3, 2) * 0.35;
       const y = f >= 1 ? 0 : Math.max(0, H * dome * (1 + n));
       pos.push(cx + x, y0 + y, cz + z);
@@ -294,10 +295,14 @@ function litterMaterial(): THREE.MeshStandardNodeMaterial {
       bakeColorMap({
         size: 512,
         color: (u, v) => {
+          // 单子 AL-b b2:底色由近黑深褐(0x34291e–0x4e3f2c)改成苔 / 落箨的暗橄榄到灰褐。
+          // 原色在苔地上是 18 块黑斑(`cu_xx_path` 亮度比周边低 67%),读成坑;
+          // 土丘要「隐进苔地」,不是另一种地——底色、苔色都向地形苔色(nodes/terrain.ts
+          // `mossCol` 0.115/0.175/0.075 线性)靠,落箨提一点暖黄。
           const soil = tileableFbm(NOISE.soil, u, v, 9, 3) * 0.5 + 0.5;
-          const c = mixHex(0x34291e, 0x4e3f2c, soil);
-          const dead = hexToRgb(0x7f6d3f);
-          const moss = hexToRgb(0x4f6432);
+          const c = mixHex(0x7c8250, 0x958e6c, soil);
+          const dead = hexToRgb(0xab9b68);
+          const moss = hexToRgb(0x7a9a48);
           const l = litter(u, v) * 0.6;
           const m = smoothstep(0.5, 0.85, tileableFbm(NOISE.grass, u + 0.3, v, 5, 3) * 0.5 + 0.5) * 0.6;
           return [
@@ -575,7 +580,8 @@ function build(variant: string): PartBuild {
   const mounds: THREE.BufferGeometry[] = [];
   for (const c of clumps) {
     buildClump(c, rng, culm, branch, leaf);
-    if (variant !== 'single') mounds.push(moundGeometry(rng, c.spread + 0.5, 0.1, c.cx, c.cz));
+    // 裙脚 +0.5 → +0.2(AL-b b2):土丘只要埋住竿脚,不该比竹丛本身还抢眼。
+    if (variant !== 'single') mounds.push(moundGeometry(rng, c.spread + 0.2, 0.1, c.cx, c.cz));
     else mounds.push(moundGeometry(rng, 0.4, 0.07, c.cx, c.cz));
   }
 
