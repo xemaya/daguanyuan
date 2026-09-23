@@ -14,7 +14,7 @@ import {
   packScalarQuad,
 } from '@engine/render/TerrainMaterials';
 import { makeTerrainField, type GardenPlan, type SurfaceMasks } from './terrain-from-plan';
-import { bakeSplatMainData, bakeSplatExtData } from './splat';
+import { bakeSplatData } from './splat';
 
 export type { GardenPlan };
 
@@ -258,8 +258,10 @@ export function buildTerrain(ctx: GameContext): void {
   const sand = timed('sand maps', () => sharpen(sandMaps()));
   // 单子 AA:图的边长按窗口算,不再写死 1024——精度与区数解耦(见 METRES_PER_TEXEL)。
   const splatSize = splatSizeFor(TERRAIN);
-  const splat = timed('splat', () => splatTexture(bakeSplatMainData(field, TERRAIN, splatSize), splatSize));
-  const splatExt = timed('splat ext', () => splatTexture(bakeSplatExtData(field, TERRAIN, splatSize), splatSize));
+  // 单子 AX2:两张一遍烘完(每个纹素只取一次 masks),字节流与分开烘逐位相同。
+  const splatData = timed('splat(主 + ext 一遍)', () => bakeSplatData(field, TERRAIN, splatSize));
+  const splat = splatTexture(splatData.main, splatSize);
+  const splatExt = splatTexture(splatData.ext, splatSize);
   const warp = timed('warp', () => terrainWarpTexture());
   const nrmTD = packNormalPair('turf-dirt', turf.normalMap, dirt.normalMap);
   const nrmCS = packNormalPair('cobble-sand', cobble.normalMap, sand.normalMap);

@@ -68,3 +68,34 @@ export function bakeSplatExtData(
   }
   return data;
 }
+
+/**
+ * 单子 AX2:主 splat 与扩展 splat **一遍烘完**。
+ *
+ * 上面两个函数在同一批纹素中心上各调一遍 `field.masks(x, z)`——19 区时各 5.1 s,
+ * 一半是白算。这里每个纹素只取一次 masks,两张图的打包公式与上面逐字相同,
+ * 所以字节流逐位一致(`tests/splat-single-pass.test.mjs` 断言)。上面两个函数留着当参照。
+ */
+export function bakeSplatData(
+  field: TerrainField,
+  win: SplatWindow,
+  size = 1024,
+): { main: Uint8Array; ext: Uint8Array } {
+  const main = new Uint8Array(size * size * 4);
+  const ext = new Uint8Array(size * size * 4);
+  for (let j = 0; j < size; j++) {
+    const z = win.minZ + ((j + 0.5) / size) * win.depth;
+    for (let i = 0; i < size; i++) {
+      const x = win.minX + ((i + 0.5) / size) * win.width;
+      const m = field.masks(x, z);
+      const o = (j * size + i) * 4;
+      main[o] = m.dirt * 255;
+      main[o + 1] = m.slab > 0 ? 128 + Math.min(127, m.slab * 127) : m.cobble * 127;
+      main[o + 2] = m.sand > 0.02 ? Math.min(127, m.sand * 127) : 128 + m.moss * 127;
+      main[o + 3] = m.wear * 255;
+      ext[o] = m.soil * 255;
+      ext[o + 1] = m.wet * 255;
+    }
+  }
+  return { main, ext };
+}
