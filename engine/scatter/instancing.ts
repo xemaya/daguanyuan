@@ -478,3 +478,80 @@ export class InstanceCuller {
     }
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* 单子 AX3 · 远处小件按屏幕尺寸剔除                                    */
+/* ------------------------------------------------------------------ */
+
+/** 原型包围半径投影小于这么多像素就藏起来(单子 AX3 起步值 1.5 px,实测定)。 */
+export const SMALL_PART_CULL_PIXELS = 1.5;
+/**
+ * 滞回:藏起来以后要投影回到 N×1.1 才重新露出来。与地形分档同一个比例、同一个理由——
+ * 切点附近走路每帧只挪 0.1 m,10% 的距离带宽一帧跨不过去,不会一闪一闪。
+ */
+export const SMALL_PART_CULL_HYSTERESIS = 0.1;
+/** 只管包围半径小于这个数的原型(单子 AX3:瓦当、斗拱分件、鼓钉这一类)。 */
+export const SMALL_PART_MAX_RADIUS = 0.5;
+
+interface SmallPart { mesh: THREE.InstancedMesh; radius: number; hidden: boolean }
+interface SmallPartCell { box: THREE.Box3; parts: SmallPart[]; placed: boolean }
+
+/**
+ * 按簇、按屏幕尺寸藏远处的小实例件。
+ *
+ * **挂在哪一帧上**:它把自己标成 `isLOD`,于是 three 的渲染器在每次投影场景时
+ * (`Renderer._projectObject`)都会先调它的 `update(camera)`,再去看它的子节点——
+ * 与 `THREE.LOD` 同一条现成的路,不另起调度。透视相机按自己的视口算;
+ * 正交相机(方向光的阴影相机)直接沿用上一次透视相机的决定,
+ * 所以**阴影 pass 与主相机同藏同现**(亚像素的东西,影子也看不见)。
+ *
+ * **每簇一个判断**:一簇一个 AABB,相机到它最近点的距离算一次;
+ * 簇里每个原型只比一次 `半径 × 投影系数 / 距离`。不碰任何实例矩阵。
+ */
+export class ScreenSizeCull extends THREE.Object3D {
+  readonly isLOD = true;
+  autoUpdate = true;
+  readonly cells: SmallPartCell[] = [];
+  private readonly byKey = new Map<string, SmallPartCell>();
+  private readonly camPos = new THREE.Vector3();
+  private readonly pixels: number;
+
+  constructor(pixels = SMALL_PART_CULL_PIXELS) {
+    super();
+    this.name = 'SmallPartCull';
+    this.pixels = pixels;
+  }
+
+  /** `radius` 是原型在世界里的包围半径(几何半径 × 这一簇里最大的实例缩放)。 */
+  addPart(mesh: THREE.InstancedMesh, cellKey: string, radius: number): void {
+    let cell = this.byKey.get(cellKey);
+    if (!cell) { cell = { box: new THREE.Box3(), parts: [], placed: false }; this.byKey.set(cellKey, cell); this.cells.push(cell); }
+    cell.parts.push({ mesh, radius, hidden: false });
+    mesh.userData.smallPart = { radius };
+    this.add(mesh);
+  }
+
+  update(camera: THREE.Camera): void {
+    if (!(camera as THREE.PerspectiveCamera).isPerspectiveCamera) return;
+    const height = (globalThis.innerHeight ?? 900) * (globalThis.devicePixelRatio ?? 1);
+    const k = (height / 2) * camera.projectionMatrix.elements[5];
+    this.camPos.setFromMatrixPosition(camera.matrixWorld);
+    const show = this.pixels * (1 + SMALL_PART_CULL_HYSTERESIS);
+    for (const cell of this.cells) {
+      if (!cell.placed) {
+        // 第一次投影时父链的世界矩阵已经就位;这些件是静态的,算一次就够。
+        for (const part of cell.parts) {
+          if (!part.mesh.boundingBox) part.mesh.computeBoundingBox();
+          cell.box.union(part.mesh.boundingBox!.clone().applyMatrix4(part.mesh.matrixWorld));
+        }
+        cell.placed = true;
+      }
+      const d = cell.box.distanceToPoint(this.camPos);
+      for (const part of cell.parts) {
+        const px = d > 0 ? part.radius * k / d : Infinity;
+        part.hidden = part.hidden ? px < show : px < this.pixels;
+        part.mesh.visible = !part.hidden;
+      }
+    }
+  }
+}

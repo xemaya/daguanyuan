@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ClusterGrid } from '@engine/scatter/cluster';
+import { ScreenSizeCull, SMALL_PART_MAX_RADIUS } from '@engine/scatter/instancing';
 import { mergeByMaterial } from './merge';
 
 interface Entry { mesh: THREE.Mesh; matrix: THREE.Matrix4 }
@@ -22,6 +23,9 @@ export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 6
   const residualEntries:Entry[]=[];
   out.name=root.name;
   let instances=0,prototypes=0;
+  // 单子 AX3:包围半径 < 0.5 m 的实例原型挂到这里,按簇、按屏幕尺寸藏远处的(见 ScreenSizeCull)。
+  const smallParts=new ScreenSizeCull();
+  const scale=new THREE.Vector3();
   const flatten=(entry:Entry)=>{
     const copy=entry.mesh.clone(false);
     copy.matrixAutoUpdate=false;copy.matrix.copy(entry.matrix);
@@ -77,7 +81,13 @@ export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 6
       mesh.name=`StaticInstances_${prototypes}_${cell.key}`;
       mesh.userData.placements=cell.items.map(entry=>entry.mesh.parent?.name||entry.mesh.name);
       mesh.computeBoundingSphere();mesh.computeBoundingBox();
-      out.add(mesh);instances+=cell.items.length;
+      // 原型在世界里的包围半径 = 几何半径 × 这一簇里最大的实例缩放。
+      let maxScale=0;
+      for(const entry of cell.items){scale.setFromMatrixScale(entry.matrix);maxScale=Math.max(maxScale,scale.x,scale.y,scale.z);}
+      const radius=geometry.boundingSphere!.radius*maxScale;
+      if(radius<SMALL_PART_MAX_RADIUS)smallParts.addPart(mesh,cell.key,radius);
+      else out.add(mesh);
+      instances+=cell.items.length;
     }
     if(instancedAnyCell)prototypes++;
   }
@@ -105,7 +115,19 @@ export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 6
     const merged=mergeByMaterial(bucket);
     for(const child of [...merged.children])out.add(child);
   }
-  for(const entry of keep)out.add(flatten(entry));
+  for(const entry of keep){
+    const copy=flatten(entry);
+    // 廊、桥、墙先各自 assembleStatic 过一遍,再整体进园子这一遍:里面那一遍挂上的小件
+    // 在这里是 keep 的 InstancedMesh,要重新挂回这一遍的剔除器,不然就丢了。
+    const small=(copy as THREE.InstancedMesh).isInstancedMesh?copy.userData.smallPart as {radius:number}|undefined:undefined;
+    if(small){
+      const mesh=copy as THREE.InstancedMesh;
+      mesh.computeBoundingSphere();
+      const c=mesh.boundingSphere!.center.clone().applyMatrix4(mesh.matrix);
+      smallParts.addPart(mesh,`${Math.floor(c.x/cellSize)},${Math.floor(c.z/cellSize)}`,small.radius);
+    }else out.add(copy);
+  }
+  if(smallParts.children.length)out.add(smallParts);
   out.userData.staticBatches={instances,prototypes};
   return out;
 }
