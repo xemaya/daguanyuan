@@ -954,9 +954,12 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
      * 后面那串乘子原样保留：路面、铺装上不长苔（「苍苔布满的是土地」）。
      */
     let hillMoss = 0;
+    // AL-b b3:带苔的山的 hillMask 本身(不乘 mossCover/shade),给露土当开关用。
+    let hillCover = 0;
     for (const hill of indexed ? hillIndex.query(x, z) : hills) {
       if (hill.mossCover <= 0) continue;
       const hm = hillMask(x, z, hill);
+      if (hm > hillCover) hillCover = hm;
       if (hm <= 0.001) continue;
       const shade = 0.6 + 0.4 * smoothstep(0.34, 0.72, fbm2(nWear, x * 0.055 - 18.3, z * 0.055 + 7.1, 3) * 0.5 + 0.5);
       const v = hm * hill.mossCover * shade;
@@ -989,9 +992,16 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     // 取「阈值下移」而不是「hillMask × (mossCover>0) 当开关」那条:开关式
     // 一刀切会把山脚羽化带上**本来就该有**的零星露土也一起抹掉(山苔在那里
     // 只有零点零几),而这一条仍然是按实际苔量连续让位,苔浓露土退、苔尽露土留。
+    //
+    // AL-b b3(`D-32` 之后的尾账):5d 那条阈值治不到。翠嶂南缘 (56~64, 213~219)
+    // 就在多边形里 1~3 m,可 hillMask 的羽化是 `inradius × 0.85`(十几米),
+    // 这里 hm 只有 0.02~0.06、hillMoss 0.01~0.03——把阈值再压到 (0, 0.03) 实测
+    // 露土峰值 0.86 → 0.80,斑几乎不动。所以改走「开关」那条:**带苔的山体多边形
+    // (warp 后)以内就不露土**,`hillCover` 过 0.02 归零。多边形以外的山脚土照旧——
+    // 5d 担心的「羽化带上的零星露土」其实在多边形外,开关碰不到它。
     const fallback = clamp(1 - sand - Math.max(cobble, slab) - dirt, 0, 1);
     const soil = clamp(
-      bareSoilAmount(grassCover.gapN(x, z)) * fallback * (1 - Math.min(1, moss * 1.2)) * (1 - smoothstep(0.03, 0.12, hillMoss)) * 0.9,
+      bareSoilAmount(grassCover.gapN(x, z)) * fallback * (1 - Math.min(1, moss * 1.2)) * (1 - smoothstep(0.0, 0.02, hillCover)) * 0.9,
       0,
       1,
     );
