@@ -229,6 +229,92 @@ const REGION_GROUND_FLOWERS: Record<string, number> = {
   xiaoxiangguan: 0,
 };
 
+/**
+ * **院内按区压三叶草 / 杂草**（单子 AL-b b5，用户 2026-09-23 拍板 `D-32` ④）。
+ * 0 = 院内一株不留，1 = 照旧；没写的区不压。
+ *
+ * 为什么要有它：潇湘馆院内地形的 `moss` 早已是苔地（均值 0.724），可 `Clover` 992、
+ * `Weeds_*` 183 照样满地长——它们的密度来自 `mask`（`surfaceAt === "grass"` 的四分类），
+ * 与 `moss` 无关，院子于是读成亮绿草坪（§6 未决 6）。`D-32` 不给 `surface()` 加苔档，
+ * 只按区压。
+ *
+ * 与 `REGION_GROUND_FLOWERS` 同一个做法，但有两处不同，都是为了「院外逐株不变」：
+ *   - **作用范围是院墙（该区带 `mossInside` 的线性）以内**，不是 plan 的区多边形——
+ *     潇湘馆的区多边形比院墙大一圈，按区多边形筛，墙外那圈草也会被压；
+ *   - **筛在「整批实例都生成完之后」**：三叶草与杂草的每株体量、朝向、色偏、风相位
+ *     都吃同一条顺序 rng（`makeInstanced` 按株数吃风相位），在撒点那一层 `continue`
+ *     会让院外每一株之后的样子全错位。所以照旧全量生成，再把留下的株连同矩阵、颜色、
+ *     风相位原样搬进一只新的 InstancedMesh（`keepInstances`）。
+ * 系数落在坐标哈希上，不乘 `density`、不动 rng（`P-28` / `P-33`）。
+ *
+ * `xiaoxiangguan` 的值：三叶草 0.12（992 → 约 120，判据 ≤150）、杂草 0.25（183 → 约 45，
+ * 判据 ≤60）。不取 0：苍苔地里零星一点三叶草与书带草是「幽」，一株不剩反而像刚除过草。
+ */
+const REGION_COURT_GROUND: Record<string, { clover: number; weeds: number }> = {
+  xiaoxiangguan: { clover: 0.12, weeds: 0.25 },
+};
+
+let courtPolys: { id: string; poly: readonly (readonly [number, number])[] }[] | null = null;
+
+/** 院内按区系数筛子：这一株留不留（`kind` 决定取哪一列、哈希加哪个盐）。 */
+function keepInCourt(x: number, z: number, kind: 'clover' | 'weeds'): boolean {
+  if (!courtPolys) {
+    courtPolys = [];
+    const regions = (getPlan() as { regions?: { id: string; linears?: { mossInside?: boolean; points?: [number, number][] }[] }[] }).regions ?? [];
+    for (const r of regions) {
+      if (!REGION_COURT_GROUND[r.id]) continue;
+      for (const l of r.linears ?? []) if (l.mossInside && l.points && l.points.length > 2) courtPolys.push({ id: r.id, poly: l.points });
+    }
+  }
+  for (const c of courtPolys) {
+    if (locatePoint(c.poly, [x, z]) === 'outside') continue;
+    const k = REGION_COURT_GROUND[c.id][kind];
+    if (k <= 0) return false;
+    if (k >= 1) return true;
+    return scatterHash01(x + (kind === 'clover' ? 29.1 : -17.3), z + (kind === 'clover' ? -8.9 : 5.3)) < k;
+  }
+  return true;
+}
+
+/**
+ * 只留 `keep` 为真的那几株，矩阵 / 颜色 / 实例属性（风相位）原样搬过去（AL-b b5）。
+ * 一株不删就原样返回，行为一个字节不动。
+ */
+function keepInstances(mesh: THREE.InstancedMesh, keep: boolean[]): THREE.InstancedMesh {
+  const kept = keep.reduce((n, k) => n + (k ? 1 : 0), 0);
+  if (kept === mesh.count) return mesh;
+  const g = mesh.geometry;
+  for (const [name, attr] of Object.entries(g.attributes)) {
+    const a = attr as THREE.InstancedBufferAttribute;
+    if (!a.isInstancedBufferAttribute) continue;
+    const Ctor = a.array.constructor as new (n: number) => typeof a.array;
+    const arr = new Ctor(kept * a.itemSize);
+    let j = 0;
+    for (let i = 0; i < mesh.count; i++) {
+      if (!keep[i]) continue;
+      for (let c = 0; c < a.itemSize; c++) arr[j * a.itemSize + c] = a.array[i * a.itemSize + c];
+      j++;
+    }
+    g.setAttribute(name, new THREE.InstancedBufferAttribute(arr, a.itemSize, a.normalized, a.meshPerAttribute));
+  }
+  const out = new THREE.InstancedMesh(g, mesh.material, kept);
+  out.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+  const m = new THREE.Matrix4();
+  const c = new THREE.Color();
+  let j = 0;
+  for (let i = 0; i < mesh.count; i++) {
+    if (!keep[i]) continue;
+    mesh.getMatrixAt(i, m);
+    out.setMatrixAt(j, m);
+    if (mesh.instanceColor) {
+      mesh.getColorAt(i, c);
+      out.setColorAt(j, c);
+    }
+    j++;
+  }
+  return out;
+}
+
 /** 区域之外的背景混交：园子里不出橡/桦/梣/枫那一套温带森林。 */
 const FALLBACK_MIX = ['elm', 'elm', 'locust', 'cypress', 'pine-old'];
 
@@ -2949,7 +3035,7 @@ export function buildVegetation(ctx: GameContext): void {
     }
 
     if (spots.length) {
-      const mesh = makeInstanced(cloverGeo, cloverMat, spots.length, cRng, 1);
+      let mesh = makeInstanced(cloverGeo, cloverMat, spots.length, cRng, 1);
       for (let i = 0; i < spots.length; i++) {
         const s = spots[i];
         const sc = rangeOf(cRng, 0.75, 1.5);
@@ -2963,6 +3049,8 @@ export function buildVegetation(ctx: GameContext): void {
         col.setRGB(1 + warm * 0.09, 1 + rangeOf(cRng, -0.06, 0.06), 1 - warm * 0.12);
         mesh.setColorAt(i, col);
       }
+      // 院内按区压（AL-b b5）：全量生成完再筛，院外每株的样子不变。
+      mesh = keepInstances(mesh, spots.map((sp) => keepInCourt(sp.x, sp.z, 'clover')));
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       mesh.castShadow = false;
@@ -3344,7 +3432,7 @@ export function buildVegetation(ctx: GameContext): void {
 
     groups.forEach((list, gi) => {
       if (!list.length) return;
-      const mesh = makeInstanced(geos[gi], weedMat, list.length, wRng, 1);
+      let mesh = makeInstanced(geos[gi], weedMat, list.length, wRng, 1);
       for (let i = 0; i < list.length; i++) {
         const s = list[i];
         const sc = rangeOf(wRng, 0.7, 1.45);
@@ -3358,6 +3446,8 @@ export function buildVegetation(ctx: GameContext): void {
         col.setRGB(1 + warm * 0.09, 1 + rangeOf(wRng, -0.06, 0.06), 1 - warm * 0.11);
         mesh.setColorAt(i, col);
       }
+      // 院内按区压（AL-b b5）：同三叶草，全量生成完再筛。
+      mesh = keepInstances(mesh, list.map((sp) => keepInCourt(sp.x, sp.z, 'weeds')));
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       mesh.castShadow = false;
