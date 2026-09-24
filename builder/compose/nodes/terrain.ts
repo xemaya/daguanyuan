@@ -84,7 +84,16 @@ const terrainSurface = /*@__PURE__*/ Fn( ( [ vTerXZ, vTerH, vTerN ] ) => {
 	// ---- splat lookup ------------------------------------------------------
 
 	const sUv = tXZ.add( warpOff ).sub( uExtent.xy ).div( uExtent.zw );
-	const sp = uSplat.sample( clamp( sUv, vec2( 0.0015 ), vec2( 0.9985 ) ) );
+
+	// 单子 AL-c c2:铺装及其外缘不 warp。路牙(luya)沿样条不带 warp 挤出,地形场里石边
+	// 已贴住路牙内沿(AL-b b1);这层 warpOff(五层合计 ±0.5 m 以上)把画面上的石边再推一次,
+	// 一侧留草缝、一侧石越过牙。先不 warp、在 mip 1.5(约 0.7 m 模糊)上采一次铺装通道,
+	// G>0 就是「铺装或它 0.3 m 左右的外缘」,那里把 warp 收到 0。只动决定「是不是石面」
+	// 的这一次采样(sp);sp2(露土/湿痕)与各层细节 UV 照旧 warp,草地的碎边不变。
+	const sUv0 = tXZ.sub( uExtent.xy ).div( uExtent.zw );
+	const paveNear = smoothstep( 0.01, 0.08, uSplat.sample( clamp( sUv0, vec2( 0.0015 ), vec2( 0.9985 ) ) ).level( 1.5 ).g );
+	const sUvP = tXZ.add( warpOff.mul( sub( 1.0, paveNear ) ) ).sub( uExtent.xy ).div( uExtent.zw );
+	const sp = uSplat.sample( clamp( sUvP, vec2( 0.0015 ), vec2( 0.9985 ) ) );
 
 	// 扩展 splat(单子 T):R=soil 露土、G=wet 湿痕,无分档,同一副 warp 后的 UV。
 
