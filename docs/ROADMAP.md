@@ -50,7 +50,7 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | 1d | **匾文繁体化 + 换楷书字体**（全园 31 块；现字体缺 32 个繁体字） | **AW** `docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md` | 小 | ✅ 合回并验收（§20）；「蘆雪广」验收人改回本字 |
 | 5c | **AV-b 收尾三件**：散布先撒后筛（P-28，潇湘馆那一镜应回落）、苔地露土让位；当心间灯用户裁定保持五盏，不做 | **AV-b** `docs/superpowers/plans/2026-09-17-avb-cuizhang-followup.md` | 小 | ✅ 合回并验收（§20）：AV-b1 通过（独立复现），AV-b2 部分 |
 | 4b | **AL-b 尾账**：灌木走稳定散布（`P-33`）、路牙跟石面边缘、竹丛土丘改色缩小、5d 余斑、院内按区压草/三叶草、X-05 框景透视缝 | **AL-b** `docs/superpowers/plans/2026-09-23-alb-xiaoxiang-followup.md`（`D-32`） | 小中 | ✅ **合回并验收（§23，2026-09-24）**：b0/b2/b3 过，b1 画面差着色器 warp，b5 画面仍草坪；X-05 按 `D-33` 挂 hold 等 3D 尺子 |
-| 4c | **AL-c**：X-05 的 3D 可见性尺子 + 路牙画面贴住（着色器 warp）+ 院内读成苔地（先诊断） | **AL-c** `docs/superpowers/plans/2026-09-24-alc-xiaoxiang-3d-ruler-and-ground.md`（`D-33`） | 中 | **可派** |
+| 4c | **AL-c**：X-05 的 3D 可见性尺子 + 路牙画面贴住（着色器 warp）+ 院内读成苔地（先诊断） | **AL-c** `docs/superpowers/plans/2026-09-24-alc-xiaoxiang-3d-ruler-and-ground.md`（`D-33`） | 中 | ✅ **合回并验收（§24，2026-09-25）**：3D 尺子、路牙画面贴住过；X-05 视点改 (−105,146) 摘 hold（`D-34`）；c3 合入、苔地贴图挂起；**潇湘馆收口，下一步竹竿 LOD → 稻香村** |
 | 5d | **AV-b2 补**：土台南脚露土阈值一行（`terrain-from-plan.ts:946` `smoothstep(0.15,0.4,hillMoss)` → `(0.03,0.12)` 或按 `hillMask` 开关），判据 `gate_face` 无红棕斑 | 并进 **AL** 当第 0 件 | 微 | ✅ 随 AL 合回，**部分通过**（§22：`gate_face` 基本干净，`patch_close` 右下余一块，进 AL-b） |
 | 6 | 沁芳 D3/D4（桥亭、收窄水面）；E4 门前古松 | 未写 | 大 / 小 | AL 之后（D5 高照杆已并进 AU） |
 | 7 | 判断题 E3 / E5 / E6；**AE 形制断言门：正门冻结后可焊**；接缝⑤ AB、AC | — | — | AU 之后 |

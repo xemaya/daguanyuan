@@ -992,6 +992,10 @@
       {
         "milestone": "ALB-accept",
         "at": "2026-09-24T00:50:27.389Z"
+      },
+      {
+        "milestone": "ALC-accept",
+        "at": "2026-09-24T16:34:30.540Z"
       }
     ]
   },
@@ -2348,6 +2352,10 @@
       {
         "milestone": "ALB-accept",
         "at": "2026-09-24T00:50:27.389Z"
+      },
+      {
+        "milestone": "ALC-accept",
+        "at": "2026-09-24T16:34:30.540Z"
       }
     ]
   },

@@ -56,7 +56,9 @@ test('突变:潇湘馆竹丛全挪去墙角远处后,遮映(filtered_view)条目
   const p = copy();
   const filtered = p.experience.find(e => e.type === 'filtered_view');
   if (!filtered) return; // X4 之前没有 filtered_view 条目,跳过
-  // D-33 起 X-05 挂着 hold;这条测的是验法本身还能不能红,所以先摘掉。
+  // 这条测的是**平面**验法本身还能不能红。D-34 起 X-05 改用 3D 验法(读落盘量值,竹一动就报「输入变了」,
+  // 由下面「3D 尺子:竹的落位清单变了」那条守),所以在副本里显式换回平面尺子,并确保没有 hold。
+  filtered.assert = 'occlusion-ratio';
   delete filtered.hold;
   const scenes = { xiaoxiangguan: structuredClone(JSON.parse(readFileSync('projects/daguanyuan/scenes/xiaoxiangguan.json', 'utf8'))) };
   for (const pl of scenes.xiaoxiangguan.placements) {
@@ -175,6 +177,7 @@ test('3D 尺子:没量过 → 红,原因是「没有 3D 量值」;视点看不�
 test('平面尺子照判,有 3D 量值就并排打出来(只量不判,不改 pass)', () => {
   const p = copy(); const scene = sceneXX();
   const e = p.experience.find((x) => x.id === 'X-05');
+  e.assert = 'occlusion-ratio'; // 测平面尺子这一路;D-34 起 X-05 本身已改用 3D 验法
   const { results } = auditExperience(p, { loadScene: () => scene, measured: fakeMeasure(p, e, scene, { ratio: 0.99 }) });
   const r = results.find((x) => x.id === 'X-05');
   assert.ok(r.note && r.note.includes('参照·3D') && r.note.includes('0.99'), r.detail);
