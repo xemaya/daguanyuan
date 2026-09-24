@@ -29,6 +29,11 @@ const decodeN = /*@__PURE__*/ Fn( ( [ xy, k ] ) => {
 
 } );
 
+/** 浓苔档(AL-c c3)的苔量加成与两种苔色(线性)。墨绿 / 橄榄由 w1、w2 噪声选,成斑不刷漆。 */
+const MOSS_DEEP_GAIN = 0.6;
+const MOSS_INK = vec3( 0.100, 0.088, 0.016 );
+const MOSS_OLIVE = vec3( 0.165, 0.138, 0.020 );
+
 const terrainSurface = /*@__PURE__*/ Fn( ( [ vTerXZ, vTerH, vTerN ] ) => {
 
 	const tXZ = vTerXZ;
@@ -330,8 +335,17 @@ const terrainSurface = /*@__PURE__*/ Fn( ( [ vTerXZ, vTerH, vTerN ] ) => {
 	// 两级高频噪声让苔成斑而不是整片染色。路面与铺装在 masks() 里已扣掉苔。
 
 	const mossPatch = add( 0.45, mul( 0.55, smoothstep( 0.30, 0.72, w2.g.mul( 0.55 ).add( w3.g.mul( 0.45 ) ) ) ) );
-	const mossAmt = clamp( mossW.mul( bl.x.add( bl.y.mul( 0.6 ) ) ).mul( mossPatch ), 0.0, 1.0 );
-	const mossCol = vec3( 0.115, 0.175, 0.075 ).mul( add( 0.85, macroB.mul( 0.35 ) ) );
+
+	// 浓苔档(单子 AL-c c3,`D-32` ④ 收尾):mossW 过 0.5 的只有 mossInside 的院(潇湘馆,
+	// 院内 0.009–0.934、均值 0.72);翠嶂山苔 = 0.85 × mossCover 0.55 × shade × hillMask ≤ 0.47,
+	// 到不了这一档——所以山上的苔一个像素不变。诊断(AL-c 回报的表):院内读成草坪,不是三叶草/杂草
+	// (关掉它们平均色不动),是草皮贴图那层偏蓝的饱和绿(色相 150–165°)压着一层太淡、色又太近的苔。
+	// 这一档把苔量抬一截、苔色往墨绿/橄榄两色成斑(w1/w2 两个尺度的噪声选色),草皮让出来。
+	const deep = smoothstep( 0.50, 0.85, mossW );
+	const mossAmt = clamp( mossW.mul( bl.x.add( bl.y.mul( 0.6 ) ) ).mul( mossPatch ).mul( add( 1.0, deep.mul( MOSS_DEEP_GAIN ) ) ), 0.0, 1.0 );
+	const mossPick = smoothstep( 0.30, 0.70, w1.g.mul( 0.5 ).add( w2.b.mul( 0.5 ) ) );
+	const mossDeepCol = mix( MOSS_INK, MOSS_OLIVE, mossPick );
+	const mossCol = mix( vec3( 0.115, 0.175, 0.075 ), mossDeepCol, deep ).mul( add( 0.85, macroB.mul( 0.35 ) ) );
 	albedo.assign( mix( albedo, mossCol, mossAmt ) );
 	rgh.assign( mix( rgh, 0.90, mossAmt.mul( 0.5 ) ) );
 
