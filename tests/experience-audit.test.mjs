@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { auditExperience, validateExperienceEntry, rayBlocked } from '../tools/experience-audit.mjs';
+import { auditExperience, validateExperienceEntry, rayBlocked, experienceInputsHash } from '../tools/experience-audit.mjs';
 import { auditPlan } from '../tools/plan-audit.mjs';
 
 const source = JSON.parse(readFileSync('projects/daguanyuan/plan.json', 'utf8'));
@@ -119,4 +119,63 @@ test('hold:挂起条目的断言失败进 held 不进 fails,但结果里带 hold
   const r = results.find((r) => r.id === 'X-01');
   assert.equal(r.pass, false);
   assert.equal(r.hold.decision, 'D-33');
+});
+
+/* 单子 AL-c c1:filtered_view 的第二把尺子 `occlusion-ratio-3d`。量值由 tools/visibility-probe.mjs 在活世界里
+ * 量好落盘,门只读盘比区间。下面这几条不起浏览器:喂假的量值,测「门怎么对待量值」——每条都断言红的**原因**(P-34)。 */
+const X05 = () => {
+  const p = copy();
+  const e = p.experience.find((x) => x.id === 'X-05');
+  delete e.hold;
+  e.assert = 'occlusion-ratio-3d';
+  p.experience = [e];
+  return { p, e };
+};
+const sceneXX = () => JSON.parse(readFileSync('projects/daguanyuan/scenes/xiaoxiangguan.json', 'utf8'));
+const fakeMeasure = (p, e, scene, over = {}) => ({
+  [e.id]: { ratio: 0.3, views: [{ from: e.from[0], A: 1000, B: 700, ratio: 0.3, visible: true }], visible: true, commit: 'test', inputsHash: experienceInputsHash(p, e, scene), ...over },
+});
+
+test('3D 尺子:量值在区间内且输入指纹对得上 → 通过', () => {
+  const { p, e } = X05(); const scene = sceneXX();
+  const { fails } = auditExperience(p, { loadScene: () => scene, measured: fakeMeasure(p, e, scene) });
+  assert.deepEqual(fails, []);
+});
+
+test('3D 尺子:量值越界 → 红,原因是「3D 遮挡比例 … 不在」', () => {
+  const { p, e } = X05(); const scene = sceneXX();
+  const { fails } = auditExperience(p, { loadScene: () => scene, measured: fakeMeasure(p, e, scene, { ratio: 0.79 }) });
+  assert.ok(fails.length === 1 && fails[0].includes('3D 遮挡比例 0.79'), JSON.stringify(fails));
+});
+
+test('3D 尺子:竹的落位清单变了 → 红,原因是「输入变了」,不拿过期量值判', () => {
+  const { p, e } = X05(); const scene = sceneXX();
+  const measured = fakeMeasure(p, e, scene);           // 按原清单量的
+  const moved = structuredClone(scene);
+  moved.scatters[0].offset_m += 0.5;                   // 之后有人改了竹夹路
+  const { fails } = auditExperience(p, { loadScene: () => moved, measured });
+  assert.ok(fails.length === 1 && fails[0].includes('输入变了'), JSON.stringify(fails));
+});
+
+test('3D 尺子:摘 hold / 改区间 / 换 assert 不让量值作废(指纹只含从哪看、看谁、墙、房、竹)', () => {
+  const { p, e } = X05(); const scene = sceneXX();
+  const h0 = experienceInputsHash(p, e, scene);
+  assert.equal(experienceInputsHash(p, { ...e, ratio: [0, 0.9], assert: 'occlusion-ratio', hold: { decision: 'D-1' } }, scene), h0);
+  assert.notEqual(experienceInputsHash(p, { ...e, from: [[-100, 122]] }, scene), h0);
+});
+
+test('3D 尺子:没量过 → 红,原因是「没有 3D 量值」;视点看不见目标 → 红,原因是「看不见目标」', () => {
+  const { p, e } = X05(); const scene = sceneXX();
+  const none = auditExperience(p, { loadScene: () => scene, measured: {} }).fails;
+  assert.ok(none.length === 1 && none[0].includes('没有 3D 量值'), JSON.stringify(none));
+  const blind = auditExperience(p, { loadScene: () => scene, measured: fakeMeasure(p, e, scene, { visible: false, ratio: null }) }).fails;
+  assert.ok(blind.length === 1 && blind[0].includes('看不见目标'), JSON.stringify(blind));
+});
+
+test('平面尺子照判,有 3D 量值就并排打出来(只量不判,不改 pass)', () => {
+  const p = copy(); const scene = sceneXX();
+  const e = p.experience.find((x) => x.id === 'X-05');
+  const { results } = auditExperience(p, { loadScene: () => scene, measured: fakeMeasure(p, e, scene, { ratio: 0.99 }) });
+  const r = results.find((x) => x.id === 'X-05');
+  assert.ok(r.note && r.note.includes('参照·3D') && r.note.includes('0.99'), r.detail);
 });

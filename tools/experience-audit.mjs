@@ -14,7 +14,8 @@
  * (山脊高程 vs 建筑顶部、竹竿高度 vs 屋檐,见 ART_DIRECTION §5.5 的告诫)。
  * 条目的 note/limitation 字段负责把这一点写进数据。
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { segmentLocations, segmentRelation } from '../builder/plan/geometry.ts';
 /* 单子 AL-b b4:filtered_view 要数到 `scatters[]` 落的丛,就得当场算落点——
  * 与 tools/check-scenes.mjs 同一套调用(纯函数,node 与游戏同一份)。
@@ -43,6 +44,42 @@ export const IMPLEMENTED_ASSERTS = {
   approach_axis: 'angle',
   filtered_view: 'occlusion-ratio',
 };
+
+/**
+ * 同一 type 的第二把尺子(单子 AL-c c1)。filtered_view 的 `occlusion-ratio` 是平面代理;
+ * `occlusion-ratio-3d` 读 tools/visibility-probe.mjs 在活世界里量好落盘的像素比。
+ * 平面那把保留给别的条目;哪条用哪把写在条目的 `assert` 里(X-05 改不改归验收人)。
+ */
+export const ALT_ASSERTS = { filtered_view: ['occlusion-ratio-3d'] };
+const assertAllowed = (type, a) => a === IMPLEMENTED_ASSERTS[type] || (ALT_ASSERTS[type] ?? []).includes(a);
+
+/** 3D 尺子的量值落盘处(相对仓库根)。 */
+export const MEASURED_PATH = 'projects/daguanyuan/experience-measured.json';
+
+/**
+ * 3D 量值的输入指纹(AL-c c1)。量值只在这些输入不变时有效:
+ *   - 条目自身决定「从哪看、看谁、数哪种遮挡物」的字段:id / from / targets / filters;
+ *     **不含** ratio / assert / status / hold / note——摘 hold、改区间、换尺子都不该让量值作废;
+ *   - plan 全部 regions[].buildings(目标与别的房子都会挡)、全部 regions[].linears 与 plan.wall(墙段);
+ *   - 遮挡物所在的那份落位清单 scenes/<filters.scene>.json(竹的点名与 scatters)。
+ * 键排序后 JSON 序列化再 sha256,取前 16 位。改了其中任何一样就得重跑 visibility-probe。
+ */
+export function experienceInputsHash(plan, entry, scene) {
+  const sortKeys = (v) => Array.isArray(v) ? v.map(sortKeys)
+    : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v;
+  const payload = {
+    entry: { id: entry.id, from: entry.from, targets: entry.targets, filters: entry.filters },
+    buildings: plan.regions.map((r) => [r.id, r.buildings ?? []]),
+    walls: { wall: plan.wall ?? null, linears: plan.regions.map((r) => [r.id, r.linears ?? []]) },
+    scene: scene ?? null,
+  };
+  return createHash('sha256').update(JSON.stringify(sortKeys(payload))).digest('hex').slice(0, 16);
+}
+
+function defaultLoadMeasured() {
+  const url = new URL(`../${MEASURED_PATH}`, import.meta.url);
+  return existsSync(url) ? JSON.parse(readFileSync(url, 'utf8')) : {};
+}
 
 const label = (e) => `${e.id}(${e.type})`;
 
@@ -309,7 +346,49 @@ function defaultLoadScene(id) {
   catch { return null; }
 }
 
-function auditFilteredView(plan, entry, loadScene) {
+/**
+ * filtered_view 的 3D 验法(AL-c c1):读 visibility-probe 落盘的量值比 ratio 区间。
+ * 没量过、输入指纹对不上、视点看不见目标——三种都红,各报各的原因。
+ */
+function measured3d(plan, entry, loadScene, measured) {
+  const m = measured?.[entry.id];
+  if (!m) return { fail: `${label(entry)} 没有 3D 量值——先跑 node tools/visibility-probe.mjs --entry ${entry.id} --write` };
+  const scene = entry.filters?.scene ? loadScene(entry.filters.scene) : null;
+  const want = experienceInputsHash(plan, entry, scene);
+  if (m.inputsHash !== want)
+    return { m, fail: `${label(entry)} 输入变了(inputsHash ${m.inputsHash} ≠ ${want}),先跑 visibility-probe 重量`, stale: true };
+  if (!m.visible || !Number.isFinite(m.ratio))
+    return { m, fail: `${label(entry)} 3D:视点看不见目标(A 低于像素下限),不给比例` };
+  return { m };
+}
+
+function auditFilteredView3d(plan, entry, loadScene, measured) {
+  const range = entry.ratio;
+  if (!Array.isArray(range) || range.length !== 2 || !(range[0] >= 0) || !(range[1] <= 1) || range[0] >= range[1])
+    return [`${label(entry)} ratio 须为 [下界,上界] 且 0≤下界<上界≤1`];
+  const r = measured3d(plan, entry, loadScene, measured);
+  if (r.fail) return [r.fail];
+  const views = r.m.views.map((v) => `(${v.from}) A ${v.A} B ${v.B} → ${v.ratio}`).join(';');
+  const note = `3D 量值 ${r.m.ratio}(${views},@${r.m.commit})`;
+  if (r.m.ratio < range[0] || r.m.ratio > range[1])
+    return { fails: [`${label(entry)} 3D 遮挡比例 ${r.m.ratio} 不在 [${range}]`], note };
+  return { fails: [], note };
+}
+
+function auditFilteredView(plan, entry, loadScene, measured) {
+  if (entry.assert === 'occlusion-ratio-3d') return auditFilteredView3d(plan, entry, loadScene, measured);
+  const flat = auditFilteredView2d(plan, entry, loadScene);
+  // 平面尺子照判;有 3D 量值就跟着打出来(只量不判,AV5 的 note 口径),两把尺子的数并排看得见。
+  if (!Array.isArray(flat)) return flat;
+  const r = measured?.[entry.id] ? measured3d(plan, entry, loadScene, measured) : null;
+  if (!r) return flat;
+  const note = r.stale ? `参照·3D 量值 ${r.m.ratio} 已过期(输入变了)`
+    : r.m?.visible === false ? '参照·3D:视点看不见目标'
+    : `参照·3D(visibility-probe,只量不判):${r.m.ratio}(${r.m.views.map((v) => `(${v.from}) A ${v.A} B ${v.B}`).join(';')},@${r.m.commit})`;
+  return { fails: flat, note };
+}
+
+function auditFilteredView2d(plan, entry, loadScene) {
   const fails = [];
   const spec = entry.filters;
   if (!spec?.scene || !spec.part || !spec.radius_m) return [`${label(entry)} 缺 filters{scene,part,radius_m}`];
@@ -390,8 +469,8 @@ export function validateExperienceEntry(entry, seen = new Set()) {
   if (!EXPERIENCE_TYPES.includes(entry.type)) fails.push(`${label(entry)} type 非法:${entry.type}`);
   else if (!IMPLEMENTED_ASSERTS[entry.type])
     fails.push(`${label(entry)} type=${entry.type} 的验法本期未实现——验不了的不许进数据(ROADMAP §PE-2)`);
-  else if (entry.assert !== IMPLEMENTED_ASSERTS[entry.type])
-    fails.push(`${label(entry)} assert 应为 ${IMPLEMENTED_ASSERTS[entry.type]},实际 ${entry.assert}`);
+  else if (!assertAllowed(entry.type, entry.assert))
+    fails.push(`${label(entry)} assert 应为 ${[IMPLEMENTED_ASSERTS[entry.type], ...(ALT_ASSERTS[entry.type] ?? [])].join(' 或 ')},实际 ${entry.assert}`);
   if (!EXPERIENCE_STATUS.includes(entry.status)) fails.push(`${label(entry)} status 非法:${entry.status}`);
   // `hold`:用户裁定「尺子错了、等换尺」时把一条断言挂起(D-33 起)。三项缺一不可——
   // 挂起必须说清是谁定的、为什么、等哪张单子,否则就是把红门悄悄关掉。
@@ -419,8 +498,9 @@ export function validateExperienceEntry(entry, seen = new Set()) {
  * 全量审计 plan.experience。返回 { fails, results }。
  * loadScene(sceneId) 可注入(测试用);缺省读 projects/daguanyuan/scenes/。
  */
-export function auditExperience(plan, { loadScene } = {}) {
+export function auditExperience(plan, { loadScene, measured } = {}) {
   const read = loadScene ?? defaultLoadScene;
+  const meas = measured ?? defaultLoadMeasured();
   const fails = [], results = [], held = [], seen = new Set();
   for (const entry of plan.experience ?? []) {
     const shapeFails = validateExperienceEntry(entry, seen);
@@ -431,7 +511,7 @@ export function auditExperience(plan, { loadScene } = {}) {
     }
     // 验法可以返回 string[](只有失败),也可以返回 { fails, note }——note 是
     // 「只量不判」的参照数(单子 AV5),跟着 detail 打印出来,既不进 fails 也不改 pass。
-    const raw = AUDITORS[entry.type](plan, entry, read);
+    const raw = AUDITORS[entry.type](plan, entry, read, meas);
     const assertFails = Array.isArray(raw) ? raw : raw.fails;
     const note = Array.isArray(raw) ? null : raw.note;
     /*
