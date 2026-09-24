@@ -97,6 +97,8 @@ python3 tools/steps-film.py shots/AL-steps --shots moon_gate,xx_court_gaze --gri
 |---|---|
 | `steps/AL-grid.mp4` | 15 s，四宫格（月洞门 / 院内回望 / 贴脸路面 / 正门内北望）× 6 步：开工前 → 5d → 石子漫+羊肠路 → 竹夹路 → 苍苔花池路牙 → AX 之后 |
 | `steps/AL-{moon_gate,xx_court_gaze,cu_xx_path,xiaoxiang,gate_face}.mp4` | 单镜头版，各 15 s |
+| `steps/AL-b-grid.mp4` | 17.6 s，AL-b 尾账 7 步：灌木稳定化 → 石面贴路牙 → 土丘改色 → 翠嶂余斑 → **月洞门透视缝**（正房从竹墙后露出来）→ 院内压草 |
+| `steps/AL-b-{moon_gate,xx_court_gaze,cu_xx_path,gate_face,patch_close}.mp4` | 单镜头版，各 17.6 s |
 
 ## 已录
 
@@ -104,6 +106,7 @@ python3 tools/steps-film.py shots/AL-steps --shots moon_gate,xx_court_gaze --gri
 
 | 文件 | 时长 | 内容 |
 |---|---|---|
+| `walk/2026-09-24-alb.mp4` | 53s | AL-b 之后：月洞门里正房半掩在竹后，竹夹路疏了一半 |
 | `walk/2026-09-23-al.mp4` | 53s | 同一条游线，AL 之后：月洞门框里竹子遮映、羊肠石子漫、竹夹路走到正房阶前。**这一版起 `record.mjs` 剪掉开头的建世界加载画面**（旧版 85 s 里 30 s 是加载），并修了潇湘馆三站朝向（原 yaw 3.14 是朝南，门匾从没进过画） |
 | `walk/2026-09-12-pq3.mp4` | 69s | 正门外 → 白石台矶与抱鼓石 → 穿门 → 翠嶂当面 → 豁然开朗 → 沁芳池 → 沁芳亭 → 沿溪向西 → 潇湘馆院外 → 月洞门题「潇湘馆」→ 翠竹夹路 → 正房阶前 |
 

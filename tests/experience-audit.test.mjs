@@ -56,12 +56,18 @@ test('突变:潇湘馆竹丛全挪去墙角远处后,遮映(filtered_view)条目
   const p = copy();
   const filtered = p.experience.find(e => e.type === 'filtered_view');
   if (!filtered) return; // X4 之前没有 filtered_view 条目,跳过
+  // D-33 起 X-05 挂着 hold;这条测的是验法本身还能不能红,所以先摘掉。
+  delete filtered.hold;
   const scenes = { xiaoxiangguan: structuredClone(JSON.parse(readFileSync('projects/daguanyuan/scenes/xiaoxiangguan.json', 'utf8'))) };
   for (const pl of scenes.xiaoxiangguan.placements) {
     if (pl.part === 'bamboo') { pl.dx -= 60; pl.dz -= 60; } // 挪去视点-正房连线够不到的角落
   }
+  // AL-b b4 起尺子也数 scatters[] 的竹夹路;不清掉它,比例仍 0.79、照样红——红得对但原因错,测试就白测了。
+  scenes.xiaoxiangguan.scatters = [];
   const { fails } = auditExperience(p, { loadScene: (id) => scenes[id] ?? null });
-  assert.ok(fails.some(f => f.startsWith(filtered.id)), `竹丛挪开后 ${filtered.id} 未失败: ${JSON.stringify(fails)}`);
+  const mine = fails.filter(f => f.startsWith(filtered.id));
+  assert.ok(mine.length > 0, `竹丛挪开后 ${filtered.id} 未失败: ${JSON.stringify(fails)}`);
+  assert.ok(mine.some(f => / 0\.0\d /.test(f) || f.includes('0.0')), `${filtered.id} 红了但比例不是掉到 0 附近: ${mine}`);
 });
 
 test('诚实规则:art 来源不许标 ok,ok 必须有原文回目与引文', () => {
@@ -90,4 +96,27 @@ test('约束5 与体验门共用 rayBlocked,两者对同一视线同判', () => 
   // 约束5 诊断照常产出(重构未改行为)。
   const report = auditPlan(source);
   assert.ok(report.diagnostics.gateSightlines.tested > 0);
+});
+
+test('hold(D-33):缺 decision/reason/until 任一项必须红——挂起不许没有出处', () => {
+  for (const bad of [{}, { decision: 'D-33', reason: '尺子是平面的,不认墙不认高' }, { decision: 'x', reason: '尺子是平面的,不认墙不认高', until: 'AL-c' }]) {
+    const p = copy();
+    p.experience[0].hold = bad;
+    const { fails } = auditExperience(p);
+    assert.ok(fails.some((f) => f.includes('hold')), `残缺 hold ${JSON.stringify(bad)} 没红`);
+  }
+});
+
+test('hold:挂起条目的断言失败进 held 不进 fails,但结果里带 hold、照打实测', () => {
+  const p = copy();
+  const hill = p.hills.find(h => h.id === 'hill.cuizhang');
+  hill.polygon = hill.polygon.map(([x, z]) => [x + 80, z]);
+  const x01 = p.experience.find((e) => e.id === 'X-01');
+  x01.hold = { decision: 'D-33', reason: '测试用:把一条必红的断言挂起', until: '测试' };
+  const { fails, results, held } = auditExperience(p);
+  assert.ok(!fails.some((f) => f.startsWith('X-01')), 'X-01 挂起后仍进了 fails');
+  assert.ok(held.some((f) => f.startsWith('X-01')), 'X-01 的失败没进 held');
+  const r = results.find((r) => r.id === 'X-01');
+  assert.equal(r.pass, false);
+  assert.equal(r.hold.decision, 'D-33');
 });

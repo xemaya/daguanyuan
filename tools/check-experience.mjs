@@ -21,13 +21,20 @@ if (!Array.isArray(plan.experience) || plan.experience.length === 0) {
   process.exit(1);
 }
 
-const { fails, results } = auditExperience(plan);
+const { fails, results, held } = auditExperience(plan);
 
-for (const r of results)
+for (const r of results) {
+  if (r.hold) {
+    console.log(`HOLD  ${r.id} ${r.type} [${r.status}] — ${r.detail}`);
+    console.log(`      挂起(${r.hold.decision}):${r.hold.reason} 等:${r.hold.until}`);
+    if (r.pass) console.log(`      ↑ 这条已经通过——去 plan.json 撤掉 hold`);
+    continue;
+  }
   (r.pass ? console.log : console.error)(
     `${r.pass ? 'PASS' : 'FAIL'}  ${r.id} ${r.type} [${r.status}] — ${r.detail}`);
+}
 
 const unimplemented = EXPERIENCE_TYPES.filter((t) => !IMPLEMENTED_ASSERTS[t]);
-console.log(`体验门：${results.length} 条造景关系，${fails.length} 项失败。`);
+console.log(`体验门：${results.length} 条造景关系，${fails.length} 项失败，${results.filter((r) => r.hold).length} 条挂起（${held.length} 项断言未过、不置红）。`);
 console.log(`验法覆盖：${Object.keys(IMPLEMENTED_ASSERTS).join('、')}；本期未实现：${unimplemented.join('、')}（见 tools/experience-audit.mjs 注释）。`);
 if (fails.length) process.exitCode = 1;

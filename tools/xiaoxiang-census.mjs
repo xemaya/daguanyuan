@@ -3,9 +3,9 @@
 //   node tools/xiaoxiang-census.mjs http://127.0.0.1:5177/garden.html
 //
 // 打一行 JSON:
-//   bins    —— 院内 `bamboo.culm` 实例(节间段,不是竿)按「距 court-path 折线」分箱;
+//   bins    —— 院内 `bamboo.culm` 实例(节间段,不是竿)按「距 court-path 折线」分箱(折线不是样条,与历次读数同口径);
 //   seg3m   —— z∈[100,119) 每 3 m 一段、路两侧(A/B = 折线左/右)距路 3 m 内的段数;
-//   cuts    —— 折线每段中点取法向 ±1.5 m、步 0.02 m 采 `surfaceAt`,两侧最后一个 stone 的距离。
+//   cuts    —— 样条上每段 t=0.5 处取法向 ±1.5 m、步 0.02 m 采 `surfaceAt`,两侧最后一个 stone 的距离。
 //              路牙内沿在中线外 0.70 m(`luya.ts` halfWidth+肩),cuts 与 0.70 之差就是草缝 / 压牙。
 // 路轴与院墙多边形都从 plan.json 读,改了路不用改这里。
 import { chromium } from 'playwright';
@@ -33,13 +33,17 @@ const out = await pg.evaluate(({ path }) => {
         for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, m); m.premultiply(o.matrixWorld); m.decompose(p, q, s); culm.push([p.x, p.y, p.z]); } }
     }
   });
-  // 横切:每段中点,法向 ±1.5 m,步 0.02
+  // 横切:在 Catmull-Rom 样条上取每段 t=0.5 那一点(路牙 `luya.ts` 与铺装都沿这条样条走,
+  // 见 terrain-from-plan.ts 的 resamplePath),法向用样条前后相邻采样点求,±1.5 m、步 0.02。
+  // 第一版从折线弦中点量,弯处样条离弦中点 0.1–0.2 m,读数在弯内外天然不对称(AL-b 回报未决 12 指出)。
+  const P = (i) => path[Math.max(0, Math.min(path.length - 1, i))];
+  const cr = (i, t) => { const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2), t2 = t * t, t3 = t2 * t;
+    return [0, 1].map((k) => 0.5 * (2 * p1[k] + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3)); };
   const surf = (x, z) => g.world.ctx.collision.surfaceAt(x, z);
   const cuts = [];
   for (let i = 1; i < path.length - 1; i++) {
-    const [ax, az] = path[i], [bx, bz] = path[i + 1];
-    const mx = (ax + bx) / 2, mz = (az + bz) / 2, L = Math.hypot(bx - ax, bz - az);
-    const nx = -(bz - az) / L, nz = (bx - ax) / L;
+    const [mx, mz] = cr(i, 0.5), [ax, az] = cr(i, 0.45), [bx, bz] = cr(i, 0.55);
+    const L = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / L, nz = (bx - ax) / L;
     const edge = (sg) => { let last = 0; for (let t = 0; t <= 1.5; t += 0.02) { if (surf(mx + nx * t * sg, mz + nz * t * sg) === 'stone') last = t; else if (t > 0.1) break; } return +last.toFixed(2); };
     cuts.push({ at: [+mx.toFixed(2), +mz.toFixed(2)], left: edge(1), right: edge(-1) });
   }

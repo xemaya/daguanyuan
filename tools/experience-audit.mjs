@@ -393,6 +393,16 @@ export function validateExperienceEntry(entry, seen = new Set()) {
   else if (entry.assert !== IMPLEMENTED_ASSERTS[entry.type])
     fails.push(`${label(entry)} assert 应为 ${IMPLEMENTED_ASSERTS[entry.type]},实际 ${entry.assert}`);
   if (!EXPERIENCE_STATUS.includes(entry.status)) fails.push(`${label(entry)} status 非法:${entry.status}`);
+  // `hold`:用户裁定「尺子错了、等换尺」时把一条断言挂起(D-33 起)。三项缺一不可——
+  // 挂起必须说清是谁定的、为什么、等哪张单子,否则就是把红门悄悄关掉。
+  if (entry.hold !== undefined) {
+    const h = entry.hold;
+    if (!h || typeof h !== 'object'
+      || !/^D-\d+$/.test(h.decision ?? '')
+      || typeof h.reason !== 'string' || h.reason.length < 10
+      || typeof h.until !== 'string' || h.until.length === 0)
+      fails.push(`${label(entry)} hold 须有 decision(D-编号)/reason/until 三项——挂起不许没有出处`);
+  }
   if (!entry.source || typeof entry.source !== 'object') fails.push(`${label(entry)} 缺 source`);
   else {
     // 诚实规则一:status=ok 必须有原文出处(回目+逐字引文)。
@@ -411,7 +421,7 @@ export function validateExperienceEntry(entry, seen = new Set()) {
  */
 export function auditExperience(plan, { loadScene } = {}) {
   const read = loadScene ?? defaultLoadScene;
-  const fails = [], results = [], seen = new Set();
+  const fails = [], results = [], held = [], seen = new Set();
   for (const entry of plan.experience ?? []) {
     const shapeFails = validateExperienceEntry(entry, seen);
     fails.push(...shapeFails);
@@ -424,12 +434,18 @@ export function auditExperience(plan, { loadScene } = {}) {
     const raw = AUDITORS[entry.type](plan, entry, read);
     const assertFails = Array.isArray(raw) ? raw : raw.fails;
     const note = Array.isArray(raw) ? null : raw.note;
-    fails.push(...assertFails);
+    /*
+     * 挂起的条目照跑验法、照打实测值,断言失败进 `held` 不进 `fails`——门不因它置红,
+     * 但每次都在输出里单列一行 HOLD,不许消失。挂起的条目若已通过,打印提示去撤 hold。
+     */
+    const onHold = entry.hold && !shapeFails.length;
+    if (onHold) held.push(...assertFails); else fails.push(...assertFails);
     results.push({
       id: entry.id, type: entry.type, status: entry.status, pass: assertFails.length === 0,
+      ...(onHold ? { hold: entry.hold } : null),
       detail: (assertFails.length ? assertFails.join(';') : '断言通过') + (note ? ` | ${note}` : ''),
       ...(note ? { note } : null),
     });
   }
-  return { fails, results };
+  return { fails, results, held };
 }
