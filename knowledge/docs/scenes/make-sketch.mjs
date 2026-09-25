@@ -7,7 +7,7 @@
 // HERO_TREES 表,不算任何几何,不引 three。图上每个点都能回溯到某一份数据,
 // 所以它是"现在摆成了什么"的快照,不是设计稿。与 knowledge/docs/plan/make-plan.py
 // 的分工:那张是全园总图,这里是一景一张、比例尺大到能看清一组峰和一台灯。
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,6 +24,8 @@ const FRAMES = {
   // 甬路北端 (−105,124) 与门外视点 (−105,122)、(−94,124) 都要在框内,否则
   // 「人从哪来、第一眼看什么」这一层就画不出来——那正是 D-29 要这张图解决的事。
   xiaoxiangguan: { minX: -137, maxX: -86, minZ: 61, maxZ: 129, shots: /^(moon_gate|xiaoxiang$|cu_xx_path|xx_court_gaze|cu_xiaoxiang)/ },
+  // 稻香村:区多边形 x[−232,−165] z[−100,−4],往南放到篱外山坡(hill.daoxiang-slope 到 z 16)与 dx_approach 视点 (−184,2)。
+  daoxiangcun: { minX: -240, maxX: -150, minZ: -110, maxZ: 22, shots: /^(dx_|cu_dx)/ },
 };
 
 const heroTrees = (() => {
@@ -43,7 +45,9 @@ function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 function draw(regionId) {
   const F = FRAMES[regionId];
   const region = plan.regions.find((r) => r.id === regionId);
-  const scene = JSON.parse(readFileSync(resolve(ROOT, `projects/daguanyuan/scenes/${regionId}.json`), 'utf8'));
+  // 还没入建成的区(没有落位清单)照样能画:只画 plan 里有的,落位层为空——那张图就是「开工前」。
+  const scenePath = resolve(ROOT, `projects/daguanyuan/scenes/${regionId}.json`);
+  const scene = existsSync(scenePath) ? JSON.parse(readFileSync(scenePath, 'utf8')) : { region: regionId, named: [], placements: [], scatters: [] };
   const S = 8; // px / m
   const W = (F.maxX - F.minX) * S, H = (F.maxZ - F.minZ) * S;
   // 画布宽度取 max(W, 标题所需):潇湘馆那张框只有 51 m 宽(408 px),
