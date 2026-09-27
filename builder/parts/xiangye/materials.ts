@@ -395,7 +395,7 @@ export function shootMaterial(): THREE.MeshStandardMaterial {
 export function hedgeLeafMaterial(): THREE.MeshStandardMaterial {
   return memo('xiangye.hedge-leaf', () => {
     const size = 1024;
-    const map = cached(recipeKey('xiangye.hedge-leaf.albedo', size), () => {
+    const map = cached(recipeKey('xiangye.hedge-leaf.albedo', size, 2), () => {
       const rng = makeRng(0x1ea7);
       const { cv, ctx: c } = canvas(size);
       c.clearRect(0, 0, size, size);
@@ -426,8 +426,8 @@ export function hedgeLeafMaterial(): THREE.MeshStandardMaterial {
           const ang = side * (0.7 + rng() * 0.6) - 0.15 + (rng() - 0.5) * 0.3;
           const young = t > 0.72 ? 1 : rng() * 0.4;
           const L = cell * sp.ll * (1.35 - 0.45 * t) * (0.8 + rng() * 0.4) * 1.6, W = L * sp.lw;
-          const base = mixHex(0x4f7d2e, 0x6f9a3a, rng());
-          const tip = mixHex(0x8fbd4e, 0xb9d86a, young);
+          const base = mixHex(0x3d6a26, 0x5a8a31, rng());
+          const tip = mixHex(0x6f9c3a, 0x9cc052, young);
           c.save();
           c.translate(px, py); c.rotate(ang);
           const g = c.createLinearGradient(0, 0, 0, -L);
