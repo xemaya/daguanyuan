@@ -48,6 +48,6 @@ test('width, contour, elevation count, stair tread and corner openings are struc
  const base=object(p,'daoxiangcun.fence').layout;
  let b=structuredClone(base);b.runs[0].widthM=-1;assert.throws(()=>compileLinearLayout(b),/截面/);
  b=structuredClone(base);b.runs[0].elevationsM.pop();assert.throws(()=>compileLinearLayout(b),/标高/);
- b=structuredClone(base);b.openings=[{run:0,at:[-207,-26],widthM:1,heightM:1}];assert.throws(()=>compileLinearLayout(b),/唯一/);
+ b=structuredClone(base);b.openings=[{run:0,at:[...base.runs[0].points[1]],widthM:1,heightM:1}];assert.throws(()=>compileLinearLayout(b),/唯一/);
  b=structuredClone(object(p,'liaoting_huaxu.mountain-path').layout);b.runs[0].stairs[0].minTreadM=2;assert.throws(()=>compileLinearLayout(b),/踏面/);
 });
