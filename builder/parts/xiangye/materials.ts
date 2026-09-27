@@ -26,10 +26,10 @@ export const XY = {
   strawDark: 0x5c4a31,
   strawGrey: 0x8e8676,
   strawGap: 0x2f2519,
-  /** 黄泥:偏暖的赭黄,比粉墙暗、比木作亮。 */
-  earth: 0xa8844f,
-  earthDark: 0x8a6a40,
-  earthDamp: 0x584430,
+  /** 黄泥:深而饱和的赭黄泥色(D-36 ②:第一轮与茅草同一个浅草黄,房子读成一整块稻草色)——明显比茅顶暗。 */
+  earth: 0x8a6036,
+  earthDark: 0x674624,
+  earthDamp: 0x4a321d,
   /** 粗木:不施彩画、日晒发灰的松杉。 */
   roughWood: 0x7d644a,
   /** 新条:嫩皮青绿到赭红。 */
@@ -263,7 +263,7 @@ export function thatchUnderMaterial(): THREE.MeshStandardMaterial {
 /* 黄泥版筑                                                             */
 /* ------------------------------------------------------------------ */
 
-/** 贴图一张覆盖的墙面边长(米):4 版 × 一尺。 */
+/** 贴图一张覆盖的墙面边长(米)。 */
 export const EARTH_TILE_M = 1.28;
 function aniso(s: Simplex, u: number, v: number, fu: number, fv: number): number {
   const a = u * Math.PI * 2, b = v * Math.PI * 2, ru = fu / (Math.PI * 2), rv = fv / (Math.PI * 2);
@@ -271,51 +271,31 @@ function aniso(s: Simplex, u: number, v: number, fu: number, fv: number): number
   return 0.5 * (s.noise3D(nx, ny, nz) + s.noise3D(ny + 7.1, nz, nw));
 }
 /**
- * 一张 = 1.28 m 见方、四版。每版一个色调;版内有细的夯层纹;版线是一道浅槽,
- * 线上隔一段一个穿棍孔(版筑拆模后留下的);另有顺墙流下的雨痕与砂粒。
- * 层线的**几何**槽由 `wall.ts` 的逐版挤出给,贴图这道只补色,不单独扛读法。
+ * 一张 = 1.28 m 见方的泥面:砂粒、淡斑、顺墙流下的雨痕。
+ * 第一轮贴图里画过固定周期的版线、穿棍孔、一版一色——版高改成不等之后对不上,
+ * 全部搬到几何(逐版挤出、泥抹痕、穿棍孔贴片,见 `earth.ts`)。
  */
 function earthHeight(s: Simplex, u: number, v: number): number {
-  const lift = v * 4, f = lift - Math.floor(lift);
-  const wob = 0.012 * aniso(s, u, v, 9, 2);
-  const groove = 1 - smoothstep(0.0, 0.03, Math.min(Math.abs(f - wob), Math.abs(1 - f + wob)));
-  const tamp = 0.5 + 0.5 * Math.sin((f * 9 + 0.3 * aniso(s, u, v, 5, 3)) * Math.PI * 2);
+  // 版线、穿棍孔、一版一色自 D-36 起全归几何(版高不等,贴图的固定周期对不上),贴图只管泥面本身。
   const grit = worley(u, v, 90, 31).f1;
-  const hole = holes(u, v);
-  return clamp(0.55 + 0.012 * tamp - 0.2 * groove + 0.12 * smoothstep(0.35, 0.0, grit) - 0.5 * hole + 0.08 * aniso(s, u, v, 3, 3) + 0.06 * aniso(s, u, v, 12, 5) + 0.06 * aniso(s, u, v, 60, 60), 0, 1);
-}
-function holes(u: number, v: number): number {
-  // 穿棍孔:每条版线两孔,相邻版线错开半格。
-  let best = 0;
-  for (let k = 0; k <= 4; k++) {
-    const y = k / 4, off = (k % 2) * 0.25;
-    for (const x0 of [0.125 + off, 0.625 + off]) {
-      let dx = Math.abs(u - (x0 % 1)); dx = Math.min(dx, 1 - dx);
-      const dy = Math.abs(v - y);
-      const d = Math.hypot(dx / 0.011, dy / 0.008);
-      best = Math.max(best, smoothstep(1.2, 0.7, d));
-    }
-  }
-  return best;
+  return clamp(0.55 + 0.12 * smoothstep(0.35, 0.0, grit) + 0.08 * aniso(s, u, v, 3, 3) + 0.06 * aniso(s, u, v, 12, 5) + 0.06 * aniso(s, u, v, 60, 60), 0, 1);
 }
 export function earthWallMaterial(): THREE.MeshStandardMaterial {
   return memo('xiangye.earth', () => {
     const size = 1024;
     const s = new Simplex(0xea27);
-    const tones = [1.0, 0.95, 1.04, 0.97];
-    const map = cached(recipeKey('xiangye.earth.albedo', size), () =>
+    const map = cached(recipeKey('xiangye.earth.albedo', size, 2), () =>
       bakeColorMap({ size, color: (u, v) => {
-        const lift = Math.min(3, Math.floor(v * 4));
         const hgt = earthHeight(s, u, v);
         const rain = smoothstep(0.2, 0.8, aniso(s, u, v, 14, 3) * 0.5 + 0.5) * 0.2;
         const blot = 0.5 + 0.5 * aniso(s, u, v, 5, 6);
         const c = mixHex(XY.earthDark, XY.earth, clamp(0.2 + hgt * 0.7 + blot * 0.3 - rain, 0, 1));
         const grain = worley(u, v, 150, 7).f1, speck = smoothstep(0.2, 0.05, grain);
         const pale = smoothstep(0.16, 0.04, worley(u + 0.37, v, 70, 9).f1);
-        const k = tones[lift] * (1 - speck * 0.22) * (1 + pale * 0.18) * (1 - holes(u, v) * 0.6);
+        const k = (1 - speck * 0.22) * (1 + pale * 0.18);
         return [c[0] * k, c[1] * k, c[2] * k];
       } }));
-    const normalMap = cached(recipeKey('xiangye.earth.normal', size, 3.2), () => bakeNormalMap({ size, height: (u, v) => earthHeight(s, u, v) }, 3.2));
+    const normalMap = cached(recipeKey('xiangye.earth.normal', size, 3.2, 2), () => bakeNormalMap({ size, height: (u, v) => earthHeight(s, u, v) }, 3.2));
     return new THREE.MeshStandardMaterial({ map, normalMap, roughness: 0.97, metalness: 0, vertexColors: true });
   });
 }
