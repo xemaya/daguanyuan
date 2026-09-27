@@ -166,6 +166,17 @@ test('3D 尺子:摘 hold / 改区间 / 换 assert 不让量值作废(指纹只�
   assert.notEqual(experienceInputsHash(p, { ...e, from: [[-100, 122]] }, scene), h0);
 });
 
+test('3D 尺子:指纹只收视线走廊碰得到的区——稻香村改房不让 X-05 过期,潇湘馆改房照样过期(单子 BA)', () => {
+  const { p, e } = X05(); const scene = sceneXX();
+  const h0 = experienceInputsHash(p, e, scene);
+  const far = structuredClone(p);
+  far.regions.find((r) => r.id === 'daoxiangcun').buildings[0].x += 5;
+  assert.equal(experienceInputsHash(far, e, scene), h0);
+  const near = structuredClone(p);
+  near.regions.find((r) => r.id === 'xiaoxiangguan').buildings[0].x += 0.5;
+  assert.notEqual(experienceInputsHash(near, e, scene), h0);
+});
+
 test('3D 尺子:没量过 → 红,原因是「没有 3D 量值」;视点看不见目标 → 红,原因是「看不见目标」', () => {
   const { p, e } = X05(); const scene = sceneXX();
   const none = auditExperience(p, { loadScene: () => scene, measured: {} }).fails;

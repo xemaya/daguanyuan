@@ -14,9 +14,9 @@
       }
     ],
     "visible": true,
-    "measuredAt": "2026-09-24T16:28:54.344Z",
-    "commit": "85788a34",
-    "inputsHash": "d47c340664051305",
+    "measuredAt": "2026-09-27T07:28:40.153Z",
+    "commit": "ac1f24dd",
+    "inputsHash": "7360805756b6f3ee",
     "tool": "tools/visibility-probe.mjs"
   }
 }

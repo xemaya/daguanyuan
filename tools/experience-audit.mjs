@@ -57,20 +57,43 @@ const assertAllowed = (type, a) => a === IMPLEMENTED_ASSERTS[type] || (ALT_ASSER
 export const MEASURED_PATH = 'projects/daguanyuan/experience-measured.json';
 
 /**
+ * 视线走廊:条目 from 各视点与 targets 各锚点的包围盒,外扩 HASH_CORRIDOR_MARGIN_M。
+ * 区多边形的包围盒与它不相交的区,房和墙都挡不到这条视线,不进指纹(BA:稻香村施工不该让潇湘馆的 X-05 过期)。
+ * 解析不出锚点或区没有多边形时从严:算进指纹。
+ */
+function nearCorridor(plan, entry, region) {
+  const pts = [...(entry.from ?? [])];
+  for (const id of entry.targets ?? []) {
+    const ref = resolveRefPoint(plan, id);
+    if (!ref) return true;
+    pts.push(ref.point);
+  }
+  if (!pts.length || !Array.isArray(region.polygon) || !region.polygon.length) return true;
+  const m = HASH_CORRIDOR_MARGIN_M;
+  const cx0 = Math.min(...pts.map((p) => p[0])) - m, cx1 = Math.max(...pts.map((p) => p[0])) + m;
+  const cz0 = Math.min(...pts.map((p) => p[1])) - m, cz1 = Math.max(...pts.map((p) => p[1])) + m;
+  const rx = region.polygon.map((p) => p[0]), rz = region.polygon.map((p) => p[1]);
+  return !(Math.max(...rx) < cx0 || Math.min(...rx) > cx1 || Math.max(...rz) < cz0 || Math.min(...rz) > cz1);
+}
+
+/**
  * 3D 量值的输入指纹(AL-c c1)。量值只在这些输入不变时有效:
  *   - 条目自身决定「从哪看、看谁、数哪种遮挡物」的字段:id / from / targets / filters;
  *     **不含** ratio / assert / status / hold / note——摘 hold、改区间、换尺子都不该让量值作废;
- *   - plan 全部 regions[].buildings(目标与别的房子都会挡)、全部 regions[].linears 与 plan.wall(墙段);
+ *   - 视线走廊(见 nearCorridor)碰得到的区的 regions[].buildings 与 regions[].linears(目标与别的房子、墙都会挡),加 plan.wall(墙段);
  *   - 遮挡物所在的那份落位清单 scenes/<filters.scene>.json(竹的点名与 scatters)。
  * 键排序后 JSON 序列化再 sha256,取前 16 位。改了其中任何一样就得重跑 visibility-probe。
  */
+export const HASH_CORRIDOR_MARGIN_M = 60;
+
 export function experienceInputsHash(plan, entry, scene) {
   const sortKeys = (v) => Array.isArray(v) ? v.map(sortKeys)
     : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v;
+  const regions = plan.regions.filter((r) => nearCorridor(plan, entry, r));
   const payload = {
     entry: { id: entry.id, from: entry.from, targets: entry.targets, filters: entry.filters },
-    buildings: plan.regions.map((r) => [r.id, r.buildings ?? []]),
-    walls: { wall: plan.wall ?? null, linears: plan.regions.map((r) => [r.id, r.linears ?? []]) },
+    buildings: regions.map((r) => [r.id, r.buildings ?? []]),
+    walls: { wall: plan.wall ?? null, linears: regions.map((r) => [r.id, r.linears ?? []]) },
     scene: scene ?? null,
   };
   return createHash('sha256').update(JSON.stringify(sortKeys(payload))).digest('hex').slice(0, 16);
