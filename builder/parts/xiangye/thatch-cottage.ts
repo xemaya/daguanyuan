@@ -37,6 +37,8 @@ export interface ThatchCottageOptions {
   platformH: number;
   /** plan 对象 id,只用于命名与 userData。 */
   id?: string;
+  /** 匾的做法(plan 字段 `plaqueStyle`)。乡野只接 'plain-wood'(素木墨字);有匾文而没声明做法就抛。 */
+  plaqueStyle?: string;
   seed?: number;
 }
 
@@ -613,6 +615,8 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
 
   /* --- 匾:素木板墨字,挂明间檐下(D-36 ④)。字从 plan 读,读不到就不挂 --- */
   const plaqueText = o.id ? plaqueFromPlan(o.id) : undefined;
+  if (plaqueText && o.plaqueStyle !== 'plain-wood')
+    throw new Error(`[xiangye] ${o.id} 有匾文「${plaqueText}」但 plaqueStyle 不是 plain-wood——乡野不施彩画,不许回落成黑漆金字`);
   if (plaqueText) {
     const b = bays[doorBay], pw = (m.columnX[doorBay + 1] - m.columnX[doorBay]) * 0.42;
     const pl = makePlainPlaque(plaqueText, pw);
@@ -626,7 +630,13 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   root.userData.construction = { paramSet: 'rustic', tier: 'C-r', roofType: frame.roofType,
     provenance: { evidence: frame.provenance.evidence, inference: [], art: [...frame.provenance.art, ...d.provenance.art] } };
   if (o.id) root.userData.planObject = { id: o.id };
-  return { kind: 'building', root, groundRadius: Math.max(W, 2 * dh) * 1.1 };
+  // 入世界(单子 BA4):装配器按 BuildingResult 登记台基平台与阻挡。门是关着的板门,
+  // 屋身整块挡人;台基可站(踏上去看檐口)。frame 给灯笼规则用(稻香村不挂灯,仍按接口给全)。
+  const mg = d.platformMarginM;
+  return { kind: 'building', root, groundRadius: Math.max(W, 2 * dh) * 1.1, frame,
+    platform: { hx: W / 2 + ow + mg, hz: dh + ow + mg, y: fl },
+    walkSurfaces: [],
+    blockers: [{ cx: 0, cz: 0, hx: W / 2 + ow, hz: dh + ow, h: fl + m.columnH + m.lan.w }] } as PartBuild;
 }
 
 /** 棚拍/落位:variant = plan 里的茅屋 id;default = 茆堂。 */
@@ -637,5 +647,5 @@ export function buildPlannedCottage(variant: string): PartBuild {
   if (item.kind !== 'building' || !c) throw new Error(`[xiangye] ${id} 不是带施工规格的房屋`);
   const spec = c.spec as RusticSpec;
   if (spec.paramSet !== 'rustic') throw new Error(`[xiangye] ${id} 不是乡野子档，茅屋构件不接`);
-  return buildThatchCottage({ spec, platformH: c.options.platformH!, id });
+  return buildThatchCottage({ spec, platformH: c.options.platformH!, id, plaqueStyle: (item as { plaqueStyle?: string }).plaqueStyle });
 }

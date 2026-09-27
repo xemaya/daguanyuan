@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { PartBuild } from '../registry';
+import type { PartBuild, PartContext } from '../registry';
+import { planGround } from './plan-data';
 import { mergeByMaterial } from '../merge';
 import { Simplex, makeRng, lerp, clamp } from '@engine/core/Noise';
 import { XY, shootMaterial, hedgeLeafMaterial } from './materials';
@@ -86,7 +87,7 @@ function leafCard(at: THREE.Vector3, size: number, yaw: number, tilt: number, ce
   }
 }
 
-function hedgeRun(pts: P2[], heightM: number, seed: number): THREE.Group {
+function hedgeRun(pts: P2[], heightM: number, seed: number, rel?: (x: number, z: number) => number): THREE.Group {
   const rng = makeRng(seed), noise = new Simplex(seed);
   const L = polylineLength(pts);
   const st = stations(pts, 0.1);
@@ -98,7 +99,11 @@ function hedgeRun(pts: P2[], heightM: number, seed: number): THREE.Group {
     const n: P2 = [lerp(a.n[0], b.n[0], f), lerp(a.n[1], b.n[1], f)];
     return { p: [lerp(a.p[0], b.p[0], f), lerp(a.p[1], b.p[1], f)], t: b.t, n, s };
   };
-  const world = (s: number, off: number, y: number) => { const S = at(s); return new THREE.Vector3(S.p[0] + S.n[0] * off, y, S.p[1] + S.n[1] * off); };
+  // 入世界(单子 BA4):篱随地起伏(rel = 当地地面 − 放置标高)。
+  const world = (s: number, off: number, y: number) => {
+    const S = at(s), x = S.p[0] + S.n[0] * off, z = S.p[1] + S.n[1] * off;
+    return new THREE.Vector3(x, y + (rel ? rel(S.p[0], S.p[1]) : 0), z);
+  };
   const rods: THREE.BufferGeometry[] = [];
   const leaves = { pos: [] as number[], uv: [] as number[], col: [] as number[], idx: [] as number[] };
   const leafShade = (): Tint => { const k = 0.72 + rng() * 0.3; return [k * (0.95 + rng() * 0.1), k, k * (0.9 + rng() * 0.15)]; };
@@ -197,7 +202,7 @@ function hedgeRun(pts: P2[], heightM: number, seed: number): THREE.Group {
   return group;
 }
 
-export function buildQingli(variant: string): PartBuild {
+export function buildQingli(variant: string, context?: PartContext): PartBuild {
   const planId = variant === 'default' || variant === 'bend' ? 'daoxiangcun.fence' : variant;
   const layout = planLayout(planId, 'fence');
   const root = new THREE.Group();
@@ -211,10 +216,30 @@ export function buildQingli(variant: string): PartBuild {
     origin = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2];
     runs = layout.runs.map((r) => ({ pts: r.points.map(([x, z]) => [x - origin[0], z - origin[1]] as P2), h: r.heightM }));
   }
-  runs.forEach((r, i) => root.add(hedgeRun(r.pts, r.h, 9101 + i * 37)));
+  const plan = variant !== 'default' && variant !== 'bend';
+  const elev0 = plan ? (layout.runs[0].elevationsM ?? [])[0] : undefined;
+  const ground = plan ? (context?.ground ?? planGround()) : undefined;
+  const rel = ground && elev0 !== undefined ? (x: number, z: number) => ground(x + origin[0], z + origin[1]) - elev0 : undefined;
+  runs.forEach((r, i) => root.add(hedgeRun(r.pts, r.h, 9101 + i * 37, rel)));
   const merged = mergeByMaterial(root);
   merged.name = variant === 'default' || variant === 'bend' ? `qingli:${variant}` : planId;
   merged.userData.construction = { paramSet: 'rustic', tier: 'C-r', provenance: { evidence: [], inference: [], art: PROVENANCE } };
-  if (variant !== 'default' && variant !== 'bend') merged.userData.linear = { id: planId, kind: 'fence', origin, runs: runs.length, basis: layout.basis };
-  return { root: merged };
+  if (variant === 'default' || variant === 'bend') return { root: merged };
+  // 入世界(单子 BA4):同泥墙,按 wall-path 接口交出 path/spec——零变换落在 origin、标高取 plan;
+  // 篱是挡人的(人从两溜篱之间的村路走,不从篱里钻),每段直腿一块阻挡盒。
+  const elev = layout.runs.map((r) => r.elevationsM ?? []).flat();
+  if (!elev.length || elev.some((v) => Math.abs(v - elev[0]) > 1e-6)) throw new Error(`[qingli] ${planId} 各点标高须一致(变坡篱未做)`);
+  const blockers: { cx: number; cz: number; hx: number; hz: number; rot: number; minY: number; maxY: number }[] = [];
+  layout.runs.forEach((r, ri) => {
+    const pts = runs[ri].pts;
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, az] = pts[i - 1], [bx, bz] = pts[i], len = Math.hypot(bx - ax, bz - az);
+      const n = Math.ceil(len) + 1, d = Array.from({ length: n + 1 }, (_, k) => rel!(ax + (bx - ax) * k / n, az + (bz - az) * k / n));
+      blockers.push({ cx: (ax + bx) / 2, cz: (az + bz) / 2, hx: len / 2, hz: r.widthM / 2, rot: Math.atan2(-(bz - az), bx - ax), minY: Math.min(...d) - 0.1, maxY: Math.max(...d) + r.heightM });
+    }
+  });
+  merged.userData.linear = { id: planId, kind: 'fence', origin, runs: runs.length, basis: layout.basis };
+  return { kind: 'wall-path', root: merged,
+    path: { origin, blockers, joints: [], platforms: [], panels: [], length: runs.reduce((a, r) => a + polylineLength(r.pts), 0) },
+    spec: { id: planId, kind: 'fence', elevation_m: elev[0], basis: layout.basis ?? '' } } as PartBuild;
 }

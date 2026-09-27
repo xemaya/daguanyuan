@@ -1,6 +1,7 @@
 import type { PartBuilder } from '../registry';
 import { buildPlannedCottage } from './thatch-cottage';
 import { buildQingli } from './qingli';
+import { buildJingtai } from './jingtai';
 
 /**
  * 乡野门类(稻香村,单子 BA)的构件表。
@@ -11,5 +12,6 @@ import { buildQingli } from './qingli';
  */
 export const XIANGYE_PARTS: [string, PartBuilder][] = [
   ['thatch-cottage', (variant) => buildPlannedCottage(variant)],
-  ['qingli', (variant) => buildQingli(variant)],
+  ['qingli', (variant, context) => buildQingli(variant, context)],
+  ['jingtai', (variant) => buildJingtai(variant)],
 ];

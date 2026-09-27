@@ -12,7 +12,7 @@ import { XY, EARTH_TILE_M, earthWallMaterial, thatchMaterial, thatchEndMaterial,
 import { stations, splitByOpenings, arcAt, subPolyline, type P2 as XP2 } from '@builder/parts/xiangye/path';
 import { liftSequence, rowsUpTo, lineWobble, mudPatch, tieHole } from '@builder/parts/xiangye/earth';
 import { sweepSection, hangingStrip } from '@builder/parts/xiangye/sweep';
-import { planLayout } from '@builder/parts/xiangye/plan-data';
+import { planLayout, planGround } from '@builder/parts/xiangye/plan-data';
 
 /**
  * 江南园林粉墙系列。
@@ -914,9 +914,13 @@ const MUD_PROVENANCE = [
   { id: 'project:mud-wall-straw-cap', name: '稻茎墙头', method: 'artistic_choice', note: '07-11「牆頭皆用稻莖掩護」:草檐拱起 0.16 m、两侧挑出 0.12 m、垂茬 0.15 m;墙身顶 = plan heightM − 草檐拱起,总高仍为 plan heightM。' },
 ];
 
-function mudRun(pts: XP2[], widthM: number, heightM: number, seed: number): THREE.Group {
+function mudRun(pts: XP2[], widthM: number, heightM: number, seed: number, footingM = 0, rel?: (x: number, z: number) => number): THREE.Group {
   const group = new THREE.Group();
   const st = stations(pts, 0.25);
+  // 入世界(单子 BA4):墙随地起伏——每站整体抬落到当地地面(rel = 地面 − 线性构件的放置标高)。
+  // 村口一带实测地面比 plan 标高 1.2 低 0.3–0.8 m,不随地走的墙会悬空。
+  const dyAt = (p: readonly [number, number]) => (rel ? rel(p[0], p[1]) : 0);
+  const dyS = (s0: number) => { let S = st[0]; for (const x of st) if (Math.abs(x.s - s0) < Math.abs(S.s - s0)) S = x; return dyAt(S.p); };
   const bodyTop = heightM - MUD.capRise, half0 = widthM / 2, half1 = half0 * MUD.taper;
   const rng = makeRng(seed), simplex = new Simplex(seed);
   const damp = new THREE.Color(XY.earthDamp), base = new THREE.Color(XY.earth);
@@ -939,10 +943,10 @@ function mudRun(pts: XP2[], widthM: number, heightM: number, seed: number): THRE
     const sec: [number, number][] = [
       [-w0 + r, y0], [w0 - r, y0], [w0 + j, y0 + r], [w1 + j, y1 - r], [w1 - r, y1], [-w1 + r, y1], [-w1 - j, y1 - r], [-w0 - j, y0 + r],
     ];
-    const warp = (S: { s: number }, _j: number, _i: number, nn: number, y: number): [number, number] => {
+    const warp = (S: { s: number; p: [number, number] }, _j: number, _i: number, nn: number, y: number): [number, number] => {
       const lower = y < (y0 + y1) / 2, line = lower ? k : k + 1;
       const dy = line === 0 || (ri === rows.length - 1 && !lower) ? 0 : wob(line, S.s);
-      return [nn * (1 + 0.025 * simplex.noise2D(S.s * 0.8, y * 3 + 5) + 0.012 * simplex.noise2D(S.s * 4.3, y * 7)), y + dy];
+      return [nn * (1 + 0.025 * simplex.noise2D(S.s * 0.8, y * 3 + 5) + 0.012 * simplex.noise2D(S.s * 4.3, y * 7)), y + dy + dyAt(S.p)];
     };
     const c0 = rng() * rng() * 0.08, c1 = rng() * rng() * 0.08;
     const lst = stations(subPolyline(pts, c0, L - c1), 0.25).map((S) => ({ ...S, s: S.s + c0 }));
@@ -955,7 +959,7 @@ function mudRun(pts: XP2[], widthM: number, heightM: number, seed: number): THRE
     for (const x of st) if (Math.abs(x.s - s0) < Math.abs(S.s - s0)) S = x;
     const nl = Math.hypot(S.n[0], S.n[1]), nx = S.n[0] / nl, nz = S.n[1] / nl, off = widthAt(y) + 0.012;
     const X = new THREE.Vector3(S.t[0] * side, 0, S.t[1] * side), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(nx * side, 0, nz * side);
-    return new THREE.Matrix4().makeBasis(X, Y, Z).setPosition(S.p[0] + nx * side * off, 0, S.p[1] + nz * side * off);
+    return new THREE.Matrix4().makeBasis(X, Y, Z).setPosition(S.p[0] + nx * side * off, dyAt(S.p), S.p[1] + nz * side * off);
   };
   const decal = (g: THREE.BufferGeometry, s0: number, side: number, y: number) => {
     const uv: number[] = [], p = g.attributes.position;
@@ -991,9 +995,9 @@ function mudRun(pts: XP2[], widthM: number, heightM: number, seed: number): THRE
   }
   sec.push([capH, yb + 0.02], [half1 * 0.7, yb], [-half1 * 0.7, yb], [-capH, yb + 0.02]);
   sec.reverse();
-  const warp = (S: { s: number }, _j: number, i: number, nn: number, y: number): [number, number] => {
+  const warp = (S: { s: number; p: [number, number] }, _j: number, i: number, nn: number, y: number): [number, number] => {
     const puff = 1 + 0.12 * simplex.noise2D(S.s * 1.3, 4.1) + 0.05 * simplex.noise2D(S.s * 5, i * 0.7);
-    return [nn * (1 + 0.06 * simplex.noise2D(S.s * 2.1, 8.3)), yb + (y - yb) * puff];
+    return [nn * (1 + 0.06 * simplex.noise2D(S.s * 2.1, 8.3)), yb + (y - yb) * puff + dyAt(S.p)];
   };
   const cap = sweepSection(st, sec, { arcV: true, tile: 1, warp, color: (s) => { const k = 0.92 + 0.08 * simplex.noise2D(s * 0.9, 1.7); return [k, k, k]; }, caps: false });
   const cm = new THREE.Mesh(cap, thatchMaterial()); cm.castShadow = cm.receiveShadow = true; group.add(cm);
@@ -1022,12 +1026,25 @@ function mudRun(pts: XP2[], widthM: number, heightM: number, seed: number): THRE
   // 两侧垂茬。
   const fr = strawFringeMaterial();
   for (const side of [-1, 1]) {
-    const g = hangingStrip(st, side * (capH - 0.03), (s) => yb + 0.04 + 0.01 * simplex.noise2D(s, side),
-      side * (capH + 0.025), (s) => yb - MUD.fringe * (0.8 + 0.25 * simplex.noise2D(s * 1.7, side * 3)), 1.8, rng());
+    const g = hangingStrip(st, side * (capH - 0.03), (s) => yb + 0.04 + 0.01 * simplex.noise2D(s, side) + dyS(s),
+      side * (capH + 0.025), (s) => yb - MUD.fringe * (0.8 + 0.25 * simplex.noise2D(s * 1.7, side * 3)) + dyS(s), 1.8, rng());
     const m = new THREE.Mesh(g, fr); m.castShadow = true; m.receiveShadow = true; group.add(m);
+  }
+  // 入世界的墙脚(单子 BA4):墙身向下再夯一版埋进地里 footingM——地面若低于设计标高(村口一带
+  // 实测低 0.2–0.3 m),露出来的仍是返潮的泥墙根,不是悬空、也不是一道灰石台(第一版用青石,
+  // dx_court 里读成水泥墙裙,改掉)。
+  if (footingM > 0) {
+    const w = half0 + 0.006;
+    const g = sweepSection(stations(pts, 0.5), [[-w, -footingM], [w, -footingM], [w, 0.02], [-w, 0.02]],
+      { tile: EARTH_TILE_M, color: (s0, n0) => color(s0, n0, 0), warp: (S, _j, _i, nn, y) => [nn, y + dyAt(S.p)] });
+    const m = new THREE.Mesh(g, earth); m.castShadow = m.receiveShadow = true; group.add(m);
   }
   return group;
 }
+
+/** 泥墙随地走要地面高。装配器的 ctx.collision.terrainHeight 进不来(wall 的登记不传 context,
+ *  粉墙那一行不动),退回与 garden-bridge 预览同一路:plan 现建的地形场(xiangye/plan-data 的缓存)。 */
+const mudGround = planGround;
 
 export function buildMudWall(variant: string, length?: number): PartBuild {
   const id = variant.startsWith('mud:') ? variant.slice(4) : '';
@@ -1053,10 +1070,26 @@ export function buildMudWall(variant: string, length?: number): PartBuild {
         runs.push({ pts: seg.map(([x, z]) => [x - origin[0], z - origin[1]] as XP2), w: r.widthM, h: r.heightM });
     });
   }
-  runs.forEach((r, i) => root.add(mudRun(r.pts, r.w, r.h, 7303 + i * 101)));
+  const FOOTING = 0.35;
+  const elev0 = id ? (layout.runs[0].elevationsM ?? [])[0] : undefined;
+  const rel = id && elev0 !== undefined ? (x: number, z: number) => mudGround()(x + origin[0], z + origin[1]) - elev0 : undefined;
+  runs.forEach((r, i) => root.add(mudRun(r.pts, r.w, r.h, 7303 + i * 101, id ? FOOTING : 0, rel)));
   const merged = mergeByMaterial(root);
   merged.name = id || 'wall:mud';
   merged.userData.construction = { paramSet: 'rustic', tier: 'C-r', provenance: { evidence: [], inference: [], art: MUD_PROVENANCE } };
-  if (id) merged.userData.linear = { id, kind: 'wall', origin, segments: runs.length, basis: layout.basis };
-  return { kind: 'wall-path', root: merged };
+  if (!id) return { kind: 'wall-path', root: merged };
+  // 入世界(单子 BA4):按 wall-path 的接口交出 path/spec,装配器零变换落在 origin、标高取 plan,
+  // 碰撞按每段直腿一块阻挡盒(开口处不挡)。
+  const elev = layout.runs.map((r) => r.elevationsM ?? []).flat();
+  if (!elev.length || elev.some((v) => Math.abs(v - elev[0]) > 1e-6)) throw new Error(`[mud-wall] ${id} 各点标高须一致(变坡泥墙未做)`);
+  const blockers: { cx: number; cz: number; hx: number; hz: number; rot: number; minY: number; maxY: number }[] = [];
+  for (const r of runs) for (let i = 1; i < r.pts.length; i++) {
+    const [ax, az] = r.pts[i - 1], [bx, bz] = r.pts[i], len = Math.hypot(bx - ax, bz - az);
+    const d = Array.from({ length: Math.ceil(len) + 1 }, (_, k) => rel!(ax + (bx - ax) * k / Math.ceil(len), az + (bz - az) * k / Math.ceil(len)));
+    blockers.push({ cx: (ax + bx) / 2, cz: (az + bz) / 2, hx: len / 2, hz: r.w / 2, rot: Math.atan2(-(bz - az), bx - ax), minY: Math.min(...d) - FOOTING, maxY: Math.max(...d) + r.h });
+  }
+  merged.userData.linear = { id, kind: 'wall', origin, segments: runs.length, basis: layout.basis };
+  return { kind: 'wall-path', root: merged,
+    path: { origin, blockers, joints: [], platforms: [], panels: [], length: runs.reduce((a, r) => a + r.pts.slice(1).reduce((b, p, i) => b + Math.hypot(p[0] - r.pts[i][0], p[1] - r.pts[i][1]), 0), 0) },
+    spec: { id, kind: 'wall', elevation_m: elev[0], basis: layout.basis ?? '' } } as PartBuild;
 }

@@ -23,9 +23,10 @@ export function sweepSection(st: Station[], section: [number, number][], o: Swee
   const cy = section.reduce((a, p) => a + p[1], 0) / C, cn = section.reduce((a, p) => a + p[0], 0) / C;
   const arc = [0];
   for (let i = 1; i <= C; i++) arc.push(arc[i - 1] + Math.hypot(section[i % C][0] - section[i - 1][0], section[i % C][1] - section[i - 1][1]));
-  const emit = (x: number, y: number, z: number, u: number, v: number, s: number, n: number, ax: number, az: number) => {
-    pos.push(x, y, z); uv.push(u, v); axis.push(ax, cy, az);
-    if (o.color) col.push(...o.color(s, n, y));
+  // 顶点色按**扰动前**的截面高取(返潮是离墙脚的高度,不该跟着随地形抬落的整体位移走)。
+  const emit = (x: number, y: number, z: number, u: number, v: number, s: number, n: number, ax: number, az: number, y0: number) => {
+    pos.push(x, y, z); uv.push(u, v); axis.push(ax, cy + (y - y0), az);
+    if (o.color) col.push(...o.color(s, n, y0));
   };
   // 侧面:每个截面点复制一份给 C 号(uv 接缝)。
   st.forEach((S, j) => {
@@ -36,7 +37,7 @@ export function sweepSection(st: Station[], section: [number, number][], o: Swee
       const i1 = section[(i + 1) % C], i0 = section[(i + C - 1) % C];
       const flat = Math.abs(i1[1] - i0[1]) < Math.abs(i1[0] - i0[0]) * 0.6;
       const u = S.s / tile, v = o.arcV ? arc[i] / tile : (flat ? n : y) / tile;
-      emit(x, y, z, u, v, S.s, n, S.p[0] + S.n[0] * cn, S.p[1] + S.n[1] * cn);
+      emit(x, y, z, u, v, S.s, n, S.p[0] + S.n[0] * cn, S.p[1] + S.n[1] * cn, y0);
     }
   });
   const idx: number[] = [];
@@ -54,7 +55,7 @@ export function sweepSection(st: Station[], section: [number, number][], o: Swee
         const [n, y] = o.warp ? o.warp(S, j, i, n0, y0) : [n0, y0];
         const x = S.p[0] + S.n[0] * n, z = S.p[1] + S.n[1] * n;
         const dir = j === 0 ? -1 : 1;
-        emit(x, y, z, n / tile, y / tile, S.s, n, S.p[0] + S.n[0] * cn - S.t[0] * dir * 10, S.p[1] + S.n[1] * cn - S.t[1] * dir * 10);
+        emit(x, y, z, n / tile, y / tile, S.s, n, S.p[0] + S.n[0] * cn - S.t[0] * dir * 10, S.p[1] + S.n[1] * cn - S.t[1] * dir * 10, y0);
       });
       for (const [a, b, c] of tri) idx.push(base + a, base + b, base + c);
     }

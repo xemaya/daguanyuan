@@ -1,4 +1,6 @@
 import { getPlan } from '@builder/compose/terrain';
+import { makeTerrainField, type GardenPlan } from '@builder/compose/terrain-from-plan';
+import { SEED } from '@builder/compose/config';
 
 /**
  * 乡野构件从 plan.json 取数的唯一入口(按稳定 id)。builder 不许 import 项目数据
@@ -27,4 +29,10 @@ export function planLayout(id: string, kind: 'wall' | 'fence'): PlanLayout {
     if (r.points.length < 2 || !(r.widthM > 0) || !(r.heightM > 0)) throw new Error(`[xiangye] ${id} 走线缺截面或点`);
   }
   return item.layout;
+}
+
+/** 装配器没传 ground 时(棚拍)用 plan 现建的地形场,缓存一份——与 garden-bridge 预览同一路。 */
+let GROUND: ((x: number, z: number) => number) | undefined;
+export function planGround(): (x: number, z: number) => number {
+  return (GROUND ??= makeTerrainField(getPlan() as unknown as GardenPlan, { seed: SEED }).height);
 }
