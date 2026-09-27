@@ -44,8 +44,39 @@ let injectedBuilt: readonly string[] = [];
 export function setPlan(p: GardenPlan, builtRegions: readonly string[]): void {
   if (!builtRegions.length) throw new Error('[terrain] 已建成区名单为空:projects/daguanyuan/scenes/ 里一份落位清单都没有?');
   injectedBuilt = [...builtRegions];
-  Object.assign(TERRAIN,terrainWindow(p,injectedBuilt,PAD,CELL));
+  Object.assign(TERRAIN,snapToTerrainLattice(terrainWindow(p,injectedBuilt,PAD,CELL)));
   injectedPlan = p;
+}
+
+/**
+ * D-37(同一个病的地形那一半):**地形网格的格点钉在世界上。**
+ *
+ * 网格是 `minX + i·(width/segX)`——原点是窗口一角、格距是 `width/round(width/CELL)`。
+ * 窗口一变,每个顶点都挪(BA1:270/563 = 0.47957 m → 357/744 = 0.47984 m,原点 −160 → −247),
+ * 园子里每一处地面三角都重采一遍。碰撞读的是解析场(见文件头第 1 条),所以脚下高度不受影响;
+ * 画出来的地面三角、以及按网格取的 LOD 误差是受影响的。
+ *
+ * 修法:格点定义成 `719171d0`(四区建成)那一刻的网格——原点 (−160, 43)、格距 270/563 × 218/454——
+ * 以后任何窗口都把四条边**向外**对到这张格网的整格上。四区窗口本身恰好落在整格上,逐位不变;
+ * 加区只在外面加整格,旧的顶点一个不挪。格距不是正好 0.48,但与 CELL 差 < 0.001 m
+ * (`tests/terrain-resolution.test.mjs` 断言的是 < 0.01)。粗 LOD 档的分块仍从窗口一角按 64 m 切,
+ * 只有 L0 这一档钉住——脚下看得见的是 L0。
+ */
+const LATTICE = { x0: -160, z0: 43, dx: 270 / 563, dz: 218 / 454 } as const;
+function snapToTerrainLattice<W extends { minX: number; maxX: number; minZ: number; maxZ: number; width: number; depth: number; segX: number; segZ: number;
+  playMinX: number; playMaxX: number; playMinZ: number; playMaxZ: number }>(w: W): W {
+  // 1e-6 格的容差:四区窗口的边本来就在整格上,浮点除出来 562.9999999 不许被 ceil 成 563 以外的数。
+  const lo = (v: number, o: number, d: number) => Math.floor((v - o) / d + 1e-6);
+  const hi = (v: number, o: number, d: number) => Math.ceil((v - o) / d - 1e-6);
+  const i0 = lo(w.minX, LATTICE.x0, LATTICE.dx), i1 = hi(w.maxX, LATTICE.x0, LATTICE.dx);
+  const j0 = lo(w.minZ, LATTICE.z0, LATTICE.dz), j1 = hi(w.maxZ, LATTICE.z0, LATTICE.dz);
+  // 端点用「原点 + 整格数 × 格距」直接算,不从旧值加减——四区窗口得回 −160 / 110 / 43 / 261 本身。
+  const at = (o: number, d: number, k: number) => (k === 0 ? o : o + k * d);
+  // (浮点核过:−160 + 563·(270/563) === 110、43 + 454·(218/454) === 261,逐位。)
+  const minX = at(LATTICE.x0, LATTICE.dx, i0), maxX = at(LATTICE.x0, LATTICE.dx, i1);
+  const minZ = at(LATTICE.z0, LATTICE.dz, j0), maxZ = at(LATTICE.z0, LATTICE.dz, j1);
+  return { ...w, minX, maxX, minZ, maxZ, width: maxX - minX, depth: maxZ - minZ, segX: i1 - i0, segZ: j1 - j0,
+    playMinX: minX + 2, playMaxX: maxX - 2, playMinZ: minZ + 2, playMaxZ: maxZ - 2 };
 }
 /** 已建成区名单(地形窗口、plan 遍历、对账门的分母都读它)。 */
 export function builtRegions(): readonly string[] {

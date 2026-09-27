@@ -10,6 +10,7 @@ import {bedsFromPlan} from '@builder/plan/objects';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { poissonScatter, scatterHash01, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter/index';
+import { LatticeMask, blocksOver, blockRect, blockHash, latticeHash01, insideRect, rectWithin, splitRng, type BlockKey, type Rect } from '@engine/scatter/blocks';
 import { metaSurface, noiseDisplace, boxProjectedUV, type Ball } from '@builder/parts/sculpt';
 import {
   createFoliageMaterial,
@@ -81,18 +82,52 @@ const wildGrassClearance = (_x: number, _z: number, _pad = 0): number => 1;
 /* Tuning                                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * **D-37：旧窗口钉死。** 散布域曾经就是 `TERRAIN` 窗口内缩 2 m（P1 Task 6），于是
+ * 窗口一变——BA1 稻香村入建成，270×218 → 357×376 m——Bridson 的飞镖流从新的一角撒起，
+ * 全园每一株都换了位置（灌木 352 丛 0 丛原位，冻结的正门 60 m 内 73 → 46）。
+ *
+ * 下面两组数是 **`719171d0`（BA0 落地、四区建成）那一刻的窗口**，由
+ * `terrainWindow(plan@719171d0, [cuizhang, qinfang_ting_qiao, xiaoxiangguan, zhengmen], 15, 0.48)`
+ * 实算：`{minX:-160, maxX:110, minZ:43, maxZ:261}`，内缩 2 m 即旧散布盒。
+ * 这个盒子里的一切散布按**原原点、原参数、原调用顺序**照旧撒——四区逐位不变；
+ * 盒子外、当前窗口内的地走 `EXT_BLOCK` 世界对齐分块（见 `@engine/scatter/blocks`）。
+ * **这两组数永远不许跟着区数改**——改了就是把全园再洗一遍。
+ */
+const LEGACY_WINDOW = { minX: -160, maxX: 110, minZ: 43, maxZ: 261 } as const;
+const LEGACY_SCATTER: Rect = { minX: -158, maxX: 108, minZ: 45, maxZ: 259 };
+/** 旧窗口那张植物掩码的烘焙域：就是旧窗口本身（原来是 `TERRAIN` 的四个数）。 */
+const LEGACY_MASK_BOUNDS = { minX: LEGACY_WINDOW.minX, minZ: LEGACY_WINDOW.minZ, width: 270, depth: 218 } as const;
+/**
+ * 块边长 32 m（`D-37`）。取法：
+ *   - 要比最大的散布半径（灌木丛心 8.5 m）大三倍以上，块内的泊松才撒得饱，块边的接缝才是少数；
+ *   - 又不能太大：加一个区时，与新窗口相交的块整块算，块越大白算的窗口外面积越多；
+ *   - 32 = 1024 m²，是旧散布盒（266×214 = 56 924 m²）的 1.8%，各层的飞镖数按这个面积比缩（见 `extTries`）。
+ * 草不用这个块：草是逐格点哈希的抖动格网，天生与原点无关，只按 13 m 的世界对齐草块分网格。
+ */
+const EXT_BLOCK = 32;
+/** 块外的草块边长（世界对齐 k·13 m）：与旧草块同一个 13 m，理由见 `VEG.chunk`。 */
+const EXT_GRASS_CHUNK = 13;
+/** 块里用的世界格点掩码格距，米。旧掩码是 270/256 × 218/288 = 1.05 × 0.76 m，取 1 m 同一量级。 */
+const EXT_MASK_STEP = 1;
+const inLegacy = (x: number, z: number): boolean => insideRect(LEGACY_SCATTER, x, z);
+const inLegacyWindow = (x: number, z: number): boolean =>
+  x >= LEGACY_WINDOW.minX && x <= LEGACY_WINDOW.maxX && z >= LEGACY_WINDOW.minZ && z <= LEGACY_WINDOW.maxZ;
+/** 旧散布盒的飞镖数按面积折到一块上：`round(旧 tries × 块面积 / 旧盒面积)`，至少 1。 */
+const extTries = (legacyTries: number, legacyRect: Rect = LEGACY_SCATTER): number =>
+  Math.max(1, Math.round(legacyTries * (EXT_BLOCK * EXT_BLOCK) /
+    ((legacyRect.maxX - legacyRect.minX) * (legacyRect.maxZ - legacyRect.minZ))));
+
 const VEG = {
   /**
-   * Ground cover is generated and culled inside this box. P1 Task 6: this
-   * used to be a hand-tuned 50×56m box around the old town; it now insets
-   * 2m from `TERRAIN`'s own sampling window so it can never scatter grass
-   * past the edge of the meshed terrain (~14x the old area — everything
-   * downstream, chunk grid included, scales off these four numbers alone).
+   * **当前**窗口内缩 2 m——只拿来给块里撒出来的点**事后裁边**（块整块撒，窗口外的扔掉），
+   * 不再是任何一层散布的撒点域。旧窗口那一段一律读 `LEGACY_SCATTER`（D-37）。
+   * 改过名（原 `scatterMin*`），免得哪一处漏改的旧写法编译通过、悄悄又跟窗口走。
    */
-  get scatterMinX() { return TERRAIN.minX + 2; },
-  get scatterMaxX() { return TERRAIN.maxX - 2; },
-  get scatterMinZ() { return TERRAIN.minZ + 2; },
-  get scatterMaxZ() { return TERRAIN.maxZ - 2; },
+  get curMinX() { return TERRAIN.minX + 2; },
+  get curMaxX() { return TERRAIN.maxX - 2; },
+  get curMinZ() { return TERRAIN.minZ + 2; },
+  get curMaxZ() { return TERRAIN.maxZ - 2; },
   /** Grass chunk edge, metres. Trades draw calls against cull granularity. */
   chunk: 13,
   /** Everything beyond this from the camera is hidden. */
@@ -532,7 +567,7 @@ export const SPECIES_INDEX: Record<string, number> = Object.fromEntries(
  * same function the terrain shader splats from, the mask cannot disagree with
  * what is painted on the ground.
  */
-function makePlantMask(ctx: GameContext): DensityMask {
+function plantMaskSampler(ctx: GameContext): (x: number, z: number) => number {
   const surfaceAt = ctx.collision.surfaceAt;
   const groundHeight = ctx.collision.groundHeight;
   const wallEdges = new BoundsIndex<readonly [readonly [number,number],readonly [number,number]]>(16);
@@ -548,16 +583,16 @@ function makePlantMask(ctx: GameContext): DensityMask {
     const a=wall.points[i-1],b=wall.points[i];
     wallEdges.add({minX:Math.min(a[0],b[0]),maxX:Math.max(a[0],b[0]),minZ:Math.min(a[1],b[1]),maxZ:Math.max(a[1],b[1])},[a,b],.8);
   }
-  return new DensityMask(
-    (x, z) => {
+  // D-37:采样函数与烘焙域拆开。旧窗口那张 `DensityMask` 的烘焙域钉在
+  // `LEGACY_MASK_BOUNDS`(原来读 `TERRAIN`——窗口一变,256×288 个格子的位置全变,
+  // 于是每个点查到的掩码值都变);块里的散布用同一个函数烤的世界格点掩码 `LatticeMask`。
+  return (x, z) => {
       const grass = surfaceAt(x, z) === 'grass' ? 1 : 0;
       const dry = groundHeight(x, z) > VEG.minPlantY ? 1 : 0;
       const atWall=wallEdges.query(x,z).some(edge=>distanceToPolyline(x,z,edge)<.7);
       const atCorridor=corridorFloors.query(x,z).some(poly=>locatePoint(poly,[x,z])!=='outside'||distanceToPolyline(x,z,poly)<.4);
       return atWall||atCorridor ? 0 : grass * dry;
-    },
-    { minX: TERRAIN.minX, minZ: TERRAIN.minZ, width: TERRAIN.width, depth: TERRAIN.depth },
-  );
+  };
 }
 
 /** 1 outside every building footprint, 0 inside, with a short feather.
@@ -1634,7 +1669,20 @@ function weedGeometry(seed: number, size: number): THREE.BufferGeometry {
 export function buildVegetation(ctx: GameContext): void {
   const rng = makeRng(ctx.seed ^ 0x5eed1e5);
   const ground = ctx.collision.groundHeight;
-  const mask = makePlantMask(ctx);
+  const plantSample = plantMaskSampler(ctx);
+  /** 旧窗口的植物掩码(D-37:烘焙域钉在 `LEGACY_MASK_BOUNDS`,与 `719171d0` 逐格相同)。旧散布盒里的散布只读它。 */
+  const mask = new DensityMask(plantSample, LEGACY_MASK_BOUNDS);
+  /** 块里的植物掩码:同一个采样函数,世界格点,按块懒烤。块里的散布只读它。 */
+  const wmask = new LatticeMask(plantSample, EXT_MASK_STEP, 32);
+  /** 定点落位(堤柳、隔岸花……)用:旧窗口里读旧掩码(与旧版逐位同),窗口外读世界掩码。 */
+  const anyMaskAt = (x: number, z: number): number => (inLegacyWindow(x, z) ? mask.at(x, z) : wmask.at(x, z));
+  /** 块里撒出来的点最后一道裁:在当前窗口里、不在旧散布盒里。 */
+  const keepExt = (x: number, z: number): boolean =>
+    !inLegacy(x, z) && x >= VEG.curMinX && x <= VEG.curMaxX && z >= VEG.curMinZ && z <= VEG.curMaxZ;
+  /** 与当前散布窗口相交、且不整个落在旧散布盒里的块(D-37)。 */
+  const curRect: Rect = { minX: VEG.curMinX, maxX: VEG.curMaxX, minZ: VEG.curMinZ, maxZ: VEG.curMaxZ };
+  const extBlocks: BlockKey[] = blocksOver(curRect, EXT_BLOCK).filter((b) => !rectWithin(blockRect(b, EXT_BLOCK), LEGACY_SCATTER));
+  const blockRng = (b: BlockKey, salt: number) => makeRng((ctx.seed ^ blockHash(b.bx, b.bz, salt)) >>> 0);
   const clump = new Simplex(ctx.seed ^ 0x0c10ff);
   // 草被疏密场(单子 T):grassDensity 与地形 masks.soil(露土)共用同一实现,
   // 种子/频率与原内联写法逐字相同——草分布不因这次抽取而变。
@@ -1792,7 +1840,7 @@ export function buildVegetation(ctx: GameContext): void {
     mat: canopyMat(def.leafSet, def.tint, 1.0),
     fringeMat: fringeMats[def.leafSet],
     barkMat: barkMats[def.bark],
-    spots: [] as { x: number; z: number; s: number; yaw: number; tilt: number; tiltAz: number }[],
+    spots: [] as { x: number; z: number; s: number; yaw: number; tilt: number; tiltAz: number; ext?: boolean }[],
   }));
 
   mark('species geometry');
@@ -1910,9 +1958,9 @@ export function buildVegetation(ctx: GameContext): void {
     return best;
   };
 
-  const treeDensity = (x: number, z: number): number => {
-    if (x < VEG.scatterMinX || x > VEG.scatterMaxX || z < VEG.scatterMinZ || z > VEG.scatterMaxZ) return 0;
-    const m = mask.at(x, z);
+  /** D-37:树的密度拆成「用哪张掩码」与「撒在哪」两半。旧散布盒读旧掩码、盒外为 0(与旧版逐位同);块里读世界掩码、盒内为 0。 */
+  const treeDensityOn = (mk: { at(x: number, z: number): number }, x: number, z: number): number => {
+    const m = mk.at(x, z);
     if (m < 0.55) return 0;
     if (onPlanHill(x, z)) return 0;
     if (HERO_TREES.some(([hx,hz]) => Math.hypot(x-hx,z-hz)<2.5)) return 0;
@@ -1930,6 +1978,8 @@ export function buildVegetation(ctx: GameContext): void {
     const c = fbm2(clump, x * 0.09, z * 0.09, 3) * 0.5 + 0.5;
     return clamp(land * (0.35+c*0.95),0,1) * routeClearance * outsideBuildings(x,z,1.4) * (rt?.density ?? 1);
   };
+  const treeDensity = (x: number, z: number): number => (inLegacy(x, z) ? treeDensityOn(mask, x, z) : 0);
+  const treeDensityExt = (x: number, z: number): number => (inLegacy(x, z) ? 0 : treeDensityOn(wmask, x, z));
 
   /**
    * Copses, not a lattice.
@@ -1961,7 +2011,7 @@ export function buildVegetation(ctx: GameContext): void {
     // treeBudget 的 180 上限触发截断补撒;7000 的筛后约 147,与 AV 前的
     // 146 同量级,上限永远触不到。
     const copses = poissonScatter({
-      minX: VEG.scatterMinX, maxX: VEG.scatterMaxX, minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
+      ...LEGACY_SCATTER,
       radius: 3.7, tries: 7000, density: treeDensity, rng: makeRng(ctx.seed ^ 0x7eee), filterByHash: true,
     });
     // Bucketed by copse for the separation test: over a few hundred trees a
@@ -1998,6 +2048,76 @@ export function buildVegetation(ctx: GameContext): void {
     }
   }
 
+  /* ---------------- D-37:旧散布盒外的树,按世界对齐的块撒 ---------------- */
+
+  /**
+   * 块里两级散布(丛心 → 株)的共用骨架(树与灌木)。
+   *
+   * 一块的候选只取决于这一块:丛心是块内的泊松(飞镖流用块坐标播种),株位用丛心坐标播种,
+   * 块内按生成顺序做株间硬隔,再与旧散布盒里已定的株做硬隔(旧的永远赢)。
+   * 跨块的株间硬隔**不走顺序**:两块的候选挨得比 `sep` 近,坐标哈希小的留、大的让——
+   * 这是对称规则,结果只取决于两块各自的候选,与遍历顺序、窗口、区数都无关。
+   * 为此窗口边上的块要把外面一圈邻块的候选也算出来(只拿来比,不落地)。
+   */
+  const cellKey = (bx: number, bz: number): number => (bx + 32768) * 65536 + (bz + 32768);
+  const extClusterSpots = <T extends Spot>(candidatesOf: (b: BlockKey) => T[], sep: number): T[] => {
+    const need = new Map<number, BlockKey>();
+    for (const b of extBlocks)
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        const k = { bx: b.bx + dx, bz: b.bz + dz };
+        if (!rectWithin(blockRect(k, EXT_BLOCK), LEGACY_SCATTER)) need.set(cellKey(k.bx, k.bz), k);
+      }
+    const cand = new Map<number, T[]>();
+    for (const [k, b] of need) cand.set(k, candidatesOf(b));
+    const sep2 = sep * sep;
+    const out: T[] = [];
+    for (const b of extBlocks) {
+      for (const p of cand.get(cellKey(b.bx, b.bz)) ?? []) {
+        if (!keepExt(p.x, p.z)) continue;
+        const hp = scatterHash01(p.x, p.z);
+        let lose = false;
+        for (let dz = -1; dz <= 1 && !lose; dz++) for (let dx = -1; dx <= 1 && !lose; dx++) {
+          if (dx === 0 && dz === 0) continue;
+          for (const q of cand.get(cellKey(b.bx + dx, b.bz + dz)) ?? []) {
+            if ((q.x - p.x) ** 2 + (q.z - p.z) ** 2 >= sep2) continue;
+            const hq = scatterHash01(q.x, q.z);
+            if (hq < hp || (hq === hp && (q.x < p.x || (q.x === p.x && q.z < p.z)))) { lose = true; break; }
+          }
+        }
+        if (!lose) out.push(p);
+      }
+    }
+    return out;
+  };
+
+  const extTreeSpots: Spot[] = extClusterSpots((b) => {
+    // 与旧散布盒同一套参数(3.7 m 丛心、1–5 株、0.9–3.1 m 散开、1.5 m 硬隔),飞镖数按面积折。
+    // treeBudget 不进块:预算截断是顺序依赖的补撒,块里一株都不许依赖别的块。
+    const copses = poissonScatter({
+      ...blockRect(b, EXT_BLOCK),
+      radius: 3.7, tries: extTries(7000), density: treeDensityExt, rng: blockRng(b, 0x7eee), filterByHash: true,
+    });
+    const MIN_SEP2 = 1.5 * 1.5;
+    const out: Spot[] = [];
+    for (const c of copses) {
+      const copseRng = makeRng((ctx.seed ^ Math.floor(scatterHash01(c.x, c.z) * 4294967296)) >>> 0);
+      const n = 1 + Math.floor(Math.pow(copseRng(), 1.35) * 5);
+      const spread = rangeOf(copseRng, 0.9, 3.1);
+      for (let i = 0; i < n; i++) {
+        const a = copseRng() * Math.PI * 2;
+        const r = i === 0 ? 0 : spread * Math.pow(copseRng(), 0.55);
+        const x = c.x + Math.cos(a) * r;
+        const z = c.z + Math.sin(a) * r;
+        if (treeDensityExt(x, z) <= 0.02) continue;
+        const near = (t: Spot) => (t.x - x) ** 2 + (t.z - z) ** 2 < MIN_SEP2;
+        if (out.some(near) || treeSpots.some(near)) continue;
+        out.push({ x, z });
+      }
+    }
+    return out;
+  }, 1.5);
+  mark('D-37 块里的树(候选 + 跨块硬隔)');
+
   const placeTree = (
     x: number,
     z: number,
@@ -2006,6 +2126,8 @@ export function buildVegetation(ctx: GameContext): void {
     fixed?: { scale?: number; tilt?: number; tiltAz?: number },
     /** 散布树按坐标播种的 rng（单子 AV-b1）；点名树 / 古树 / 柳树不传，走共享流。 */
     rand: () => number = rng,
+    /** D-37:块里的树。实例化时排在本种最后,吃另一条 rng,旧的实例逐位不变。 */
+    ext = false,
   ) => {
     const b = built[speciesIdx];
     // Bigger trees deeper into the wood; the trees nearest the town are the
@@ -2026,6 +2148,7 @@ export function buildVegetation(ctx: GameContext): void {
       // was small enough that every trunk read as vertical.
       tilt: fixed?.tilt ?? rTilt,
       tiltAz: fixed?.tiltAz ?? rAz,
+      ...(ext ? { ext: true } : {}),
     });
   };
 
@@ -2087,7 +2210,7 @@ export function buildVegetation(ctx: GameContext): void {
           const x = vx + (dx / dl) * 2.2;
           const z = vz + (dz / dl) * 2.2;
           if (ground(x, z) < VEG.minPlantY) continue;
-          if (mask.at(x, z) < 0.3) continue;
+          if (anyMaskAt(x, z) < 0.3) continue;
           if (outsideBuildings(x, z, 0.5) < 0.5) continue;
           if (planted.some((p) => Math.hypot(p.x - x, p.z - z) < 4.5)) continue;
           planted.push({ x, z });
@@ -2095,6 +2218,17 @@ export function buildVegetation(ctx: GameContext): void {
         }
       }
     }
+  }
+
+  // D-37:块里的树放在所有旧的树之后——每个种的 `spots` 里旧的在前、块里的在后,
+  // 实例化时旧的那一段吃旧的 rng(见 tree instancing)。选种与形态同散布树,按坐标播种。
+  for (const s of extTreeSpots) {
+    const spotRng = makeRng((ctx.seed ^ Math.floor(scatterHash01(s.x, s.z) * 4294967296) ^ 0x9e3779b9) >>> 0);
+    const reg = regionOf(s.x, s.z);
+    const rt = reg ? REGION_TREES[reg] : undefined;
+    const mix = rt && rt.mix.length > 0 ? rt.mix : FALLBACK_MIX;
+    const idx = SPECIES_INDEX[mix[Math.floor(spotRng() * mix.length)]];
+    placeTree(s.x, s.z, idx, undefined, spotRng, true);
   }
 
   mark('named trees + 堤柳');
@@ -2107,14 +2241,29 @@ export function buildVegetation(ctx: GameContext): void {
   const scl = new THREE.Vector3();
   const pos3 = new THREE.Vector3();
   const col = new THREE.Color();
-  const treeBases: { x: number; z: number; r: number; y: number }[] = [];
+  const treeBases: { x: number; z: number; r: number; y: number; ext?: boolean }[] = [];
+  /**
+   * D-37:实例属性按「旧的一段 + 块里的一段」拼。`applyWind(count, rng)` 按实例序号顺序抽 2 发,
+   * 块里那一段吃这里给的逐株坐标数(第 k 发只由那一株的坐标决定),旧 rng 被消费的次数不变。
+   */
+  const coordSeq = (pts: readonly Spot[], salt: number): (() => number) => {
+    let k = 0;
+    return () => {
+      const s = pts[k >> 1];
+      const v = latticeHash01(Math.round(s.x * 4096), Math.round(s.z * 4096), k & 1, salt);
+      k++;
+      return v;
+    };
+  };
 
   const barkTint = new THREE.Color();
 
   for (const b of built) {
     const n = b.spots.length;
     if (n === 0) continue;
-    const cRng = makeRng(ctx.seed ^ (b.def.key.length * 7717) ^ n);
+    // D-37:种子里的 n 取「旧的那一段」的株数——块里多了树,旧实例的风相不许跟着变。
+    const nOld = b.spots.filter((s) => !s.ext).length;
+    const cRng = makeRng(ctx.seed ^ (b.def.key.length * 7717) ^ nOld);
     // Species bark colour rides in as an instance tint over a white bark
     // material, so a birch is genuinely pale and an oak genuinely warm-brown
     // without a fourth texture bake or a fourth draw call.
@@ -2122,7 +2271,7 @@ export function buildVegetation(ctx: GameContext): void {
     const btR = barkTint.r;
     const btG = barkTint.g;
     const btB = barkTint.b;
-    const trunkMesh = makeInstanced(b.geo.trunk, b.barkMat, n, cRng, 1);
+    const trunkMesh = makeInstanced(b.geo.trunk, b.barkMat, n, splitRng(cRng, 2 * nOld, coordSeq(b.spots.slice(nOld), 0x7d37)), 1);
     const canopyMesh = makeInstanced(b.geo.canopy, b.mat, n, cRng, 1);
     const fringeMesh = makeInstanced(b.geo.fringe, b.fringeMat, n, cRng, 1);
     // Dappled light. The crown stays a solid mass in the beauty pass and is
@@ -2193,7 +2342,7 @@ export function buildVegetation(ctx: GameContext): void {
       col.setRGB(btR * (1 + bt), btG * (1 + bt * 0.85), btB * (1 + bt * 0.6));
       trunkMesh.setColorAt(i, col);
 
-      treeBases.push({ x: sp.x, z: sp.z, r: b.geo.trunkR * girth, y });
+      treeBases.push({ x: sp.x, z: sp.z, r: b.geo.trunkR * girth, y, ...(sp.ext ? { ext: true } : {}) });
 
       // Only things the player can reach need a blocker; the perimeter boxes
       // already stop them long before the outer wood.
@@ -2281,9 +2430,10 @@ export function buildVegetation(ctx: GameContext): void {
    *     空地上不长,只长在林子的边上。这是「灌木是林与草之间的过渡」这句话
    *     唯一可计算的写法。
    * 散布窗口跟着 `VEG.scatter*` 走(与树、草同一个窗口),不再自带一个小盒子。
+   * (D-37 起旧窗口钉成 `LEGACY_SCATTER`,盒外走世界对齐的块,见 `extClusterSpots`。)
    */
-  const bushDensity = (x: number, z: number): number => {
-    if (mask.at(x, z) < 0.75) return 0;
+  const bushDensityOn = (mk: { at(x: number, z: number): number }, x: number, z: number): number => {
+    if (mk.at(x, z) < 0.75) return 0;
     if (ground(x, z) < 0.35) return 0;
     // 贴石:2–7 m 环带,背阴浓、向阳稀。
     const pd = peakDistance(x, z);
@@ -2309,6 +2459,10 @@ export function buildVegetation(ctx: GameContext): void {
     );
     return d * outsideBuildings(x, z, 0.25) * wildGrassClearance(x, z);
   };
+  /** 旧散布盒:与旧版同一个函数(旧掩码,不看盒子——丛内株位本来就可以伸出盒边 2.6 m)。 */
+  const bushDensity = (x: number, z: number): number => bushDensityOn(mask, x, z);
+  /** 块里(D-37):世界掩码,旧散布盒内为 0。 */
+  const bushDensityExt = (x: number, z: number): number => (inLegacy(x, z) ? 0 : bushDensityOn(wmask, x, z));
 
   /**
    * 丛，不是网格（单子 AV3；与上面树的 copse 同一路数，理由也同一条）。
@@ -2340,8 +2494,7 @@ export function buildVegetation(ctx: GameContext): void {
   const bushSpots: (Spot & { bucket: number })[] = [];
   {
     const centres = poissonScatter({
-      minX: VEG.scatterMinX, maxX: VEG.scatterMaxX,
-      minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
+      ...LEGACY_SCATTER,
       radius: 8.5, tries: 34000, density: bushDensity, rng: makeRng(ctx.seed ^ 0xb05b), filterByHash: true,
     });
     const MIN_SEP2 = 0.95 * 0.95;
@@ -2361,13 +2514,44 @@ export function buildVegetation(ctx: GameContext): void {
     }
   }
 
+  // D-37:块里的灌木。同一套丛(8.5 m 丛心、3–6 株、1.1–2.6 m、0.95 m 硬隔),飞镖数按面积折;
+  // 与旧的株硬隔(旧的赢),跨块走哈希对称规则(见 extClusterSpots)。分桶同旧版:坐标哈希。
+  const extBushSpots = extClusterSpots((b) => {
+    const centres = poissonScatter({
+      ...blockRect(b, EXT_BLOCK),
+      radius: 8.5, tries: extTries(34000), density: bushDensityExt, rng: blockRng(b, 0xb05b), filterByHash: true,
+    });
+    const MIN_SEP2 = 0.95 * 0.95;
+    const out: (Spot & { bucket: number })[] = [];
+    for (const c of centres) {
+      const cRng = spotRng(c.x, c.z, 0xb0c0);
+      const n = 3 + Math.floor(cRng() * 4);
+      const spread = rangeOf(cRng, 1.1, 2.6);
+      for (let i = 0; i < n; i++) {
+        const a = cRng() * Math.PI * 2;
+        const r = i === 0 ? 0 : spread * Math.pow(cRng(), 0.6);
+        const x = c.x + Math.cos(a) * r;
+        const z = c.z + Math.sin(a) * r;
+        if (bushDensityExt(x, z) <= 0.02) continue;
+        const near = (q: Spot) => (q.x - x) ** 2 + (q.z - z) ** 2 < MIN_SEP2;
+        if (out.some(near) || bushSpots.some(near)) continue;
+        out.push({ x, z, bucket: Math.floor(scatterHash01(x + 0.5, z - 0.5) * 3) % 3 });
+      }
+    }
+    return out;
+  }, 0.95);
+
+  // 每桶旧的在前、块里的在后:桶的 `bRng` 先给 `applyWind` 顺序抽,旧实例吃到的数不变。
   const bushBuckets: { x: number; z: number }[][] = [[], [], []];
   for (const s of bushSpots) bushBuckets[s.bucket].push(s);
+  const bushOld = bushBuckets.map((l) => l.length);
+  for (const s of extBushSpots) bushBuckets[s.bucket].push(s);
 
   bushBuckets.forEach((spots, bi) => {
     if (spots.length === 0) return;
     const bRng = makeRng(ctx.seed ^ (0x8005 + bi * 131));
-    const mesh = makeInstanced(bushGeos[bi].shell, bushMats[bi], spots.length, bRng, 1);
+    const mesh = makeInstanced(bushGeos[bi].shell, bushMats[bi], spots.length,
+      splitRng(bRng, 2 * bushOld[bi], coordSeq(spots.slice(bushOld[bi]), 0xb37)), 1);
     const leaves = makeInstanced(bushGeos[bi].fringe, bushFringeMats[bi], spots.length, bRng, 1);
     leaves.geometry.setAttribute('aWind', mesh.geometry.getAttribute('aWind'));
     for (let i = 0; i < spots.length; i++) {
@@ -2655,7 +2839,8 @@ export function buildVegetation(ctx: GameContext): void {
 
     // Rings at the foot of every trunk: this is where litter is, and it is also
     // the seam the eye goes looking for, so it is where the detail pays.
-    for (const t of treeBases) {
+    // D-37:只绕旧的树(块里的树排在每个种的末尾,滤掉后顺序与旧版逐位同);块里的树见下面。
+    for (const t of treeBases.filter((b) => !b.ext)) {
       const n = 4 + Math.floor(lRng() * 6);
       for (let i = 0; i < n; i++) {
         const a = lRng() * Math.PI * 2;
@@ -2688,25 +2873,48 @@ export function buildVegetation(ctx: GameContext): void {
       litSpots.push({ x: s.x, z: s.z, v: lRng() < 0.5 ? 0 : 1 });
     }
 
+    // D-37:块里的树脚落叶。每棵树自己的坐标播种,落在世界掩码上,裁到当前窗口、旧散布盒外。
+    // (上面那片 -28…28 的「林间落叶带」是 pallet-town 老镇子的常量,查的是旧窗口的掩码,
+    // 在旧窗口外永远是 0——它从 719171d0 起就一片都不长,本单照旧,不接块。)
+    const litExt: { x: number; z: number; v: number }[] = [];
+    for (const t of treeBases) {
+      if (!t.ext) continue;
+      const tRng = makeRng((ctx.seed ^ 0x11a770 ^ Math.floor(scatterHash01(t.x, t.z) * 4294967296)) >>> 0);
+      const n = 4 + Math.floor(tRng() * 6);
+      for (let i = 0; i < n; i++) {
+        const a = tRng() * Math.PI * 2;
+        const r = t.r * rangeOf(tRng, 1.0, 5.5);
+        const x = t.x + Math.cos(a) * r;
+        const z = t.z + Math.sin(a) * r;
+        const v = tRng() < 0.6 ? 0 : 1;
+        if (!keepExt(x, z) || wmask.at(x, z) < 0.35) continue;
+        litExt.push({ x, z, v });
+      }
+    }
+
     for (let v = 0; v < litGeos.length; v++) {
       const subset = litSpots.filter((s) => s.v === v);
-      if (!subset.length) continue;
-      const mesh = makeInstanced(litGeos[v], litMat, subset.length, lRng, 1);
-      for (let i = 0; i < subset.length; i++) {
-        const s = subset[i];
-        const sc = rangeOf(lRng, 0.7, 1.5);
-        euler.set(0, lRng() * Math.PI * 2, 0, 'ZYX');
+      const subExt = litExt.filter((s) => s.v === v);
+      if (!subset.length && !subExt.length) continue;
+      const all = [...subset, ...subExt];
+      const mesh = makeInstanced(litGeos[v], litMat, all.length, splitRng(lRng, 2 * subset.length, coordSeq(subExt, 0x11737)), 1);
+      for (let i = 0; i < all.length; i++) {
+        const s = all[i];
+        const ext = i >= subset.length;
+        const lR = ext ? makeRng((ctx.seed ^ 0x11a7e ^ Math.floor(scatterHash01(s.x, s.z) * 4294967296)) >>> 0) : lRng;
+        const sc = rangeOf(lR, 0.7, 1.5);
+        euler.set(0, lR() * Math.PI * 2, 0, 'ZYX');
         q.setFromEuler(euler);
         // Set *below* the surface, not above it. The mound carries its own height
         // (apex ~7 cm) and its outer ring dives another 15% of its radius under,
         // so sinking the origin is what buries the rim and lets the turf close
         // over the edge of the drift instead of the drift ending in mid-air.
         pos3.set(s.x, ground(s.x, s.z) - 0.025, s.z);
-        scl.set(sc, sc, sc * rangeOf(lRng, 0.8, 1.25));
+        scl.set(sc, sc, sc * rangeOf(lR, 0.8, 1.25));
         m4.compose(pos3, q, scl);
         mesh.setMatrixAt(i, m4);
         // Litter runs from fresh yellow-brown to weathered grey-brown.
-        const age = lRng();
+        const age = lR();
         col.setRGB(1 - age * 0.16, 1 - age * 0.10, 0.9 + age * 0.14);
         mesh.setColorAt(i, col);
       }
@@ -2819,8 +3027,8 @@ export function buildVegetation(ctx: GameContext): void {
     grassTuftGeometry(ctx.seed ^ 0x2222, 4, 0.21),
   ];
 
-  const grassDensity = (x: number, z: number): number => {
-    const m = mask.at(x, z);
+  const grassDensityOn = (mk: { at(x: number, z: number): number }, x: number, z: number): number => {
+    const m = mk.at(x, z);
     if (m < 0.12) return 0;
     const patch = grassCover.patch(x, z);
     // 低频斑块(PQ-5d):一汪一汪地稀下去,草稀处地表自然露出。单子 T 起,
@@ -2829,18 +3037,20 @@ export function buildVegetation(ctx: GameContext): void {
     const gap = grassCover.gap(x, z);
     return clamp(Math.pow(m, 1.35) * patch * gap, 0, 1) * outsideBuildings(x, z, 0.05);
   };
+  const grassDensity = (x: number, z: number): number => grassDensityOn(mask, x, z);
 
   // Chunk grid: each chunk is its own InstancedMesh so the renderer can
   // frustum-cull it, and a distance test hides the rest. One giant instanced
   // grass mesh can never be culled at all — it has a single bounding sphere.
   type ChunkList = { x: number; z: number; v: number; g: number }[];
-  const chunkCols = Math.ceil((VEG.scatterMaxX - VEG.scatterMinX) / VEG.chunk);
-  const chunkRows = Math.ceil((VEG.scatterMaxZ - VEG.scatterMinZ) / VEG.chunk);
+  // D-37:旧草块网格钉在旧散布盒上(原点、行列数与 719171d0 逐位同);盒外的草走世界对齐草块,见下。
+  const chunkCols = Math.ceil((LEGACY_SCATTER.maxX - LEGACY_SCATTER.minX) / VEG.chunk);
+  const chunkRows = Math.ceil((LEGACY_SCATTER.maxZ - LEGACY_SCATTER.minZ) / VEG.chunk);
   const chunks: ChunkList[] = Array.from({ length: chunkCols * chunkRows }, () => []);
   const paths = getPlan().paths;
   const denseChunks = chunks.map((_, ci) => {
-    const x = VEG.scatterMinX + (ci % chunkCols + 0.5) * VEG.chunk;
-    const z = VEG.scatterMinZ + (Math.floor(ci / chunkCols) + 0.5) * VEG.chunk;
+    const x = LEGACY_SCATTER.minX + (ci % chunkCols + 0.5) * VEG.chunk;
+    const z = LEGACY_SCATTER.minZ + (Math.floor(ci / chunkCols) + 0.5) * VEG.chunk;
     // Anything visible from a route keeps every lattice at full share. Only
     // distant ground applies each lattice's `far` fraction; path-boundary
     // chunks stay dense.
@@ -2863,8 +3073,8 @@ export function buildVegetation(ctx: GameContext): void {
     Math.imul(ci ^ 0x9e3779b9, 2654435761) >>> 31;
 
   const chunkOf = (x: number, z: number): number => {
-    const ci = clamp(Math.floor((x - VEG.scatterMinX) / VEG.chunk), 0, chunkCols - 1);
-    const cj = clamp(Math.floor((z - VEG.scatterMinZ) / VEG.chunk), 0, chunkRows - 1);
+    const ci = clamp(Math.floor((x - LEGACY_SCATTER.minX) / VEG.chunk), 0, chunkCols - 1);
+    const cj = clamp(Math.floor((z - LEGACY_SCATTER.minZ) / VEG.chunk), 0, chunkRows - 1);
     return cj * chunkCols + ci;
   };
 
@@ -2884,11 +3094,12 @@ export function buildVegetation(ctx: GameContext): void {
   ];
 
   {
-    const cx0 = (VEG.scatterMinX + VEG.scatterMaxX) / 2;
-    const cz0 = (VEG.scatterMinZ + VEG.scatterMaxZ) / 2;
+    const L = LEGACY_SCATTER;
+    const cx0 = (L.minX + L.maxX) / 2;
+    const cz0 = (L.minZ + L.maxZ) / 2;
     // 旋转后格网要盖住整个轴对齐散布盒,取对角线一半为半径。
     const half =
-      Math.hypot(VEG.scatterMaxX - VEG.scatterMinX, VEG.scatterMaxZ - VEG.scatterMinZ) / 2 + 1;
+      Math.hypot(L.maxX - L.minX, L.maxZ - L.minZ) / 2 + 1;
     for (const lat of GRASS_LATTICES) {
       const gRng = makeRng(ctx.seed ^ Math.imul(Math.round(lat.cell * 1000), 7919) ^ 0x9ea5501);
       const cosR = Math.cos(lat.rot);
@@ -2903,7 +3114,7 @@ export function buildVegetation(ctx: GameContext): void {
           const lz = (j + gRng() - n / 2) * lat.cell + lat.oz;
           const x = cx0 + lx * cosR - lz * sinR;
           const z = cz0 + lx * sinR + lz * cosR;
-          if (x < VEG.scatterMinX || x > VEG.scatterMaxX || z < VEG.scatterMinZ || z > VEG.scatterMaxZ) continue;
+          if (x < L.minX || x > L.maxX || z < L.minZ || z > L.maxZ) continue;
           if (gRng() > lat.share) continue;
           const acceptance = gRng();
           const ci = chunkOf(x, z);
@@ -2923,14 +3134,14 @@ export function buildVegetation(ctx: GameContext): void {
   // nothing appears to be pushed through the ground (ART_DIRECTION §2.5).
   {
     const sRng = makeRng(ctx.seed ^ 0x5c1f7);
-    for (const t of treeBases) {
+    for (const t of treeBases.filter((b) => !b.ext)) {
       const n = 5 + Math.floor(sRng() * 5);
       for (let i = 0; i < n; i++) {
         const a = sRng() * Math.PI * 2;
         const r = t.r * rangeOf(sRng, 0.9, 2.4);
         const x = t.x + Math.cos(a) * r;
         const z = t.z + Math.sin(a) * r;
-        if (x < VEG.scatterMinX || x > VEG.scatterMaxX || z < VEG.scatterMinZ || z > VEG.scatterMaxZ) continue;
+        if (!inLegacy(x, z)) continue;
         if (mask.at(x, z) < 0.3) continue;
         const ci = chunkOf(x, z);
         chunks[ci].push({ x, z, v: chunkVariant(ci), g: 0 });
@@ -2938,11 +3149,83 @@ export function buildVegetation(ctx: GameContext): void {
     }
   }
 
-  chunks.forEach((list, ci) => {
-    if (list.length === 0) return;
-    const colIndex = ci % chunkCols, rowIndex = Math.floor(ci / chunkCols);
-    const cx = VEG.scatterMinX + (colIndex + 0.5) * VEG.chunk;
-    const cz = VEG.scatterMinZ + (rowIndex + 0.5) * VEG.chunk;
+  /* ---- D-37:旧散布盒外的草——世界对齐的 13 m 草块,逐格点哈希的抖动格网 ----
+   *
+   * 三档旋转格网与旧版同参数(格距、份额、转角、偏移、远景保留比),只是**绕世界原点转**、
+   * 每个格点的抖动 / 份额 / 接受 / 远景四发随机数由 `(档, i, j)` 哈希给——任何一块草都能单独生成,
+   * 与窗口、区数、遍历顺序无关。每个草块只收**落在自己方框里**的格点,所以相邻草块不重不漏。 */
+  const extChunks = new Map<number, { kx: number; kz: number; list: ChunkList; dense: boolean; v: number }>();
+  const extChunkOf = (x: number, z: number) => {
+    const kx = Math.floor(x / EXT_GRASS_CHUNK), kz = Math.floor(z / EXT_GRASS_CHUNK), key = cellKey(kx, kz);
+    let c = extChunks.get(key);
+    if (!c) {
+      const cx = (kx + 0.5) * EXT_GRASS_CHUNK, cz = (kz + 0.5) * EXT_GRASS_CHUNK;
+      const margin = VEG.drawDist.grass + EXT_GRASS_CHUNK * Math.SQRT2 / 2 + 8;
+      c = { kx, kz, list: [], dense: paths.some((p) => distanceToPolyline(cx, cz, p.points) < margin), v: blockHash(kx, kz, 0x9e37) >>> 31 };
+      extChunks.set(key, c);
+    }
+    return c;
+  };
+  {
+    const G = EXT_GRASS_CHUNK;
+    for (let kz = Math.floor(curRect.minZ / G); kz <= Math.floor(curRect.maxZ / G); kz++) {
+      for (let kx = Math.floor(curRect.minX / G); kx <= Math.floor(curRect.maxX / G); kx++) {
+        const r: Rect = { minX: kx * G, maxX: (kx + 1) * G, minZ: kz * G, maxZ: (kz + 1) * G };
+        if (rectWithin(r, LEGACY_SCATTER)) continue;
+        const chunk = extChunkOf(r.minX + G / 2, r.minZ + G / 2);
+        GRASS_LATTICES.forEach((lat, li) => {
+          const cosR = Math.cos(lat.rot), sinR = Math.sin(lat.rot);
+          // 草块四角转进格网坐标系,取包围范围,外扩一格(抖动最多一格)。
+          let lx0 = Infinity, lx1 = -Infinity, lz0 = Infinity, lz1 = -Infinity;
+          for (const [x, z] of [[r.minX, r.minZ], [r.maxX, r.minZ], [r.minX, r.maxZ], [r.maxX, r.maxZ]]) {
+            const lx = x * cosR + z * sinR, lz = -x * sinR + z * cosR;
+            lx0 = Math.min(lx0, lx); lx1 = Math.max(lx1, lx); lz0 = Math.min(lz0, lz); lz1 = Math.max(lz1, lz);
+          }
+          const salt = (ctx.seed ^ Math.imul(Math.round(lat.cell * 1000), 7919) ^ 0x9ea5501 ^ (li + 1)) | 0;
+          const i0 = Math.floor((lx0 - lat.ox) / lat.cell) - 1, i1 = Math.ceil((lx1 - lat.ox) / lat.cell) + 1;
+          const j0 = Math.floor((lz0 - lat.oz) / lat.cell) - 1, j1 = Math.ceil((lz1 - lat.oz) / lat.cell) + 1;
+          for (let j = j0; j <= j1; j++) {
+            for (let i = i0; i <= i1; i++) {
+              const lx = (i + latticeHash01(i, j, 0, salt)) * lat.cell + lat.ox;
+              const lz = (j + latticeHash01(i, j, 1, salt)) * lat.cell + lat.oz;
+              const x = lx * cosR - lz * sinR;
+              const z = lx * sinR + lz * cosR;
+              if (x < r.minX || x >= r.maxX || z < r.minZ || z >= r.maxZ) continue;
+              if (!keepExt(x, z)) continue;
+              if (latticeHash01(i, j, 2, salt) > lat.share) continue;
+              const acceptance = latticeHash01(i, j, 3, salt);
+              if (!chunk.dense) {
+                if (lat.far <= 0) continue;
+                if (latticeHash01(i, j, 4, salt) > lat.far) continue;
+              }
+              if (acceptance > grassDensityOn(wmask, x, z)) continue;
+              chunk.list.push({ x, z, v: chunk.v, g: 0 });
+            }
+          }
+        });
+      }
+    }
+    // 块里的树脚一圈密草(同旧版 ruff),每棵树自己的坐标播种。
+    for (const t of treeBases) {
+      if (!t.ext) continue;
+      const tRng = makeRng((ctx.seed ^ 0x5c1f7 ^ Math.floor(scatterHash01(t.x, t.z) * 4294967296)) >>> 0);
+      const n = 5 + Math.floor(tRng() * 5);
+      for (let i = 0; i < n; i++) {
+        const a = tRng() * Math.PI * 2;
+        const r = t.r * rangeOf(tRng, 0.9, 2.4);
+        const x = t.x + Math.cos(a) * r;
+        const z = t.z + Math.sin(a) * r;
+        if (!keepExt(x, z)) continue;
+        if (wmask.at(x, z) < 0.3) continue;
+        const c = extChunkOf(x, z);
+        c.list.push({ x, z, v: c.v, g: 0 });
+      }
+    }
+  }
+  mark('D-37 块外草格网 + 树脚');
+
+  /** 一个草块的懒建工厂。旧草块与块外草块共用;只有种子与名字不同。 */
+  const registerGrassChunk = (list: ChunkList, cx: number, cz: number, rngFor: (v: number) => () => number, nameFor: (v: number) => string): void => {
     // The factory owns matrices and attributes; distant chunks retain only placement data.
     // Conservative height allowance covers steep banks and the grass wind displacement.
     culler.addLazy(new THREE.Vector3(cx, ground(cx, cz), cz), Math.hypot(VEG.chunk, VEG.chunk) / 2 + 20, () => {
@@ -2951,7 +3234,7 @@ export function buildVegetation(ctx: GameContext): void {
     for (let v = 0; v < tuftGeos.length; v++) {
       const subset = list.filter((s) => s.v === v);
       if (subset.length === 0) continue;
-      const cRng = makeRng(ctx.seed ^ (ci * 2654435761) ^ (v * 40503));
+      const cRng = rngFor(v);
       const mesh = makeInstanced(tuftGeos[v], grassMat, subset.length, cRng, 1);
       for (let i = 0; i < subset.length; i++) {
         const s = subset[i];
@@ -2981,14 +3264,27 @@ export function buildVegetation(ctx: GameContext): void {
       // shadowing ART_DIRECTION §9 asks for. Taking grass out flattens the lawn
       // into an even sheet of green — measured, it is worth ~330k triangles a
       // frame and it is not worth having.
-      mesh.name = `Grass_${ci}_${v}`;
+      mesh.name = nameFor(v);
       mesh.computeBoundingSphere();
       mesh.boundingSphere!.radius += instanceWindPadding(mesh);
       generated.push(mesh);
     }
     return generated;
     }, VEG.drawDist.grass);
+  };
+
+  chunks.forEach((list, ci) => {
+    if (list.length === 0) return;
+    const colIndex = ci % chunkCols, rowIndex = Math.floor(ci / chunkCols);
+    const cx = LEGACY_SCATTER.minX + (colIndex + 0.5) * VEG.chunk;
+    const cz = LEGACY_SCATTER.minZ + (rowIndex + 0.5) * VEG.chunk;
+    registerGrassChunk(list, cx, cz, (v) => makeRng(ctx.seed ^ (ci * 2654435761) ^ (v * 40503)), (v) => `Grass_${ci}_${v}`);
   });
+  for (const c of extChunks.values()) {
+    if (c.list.length === 0) continue;
+    const cx = (c.kx + 0.5) * EXT_GRASS_CHUNK, cz = (c.kz + 0.5) * EXT_GRASS_CHUNK;
+    registerGrassChunk(c.list, cx, cz, (v) => makeRng((ctx.seed ^ blockHash(c.kx, c.kz, 0x6a55 + v)) >>> 0), (v) => `Grass_x${c.kx}_z${c.kz}_${v}`);
+  }
 
   mark('grass ruff + chunk register');
   // ---- clover ------------------------------------------------------
@@ -3011,8 +3307,7 @@ export function buildVegetation(ctx: GameContext): void {
 
     const cRng = makeRng(ctx.seed ^ 0xc10e5);
     const patches = poissonScatter({
-      minX: VEG.scatterMinX, maxX: VEG.scatterMaxX,
-      minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
+      ...LEGACY_SCATTER,
       radius: 2.3, tries: 2600,
       density: (x, z) => (mask.at(x, z) > 0.85 ? 0.85 * outsideBuildings(x, z, 0.1) : 0),
       rng: cRng,
@@ -3033,20 +3328,45 @@ export function buildVegetation(ctx: GameContext): void {
         spots.push({ x, z });
       }
     }
+    // D-37:块里的三叶草。同参数(2.3 m 丛心、12–37 株、0.5–1.35 m),飞镖数按面积折,
+    // 丛心与株位都用块 / 丛心坐标播种,撒完裁到当前窗口、旧散布盒外。接在旧的后面。
+    const nOldClover = spots.length;
+    for (const b of extBlocks) {
+      const bR = blockRng(b, 0xc10e5);
+      const ps = poissonScatter({
+        ...blockRect(b, EXT_BLOCK), radius: 2.3, tries: extTries(2600),
+        density: (x, z) => (inLegacy(x, z) ? 0 : wmask.at(x, z) > 0.85 ? 0.85 * outsideBuildings(x, z, 0.1) : 0),
+        rng: bR,
+      });
+      for (const p of ps) {
+        const pR = makeRng((ctx.seed ^ 0xc10e5 ^ Math.floor(scatterHash01(p.x, p.z) * 4294967296)) >>> 0);
+        const n = 12 + Math.floor(pR() * 26);
+        const spread = rangeOf(pR, 0.5, 1.35);
+        for (let i = 0; i < n; i++) {
+          const a = pR() * Math.PI * 2;
+          const r = spread * Math.pow(pR(), 0.65);
+          const x = p.x + Math.cos(a) * r;
+          const z = p.z + Math.sin(a) * r;
+          if (!keepExt(x, z) || wmask.at(x, z) < 0.6) continue;
+          spots.push({ x, z });
+        }
+      }
+    }
 
     if (spots.length) {
-      let mesh = makeInstanced(cloverGeo, cloverMat, spots.length, cRng, 1);
+      let mesh = makeInstanced(cloverGeo, cloverMat, spots.length, splitRng(cRng, 2 * nOldClover, coordSeq(spots.slice(nOldClover), 0xc137)), 1);
       for (let i = 0; i < spots.length; i++) {
         const s = spots[i];
-        const sc = rangeOf(cRng, 0.75, 1.5);
-        euler.set(rangeOf(cRng, -0.14, 0.14), cRng() * Math.PI * 2, rangeOf(cRng, -0.14, 0.14), 'ZYX');
+        const R = i < nOldClover ? cRng : makeRng((ctx.seed ^ 0xc1037 ^ Math.floor(scatterHash01(s.x, s.z) * 4294967296)) >>> 0);
+        const sc = rangeOf(R, 0.75, 1.5);
+        euler.set(rangeOf(R, -0.14, 0.14), R() * Math.PI * 2, rangeOf(R, -0.14, 0.14), 'ZYX');
         q.setFromEuler(euler);
         pos3.set(s.x, ground(s.x, s.z) - 0.012, s.z);
-        scl.set(sc, sc * rangeOf(cRng, 0.85, 1.2), sc);
+        scl.set(sc, sc * rangeOf(R, 0.85, 1.2), sc);
         m4.compose(pos3, q, scl);
         mesh.setMatrixAt(i, m4);
-        const warm = rangeOf(cRng, -1, 1);
-        col.setRGB(1 + warm * 0.09, 1 + rangeOf(cRng, -0.06, 0.06), 1 - warm * 0.12);
+        const warm = rangeOf(R, -1, 1);
+        col.setRGB(1 + warm * 0.09, 1 + rangeOf(R, -0.06, 0.06), 1 - warm * 0.12);
         mesh.setColorAt(i, col);
       }
       // 院内按区压（AL-b b5）：全量生成完再筛，院外每株的样子不变。
@@ -3076,21 +3396,52 @@ export function buildVegetation(ctx: GameContext): void {
 
     // Flowers grow in single-species drifts. A mixed confetti scatter is the
     // classic procedural tell; real meadows are patchy and monochrome per patch.
-    const drifts = poissonScatter({
-      minX: VEG.scatterMinX + 1, maxX: VEG.scatterMaxX - 1,
-      minZ: VEG.scatterMinZ + 1, maxZ: VEG.scatterMaxZ - 1,
-      radius: 3.1, tries: 2200,
-      density: (x, z) => {
-        if (mask.at(x, z) < 0.9) return 0;
+    const driftDensityOn = (mk: { at(x: number, z: number): number }, x: number, z: number): number => {
+        if (mk.at(x, z) < 0.9) return 0;
         // Denser on the town green and along the treeline skirt.
         const green = smoothstep(16, 4, Math.hypot(x, z - 6));
         const skirt = smoothstep(9.5, 13.5, Math.abs(x)) * smoothstep(20, 14, Math.abs(x));
         return clamp(0.22 + green * 0.6 + skirt * 0.55, 0, 1) * outsideBuildings(x, z, 0.2);
-      },
+    };
+    const DRIFT_RECT: Rect = { minX: LEGACY_SCATTER.minX + 1, maxX: LEGACY_SCATTER.maxX - 1, minZ: LEGACY_SCATTER.minZ + 1, maxZ: LEGACY_SCATTER.maxZ - 1 };
+    const drifts = poissonScatter({
+      ...DRIFT_RECT,
+      radius: 3.1, tries: 2200,
+      density: (x, z) => driftDensityOn(mask, x, z),
       rng: fRng,
     });
 
     const buckets: { x: number; z: number }[][] = ACCENTS.map(() => []);
+    /** D-37:块里的花。每丛的色 / 株数 / 散开用丛心坐标播种,株照旧由区调筛。接在每色旧的后面。 */
+    const bucketsExt: { x: number; z: number }[][] = ACCENTS.map(() => []);
+    const keepFlower = (x: number, z: number): boolean => {
+        // 按区调（单子 AL4）：坐标哈希当筛子，**不吃 rng**，也不动上面的
+        // `density`——理由见 `REGION_GROUND_FLOWERS` 的头注（`P-28`）。
+        const reg = regionOf(x, z);
+        const gf = reg ? REGION_GROUND_FLOWERS[reg] ?? 1 : 1;
+        return !(gf <= 0 || (gf < 1 && scatterHash01(x + 13.7, z - 21.3) >= gf));
+    };
+    for (const b of extBlocks) {
+      const ds = poissonScatter({
+        ...blockRect(b, EXT_BLOCK), radius: 3.1, tries: extTries(2200, DRIFT_RECT),
+        density: (x, z) => (inLegacy(x, z) ? 0 : driftDensityOn(wmask, x, z)),
+        rng: blockRng(b, 0xf10e72),
+      });
+      for (const d of ds) {
+        const dR = makeRng((ctx.seed ^ 0xf10e72 ^ Math.floor(scatterHash01(d.x, d.z) * 4294967296)) >>> 0);
+        const which = Math.floor(dR() * ACCENTS.length) % ACCENTS.length;
+        const n = 5 + Math.floor(dR() * 14);
+        const spread = rangeOf(dR, 0.42, 1.15);
+        for (let i = 0; i < n; i++) {
+          const a = dR() * Math.PI * 2;
+          const r = spread * Math.pow(dR(), 0.6);
+          const x = d.x + Math.cos(a) * r;
+          const z = d.z + Math.sin(a) * r;
+          if (!keepExt(x, z) || wmask.at(x, z) < 0.7 || !keepFlower(x, z)) continue;
+          bucketsExt[which].push({ x, z });
+        }
+      }
+    }
     for (const d of drifts) {
       const which = Math.floor(fRng() * ACCENTS.length) % ACCENTS.length;
       const n = 5 + Math.floor(fRng() * 14);
@@ -3113,7 +3464,8 @@ export function buildVegetation(ctx: GameContext): void {
     }
 
     ACCENTS.forEach((hex, ai) => {
-      const spots = buckets[ai];
+      const nOld = buckets[ai].length;
+      const spots = [...buckets[ai], ...bucketsExt[ai]];
       if (!spots.length) return;
       const accent = new THREE.Color(hex);
       const geo = flowerGeometry((ctx.seed ^ 0xf10) + ai * 977, accent);
@@ -3130,17 +3482,18 @@ export function buildVegetation(ctx: GameContext): void {
         haloStrength: 0.12,
         side: THREE.DoubleSide,
       });
-      const mesh = makeInstanced(geo, mat, spots.length, fRng, 1);
+      const mesh = makeInstanced(geo, mat, spots.length, splitRng(fRng, 2 * nOld, coordSeq(spots.slice(nOld), 0xf137 + ai)), 1);
       for (let i = 0; i < spots.length; i++) {
         const s = spots[i];
-        const sc = rangeOf(fRng, 0.8, 1.45);
-        euler.set(rangeOf(fRng, -0.16, 0.16), fRng() * Math.PI * 2, rangeOf(fRng, -0.16, 0.16), 'ZYX');
+        const R = i < nOld ? fRng : makeRng((ctx.seed ^ (0xf1037 + ai) ^ Math.floor(scatterHash01(s.x, s.z) * 4294967296)) >>> 0);
+        const sc = rangeOf(R, 0.8, 1.45);
+        euler.set(rangeOf(R, -0.16, 0.16), R() * Math.PI * 2, rangeOf(R, -0.16, 0.16), 'ZYX');
         q.setFromEuler(euler);
         pos3.set(s.x, ground(s.x, s.z) - 0.01, s.z);
-        scl.set(sc, sc * rangeOf(fRng, 0.85, 1.25), sc);
+        scl.set(sc, sc * rangeOf(R, 0.85, 1.25), sc);
         m4.compose(pos3, q, scl);
         mesh.setMatrixAt(i, m4);
-        col.setRGB(rangeOf(fRng, 0.9, 1.08), rangeOf(fRng, 0.9, 1.08), rangeOf(fRng, 0.9, 1.08));
+        col.setRGB(rangeOf(R, 0.9, 1.08), rangeOf(R, 0.9, 1.08), rangeOf(R, 0.9, 1.08));
         mesh.setColorAt(i, col);
       }
       mesh.instanceMatrix.needsUpdate = true;
@@ -3236,7 +3589,7 @@ export function buildVegetation(ctx: GameContext): void {
             const x = vx + (dx / dl) * out;
             const z = vz + (dz / dl) * out;
             if (ground(x, z) < VEG.minPlantY) continue;
-            if (mask.at(x, z) < 0.5) continue;
+            if (anyMaskAt(x, z) < 0.5) continue;
             if (outsideBuildings(x, z, 0.2) < 0.5) continue;
             if (prev && Math.hypot(prev.x - x, prev.z - z) < 0.8) continue;
             prev = { x, z };
@@ -3293,45 +3646,20 @@ export function buildVegetation(ctx: GameContext): void {
     // 条目记位置,与 PE 的种植数据同一套真源,不另造体系。整条在地形窗口外
     // 的(如蔷薇院/芍药圃)现在跳过,等 PE 建到那区自然长出来。——
     {
-      for (const bed of bedsFromPlan()) {
+      const bedRing = (bed: ReturnType<typeof bedsFromPlan>[number]): Point2[] => {
         const radius = bed.radius ?? 1.5;
-        const ring: Point2[] = bed.polygon
+        return bed.polygon
           ? bed.polygon.map(([px, pz]) => [px, pz] as Point2)
           : Array.from({ length: 12 }, (_, i) => {
               const a = (i / 12) * Math.PI * 2;
               return [bed.x + Math.cos(a) * radius, bed.z + Math.sin(a) * radius] as Point2;
             });
-        const bxs = ring.map((p) => p[0]);
-        const bzs = ring.map((p) => p[1]);
-        const minX = Math.max(Math.min(...bxs), VEG.scatterMinX);
-        const maxX = Math.min(Math.max(...bxs), VEG.scatterMaxX);
-        const minZ = Math.max(Math.min(...bzs), VEG.scatterMinZ);
-        const maxZ = Math.min(Math.max(...bzs), VEG.scatterMaxZ);
-        if (minX >= maxX || minZ >= maxZ) continue;
-        const bedDensity = bed.density ?? 1;
-        const spots = poissonScatter({
-          minX, maxX, minZ, maxZ,
-          radius: 0.34, tries: 400,
-          density: (x, z) => {
-            // 花池不问地表是不是草——这是它与自然散布的唯一区别。
-            if (locatePoint(ring, [x, z]) === 'outside') return 0;
-            if (ground(x, z) < VEG.minPlantY) return 0;
-            return bedDensity * outsideBuildings(x, z, 0.1);
-          },
-          rng: fRng,
-        });
-        if (!spots.length) continue;
-        // 单子 Z:「植树」这一步也要自报。以前整步不登记,于是对账门把这两条
-        // 好好长在那儿的花池(xiaoxiangguan.path-bed-west/east)报成「数据说有、
-        // 世界没有」——spec §1.5 ②「世界自报的清单是残缺的」在另一层复发。
-        registerObject({
-          id: bed.id, name: bed.name, part: 'flower-bed', variant: bed.id,
-          position: [bed.x, ground(bed.x, bed.z), bed.z], yaw: 0,
-          planId: bed.id, size: null, flowers: spots.length, basis: bed.basis,
-        });
+      };
+      /** 一条花池落地:分色、建网格、逐株体量色偏。`R` 是这一段吃的 rng(旧窗口是共享的 `fRng`,块外是这条花池自己的)。 */
+      const emitBed = (bed: ReturnType<typeof bedsFromPlan>[number], spots: { x: number; z: number }[], R: () => number, name: (ti: number) => string): void => {
         const tints = (bed.tints?.length ? bed.tints : ['#f5f0ea']).map((t) => new THREE.Color(t).getHex());
         const bedBuckets: { x: number; z: number }[][] = tints.map(() => []);
-        for (const s of spots) bedBuckets[Math.floor(fRng() * tints.length) % tints.length].push(s);
+        for (const s of spots) bedBuckets[Math.floor(R() * tints.length) % tints.length].push(s);
         bedBuckets.forEach((list, ti) => {
           if (!list.length) return;
           const mesh = makeInstanced(
@@ -3349,29 +3677,91 @@ export function buildVegetation(ctx: GameContext): void {
               haloStrength: 0.12,
               side: THREE.DoubleSide,
             }),
-            list.length, fRng, 1,
+            list.length, R, 1,
           );
           for (let i = 0; i < list.length; i++) {
             const s = list[i];
-            const sc = rangeOf(fRng, 0.8, 1.45) * BED_FLOWER_SCALE;
-            euler.set(rangeOf(fRng, -0.16, 0.16), fRng() * Math.PI * 2, rangeOf(fRng, -0.16, 0.16), 'ZYX');
+            const sc = rangeOf(R, 0.8, 1.45) * BED_FLOWER_SCALE;
+            euler.set(rangeOf(R, -0.16, 0.16), R() * Math.PI * 2, rangeOf(R, -0.16, 0.16), 'ZYX');
             q.setFromEuler(euler);
             pos3.set(s.x, ground(s.x, s.z) - 0.01, s.z);
-            scl.set(sc, sc * rangeOf(fRng, 0.85, 1.25), sc);
+            scl.set(sc, sc * rangeOf(R, 0.85, 1.25), sc);
             m4.compose(pos3, q, scl);
             mesh.setMatrixAt(i, m4);
-            col.setRGB(rangeOf(fRng, 0.9, 1.08), rangeOf(fRng, 0.9, 1.08), rangeOf(fRng, 0.9, 1.08));
+            col.setRGB(rangeOf(R, 0.9, 1.08), rangeOf(R, 0.9, 1.08), rangeOf(R, 0.9, 1.08));
             mesh.setColorAt(i, col);
           }
           mesh.instanceMatrix.needsUpdate = true;
           if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
           mesh.castShadow = false;
           mesh.receiveShadow = true;
-          mesh.name = `FlowerBed_${bed.id}_${ti}`;
+          mesh.name = name(ti);
           mesh.computeBoundingSphere();
           group.add(mesh);
           culler.add([mesh], { maxDist: VEG.drawDist.flowers });
         });
+      };
+      const bedDensityFn = (bed: ReturnType<typeof bedsFromPlan>[number], ring: Point2[]) => {
+        const bedDensity = bed.density ?? 1;
+        return (x: number, z: number): number => {
+          // 花池不问地表是不是草——这是它与自然散布的唯一区别。
+          if (locatePoint(ring, [x, z]) === 'outside') return 0;
+          if (ground(x, z) < VEG.minPlantY) return 0;
+          return bedDensity * outsideBuildings(x, z, 0.1);
+        };
+      };
+      const registerBed = (bed: ReturnType<typeof bedsFromPlan>[number], flowers: number): void => {
+        // 单子 Z:「植树」这一步也要自报。以前整步不登记,于是对账门把这两条
+        // 好好长在那儿的花池(xiaoxiangguan.path-bed-west/east)报成「数据说有、
+        // 世界没有」——spec §1.5 ②「世界自报的清单是残缺的」在另一层复发。
+        registerObject({
+          id: bed.id, name: bed.name, part: 'flower-bed', variant: bed.id,
+          position: [bed.x, ground(bed.x, bed.z), bed.z], yaw: 0,
+          planId: bed.id, size: null, flowers, basis: bed.basis,
+        });
+      };
+      const registeredBeds = new Set<string>();
+      // 旧散布盒:与 719171d0 同一条 fRng、同一个裁边(D-37:裁边钉在 LEGACY_SCATTER)。
+      for (const bed of bedsFromPlan()) {
+        const ring = bedRing(bed);
+        const bxs = ring.map((p) => p[0]);
+        const bzs = ring.map((p) => p[1]);
+        const minX = Math.max(Math.min(...bxs), LEGACY_SCATTER.minX);
+        const maxX = Math.min(Math.max(...bxs), LEGACY_SCATTER.maxX);
+        const minZ = Math.max(Math.min(...bzs), LEGACY_SCATTER.minZ);
+        const maxZ = Math.min(Math.max(...bzs), LEGACY_SCATTER.maxZ);
+        if (minX >= maxX || minZ >= maxZ) continue;
+        const spots = poissonScatter({
+          minX, maxX, minZ, maxZ,
+          radius: 0.34, tries: 400,
+          density: bedDensityFn(bed, ring),
+          rng: fRng,
+        });
+        if (!spots.length) continue;
+        registerBed(bed, spots.length);
+        registeredBeds.add(bed.id);
+        emitBed(bed, spots, fRng, (ti) => `FlowerBed_${bed.id}_${ti}`);
+      }
+      // D-37:伸出旧散布盒的花池(蔷薇院、芍药圃……),盒外那一段按整条花池的包围盒撒
+      // (不按窗口裁——裁了就跟窗口走),种子只取花池锚点,撒完再裁到当前窗口、旧盒外。
+      for (const bed of bedsFromPlan()) {
+        const ring = bedRing(bed);
+        const bb: Rect = {
+          minX: Math.min(...ring.map((p) => p[0])), maxX: Math.max(...ring.map((p) => p[0])),
+          minZ: Math.min(...ring.map((p) => p[1])), maxZ: Math.max(...ring.map((p) => p[1])),
+        };
+        if (rectWithin(bb, LEGACY_SCATTER)) continue;
+        const bR = makeRng((ctx.seed ^ blockHash(Math.round(bed.x * 16), Math.round(bed.z * 16), 0xbed37)) >>> 0);
+        const dens = bedDensityFn(bed, ring);
+        const spots = poissonScatter({
+          ...bb, radius: 0.34, tries: 400,
+          density: (x, z) => (inLegacy(x, z) ? 0 : dens(x, z)),
+          rng: bR,
+        }).filter((sp) => keepExt(sp.x, sp.z));
+        if (!spots.length) continue;
+        const partial = registeredBeds.has(bed.id);
+        if (!partial) registerBed(bed, spots.length);
+        emitBed(bed, spots, bR, (ti) => `FlowerBed_${bed.id}_${ti}${partial ? '_ext' : ''}`);
       }
     }
   }
@@ -3396,12 +3786,8 @@ export function buildVegetation(ctx: GameContext): void {
     });
 
     const geos = [weedGeometry(ctx.seed ^ 0x4e1, 0.48), weedGeometry(ctx.seed ^ 0x4e2, 0.74)];
-    const spots = poissonScatter({
-      minX: VEG.scatterMinX, maxX: VEG.scatterMaxX,
-      minZ: VEG.scatterMinZ, maxZ: VEG.scatterMaxZ,
-      radius: 0.7, tries: 12000,
-      density: (x, z) => {
-        if (mask.at(x, z) < 0.8) return 0;
+    const weedDensityOn = (mk: { at(x: number, z: number): number }, x: number, z: number): number => {
+        if (mk.at(x, z) < 0.8) return 0;
         // Weeds go where a mower would not: against the wood, the south shelf,
         // and the shady side of the houses.
         const wood = smoothstep(9.5, 14.5, Math.abs(x));
@@ -3423,27 +3809,45 @@ export function buildVegetation(ctx: GameContext): void {
           0,
           1,
         ) * outsideBuildings(x, z, 0.1);
-      },
+    };
+    const spots = poissonScatter({
+      ...LEGACY_SCATTER,
+      radius: 0.7, tries: 12000,
+      density: (x, z) => weedDensityOn(mask, x, z),
       rng: wRng,
     });
 
     const groups: { x: number; z: number }[][] = [[], []];
     for (const s of spots) groups[wRng() < 0.6 ? 0 : 1].push(s);
+    // D-37:块里的杂草/蕨。同参数(0.7 m),飞镖数按面积折,分组用坐标哈希,接在每组旧的后面。
+    const groupsExt: { x: number; z: number }[][] = [[], []];
+    for (const b of extBlocks) {
+      for (const sp of poissonScatter({
+        ...blockRect(b, EXT_BLOCK), radius: 0.7, tries: extTries(12000),
+        density: (x, z) => (inLegacy(x, z) ? 0 : weedDensityOn(wmask, x, z)),
+        rng: blockRng(b, 0x3e2d),
+      })) {
+        if (!keepExt(sp.x, sp.z)) continue;
+        groupsExt[scatterHash01(sp.x - 3.1, sp.z + 7.7) < 0.6 ? 0 : 1].push(sp);
+      }
+    }
 
-    groups.forEach((list, gi) => {
+    groups.forEach((old, gi) => {
+      const list = [...old, ...groupsExt[gi]];
       if (!list.length) return;
-      let mesh = makeInstanced(geos[gi], weedMat, list.length, wRng, 1);
+      let mesh = makeInstanced(geos[gi], weedMat, list.length, splitRng(wRng, 2 * old.length, coordSeq(groupsExt[gi], 0x3e37 + gi)), 1);
       for (let i = 0; i < list.length; i++) {
         const s = list[i];
-        const sc = rangeOf(wRng, 0.7, 1.45);
-        euler.set(rangeOf(wRng, -0.12, 0.12), wRng() * Math.PI * 2, rangeOf(wRng, -0.12, 0.12), 'ZYX');
+        const R = i < old.length ? wRng : makeRng((ctx.seed ^ (0x3e2d37 + gi) ^ Math.floor(scatterHash01(s.x, s.z) * 4294967296)) >>> 0);
+        const sc = rangeOf(R, 0.7, 1.45);
+        euler.set(rangeOf(R, -0.12, 0.12), R() * Math.PI * 2, rangeOf(R, -0.12, 0.12), 'ZYX');
         q.setFromEuler(euler);
         pos3.set(s.x, ground(s.x, s.z) - 0.03, s.z);
-        scl.set(sc, sc * rangeOf(wRng, 0.85, 1.25), sc);
+        scl.set(sc, sc * rangeOf(R, 0.85, 1.25), sc);
         m4.compose(pos3, q, scl);
         mesh.setMatrixAt(i, m4);
-        const warm = rangeOf(wRng, -1, 1);
-        col.setRGB(1 + warm * 0.09, 1 + rangeOf(wRng, -0.06, 0.06), 1 - warm * 0.11);
+        const warm = rangeOf(R, -1, 1);
+        col.setRGB(1 + warm * 0.09, 1 + rangeOf(R, -0.06, 0.06), 1 - warm * 0.11);
         mesh.setColorAt(i, col);
       }
       // 院内按区压（AL-b b5）：同三叶草，全量生成完再筛。
@@ -3476,6 +3880,9 @@ export function buildVegetation(ctx: GameContext): void {
   group.userData.buildTimings = buildTimings;
   group.userData.treePlacements = treeBases;
   group.userData.naturalTreeCount = treeSpots.length;
+  // D-37 自报:块数、块里的树/灌木株数、世界掩码烤了多少格点(建时归因用)。
+  group.userData.d37 = { blocks: extBlocks.length, extTrees: extTreeSpots.length, extBushes: extBushSpots.length,
+    extGrassChunks: [...extChunks.values()].filter((c) => c.list.length).length, worldMaskSamples: wmask.baked };
   group.userData.grassCoverage = { denseChunks: denseChunks.filter(Boolean).length,
     chunks: denseChunks.length, lattices: GRASS_LATTICES.map((l) => l.cell) };
 }

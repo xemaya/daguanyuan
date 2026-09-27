@@ -42,8 +42,10 @@ test('terrain/water/scatter window follows live plan injection instead of stale 
   const p=structuredClone(plan);
   for(const point of p.regions.find(r=>r.id==='zhengmen').polygon)point[1]+=10;
   setPlan(p, ids);
-  assert.equal(TERRAIN.maxZ,271);
-  assert.equal(TERRAIN.playMaxZ,269);
+  // D-37:窗口边向外对到 719171d0 那张地形格网的整格上(格距 218/454),271 → 43 + 475·(218/454)。
+  assert.ok(TERRAIN.maxZ>=271 && TERRAIN.maxZ<271+218/454, `maxZ ${TERRAIN.maxZ}`);
+  assert.equal(TERRAIN.maxZ,43+475*(218/454));
+  assert.equal(TERRAIN.playMaxZ,TERRAIN.maxZ-2);
   setPlan(plan, ids);
   assert.throws(()=>terrainWindow(plan,['missing']),/缺区域/);
 });
