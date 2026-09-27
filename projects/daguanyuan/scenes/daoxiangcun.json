@@ -1,22 +1,54 @@
 {
   "region": "daoxiangcun",
-  "$comment": "稻香村(杏帘在望 / 浣葛山庄)。单子 BA1(2026-09-27):只做「入建成」这一件——有落位清单 = 建成(单子 Y),让地形窗口、植被、对账门把这一区算进来,量扩窗的账。两栋茅屋 construction.status 仍是 frame-ready(近景几何归 BA2),garden-building 按约定拒绝生成,先照单子 Y 空跑的路数绑通用堂屋 building:tang 顶替;BA4 换掉。泥墙、青篱、井、酒幌、背山石本轮不绑构件,对账门报缺项是对的。平面按 BA0 乙档(D-35)。",
+  "$comment": "稻香村(杏帘在望 / 浣葛山庄)。BA1(2026-09-27)入建成空跑时两栋茅屋用 building:tang 顶替;单子 BA4(2026-09-28)换成乡野构件:茆堂/东厢 thatch-cottage、黄泥矮墙 wall:mud、两溜青篱 qingli、土井只做井台 jingtai、过溪木桥 garden-bridge。两栋 construction.status 由 frame-ready 推进为「无 status」(与其余已建房屋同档:几何齐备、可建成);composer 对乡野子档放行到 thatch-cottage。酒幌、石碣、桔槔辘轳、菜畦第二轮(单子 BB)。平面按 BA0 乙档(D-35)。",
   "named": [
     {
       "object": "daoxiangcun.main-cottage",
-      "part": "building",
-      "variant": "tang",
+      "part": "thatch-cottage",
+      "variant": "daoxiangcun.main-cottage",
       "yaw": 0,
       "tag": "稻香村",
-      "basis": "单子 BA1 空跑顶替件。茆堂(07-13「引人步入茆堂」)construction.status 是 frame-ready,乡野近景几何(茅苫/土壁/木构)归 BA2,规则 2 按约定不建;照单子 Y Task 4 空跑的写法绑通用堂屋 building:tang,位置从 plan 锚点 (-202,-52) 读,朝向照 plan facing=south 取 yaw 0(与 construction.ts 的 facing→yaw 表同一约定)。这是量窗口与建时用的占位,不是形制——BA4 换成乡野茅屋后删掉这条。"
+      "basis": "07-13「引人步入茆堂,里面紙窗木榻」、07-11「里面數楹茅屋」。乡野子档近景构件 thatch-cottage(单子 BA2,D-36 返工后):框架尺寸全取 plan construction.spec 经 deriveRusticBuilding,细部见 builder/derive/rustic/detail.ts 的 provenance.art。位置从 plan 锚点 (-202,-52) 读;朝向照 plan facing=south 取 yaw 0(construction.ts 的 facing→yaw 表)。匾「稻香村」素木墨字挂明间檐下(plan plaqueStyle=plain-wood,D-36 ④)。"
     },
     {
       "object": "daoxiangcun.side-cottage",
-      "part": "building",
-      "variant": "tang",
+      "part": "thatch-cottage",
+      "variant": "daoxiangcun.side-cottage",
       "yaw": -1.5707963267948966,
       "tag": "稻香村",
-      "basis": "单子 BA1 空跑顶替件。东厢田舍(07-11「數楹茅屋」之一)construction.status 是 frame-ready,同主屋,先绑通用堂屋 building:tang 顶替;位置从 plan 锚点读(BA0 乙档挪到 (-189,-42),D-35),朝向照 plan facing=west 取 yaw -π/2(construction.ts 的 facing→yaw 表)。BA4 换掉。"
+      "basis": "07-11「數楹茅屋」之二,两间田舍。同构件 thatch-cottage;位置从 plan 锚点读(BA0 乙档挪到 (-189,-42),D-35);朝向照 plan facing=west 取 yaw -π/2(construction.ts 的 facing→yaw 表)。"
+    },
+    {
+      "object": "daoxiangcun.mud-wall",
+      "part": "wall",
+      "variant": "mud:daoxiangcun.mud-wall",
+      "tag": "稻香村",
+      "basis": "07-11「隱隱露出一帶黃泥筑就矮牆,牆頭皆用稻莖掩護」。wall.ts 的 mud 变体(单子 BA3,D-36 ② 返工):走线、截面(宽 0.55 高 1.4)、3 m 开口全读 plan layout;线性构件自带世界位置,不在这里叠变换。墙基埋 0.35 m 碎石(见 wall.ts buildMudWall)。"
+    },
+    {
+      "object": "daoxiangcun.fence",
+      "part": "qingli",
+      "variant": "daoxiangcun.fence",
+      "tag": "稻香村",
+      "basis": "07-11「外面卻是桑,榆,槿,柘,各色樹稚新條,隨其曲折,編就兩溜青篱」。青篱构件 qingli(单子 BA3,D-36 ③ 加密):活桩+密编新条+四种叶枝,两溜走线与高 1.2 m 全读 plan layout;线性构件自带世界位置。"
+    },
+    {
+      "object": "daoxiangcun.well",
+      "part": "jingtai",
+      "variant": "daoxiangcun.well",
+      "tag": "稻香村",
+      "basis": "07-11「篱外山坡之下,有一土井,旁有桔槔轆轤之屬」。本轮只做井台(毛石井台+毛石井圈+井水,jingtai.ts,尺寸为艺术取值);桔槔、辘轳第二轮(单子 BB)。位置从 plan 锚点 (-213,-19) 读(BA0 乙档挪到坡西北脚外)。"
+    }
+  ],
+  "placements": [
+    {
+      "part": "garden-bridge",
+      "variant": "connection.daoxiang-creek",
+      "anchor": "daoxiangcun.fence",
+      "dx": 0,
+      "dz": 0,
+      "tag": "稻香村过溪木桥",
+      "basis": "e08 过西溪进村口(connection.daoxiang-creek,BA0 乙档随改道挪到篱外)。它在 plan.connections[] 里、不属任何区的 linears[],composer 的 plan 遍历只走 region.linears,所以此前世界里从来没建(单子 BA4 查明)。这里借本区一条落位把它挂出来:garden-bridge 是线性构件、几何自带世界坐标,锚点与 dx/dz 只为过契约门,装配器走零变换分支(anchor 取村口青篱,仅作归属)。木桥面、木栏,尺寸全读 plan。"
     }
   ]
 }
