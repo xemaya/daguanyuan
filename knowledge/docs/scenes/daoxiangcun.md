@@ -35,15 +35,15 @@
 
 | 构件 | 要求 | 现状（2026-09-25 验收人查） | 数据在哪 | 状态 |
 |---|---|---|---|---|
-| 茆堂（主屋） | 数楹茅屋，茅顶悬山，纸窗土壁 | plan 有 spec（3 间、朝南、(−202,−52)、匾「稻香村」），**`status: frame-ready`，composer 不建**（`composer.ts:446`）；乡野参数集挂着三项未做几何：`rustic-timber-joints` / `thatch` / `earth-walls`（`builder/derive/construction.ts:35`） | plan `daoxiangcun.main-cottage` | ❌ 近景几何从零做 |
-| 东厢田舍 | 数楹之一 | 2 间、朝西、(−215,−40)——**名为「东厢」却在主屋西侧**，同为 frame-ready | plan `daoxiangcun.side-cottage` | ❌；名实不符待 BA0 |
-| 黄泥矮墙 + 稻茎墙头 | 一带、矮、黄泥版筑 | plan 一段 (−227,−30)→(−178,−30)、宽 0.55 高 1.4、在 (−196,−30) 开 3 m 口；**`wall.ts` 只有粉墙青瓦压顶**；**这条墙横穿西溪**（见平面图，锚点 (−198,−30) 在水里） | plan `daoxiangcun.mud-wall` | ❌ 无构件 + 平面错 |
-| 两溜青篱 | 桑榆槿柘新条编成 | plan 两溜 x=−207 / x=−186、z −18~−33、高 1.2、material 写「green-bamboo」（**与原文「桑榆槿柘新条」不符**）；西溜离西溪中线约 2.5 m，**在水里** | plan `daoxiangcun.fence` | ❌ 无构件 + 平面错 |
-| 土井 + 桔槔辘轳 | 篱外山坡之下 | 只有锚点 (−200,−8)，**落在篱外山坡多边形内**（「坡下」不是「坡上」） | plan `daoxiangcun.well` | ❌ 第二轮；锚点待 BA0 |
-| 酒幌（杏帘） | 竹竿挑在树梢 | 只有锚点 (−190,−22)、匾文「杏簾在望」，贴水边 | plan `daoxiangcun.wine-banner` | ❌ 第二轮 |
+| 茆堂（主屋） | 数楹茅屋，茅顶悬山，纸窗土壁 | plan 有 spec（3 间、朝南、(−202,−52)、匾「稻香村」），**`status: frame-ready`，composer 不建**（`composer.ts:446`）；乡野参数集挂着三项未做几何：`rustic-timber-joints` / `thatch` / `earth-walls`（`builder/derive/construction.ts:35`）。**BA1（2026-09-27）**：`projects/daguanyuan/scenes/daoxiangcun.json` named 绑 `building:tang` 顶替，manifest 落在 (−202, 1.2, −52) yaw 0（`shots/BA/ba1/BA1-after-r1/manifest.json`） | plan `daoxiangcun.main-cottage` | ❌ 近景几何从零做（顶替件在，BA4 换） |
+| 东厢田舍 | 数楹之一 | 2 间、朝西，同为 frame-ready。**BA0 乙档（D-35）挪到 (−189,−42)**，落脚面随之；锚点到西溪水面 17.22 m（`shots/BA/ba0-src/geo.mjs`，`shots/BA/ba1/data/geo-ba0-landed.txt`）。BA1 named 绑 `building:tang` 顶替，manifest 落在 (−189, 1.2, −42) yaw −π/2 | plan `daoxiangcun.side-cottage` | ❌ 近景几何（名实已相符；顶替件在） |
+| 黄泥矮墙 + 稻茎墙头 | 一带、矮、黄泥版筑 | plan 一段 (−227,−30)→(−178,−30)、宽 0.55 高 1.4、在 (−196,−30) 开 3 m 口；**`wall.ts` 只有粉墙青瓦压顶**。BA0 乙档西溪改道后墙线不动：锚点到水 14.05 m，全段最小到水 **1.47 m**（东头 (−178,−30)，geo.mjs）。BA1 未绑构件，`--coverage` 报缺 | plan `daoxiangcun.mud-wall` | ❌ 无构件（平面已不在水里） |
+| 两溜青篱 | 桑榆槿柘新条编成 | 高 1.2、material 仍写「green-bamboo」（**与原文「桑榆槿柘新条」不符**，BA3 改）。BA0 乙档：西溜 (−207,−18)→(−207,−29.5)、最小到水 5.80 m；东溜 (−186,−23.5)→(−186,−29.5)、最小到水 2.69 m；两溜北端止于泥墙外皮 z=−29.5（geo.mjs）。BA1 未绑构件，`--coverage` 报缺 | plan `daoxiangcun.fence` | ❌ 无构件（平面已不在水里） |
+| 土井 + 桔槔辘轳 | 篱外山坡之下 | 只有锚点。BA0 乙档挪到 **(−213,−19)**，落脚面随之；锚点到水 10.84 m、落脚面角点最小到水 8.73 m（geo.mjs）。BA1 未绑构件 | plan `daoxiangcun.well` | ❌ 第二轮（井台 BA4） |
+| 酒幌（杏帘） | 竹竿挑在树梢 | 只有锚点 (−190,−22)、匾文「杏簾在望」；BA0 后锚点到水 3.36 m（geo.mjs） | plan `daoxiangcun.wine-banner` | ❌ 第二轮 |
 | 石碣 | 路旁 | plan 无 | — | ❌ 第二轮（`taihu` 磨平正面的题字石路数可借，AM3） |
 | 菜畦 | 分畦列亩、佳蔬菜花、漫然无际 | plan 无田块、无坐标 | — | ❌ 第二轮 |
-| 过溪木桥 | — | `connection.daoxiang-creek` (−196,−30)→(−202,−47) | plan | 有数据，构件可复用 `garden-bridge`（待核） |
+| 过溪木桥 | — | BA0 乙档随 e08 挪到 (−190.6,−5)(−192,−12)(−196,−18)，原桥位删；端点到水 2.16 / −4.92 / 2.03 m（geo.mjs）。**BA1 入建成后世界里没有这座桥**：manifest 的 constructions / linears 都不含 `daoxiang-creek` | plan | 有数据，无构件（`garden-bridge` 可复用待核） |
 | 背山 | 「背山山无脉」 | `rock-01` (−224,−88)「人力穿凿的背山」 | plan | 有锚点 |
 | 室内纸窗木榻 | — | 无 | — | P5 |
 
@@ -51,11 +51,11 @@
 
 | 项 | 要求 | 现状 | 状态 |
 |---|---|---|---|
-| 杏花 | 几百株，如喷火蒸霞 | `vegetation.ts` 无杏；`REGION_TREES.daoxiangcun = ['peach','peach','elm','elm']`（杏用桃代、桑榆槿柘用榆代）；无点名坐标 | ❌ 要杏的花色（比桃更红、「喷火蒸霞」）与成片的林缘 |
+| 杏花 | 几百株，如喷火蒸霞 | `vegetation.ts` 无杏；`REGION_TREES.daoxiangcun = ['peach','peach','elm','elm']`（杏用桃代、桑榆槿柘用榆代）；无点名坐标。BA1 入建成后区多边形内实撒 **树 6 株（elm 5 / peach 1）、灌木 26 丛**（`tree-census --dump`，`shots/BA/ba1/data/census-post-ba1.json`） | ❌ 要杏的花色（比桃更红、「喷火蒸霞」）与成片的林缘 |
 | 桑榆槿柘 | 编篱的新条（不是成树） | 无树种；原文里它们是**篱的材料** | 并进青篱构件 |
 | 稻茎 | 墙头掩护 | 无 | 并进泥墙构件 |
-| 地面 | 村野：土路、场院、菜畦 | 未入建成，无 | 场院土地 BA；菜畦第二轮 |
-| 西溪 | 07-30 水引进村 | `creek.west` 干溪宽 10 m，中线穿村（(−178,−52)(−198,−38)(−208,−18)） | 已有；**与泥墙、西篱冲突** |
+| 地面 | 村野：土路、场院、菜畦 | BA1 入建成，地形窗口铺到这里（见 §6 扩区读数）；`dx_court` 图里 e08 土路直通茆堂。playtest 航点未到此，无脚下序列 | 场院土地 BA；菜畦第二轮 |
+| 西溪 | 07-30 水引进村 | BA0 乙档（D-35）：`creek.west` 中间一段改为 (−163,−45)(−169,−32)(−177,−20)(−189,−13)(−201,−9)(−207,−2)，岸线按 ±5 m 重算，上下游拼接点不动；走泥墙与青篱之外、篱外山坡脚下 | 已改道；墙篱不再在水里（最小 1.47 m） |
 
 ## 6 判据、机位、台账
 
@@ -76,12 +76,36 @@
 单子 Y 的空跑（2026-09-14，AA/AX 之前）：多这一个区，地形顶点 0.26M → 0.58M。**AX 留的触发条件**（`docs/superpowers/plans/2026-09-23-ax-scale-perf.md` 末节）：
 19 区 `gate_approach` 的 Garden 120 m 外 > 2M 或建时 > 40 s 就写 AY（区级流式 / HLOD）。第一个新区入建成后**必须复测**。
 
+**BA1 复测（2026-09-27，施工甲；前 = BA0 落地后 `c7c17180`，后 = 入建成；各三次独立进程取中位数；数据 `shots/BA/ba1/data/agg.txt`）**：
+
+| | 前 | 后 |
+|---|---|---|
+| 地形窗口（manifest `terrain.resolution`） | 270 × 218 m = 58 860 m² | **357 × 376 m = 134 232 m²（2.28 倍）** |
+| 地形顶点 / 块 / splat | 0.26M（255 602）/ 20 / 1088²、24.8 cm/texel | 0.58M（582 552）/ 36 / 1536²、24.5 cm/texel |
+| 建时 `world.buildDurationMs` | 29.8 s | **31.7 s** |
+| 分项：理地（地形）/ 引水 / 植树 / 起屋叠石（构件）/ 调色 | 3.1 / 1.4 / 8.2 / 10.4 / 5.9 s | 5.0 / 2.2 / 8.5 / 10.7 / 5.3 s |
+| 理地细项：splat / mesh | 2.05 / 0.95 s | 3.07 / 1.79 s |
+| `gate_approach` Garden 120 m 外（`frustum-census`） | 1 016 826 | **1 191 206** |
+
+四镜（`capture` → `manifest-diff --baseline`，三角 / calls 三次逐位相同，fps / frameCostMs 取中位）：
+
+| 镜 | calls 前→后 | 三角 前→后 | fps 后 | frameCostMs 后 |
+|---|---|---|---|---|
+| gate_approach | 312→334（+7.1%） | 4 244 033→4 381 019（+3.2%） | 45 | 4.6 |
+| mound_block | 280→316（+12.9%） | 4 195 219→4 388 850（+4.6%） | 46 | 4.4 |
+| grass_close | 290→326（+12.4%） | 4 395 937→4 460 832（+1.5%） | 45 | 4.8 |
+| xiaoxiang | 254→280（+10.2%） | 3 312 662→3 444 706（+4.0%） | 44 | 4.9 |
+
+建时读数时机器 load average 5.9–23（别的 agent 同时跑浏览器），建时是上限读数。**AY 两条都没触发**（1.19M < 2M，31.7 s < 40 s）。
+
 ### 台账
 
 | 日期 | 事 |
 |---|---|
 | 2026-09-14 | 单子 Y 空跑：两栋草舍用 `building:tang` 顶替、井用 `taihu:edge1` 顶替，零 `.ts` 改动跑通，已回滚（`docs/superpowers/plans/2026-09-14-y-scene-contract.md`） |
 | 2026-09-25 | 验收人诊断（本页）：近景茅屋几何不存在；泥墙、青篱、井、酒幌、菜畦、杏无构件；**泥墙与西篱压在西溪里、井在坡上、「东厢」在西**；窗口 2.28 倍。加四个机位、画现状平面。单子 **BA** 写成 |
+| 2026-09-27 | **BA0 落地**（`c7c17180`，乙档，D-35）：西溪改道、桥挪 e08 过溪处、东厢挪 (−189,−42)、两溜篱北端止于 z=−29.5、井挪 (−213,−19)。geo.mjs：墙最小到水 1.47 m、西篱 5.80 m、东篱 2.69 m。`tree-census --dump` 前后逐字节相同（174 树 / 352 灌木）。check:all 261/261、playtest PASS |
+| 2026-09-27 | **BA1 入建成**：`projects/daguanyuan/scenes/daoxiangcun.json` 两条 named（茆堂、东厢 → `building:tang` 顶替）。`--coverage` 已建成区覆盖率 23/25 → 25/32，known-gap 80 → 73，缺 mud-wall / fence / well / wine-banner / rock-01；「散石-墙根」规则在本区落 16 件。窗口 2.28 倍、建时 31.7 s、`gate_approach` Garden 120 m 外 1.19M，AY 未触发；四镜 calls +7.1~+12.9%、三角 +1.5~+4.6%（扩窗的账）。**窗口一变全园植被重洗**：灌木 352 丛 0 丛原位（→514），树 174 棵 35 棵原位（→195）；正门 60 m 内灌木 73→46 且 0 丛原位、树 11→6，潇湘馆正房 40 m 内灌木 30→19、树 5→3（`shots/BA/ba1/data/tree-census-diff-ba1.txt`）。未修，待验收人裁 |
 
 ### 未决
 

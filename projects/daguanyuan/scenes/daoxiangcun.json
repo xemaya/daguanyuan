@@ -1,0 +1,22 @@
+{
+  "region": "daoxiangcun",
+  "$comment": "稻香村(杏帘在望 / 浣葛山庄)。单子 BA1(2026-09-27):只做「入建成」这一件——有落位清单 = 建成(单子 Y),让地形窗口、植被、对账门把这一区算进来,量扩窗的账。两栋茅屋 construction.status 仍是 frame-ready(近景几何归 BA2),garden-building 按约定拒绝生成,先照单子 Y 空跑的路数绑通用堂屋 building:tang 顶替;BA4 换掉。泥墙、青篱、井、酒幌、背山石本轮不绑构件,对账门报缺项是对的。平面按 BA0 乙档(D-35)。",
+  "named": [
+    {
+      "object": "daoxiangcun.main-cottage",
+      "part": "building",
+      "variant": "tang",
+      "yaw": 0,
+      "tag": "稻香村",
+      "basis": "单子 BA1 空跑顶替件。茆堂(07-13「引人步入茆堂」)construction.status 是 frame-ready,乡野近景几何(茅苫/土壁/木构)归 BA2,规则 2 按约定不建;照单子 Y Task 4 空跑的写法绑通用堂屋 building:tang,位置从 plan 锚点 (-202,-52) 读,朝向照 plan facing=south 取 yaw 0(与 construction.ts 的 facing→yaw 表同一约定)。这是量窗口与建时用的占位,不是形制——BA4 换成乡野茅屋后删掉这条。"
+    },
+    {
+      "object": "daoxiangcun.side-cottage",
+      "part": "building",
+      "variant": "tang",
+      "yaw": -1.5707963267948966,
+      "tag": "稻香村",
+      "basis": "单子 BA1 空跑顶替件。东厢田舍(07-11「數楹茅屋」之一)construction.status 是 frame-ready,同主屋,先绑通用堂屋 building:tang 顶替;位置从 plan 锚点读(BA0 乙档挪到 (-189,-42),D-35),朝向照 plan facing=west 取 yaw -π/2(construction.ts 的 facing→yaw 表)。BA4 换掉。"
+    }
+  ]
+}

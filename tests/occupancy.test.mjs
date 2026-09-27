@@ -63,9 +63,14 @@ test('突变测试：房子挪 3m，占位跟着走——不改任何表',()=>{
 });
 
 test('未建区不占位：占位场只圈已建成的区',()=>{
+ // 原先写死稻香村当「未建区」的例子;单子 BA1(2026-09-27)把稻香村入了建成,
+ // 改成取 plan 里第一个未建成、且有带 spec 房子的区——断言本身不变。
  const f=buildOccupancy(plan,built,scenes);
- assert.ok(!f.occupants().some(o=>o.id.startsWith('daoxiangcun')));
- assert.equal(f.free(-202,-52),1,'稻香村没建，它的地不该被圈');
+ const region=plan.regions.find(r=>!built.includes(r.id)&&r.buildings.some(b=>b.construction?.spec));
+ assert.ok(region,'找不到未建成的区——全园都建成了,这条测试该退休了');
+ const house=region.buildings.find(b=>b.construction?.spec);
+ assert.ok(!f.occupants().some(o=>o.id.startsWith(region.id+'.')));
+ assert.equal(f.free(house.x,house.z),1,`${region.id} 没建，它的地不该被圈`);
 });
 
 /* ---- 单子 AF：墙体进占位场，但走另一条通道 ---------------------------- */
