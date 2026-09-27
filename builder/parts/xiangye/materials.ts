@@ -348,15 +348,15 @@ export function roughWoodMaterial(): THREE.MeshStandardMaterial {
 export function strawFringeMaterial(): THREE.MeshStandardMaterial {
   return memo('xiangye.straw-fringe', () => {
     const size = 512;
-    const map = cached(recipeKey('xiangye.fringe.albedo', size), () => {
+    const map = cached(recipeKey('xiangye.fringe.albedo', size, 2), () => {
       const rng = makeRng(0xf12e);
       const { cv, ctx: c } = canvas(size);
       c.clearRect(0, 0, size, size);
-      const palette = [XY.strawLight, XY.strawMid, XY.strawGrey, XY.strawMid];
+      const palette = [XY.strawMid, XY.strawMid, XY.strawGrey, XY.strawDark, XY.strawLight];
       for (let i = 0; i < 900; i++) {
         const x0 = rng() * size, len = size * (0.18 + Math.pow(rng(), 1.6) * 0.8), ang = (rng() - 0.5) * 0.35;
         const x1 = x0 + Math.sin(ang) * len, y1 = Math.cos(ang) * len, bow = (rng() - 0.5) * 18;
-        const cc = hexToRgb(palette[(rng() * palette.length) | 0]), k = 0.78 + rng() * 0.35;
+        const cc = hexToRgb(palette[(rng() * palette.length) | 0]), k = 0.62 + rng() * 0.3;
         wrapped(size, x0, 0, x1, 0, (dx) => {
           c.strokeStyle = rgb(cc, k);
           c.lineWidth = 1.6 + rng() * 2.6;

@@ -7,6 +7,11 @@ import { Simplex, fbm2, makeRng, smoothstep, clamp, lerp } from '@engine/core/No
 import { WALL_STYLE } from './wall-style';
 import { makePlaque } from '@builder/parts/xiaomu/plaque';
 import { plaqueFromPlan } from '@builder/plan/objects';
+import { mergeByMaterial } from '@builder/parts/merge';
+import { XY, EARTH_TILE_M, earthWallMaterial, thatchMaterial, thatchEndMaterial, strawFringeMaterial } from '@builder/parts/xiangye/materials';
+import { stations, splitByOpenings, arcAt, type P2 as XP2 } from '@builder/parts/xiangye/path';
+import { sweepSection, hangingStrip } from '@builder/parts/xiangye/sweep';
+import { planLayout } from '@builder/parts/xiangye/plan-data';
 
 /**
  * 江南园林粉墙系列。
@@ -711,6 +716,8 @@ function shadowed<T extends THREE.Mesh>(m: T): T {
 }
 
 export function buildWall(variant: string, options: { length?:number; flushEnds?:boolean; groundStation?:number } = {}): PartBuild {
+  // 黄泥矮墙(稻香村,单子 BA3)走自己的一支,粉墙以下代码一行不经过。
+  if (variant === 'mud' || variant.startsWith('mud:')) return buildMudWall(variant, options.length);
   // 保留纹样一级别名；路径与棚拍也可完整传入 lattice:wan 这类变体。
   // moon 可带对象 id(moon:xiaoxiangguan.moon-gate):门额文字按 id 从 plan.json 读。
   const parts = variant.split(':');
@@ -876,3 +883,143 @@ export function buildWall(variant: string, options: { length?:number; flushEnds?
 }
 
 registerPart('wall', (variant) => buildWall(variant === 'default' ? 'plain' : variant));
+
+/* ================================================================== */
+/* 黄泥矮墙(稻香村,单子 BA3)                                         */
+/* ================================================================== */
+
+/**
+ * 07-11「一帶黃泥筑就矮牆,牆頭皆用稻莖掩護」。
+ *
+ * 墙身:黄泥版筑,一版一尺(`deriveRusticDetail` 同口径 0.32 m),逐版沿走线扫出,版与版之间
+ * 圆角相接成浅槽(层线),每版外皮随机进出几毫米;底宽取 plan 的 widthM,顶收分;墙脚返潮走顶点色。
+ * 墙头:一道**蓬松的稻茎草檐**——截面是中间拱起、两侧挑出墙面的草把,沿线逐站胖瘦不一,
+ * 两侧挂参差的垂茬 alpha 卡;端头露草茬。**不是瓦压顶**:没有瓦垄、没有脊件。
+ * 截面高宽取 plan(`heightM`/`widthM`),其余都是艺术取值,进 `userData.construction.provenance.art`。
+ *
+ * variant:
+ *   mud                    6 m 直段(截面取 plan `daoxiangcun.mud-wall` 第一条 run)
+ *   mud:<plan 对象 id>      按 plan 的 `layout.runs[]` 折线与 `openings[]` 开口生成(原点移到走线包围盒中心)
+ */
+const MUD_LIFT = 0.32;
+const MUD = {
+  /** 顶宽 / 底宽(收分)。 */
+  taper: 0.86,
+  /** 草檐:墙头以上的厚、两侧挑出、压进墙头的深、垂茬长。 */
+  capRise: 0.16, capOverhang: 0.12, capSink: 0.05, fringe: 0.15,
+};
+const MUD_PROVENANCE = [
+  { id: 'project:mud-wall-lift', name: '黄泥矮墙版高', method: 'artistic_choice', note: '一版一尺(0.32 m),与茅屋土壁同口径;07-11 只给「黃泥筑就」名目。' },
+  { id: 'project:mud-wall-taper', name: '泥墙收分', method: 'artistic_choice', note: '顶宽为底宽的 0.86;版筑墙上窄下宽,书无定数。' },
+  { id: 'project:mud-wall-straw-cap', name: '稻茎墙头', method: 'artistic_choice', note: '07-11「牆頭皆用稻莖掩護」:草檐拱起 0.16 m、两侧挑出 0.12 m、垂茬 0.15 m;墙身顶 = plan heightM − 草檐拱起,总高仍为 plan heightM。' },
+];
+
+function mudRun(pts: XP2[], widthM: number, heightM: number, seed: number): THREE.Group {
+  const group = new THREE.Group();
+  const st = stations(pts, 0.25);
+  const bodyTop = heightM - MUD.capRise, half0 = widthM / 2, half1 = half0 * MUD.taper;
+  const rng = makeRng(seed), simplex = new Simplex(seed);
+  const damp = new THREE.Color(XY.earthDamp), base = new THREE.Color(XY.earth);
+  const tint = [damp.r / base.r, damp.g / base.g, damp.b / base.b];
+  const color = (s: number, _n: number, y: number): [number, number, number] => {
+    const fade = Math.max(0.12, 0.45 + 0.15 * fbm2(simplex, s * 0.7, 2.3, 3));
+    const k = Math.pow(1 - clamp(y / fade, 0, 1), 0.7);
+    const patch = 1 + 0.12 * fbm2(simplex, s * 0.55 + 9, y * 0.9, 4);
+    return [lerp(1, tint[0], k) * patch, lerp(1, tint[1], k) * patch, lerp(1, tint[2], k) * patch];
+  };
+  // 墙身:逐版。
+  const lifts: [number, number][] = [];
+  let n = Math.floor(bodyTop / MUD_LIFT + 1e-6);
+  if (bodyTop - n * MUD_LIFT > MUD_LIFT * 0.5) n++;
+  for (let k = 0; k < n; k++) lifts.push([k * MUD_LIFT, k === n - 1 ? bodyTop : (k + 1) * MUD_LIFT]);
+  const earth = earthWallMaterial();
+  for (const [y0, y1] of lifts) {
+    const w0 = lerp(half0, half1, y0 / bodyTop), w1 = lerp(half0, half1, y1 / bodyTop), r = 0.012, j = (rng() - 0.5) * 0.008;
+    const sec: [number, number][] = [
+      [-w0 + r, y0], [w0 - r, y0], [w0 + j, y0 + r], [w1 + j, y1 - r], [w1 - r, y1], [-w1 + r, y1], [-w1 - j, y1 - r], [-w0 - j, y0 + r],
+    ];
+    // 版线随站点上下摆几毫米(相邻两版用同一条摆线,不开缝);外皮沿线微鼓微瘪——拆掉「一块块木板」的直。
+    const wob = (y: number, s: number) => (y <= 0 || y >= bodyTop ? 0 : 0.006 * simplex.noise2D(s * 1.9, y * 13));
+    const warp = (S: { s: number }, _j: number, _i: number, nn: number, y: number): [number, number] =>
+      [nn * (1 + 0.025 * simplex.noise2D(S.s * 0.8, y * 3 + 5) + 0.012 * simplex.noise2D(S.s * 4.3, y * 7)), y + wob(y < (y0 + y1) / 2 ? y0 : y1, S.s)];
+    const g = sweepSection(st, sec, { tile: EARTH_TILE_M, color, warp });
+    const m = new THREE.Mesh(g, earth); m.castShadow = m.receiveShadow = true; group.add(m);
+  }
+  // 草檐截面:上拱、两侧挑出、底面压进墙头。
+  const capH = half1 + MUD.capOverhang, yb = bodyTop - MUD.capSink, sec: [number, number][] = [];
+  const NU = 14;
+  for (let i = 0; i <= NU; i++) {
+    const f = -1 + (2 * i) / NU, nn = f * capH;
+    sec.push([nn, yb + 0.07 + (heightM - yb - 0.07) * (1 - Math.pow(Math.abs(f), 1.8))]);
+  }
+  sec.push([capH, yb + 0.02], [half1 * 0.7, yb], [-half1 * 0.7, yb], [-capH, yb + 0.02]);
+  sec.reverse();
+  const warp = (S: { s: number }, _j: number, i: number, nn: number, y: number): [number, number] => {
+    const puff = 1 + 0.12 * simplex.noise2D(S.s * 1.3, 4.1) + 0.05 * simplex.noise2D(S.s * 5, i * 0.7);
+    return [nn * (1 + 0.06 * simplex.noise2D(S.s * 2.1, 8.3)), yb + (y - yb) * puff];
+  };
+  const cap = sweepSection(st, sec, { arcV: true, tile: 1, warp, color: (s) => { const k = 0.92 + 0.08 * simplex.noise2D(s * 0.9, 1.7); return [k, k, k]; }, caps: false });
+  const cm = new THREE.Mesh(cap, thatchMaterial()); cm.castShadow = cm.receiveShadow = true; group.add(cm);
+  // 草檐端头草茬。
+  for (const [S, dir] of [[st[0], -1], [st[st.length - 1], 1]] as const) {
+    const tri = THREE.ShapeUtils.triangulateShape(sec.map(([a, b]) => new THREE.Vector2(a, b)), []);
+    const pos: number[] = [], uv: number[] = [], col: number[] = [];
+    const jj = dir < 0 ? 0 : st.length - 1;
+    sec.forEach(([a, b], i) => {
+      const [nn, y] = warp(S, jj, i, a, b);
+      pos.push(S.p[0] + S.n[0] * nn + S.t[0] * dir * 0.01, y, S.p[1] + S.n[1] * nn + S.t[1] * dir * 0.01);
+      uv.push(nn * 4, y * 4); col.push(0.95, 0.95, 0.95);
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    const idx = tri.flat();
+    // 朝向沿切向朝外。
+    const P = (k: number) => new THREE.Vector3(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2]);
+    const nrm = P(idx[1]).sub(P(idx[0])).cross(P(idx[2]).sub(P(idx[0])));
+    if (nrm.x * S.t[0] * dir + nrm.z * S.t[1] * dir < 0) for (let t = 0; t < idx.length; t += 3) [idx[t + 1], idx[t + 2]] = [idx[t + 2], idx[t + 1]];
+    g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, thatchEndMaterial()); m.castShadow = m.receiveShadow = true; group.add(m);
+  }
+  // 两侧垂茬。
+  const fr = strawFringeMaterial();
+  for (const side of [-1, 1]) {
+    const g = hangingStrip(st, side * (capH - 0.03), (s) => yb + 0.04 + 0.01 * simplex.noise2D(s, side),
+      side * (capH + 0.025), (s) => yb - MUD.fringe * (0.8 + 0.25 * simplex.noise2D(s * 1.7, side * 3)), 1.8, rng());
+    const m = new THREE.Mesh(g, fr); m.castShadow = true; m.receiveShadow = true; group.add(m);
+  }
+  return group;
+}
+
+export function buildMudWall(variant: string, length?: number): PartBuild {
+  const id = variant.startsWith('mud:') ? variant.slice(4) : '';
+  const layout = planLayout(id || 'daoxiangcun.mud-wall', 'wall');
+  const root = new THREE.Group();
+  let runs: { pts: XP2[]; w: number; h: number }[];
+  let origin: XP2 = [0, 0];
+  if (!id) {
+    const L = length ?? 6, r = layout.runs[0];
+    runs = [{ pts: [[-L / 2, 0], [L / 2, 0]], w: r.widthM, h: r.heightM }];
+  } else {
+    const all = layout.runs.flatMap((r) => r.points);
+    const xs = all.map((p) => p[0]), zs = all.map((p) => p[1]);
+    origin = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2];
+    runs = [];
+    layout.runs.forEach((r, ri) => {
+      const cuts = (layout.openings ?? []).filter((o) => o.run === ri).map((o) => {
+        const hit = arcAt(r.points, o.at);
+        if (hit.dist > 0.05) throw new Error(`[mud-wall] ${id} 开口 ${o.at} 不在第 ${ri} 条走线上`);
+        return { s: hit.s, width: o.widthM };
+      });
+      for (const seg of splitByOpenings(r.points, cuts))
+        runs.push({ pts: seg.map(([x, z]) => [x - origin[0], z - origin[1]] as XP2), w: r.widthM, h: r.heightM });
+    });
+  }
+  runs.forEach((r, i) => root.add(mudRun(r.pts, r.w, r.h, 7303 + i * 101)));
+  const merged = mergeByMaterial(root);
+  merged.name = id || 'wall:mud';
+  merged.userData.construction = { paramSet: 'rustic', tier: 'C-r', provenance: { evidence: [], inference: [], art: MUD_PROVENANCE } };
+  if (id) merged.userData.linear = { id, kind: 'wall', origin, segments: runs.length, basis: layout.basis };
+  return { kind: 'wall-path', root: merged };
+}
