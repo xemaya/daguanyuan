@@ -28,10 +28,14 @@ const HEDGE = {
   weaveAmp: 0.035,
   rodLen: [1.2, 2.6] as [number, number],
   leafPerM: 30,
+  /** 篱脚新条(根/每米)与两面叶枝(卡/每米/每面)——D-36 ③ 加密。 */
+  basalShootsPerM: 7,
+  faceLeavesPerM: 75,
 };
 const PROVENANCE = [
   { id: 'project:qingli-weave', name: '青篱编法', method: 'artistic_choice', note: '07-11「編就」:活桩插地、细条一里一外篱编;桩距 0.42–0.62 m、编条十二道(篱高的 0.10–0.71,间 0.055)、每根 1.2–2.6 m 收头——书无定数。' },
   { id: 'project:qingli-species', name: '桑榆槿柘叶图集', method: 'artistic_choice', note: '07-11 列四种:叶图集四格(桑阔卵心基、榆小椭圆、槿菱状卵浅裂、柘卵形全缘),同一道篱混用。' },
+  { id: 'project:qingli-density', name: '青篱叶量', method: 'artistic_choice', note: 'D-36 ③:篱脚新条每米 7 根、两面叶枝每面每米 75 卡、顶叶每米 15 卡——从脚到顶成片的绿,编条只在近处透出。' },
   { id: 'project:qingli-height', name: '篱高参差', method: 'artistic_choice', note: '桩顶取篱高的 0.78–0.96,嫩梢与叶枝把轮廓顶到 plan heightM 上下 ±0.12 m,「高低参差」。' },
 ];
 
@@ -156,6 +160,25 @@ function hedgeRun(pts: P2[], heightM: number, seed: number): THREE.Group {
   for (let k = 0; k < topCount; k++) {
     const x = rng() * L, y = heightM * (0.58 + rng() * 0.3) + 0.08 * noise.noise2D(x * 0.9, 7);
     leafCard(world(x, (rng() - 0.5) * 0.2, y), 0.24 + rng() * 0.16, rng() * Math.PI * 2, (rng() - 0.5) * 0.9, (rng() * 4) | 0, leafShade(), leaves);
+  }
+  // D-36 ③ 加密成片:篱脚发出的新条(直立的嫩梢,0.35–1.1 m)与两面贴着编条长出来的叶枝,
+  // 从脚到顶一片绿,读成「两道绿墙」;编条只在近处从叶缝里透出。
+  for (let k = 0, n = Math.round(L * HEDGE.basalShootsPerM); k < n; k++) {
+    const x = rng() * L, side = rng() < 0.5 ? -1 : 1, h = heightM * (0.3 + rng() * 0.62);
+    const off = side * (0.03 + rng() * 0.06), lean = (rng() - 0.5) * 0.2;
+    const P = [world(x, off, -0.02), world(x + lean * 0.3, off + side * 0.03, h * 0.5), world(x + lean, off + side * 0.05, h)];
+    rods.push(rod(P, 0.007 + rng() * 0.004, 0.003, tintOf(rng), 4, 2));
+    for (let t = 0.25 + rng() * 0.15; t < 1; t += 0.2 + rng() * 0.15)
+      leafCard(world(x + lean * t, off + side * 0.04 * t, h * t - 0.06), 0.2 + rng() * 0.12, rng() * Math.PI * 2, (rng() - 0.5) * 1.0, (rng() * 4) | 0, leafShade(), leaves);
+  }
+  for (const side of [-1, 1]) {
+    for (let k = 0, n = Math.round(L * HEDGE.faceLeavesPerM); k < n; k++) {
+      const x = rng() * L, y = heightM * Math.pow(rng(), 0.8) * 0.95 + 0.02;
+      const S = at(x), yaw = Math.atan2(S.t[1], S.t[0]) + (rng() - 0.5) * 0.9;
+      // 篱身叶比顶叶暗一档、越往篱脚越暗(自遮),不然一整面浅绿读成塑料。
+      const ao = 0.62 + 0.3 * (y / heightM), sh = leafShade().map((v) => v * ao) as Tint;
+      leafCard(world(x, side * (0.05 + rng() * 0.1), y - 0.08), 0.24 + rng() * 0.14, yaw, side * (0.2 + rng() * 0.5), (rng() * 4) | 0, sh, leaves);
+    }
   }
 
   const group = new THREE.Group();
