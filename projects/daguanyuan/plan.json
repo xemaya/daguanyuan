@@ -3683,11 +3683,12 @@
           "x": -202,
           "z": -52,
           "plaque": "稻香村",
+          "plaqueStyle": "plain-wood",
+          "plaqueStyle_basis": "D-36 ④ 用户裁定:素木板墨字挂明间檐下,不上漆、不描金——C-r 乡野子档不施彩画(tiers §1.4);07-13「富貴气象一洗皆盡」。构件 thatch-cottage 只接 plain-wood,有匾文不声明做法就抛,不回落成黑漆金字。",
           "id": "daoxiangcun.main-cottage",
           "kind": "building",
           "layout_basis": "P2整地网格核验发现原预留落脚面压到沁芳溪西段，将整件连同台地移到同一岸陆地；位移是艺术选择。",
           "construction": {
-            "status": "frame-ready",
             "spec": {
               "paramSet": "rustic",
               "tier": "C-r",
@@ -3732,7 +3733,6 @@
           "id": "daoxiangcun.side-cottage",
           "kind": "building",
           "construction": {
-            "status": "frame-ready",
             "spec": {
               "paramSet": "rustic",
               "tier": "C-r",
@@ -3833,7 +3833,7 @@
           "kind": "fence",
           "layout": {
             "stage": "layout-ready",
-            "basis": "P2艺术施工图：两溜青篱分列村口，不用单条线假装两侧；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。 BA0乙:两溜篱北端止于泥墙外皮(z=-29.5),不入墙内。",
+            "basis": "P2艺术施工图：两溜青篱分列村口，不用单条线假装两侧；米制截面与标高为项目设计输入，不是原文实测。构件细部由P3生成，地形与碰撞由P4装配。 BA0乙:两溜篱北端止于泥墙外皮(z=-29.5),不入墙内。 BA4:material 由 green-bamboo 改为活条——07-11「外面卻是桑,榆,槿,柘,各色樹稚新條,隨其曲折,編就兩溜青篱」,篱是桑榆槿柘的新条编成、活的带叶,不是竹篱笆;构件 qingli。",
             "scope": "region",
             "runs": [
               {
@@ -3858,7 +3858,7 @@
                   1.2,
                   1.2
                 ],
-                "material": "green-bamboo",
+                "material": "live-shoots:mulberry/elm/hibiscus/cudrania",
                 "sectionRole": "envelope"
               },
               {
@@ -3883,7 +3883,7 @@
                   1.2,
                   1.2
                 ],
-                "material": "green-bamboo",
+                "material": "live-shoots:mulberry/elm/hibiscus/cudrania",
                 "sectionRole": "envelope"
               }
             ]

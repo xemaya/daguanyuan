@@ -33,7 +33,9 @@ export function compileConstruction(c:Construction) {
     const a=deriveFayuanAssembly(s);modules=a.modules;pendingGeometry=a.pendingGeometry;gallery=a.gallery;boat=a.boat;passage=a.passage;
   } else if(s.paramSet==='rustic') {
     modules=[{id:'main',at:[0,0,0],frame:deriveRusticBuilding(s),roofMode:'full'}];
-    pendingGeometry=['rustic-timber-joints','thatch','earth-walls'];
+    // 单子 BA2/BA4:茅苫、土壁、粗木穿斗的近景几何已由 builder/parts/xiangye/thatch-cottage 给出;
+    // 只剩竹牖(芦雪庵)没做——那一档仍须标 frame-ready。
+    pendingGeometry=s.window==='bamboo'?['bamboo-window']:[];
   } else if(s.paramSet==='fayuan')modules=[{id:'main',at:[0,0,0],frame:deriveFayuanBuilding(s),roofMode:'full'}];
   else throw new Error('未知施工参数集，禁止替换成默认房屋');
   if(pendingGeometry.length&&c.status!=='frame-ready')throw new Error('未生成几何的规格须标frame-ready');

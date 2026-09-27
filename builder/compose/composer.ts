@@ -445,7 +445,10 @@ function plannedPlacements(): Placement[] {
     for (const b of region.buildings ?? []) {
       const c = b.construction;
       const buildable = b.kind === 'building' && !!c?.spec && c.status !== 'frame-ready';
-      emit(b.id, buildable ? { part: 'garden-building', variant: b.id } : null);
+      // 单子 BA4:乡野子档(C-r,茅屋)不走 damu 的法式/法原构件,放行到 xiangye 的 thatch-cottage;
+      // 仍标 frame-ready 的(如竹牖未做的芦雪庵)照旧不建。
+      const rustic = (c?.spec as { paramSet?: string } | undefined)?.paramSet === 'rustic';
+      emit(b.id, buildable ? { part: rustic ? 'thatch-cottage' : 'garden-building', variant: b.id } : null);
     }
     for (const r of region.rocks ?? []) emit(r.id, null);
     for (const l of region.linears ?? []) {

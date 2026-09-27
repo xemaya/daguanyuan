@@ -9,9 +9,10 @@ import {auditConstructions} from '../tools/construction-audit.mjs';
 const plan=JSON.parse(readFileSync('projects/daguanyuan/plan.json','utf8'));
 const get=id=>plan.regions.flatMap(r=>r.buildings).find(b=>b.id===id);
 
-test('all 32 building contracts compile; 12 frame contracts are not counted as available meshes',()=>{
+test('all 32 building contracts compile; 10 frame contracts are not counted as available meshes',()=>{
+ // 单子 BA4:稻香村两栋茅屋近景几何落地(thatch-cottage),frame-ready → 可建成,20/12 → 22/10。
  const a=auditConstructions(plan);assert.deepEqual(a.fails,[]);assert.equal(a.objects.length,32);
- assert.equal(a.meshFactories,20);assert.equal(a.frameOnly,12);
+ assert.equal(a.meshFactories,22);assert.equal(a.frameOnly,10);
  assert.equal(a.objects.reduce((n,o)=>n+o.compiled.modules.length,0),38);
  const changed=structuredClone(plan);delete changed.regions.find(r=>r.id==='daoxiangcun').buildings[0].construction;
  assert.ok(auditConstructions(changed).fails.some(s=>s.includes('缺少施工spec')));
