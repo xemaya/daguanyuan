@@ -35,3 +35,9 @@ export function buildPart(name: string, variant = 'default', context?:PartContex
 export function partNames(): string[] {
   return [...PARTS.keys()].sort();
 }
+
+/* 乡野门类(稻香村,单子 BA2/BA3):builder/parts/index.ts 的 glob 不含 xiangye,
+ * 在这里显式登记。xiangye 模块只导出构件表、运行时不 import 本文件,所以不成环;
+ * import 被提升到本文件求值之前,登记这一段在 PARTS 初始化之后才跑。 */
+import { XIANGYE_PARTS } from './xiangye/index';
+for (const [name, builder] of XIANGYE_PARTS) registerPart(name, builder);
