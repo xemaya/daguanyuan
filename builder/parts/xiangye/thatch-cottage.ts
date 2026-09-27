@@ -8,6 +8,8 @@ import { stoneMaterial, paperMaterial } from '../materials';
 import { Simplex, makeRng, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { XY, EARTH_TILE_M, thatchMaterial, thatchEndMaterial, thatchUnderMaterial, earthWallMaterial, roughWoodMaterial, strawFringeMaterial, tampedEarthMaterial } from './materials';
 import { planItem } from './plan-data';
+import { plaqueFromPlan } from '@builder/plan/objects';
+import { makePlainPlaque } from '../xiaomu/plaque';
 import { liftSequence, rowsUpTo, lineWobble, mudPatch, tieHole } from './earth';
 
 /**
@@ -609,6 +611,16 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
     add(lintel, wood);
   });
 
+  /* --- 匾:素木板墨字,挂明间檐下(D-36 ④)。字从 plan 读,读不到就不挂 --- */
+  const plaqueText = o.id ? plaqueFromPlan(o.id) : undefined;
+  if (plaqueText) {
+    const b = bays[doorBay], pw = (m.columnX[doorBay + 1] - m.columnX[doorBay]) * 0.42;
+    const pl = makePlainPlaque(plaqueText, pw);
+    const ph = pw * 0.4;
+    pl.rotation.x = 0.1;
+    pl.position.set(b.c, beamTop - ph * 0.45, dh + m.lan.t / 2 + 0.035);
+    group.add(shadowed(pl));
+  }
   const root = mergeByMaterial(group);
   root.name = o.id ?? 'thatch-cottage';
   root.userData.construction = { paramSet: 'rustic', tier: 'C-r', roofType: frame.roofType,

@@ -418,3 +418,100 @@ export function makePlaque(text: string, width: number, opts: PlaqueOptions = {}
   }
   return g;
 }
+
+/* ================================================================== */
+/* 素木匾(稻香村,单子 BA · D-36 ④)                                  */
+/* ================================================================== */
+
+/**
+ * 素木板墨字——C-r 乡野子档「不施彩画」:**不上漆、不描金、无框、无角花、无钤印**。
+ * 一块刨平的木板,墨书楷字(同 `PLAQUE_FONT` 子集),板面是木本色与木纹。
+ *
+ * 与上面的黑漆金字匾是**两条路**(同 `inscriptionTexture` 的理由):那一份是正门、
+ * 院门门额的真源,这里不给它加开关、不动它一个字节——只新增。
+ * 局部坐标同 `makePlaque`:原点在板心,+Z 朝人。
+ */
+function plainPlaqueTexture(text: string, aspect: number): THREE.CanvasTexture {
+  const H = 256;
+  const W = Math.max(96, Math.round(H * aspect));
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d')!;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  // 木纹:顺板长的细线,确定性伪随机(不吃全局 rng)。
+  let seed = 7;
+  const rnd = (): number => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const paint = (): void => {
+    const bg = g.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#a88a64');
+    bg.addColorStop(0.5, '#b39570');
+    bg.addColorStop(1, '#9c7f5a');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, W, H);
+    seed = 7;
+    for (let i = 0; i < 70; i++) {
+      const y = rnd() * H, amp = 2 + rnd() * 6, ph = rnd() * 6;
+      g.strokeStyle = `rgba(92,68,44,${0.12 + rnd() * 0.2})`;
+      g.lineWidth = 0.8 + rnd() * 1.6;
+      g.beginPath();
+      for (let x = 0; x <= W; x += 12) g.lineTo(x, y + Math.sin(x / (40 + ph * 10) + ph) * amp);
+      g.stroke();
+    }
+    const n = Math.max(1, text.length);
+    const size = Math.min(H * 0.72, (W * 0.8) / n);
+    g.font = `${size}px ${PLAQUE_FONT}, ${PLAQUE_FONT_FALLBACK}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    const gap = size * 1.12;
+    const x0 = W / 2 - ((n - 1) * gap) / 2;
+    const y = H / 2 + size * 0.03;
+    // 墨:浓黑偏暖,吃进木纹里一点(略透)。横额右起。
+    for (let i = 0; i < n; i++) {
+      const x = x0 + (n - 1 - i) * gap;
+      g.fillStyle = 'rgba(28,22,17,0.93)';
+      g.fillText(text[i], x, y);
+    }
+  };
+  paint();
+  const fonts = document.fonts as FontFaceSet | undefined;
+  if (fonts?.load) {
+    fonts
+      .load(`${H}px ${PLAQUE_FONT}`, text)
+      .then(() => {
+        paint();
+        tex.needsUpdate = true;
+        warnPlaqueGlyphGaps(text);
+      })
+      .catch(() => {});
+  }
+  return tex;
+}
+
+let PLAIN_WOOD: THREE.MeshStandardMaterial | undefined;
+/** 素木板身:木本色、无漆无清漆(全园一份实例)。 */
+function plainWoodMaterial(): THREE.MeshStandardMaterial {
+  PLAIN_WOOD ??= new THREE.MeshStandardMaterial({ color: 0x9c7f5a, roughness: 0.86, metalness: 0 });
+  return PLAIN_WOOD;
+}
+
+/** 素木匾一件。`width` 为板宽;板高 = 宽 × `PLAQUE_H_RATIO`,板厚 0.045 m(艺术取值,留痕在调用方)。 */
+export function makePlainPlaque(text: string, width: number): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'PlainPlaque';
+  const h = width * PLAQUE_H_RATIO, t = 0.045;
+  const board = new THREE.Mesh(roundedBox(width, h, t, 0.012, 3), plainWoodMaterial());
+  board.castShadow = true;
+  board.receiveShadow = true;
+  g.add(board);
+  const face = new THREE.Mesh(
+    new THREE.PlaneGeometry(width - 0.02, h - 0.02),
+    new THREE.MeshStandardMaterial({ map: plainPlaqueTexture(text, (width - 0.02) / (h - 0.02)), roughness: 0.85, metalness: 0 }),
+  );
+  face.position.z = t / 2 + 0.001;
+  face.receiveShadow = true;
+  g.add(face);
+  return g;
+}
