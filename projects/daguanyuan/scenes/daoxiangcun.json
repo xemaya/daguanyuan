@@ -33,6 +33,13 @@
       "basis": "07-11「外面卻是桑,榆,槿,柘,各色樹稚新條,隨其曲折,編就兩溜青篱」。青篱构件 qingli(单子 BA3,D-36 ③ 加密):活桩+密编新条+四种叶枝,两溜走线与高 1.2 m 全读 plan layout;线性构件自带世界位置。"
     },
     {
+      "object": "daoxiangcun.wine-banner",
+      "part": "jiuhuang",
+      "variant": "daoxiangcun.wine-banner",
+      "tag": "稻香村",
+      "basis": "07-12「還少一個酒幌……不必華麗,就依外面村莊的式樣作來,用竹竿挑在樹梢」。jiuhuang.ts(单子 BB4):青竹竿斜挑、横挑挂青布帘,字从 plan(「杏簾在望」),犬牙边燕尾、布有褶,不用 transmission。位置从 plan 锚点读(BB4 挪到 (-188.5,-22.5));yaw 0 帘面朝 +Z(e08 来路一侧)。"
+    },
+    {
       "object": "daoxiangcun.well",
       "part": "jingtai",
       "variant": "daoxiangcun.well",
