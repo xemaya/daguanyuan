@@ -16,8 +16,9 @@ export interface PlanItem { id: string; kind: string; name: string; x: number; z
   construction?: { status?: string; spec: unknown; options: { platformH?: number } } }
 
 export function planItem(id: string): PlanItem {
-  const plan = getPlan() as unknown as { regions?: { buildings?: PlanItem[] }[] };
-  const hits = (plan.regions ?? []).flatMap((r) => r.buildings ?? []).filter((b) => b.id === id);
+  const plan = getPlan() as unknown as { regions?: { buildings?: PlanItem[]; rocks?: PlanItem[] }[] };
+  // rocks[] 也认(BB7 背山 daoxiangcun.rock-01 住在 rocks 里)。
+  const hits = (plan.regions ?? []).flatMap((r) => [...(r.buildings ?? []), ...(r.rocks ?? [])]).filter((b) => b.id === id);
   if (hits.length !== 1) throw new Error(`[xiangye] plan 对象 ${id} 须唯一，实际 ${hits.length}`);
   return hits[0];
 }

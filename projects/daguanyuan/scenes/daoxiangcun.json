@@ -48,6 +48,13 @@
       "basis": "07-12「路旁有一石碣,亦為留題之備」。shijie.ts(单子 BB5):圆首立石+素面碑座,碑面磨平不刻字(空白待题)。位置从 plan 锚点 (-198,-21.5) 读;yaw π/2 碑面朝东对村路(facing east)。"
     },
     {
+      "object": "daoxiangcun.rock-01",
+      "part": "beishan",
+      "variant": "daoxiangcun.rock-01",
+      "tag": "稻香村",
+      "basis": "plan rock-01「人力穿凿的背山」;07-14 宝玉批「背山山無脉」——孤立的土石小山,不与青山连脉(beishan.ts,单子 BB7)。高度按 dx_approach 视张角定:茆堂屋脊仰角 0.073 rad,背山 98.5 m 外顶须 ≥ 世界 8.9 m,当地地面约 1.0 m,取山高 8.5 m。位置从 plan 锚点 (-224,-88) 读。"
+    },
+    {
       "object": "daoxiangcun.well",
       "part": "jingtai",
       "variant": "daoxiangcun.well",
