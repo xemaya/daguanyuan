@@ -40,6 +40,14 @@
       "basis": "07-12「還少一個酒幌……不必華麗,就依外面村莊的式樣作來,用竹竿挑在樹梢」。jiuhuang.ts(单子 BB4):青竹竿斜挑、横挑挂青布帘,字从 plan(「杏簾在望」),犬牙边燕尾、布有褶,不用 transmission。位置从 plan 锚点读(BB4 挪到 (-188.5,-22.5));yaw 0 帘面朝 +Z(e08 来路一侧)。"
     },
     {
+      "object": "daoxiangcun.stone-tablet",
+      "part": "shijie",
+      "variant": "daoxiangcun.stone-tablet",
+      "yaw": 1.5707963267948966,
+      "tag": "稻香村",
+      "basis": "07-12「路旁有一石碣,亦為留題之備」。shijie.ts(单子 BB5):圆首立石+素面碑座,碑面磨平不刻字(空白待题)。位置从 plan 锚点 (-198,-21.5) 读;yaw π/2 碑面朝东对村路(facing east)。"
+    },
+    {
       "object": "daoxiangcun.well",
       "part": "jingtai",
       "variant": "daoxiangcun.well",

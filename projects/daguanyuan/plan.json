@@ -3915,6 +3915,19 @@
           "basis": "单子 AW1(2026-09-17)匾文繁体化「杏帘在望→杏簾在望」；底本维基文库程乙本，逐块对照表 docs/superpowers/plans/2026-09-17-aw-plaque-traditional.md。",
           "id": "daoxiangcun.wine-banner",
           "kind": "prop"
+        },
+        {
+          "name": "石碣(留题之备)",
+          "type": "碣",
+          "bays": 0,
+          "roof": "无",
+          "facing": "east",
+          "x": -198,
+          "z": -21.5,
+          "plaque": null,
+          "basis": "07-12「忽見路旁有一石碣,亦為留題之備」——留题之备即空白待题,碑面不刻字(plaque 为 null 是原文的意思,不是缺数据)。BB5:立在 e08 过桥后、泥墙开口前的村路西侧,离路中线 x=-196 约 2 m,面朝东对路;位置是艺术选择。",
+          "id": "daoxiangcun.stone-tablet",
+          "kind": "prop"
         }
       ],
       "plants": [
