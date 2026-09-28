@@ -4,10 +4,11 @@ import { readFileSync } from 'node:fs';
 import { requirePlanAnchor, validatePlanObjects } from '@builder/plan/objects.ts';
 const plan = JSON.parse(readFileSync('projects/daguanyuan/plan.json', 'utf8'));
 
-test('all 75 plan objects and landscape rocks have unique region-scoped identities', () => {
+test('all 76 plan objects and landscape rocks have unique region-scoped identities', () => {
+  // 单子 BB5:稻香村新增石碣 daoxiangcun.stone-tablet(07-12「路旁有一石碣」),75 → 76。
   assert.deepEqual(validatePlanObjects(plan.regions), []);
   const objects = plan.regions.flatMap(r => r.buildings);
-  assert.equal(objects.length, 75);
+  assert.equal(objects.length, 76);
   assert.equal(objects.filter(b => b.kind === 'building').length, 32);
   const byId = new Map(objects.map(b => [b.id, b]));
   assert.equal(byId.get('qinfang_ting_qiao.three-opening-bridge').kind, 'bridge');
