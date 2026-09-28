@@ -10,6 +10,7 @@ import {bedsFromPlan} from '@builder/plan/objects';
 import type { GameContext } from '@engine/core/Context';
 import { Simplex, fbm2, makeRng, rangeOf, clamp, smoothstep, lerp } from '@engine/core/Noise';
 import { poissonScatter, scatterHash01, DensityMask, makeInstanced, ClusteredInstancePool, distanceToPolyline, instanceWindPadding } from '@engine/scatter/index';
+import { cached, recipeKey } from '@engine/core/TextureLab';
 import { LatticeMask, blocksOver, blockRect, blockHash, latticeHash01, insideRect, rectWithin, splitRng, type BlockKey, type Rect } from '@engine/scatter/blocks';
 import { metaSurface, noiseDisplace, boxProjectedUV, type Ball } from '@builder/parts/sculpt';
 import {
@@ -215,7 +216,9 @@ const REGION_TREES: Record<string, { mix: string[]; density: number }> = {
   cuizhang: { mix: ['pine-old', 'locust', 'locust'], density: 1 },
   qinfang_ting_qiao: { mix: ['willow', 'willow', 'peach'], density: 1 },
   xiaoxiangguan: { mix: ['pear', 'locust'], density: 1 },
-  daoxiangcun: { mix: ['peach', 'peach', 'elm', 'elm'], density: 1 }, // 杏花如霞 + 桑榆槿柘
+  // 单子 BA4:以杏为主(07-11「有幾百株杏花,如噴火蒸霞一般」),榆仍代桑榆槿柘。成片的杏林不走这张牌堆,
+  // 另在泥墙与茅屋之间按林带撒(见 buildVegetation 的 APRICOT_GROVE);这里管的是区内其余散布树。
+  daoxiangcun: { mix: ['apricot', 'apricot', 'apricot', 'elm'], density: 1 }, // 杏花如霞 + 桑榆槿柘
   hengwuyuan: { mix: [], density: 0 }, // 一株花木也无
   yihongyuan: { mix: ['haitang', 'willow', 'peach'], density: 1 },
   shengqin_biesu: { mix: ['cypress', 'pine-old'], density: 1 }, // 青松拂檐
@@ -408,7 +411,8 @@ function waterRingPoints(id: string): [number, number][] | null {
 /* Species                                                             */
 /* ------------------------------------------------------------------ */
 
-type LeafSet = 'warm' | 'cool' | 'needle';
+/** `apricot`:杏花(单子 BA4,见 SPECIES 里的 apricot)。叶面贴图换成花色,不是换树形。 */
+type LeafSet = 'warm' | 'cool' | 'needle' | 'apricot';
 type BarkSet = 'oak' | 'ash' | 'pale';
 
 interface TreeDef {
@@ -546,12 +550,64 @@ const SPECIES: TreeDef[] = [
     barkTint: 0x7a5c40, tint: 0xf2dcd2, lumpy: 0.32,
     droop: 0.35,
   },
+  {
+    // 杏——「有幾百株杏花,如噴火蒸霞一般」(07-11,稻香村)。单子 BA4:**树形借桃**(骨架参数逐项同 peach),
+    // 只换花色:杏先花后叶,盛花时冠是花不是叶,所以冠面贴图换成花色(leafSet 'apricot')——比桃更红,
+    // 深处取含苞的胭脂 0xa8344c、亮处取初绽的粉白里透红 0xf4a494(花色是艺术取值,provenance.art)。
+    // 排在表尾:前面各种的下标与建树种子((seed ^ 0x7ee0) + i·7919)一个不动。
+    key: 'apricot',
+    h: 3.4, r: 0.22, flare: 0.20, lean: 0.16, curve: 0.30,
+    limbs: 5, limbStart: 0.40, limbEnd: 0.95, roots: 4,
+    crown: 'dome', crownR: 1.7, crownSquash: 0.95,
+    res: 20, leafSet: 'apricot', bark: 'ash',
+    barkTint: 0x5e3e2e, tint: 0xfff2ee, lumpy: 0.34,
+  },
 ];
 
 /** 哪些树种真的有骨架。`builder/compose/scenes.ts` 校验点名树的种时读它（单子 AV2）。 */
 export const SPECIES_INDEX: Record<string, number> = Object.fromEntries(
   SPECIES.map((d, i) => [d.key, i]),
 );
+
+/**
+ * 杏花的冠缘卡片贴图(单子 BA4)。
+ *
+ * 冠缘卡片是逆光时最亮的那一层,用绿叶簇贴图去乘粉色只会得到土褐——所以取同一张叶簇的
+ * **形与透明度**,按亮度重新上色:暗处胭脂(含苞)、亮处粉白里透红(初绽)。
+ * 只在本文件里做(`foliage-materials.ts` 不在本单文件域),用同一套 `cached` 记忆化。
+ */
+function blossomClusterTexture(src: THREE.Texture): THREE.Texture {
+  return cached(recipeKey('leafcluster.canopy.apricot-blossom', 512), () => {
+    const img = src.image as HTMLCanvasElement;
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const c = canvas.getContext('2d')!;
+    c.drawImage(img, 0, 0);
+    const data = c.getImageData(0, 0, canvas.width, canvas.height);
+    const px = data.data;
+    const bud = [0xa8, 0x34, 0x4c], open = [0xf7, 0xb8, 0xaa];
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 3] === 0) continue;
+      // 原图是绿叶:亮度主要在 G 通道,取 0.3R+0.6G+0.1B 并拉开到 0–1。
+      const l = clamp(((0.3 * px[i] + 0.6 * px[i + 1] + 0.1 * px[i + 2]) / 255 - 0.25) / 0.55, 0, 1);
+      px[i] = lerp(bud[0], open[0], l);
+      px[i + 1] = lerp(bud[1], open[1], l);
+      px[i + 2] = lerp(bud[2], open[2], l);
+    }
+    c.putImageData(data, 0, 0);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.anisotropy = src.anisotropy;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.needsUpdate = true;
+    return tex;
+  });
+}
 
 /* ------------------------------------------------------------------ */
 /* Plantability grid                                                   */
@@ -1759,6 +1815,7 @@ export function buildVegetation(ctx: GameContext): void {
     warm: leafMaps('warm', 0x4e8c3c, 0xaadd6c, 512),
     cool: leafMaps('cool', 0x3f7d4a, 0x92d072, 512),
     needle: leafMaps('needle', 0x3a6b46, 0x7cb266, 512),
+    apricot: leafMaps('apricot', 0xa8344c, 0xf4a494, 512),
   };
 
   const canopyMat = (set: LeafSet, tint: number, wind: number, tri = 0.55) =>
@@ -1771,7 +1828,7 @@ export function buildVegetation(ctx: GameContext): void {
       roughness: 0.86,
       windScale: wind,
       wrap: 0.52,
-      transColor: set === 'needle' ? 0x8fc86a : 0xb2e065,
+      transColor: set === 'needle' ? 0x8fc86a : set === 'apricot' ? 0xff9e8a : 0xb2e065,
       // Backlit leaves have to *glow*, not merely be lit. transPower down and
       // strength up widens the transmission lobe so the whole sunward half of a
       // crown lifts instead of only the few vertices pointing at the sun.
@@ -1792,12 +1849,12 @@ export function buildVegetation(ctx: GameContext): void {
   const shrubTex = leafClusterTexture('shrub', ctx.seed ^ 0x1eafc2, 40, 0.46);
   const makeFringeMat = (set: LeafSet, tex: THREE.Texture) =>
     createFoliageMaterial(ctx.env, {
-      color: set === 'needle' ? 0xc9e0b4 : set === 'cool' ? 0xdcf0c2 : 0xe8f4cc,
+      color: set === 'needle' ? 0xc9e0b4 : set === 'cool' ? 0xdcf0c2 : set === 'apricot' ? 0xffffff : 0xe8f4cc,
       map: tex,
       roughness: 0.88,
       windScale: 1.25,
       wrap: 0.62,
-      transColor: set === 'needle' ? 0x8fc86a : 0xb2e065,
+      transColor: set === 'needle' ? 0x8fc86a : set === 'apricot' ? 0xff9e8a : 0xb2e065,
       // The cards are one leaf thick and they are the part of the crown the sky
       // is actually behind, so they carry the strongest transmission in the
       // scene. This is what makes a backlit treeline read as foliage.
@@ -1813,6 +1870,7 @@ export function buildVegetation(ctx: GameContext): void {
     warm: makeFringeMat('warm', clusterTex),
     cool: makeFringeMat('cool', clusterTex),
     needle: makeFringeMat('needle', clusterTex),
+    apricot: makeFringeMat('apricot', blossomClusterTexture(clusterTex)),
   };
   const shrubMats: Record<'warm' | 'cool', ReturnType<typeof createFoliageMaterial>> = {
     warm: makeFringeMat('warm', shrubTex),
@@ -2090,7 +2148,67 @@ export function buildVegetation(ctx: GameContext): void {
     return out;
   };
 
-  const extTreeSpots: Spot[] = extClusterSpots((b) => {
+  /* ---------------- 杏林(单子 BA4):泥墙与茅屋之间成片 ---------------- */
+
+  /**
+   * 「轉過山怀中,隱隱露出一帶黃泥筑就矮牆……有幾百株杏花,如噴火蒸霞一般。里面數楹茅屋。」(07-11)
+   * `dx_approach` 那一眼要的是「墙后杏花成片、杏花后露茅屋顶」,所以林带取**泥墙与茅屋之间**:
+   *   - 东西:泥墙走线的两端(plan `daoxiangcun.mud-wall` 的 runs);
+   *   - 南北:从墙线往里 1 m(杏干不贴墙,冠可以探出墙头),到茆堂落脚面的后沿(plan pads);
+   *   - 让开:房子(占位场 + 1.5 m)、落脚面(1.5 m)、墙篱走线(1 m)、路(plan.paths 与 connection.daoxiang-* 中线 2.5 m)、
+   *     茆堂前院(落脚面前沿往外 10 m、与茆堂同宽——D-35「前院整片旱地」;10 m 是艺术取值);
+   *   - 不问草皮掩码(果林底下是土),只要脚下站得住。
+   * **先撒后筛**(`P-28` / `P-33`):泊松飞镖流不看密度、坐标哈希决定留不留;撒在 D-37 的块里,
+   * 飞镖只按块坐标播种——旧散布盒一株都碰不到(林带整个在盒外,且块里的点在盒内一律丢)。
+   * 株数不是拍的:最小株距 2.0 m(冠径 3.4 m,冠与冠搭三成多,远看连成一片霞),每块飞镖撒到饱和,
+   * 留存率 0.92(哈希筛,让林子有疏有密)——林带面积定株数,回报里写实测。
+   */
+  const APRICOT_GROVE = (() => {
+    const plan = getPlan() as unknown as {
+      regions: { id: string; polygon: Point2[]; pads?: { id: string; polygon: Point2[] }[];
+        buildings: { id: string; layout?: { runs: { points: Point2[] }[] } }[] }[];
+      paths: { points: Point2[] }[];
+      connections?: { id: string; points: Point2[] }[];
+    };
+    const reg = plan.regions.find((r) => r.id === 'daoxiangcun');
+    const wall = reg?.buildings.find((b) => b.id === 'daoxiangcun.mud-wall')?.layout?.runs ?? [];
+    const mainPad = reg?.pads?.find((q) => q.id === 'daoxiangcun.main-foundation')?.polygon;
+    if (!reg || !wall.length || !mainPad) return null;
+    const wx = wall.flatMap((r) => r.points.map((q) => q[0])), wz = wall.flatMap((r) => r.points.map((q) => q[1]));
+    const px = mainPad.map((q) => q[0]), pz = mainPad.map((q) => q[1]);
+    const wallZ = Math.min(...wz);
+    const rect: Rect = { minX: Math.min(...wx), maxX: Math.max(...wx), minZ: Math.min(...pz), maxZ: wallZ - 1 };
+    const court: Rect = { minX: Math.min(...px), maxX: Math.max(...px), minZ: Math.max(...pz), maxZ: Math.max(...pz) + 10 };
+    const lines = reg.buildings.flatMap((b) => b.layout?.runs.map((r) => r.points) ?? []);
+    const pads = (reg.pads ?? []).map((q) => q.polygon);
+    const roads = [...plan.paths.map((q) => q.points),
+      ...(plan.connections ?? []).filter((c) => c.id.startsWith('connection.daoxiang')).map((c) => c.points)];
+    const density = (x: number, z: number): number => {
+      if (!insideRect(rect, x, z) || insideRect(court, x, z)) return 0;
+      if (locatePoint(reg.polygon, [x, z]) === 'outside') return 0;
+      if (ground(x, z) < VEG.minPlantY) return 0;
+      if (outsideBuildings(x, z, 1.5) < 0.5) return 0;
+      if (pads.some((q) => locatePoint(q, [x, z]) !== 'outside' || distanceToPolyline(x, z, q) < 1.5)) return 0;
+      if (lines.some((l) => distanceToPolyline(x, z, l) < 1.0)) return 0;
+      if (roads.some((l) => distanceToPolyline(x, z, l) < 2.5)) return 0;
+      return 0.92;
+    };
+    return { rect, density };
+  })();
+
+  const extTreeSpots: (Spot & { grove?: boolean })[] = extClusterSpots((b) => {
+    const out: (Spot & { grove?: boolean })[] = [];
+    // 杏林先落(它是这一带的主角),丛植的树再与它硬隔。
+    const br = blockRect(b, EXT_BLOCK);
+    if (APRICOT_GROVE &&
+        br.maxX > APRICOT_GROVE.rect.minX && br.minX < APRICOT_GROVE.rect.maxX &&
+        br.maxZ > APRICOT_GROVE.rect.minZ && br.minZ < APRICOT_GROVE.rect.maxZ) {
+      for (const g of poissonScatter({
+        ...br, radius: 2.0, tries: 6000,
+        density: (x, z) => (inLegacy(x, z) ? 0 : APRICOT_GROVE.density(x, z)),
+        rng: blockRng(b, 0xa9c07), filterByHash: true,
+      })) out.push({ x: g.x, z: g.z, grove: true });
+    }
     // 与旧散布盒同一套参数(3.7 m 丛心、1–5 株、0.9–3.1 m 散开、1.5 m 硬隔),飞镖数按面积折。
     // treeBudget 不进块:预算截断是顺序依赖的补撒,块里一株都不许依赖别的块。
     const copses = poissonScatter({
@@ -2098,7 +2216,6 @@ export function buildVegetation(ctx: GameContext): void {
       radius: 3.7, tries: extTries(7000), density: treeDensityExt, rng: blockRng(b, 0x7eee), filterByHash: true,
     });
     const MIN_SEP2 = 1.5 * 1.5;
-    const out: Spot[] = [];
     for (const c of copses) {
       const copseRng = makeRng((ctx.seed ^ Math.floor(scatterHash01(c.x, c.z) * 4294967296)) >>> 0);
       const n = 1 + Math.floor(Math.pow(copseRng(), 1.35) * 5);
@@ -2116,6 +2233,7 @@ export function buildVegetation(ctx: GameContext): void {
     }
     return out;
   }, 1.5);
+  const groveCount = extTreeSpots.filter((s) => s.grove).length;
   mark('D-37 块里的树(候选 + 跨块硬隔)');
 
   const placeTree = (
@@ -2227,7 +2345,9 @@ export function buildVegetation(ctx: GameContext): void {
     const reg = regionOf(s.x, s.z);
     const rt = reg ? REGION_TREES[reg] : undefined;
     const mix = rt && rt.mix.length > 0 ? rt.mix : FALLBACK_MIX;
-    const idx = SPECIES_INDEX[mix[Math.floor(spotRng() * mix.length)]];
+    const drawn = SPECIES_INDEX[mix[Math.floor(spotRng() * mix.length)]];
+    // 杏林里的一律是杏(照样抽一张牌,rng 序列与别的散布树同形)。
+    const idx = s.grove ? SPECIES_INDEX['apricot'] : drawn;
     placeTree(s.x, s.z, idx, undefined, spotRng, true);
   }
 
@@ -3881,6 +4001,7 @@ export function buildVegetation(ctx: GameContext): void {
   group.userData.treePlacements = treeBases;
   group.userData.naturalTreeCount = treeSpots.length;
   // D-37 自报:块数、块里的树/灌木株数、世界掩码烤了多少格点(建时归因用)。
+  group.userData.apricotGrove = groveCount;
   group.userData.d37 = { blocks: extBlocks.length, extTrees: extTreeSpots.length, extBushes: extBushSpots.length,
     extGrassChunks: [...extChunks.values()].filter((c) => c.list.length).length, worldMaskSamples: wmask.baked };
   group.userData.grassCoverage = { denseChunks: denseChunks.filter(Boolean).length,
