@@ -12057,6 +12057,8 @@
   "connections": [
     {
       "id": "connection.daoxiang-creek",
+      "bridgeStyle": "rustic-plank",
+      "bridgeStyle_basis": "BB2(验收人裁定):C-r 乡野子档不施彩画,园桥的方栏在 dx_well 里读成一只暗红箱子;改乡野板桥——原木梁、顺桥向厚板、木桩脚、单侧原木扶手,不上漆(builder/parts/shuigong/plank-bridge.ts)。走线、宽、标高、墩距不变。",
       "kind": "bridge",
       "points": [
         [

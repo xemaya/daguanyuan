@@ -7,9 +7,12 @@ import {stoneMaterial,woodMaterial,CN} from '../materials';
 import {roundedBox} from '../sculpt';
 import {assembleStatic} from '../static-batches';
 import {deckGeometry} from './path-deck';
+import {buildRusticPlankBridge} from './plank-bridge';
 export interface BridgePathResult extends PartBuild {kind:'bridge-path';spec:BridgePathSpec;path:ReturnType<typeof compileBridgePath>}
 
 export function buildBridgePath(spec:BridgePathSpec,ground:(x:number,z:number)=>number):BridgePathResult {
+  // 单子 BB2:乡野板桥是新增的一支(plan 的 connection 声明 bridgeStyle:'rustic-plank'),园桥以下代码一行不经过。
+  if((spec as {bridgeStyle?:string}).bridgeStyle==='rustic-plank')return buildRusticPlankBridge(spec,ground);
   const path=compileBridgePath(spec),root=new THREE.Group(),mat=stoneMaterial(1);
   const deck=spec.deckMaterial==='wood'?woodMaterial():mat;
   const rail=spec.railingMaterial==='vermilion'?woodMaterial(CN.bridgeVermilion):spec.railingMaterial==='wood'?woodMaterial():mat;
