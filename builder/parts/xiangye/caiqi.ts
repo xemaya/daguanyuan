@@ -4,6 +4,7 @@ import { getPlan } from '@builder/compose/terrain';
 import { Simplex, makeRng } from '@engine/core/Noise';
 import { cached, recipeKey, dirtPathMaps } from '@engine/core/TextureLab';
 import { planItem, planGround, type P2 } from './plan-data';
+import { compileFields, type FieldSpec } from '@builder/plan/field-plots';
 
 /**
  * 菜畦(单子 BB6,用户 2026-09-29 取甲档:茆堂以北到背山,e09 出村路两侧)。
@@ -19,10 +20,6 @@ import { planItem, planGround, type P2 } from './plan-data';
  * 全部数据读 plan(区多边形、水、pads、墙篱走线、游线、背山锚点);**所有植株与垄都是 InstancedMesh**。
  * 局部坐标:原点在 plan 锚点(地面高按装配器的同一个 ground 取),几何按世界地面起伏。
  */
-interface FieldSpec {
-  clipSouthZ: number; roadClearM: number; waterClearM: number; wallClearM: number; hillClearM: number;
-  roads: string[]; hill: string; rapeShare: number; plotM: number; bedM: number; furrowM: number; baulkM: number;
-}
 const PROVENANCE = [{ id: 'project:vegetable-plots', name: '菜畦', method: 'artistic_choice',
   note: '07-11「分畦列畝,佳蔬菜花,漫然無際」;位置按用户 2026-09-29 裁定(BB6 甲档)。田块 5–9 m 拼块、垄宽 1.0 沟 0.5、田埂 0.4、株距 0.4、油菜约四成——尺寸为艺术取值,范围与避让读 plan。' }];
 
@@ -145,24 +142,10 @@ export function buildCaiqi(variant: string, context?: PartContext): PartBuild {
   const region = plan.regions.find((r) => r.buildings.some((b) => b.id === id))!;
   const ground = context?.ground ?? planGround();
   const ox = item.x, oz = item.z, g0 = ground(ox, oz);
-  const roads = F.roads.map((rid) => plan.paths.find((p) => p.id === rid)?.points ?? plan.narrativeRoutes.flatMap((r) => r.legs).find((l) => l.id === rid)?.points);
-  if (roads.some((r) => !r)) throw new Error(`[caiqi] ${id} 的 roads 有找不到的走线`);
-  const walls = region.buildings.flatMap((b) => b.layout?.runs.map((r) => r.points) ?? []);
-  const hill = [...(region.rocks ?? []), ...region.buildings].find((o) => o.id === F.hill);
-  if (!hill) throw new Error(`[caiqi] 找不到背山 ${F.hill}`);
-  const waters = plan.water.filter((w) => w.polygon).map((w) => w.polygon!);
-  const edge = new Simplex(0xca1);
-  const ok = (x: number, z: number) => {
-    if (!inPoly(region.polygon, x, z)) return false;
-    if (z > F.clipSouthZ + 2.2 * edge.noise2D(x / 6, 1.7) + 1.1 * edge.noise2D(x / 2.3, 5)) return false;
-    for (const w of waters) { if (inPoly(w, x, z) || lineD([...w, w[0]], x, z) < F.waterClearM) return false; }
-    for (const p of region.pads ?? []) if (inPoly(p.polygon, x, z)) return false;
-    for (const r of walls) if (lineD(r, x, z) < F.wallClearM) return false;
-    for (const r of roads) if (lineD(r!, x, z) < F.roadClearM) return false;
-    // 背山脚:BB7 的背山椭圆 8×10 m(beishan.ts),外放 hillClear。
-    if (((x - hill.x) / (8 + F.hillClearM)) ** 2 + ((z - hill.z) / (10 + F.hillClearM)) ** 2 < 1) return false;
-    return true;
-  };
+  // 范围判定与地面 splat 的「菜畦」地类共用一个函数(单子 BD3,builder/plan/field-plots.ts)。
+  const compiled = compileFields(plan).find((f) => f.id === id);
+  if (!compiled) throw new Error(`[caiqi] ${id} 编不出菜畦范围`);
+  const ok = compiled.inside;
   // 田块:抖动网格上的种子点(Voronoi),每块一个垄向与作物。
   const rng = makeRng(0xca9), xs = region.polygon.map((p) => p[0]), zs = region.polygon.map((p) => p[1]);
   const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.min(Math.max(...zs), F.clipSouthZ + 4);

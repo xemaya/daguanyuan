@@ -312,6 +312,17 @@ const terrainSurface = /*@__PURE__*/ Fn( ( [ vTerXZ, vTerH, vTerN ] ) => {
 	albedo.assign( mix( albedo, aSoil, soilAmt.mul( 0.92 ) ) );
 	rgh.assign( mix( rgh, 0.96, soilAmt.mul( 0.85 ) ) );
 
+	// ---- 菜畦(单子 BD3) ---------------------------------------------------
+	// 扩展 splat 的 B:菜畦范围内 1,别处恒 0。深褐熟土:同一张土贴图换尺度、压暗、偏褐,
+	// 比露土更暗更匀(翻过、浇过的熟土)。field=0 处 mix 的权重为 0,albedo / rgh 逐位不变。
+
+	const fieldAmt = (clamp( sp2.b, 0.0, 1.0 )).toVar();
+	const aField = (uDirtMap.sample( uvD2.mul( 3.10 ).add( vec2( 5.3, 0.7 ) ) ).rgb).toVar();
+	aField.assign( mix( vec3( dot( aField, LUM ) ), aField, 1.15 ) );
+	aField.assign( aField.mul( 0.40 ).mul( vec3( 1.22, 0.95, 0.74 ) ) );
+	albedo.assign( mix( albedo, aField, fieldAmt.mul( 0.95 ) ) );
+	rgh.assign( mix( rgh, 0.97, fieldAmt.mul( 0.9 ) ) );
+
 	// ---- 湿痕(单子 T) ----------------------------------------------------
 	// masks.wet:水线 ±1.2m 且高程贴水面的地带。湿处 turf/sand/soil 变暗、
 	// roughness 明显降低;w2.a 让湿边斑驳,不是一圈均匀的灰带。与下面按

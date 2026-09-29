@@ -14,8 +14,8 @@
  *   sand（见 masks()，苔带与水线沙带重叠处留沙）——mipmap 平均出来的中间值只会
  *   出现在各自区域的边缘羽化带上，解码后仍是合法的弱权重，不会串成另一种材质。
  *
- *   扩展 splat（单子 T）：
- *     R soil 露土 ｜ G wet 湿痕 ｜ B 备用（恒 0）｜ A 备用（恒 0）
+ *   扩展 splat（单子 T；BD3 用 B）：
+ *     R soil 露土 ｜ G wet 湿痕 ｜ B field 菜畦（BD3，菜畦外恒 0）｜ A 备用（恒 0）
  *   soil/wet 都是单一标量权重，无分档；mip 平均出的中间值就是边缘羽化。
  */
 
@@ -63,7 +63,8 @@ export function bakeSplatExtData(
       const o = (j * size + i) * 4;
       data[o] = m.soil * 255;
       data[o + 1] = m.wet * 255;
-      // B、A 留空备用（见头注释的打包格式），恒 0。
+      data[o + 2] = m.field * 255; // BD3:菜畦
+      // A 留空备用，恒 0。
     }
   }
   return data;
@@ -95,6 +96,7 @@ export function bakeSplatData(
       main[o + 3] = m.wear * 255;
       ext[o] = m.soil * 255;
       ext[o + 1] = m.wet * 255;
+      ext[o + 2] = m.field * 255; // BD3:菜畦
     }
   }
   return { main, ext };

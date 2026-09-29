@@ -25,6 +25,7 @@ import { BoundsIndex } from '@engine/scatter/cluster';
 import {allPlanLinears,type LinearSpec} from '@builder/plan/linears';
 import {compileBridgePath} from '@builder/plan/bridge-path';
 import {terrainWindow} from '@builder/plan/window';
+import {compileFields} from '@builder/plan/field-plots';
 import { makeGrassCoverField, bareSoilAmount } from './grass-cover';
 
 /* ------------------------------------------------------------------ */
@@ -128,6 +129,11 @@ export interface SurfaceMasks {
    * 复用沙带那趟水线距离计算。打包在扩展 splat 的 G。
    */
   wet: number;
+  /**
+   * 菜畦权重(单子 BD3)。只在 plan 里带 `field` 规格的种植对象范围内为 1(判定在
+   * `builder/plan/field-plots.ts`,与菜畦构件共用一个函数),其余处恒 0。打包在扩展 splat 的 B。
+   */
+  field: number;
 }
 
 export interface TerrainField {
@@ -824,6 +830,9 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
     return best;
   }
 
+  // 单子 BD3:菜畦范围(与菜畦构件同一个判定函数)。
+  const fields = compileFields(plan);
+
   function masks(x: number, z: number): SurfaceMasks {
     const path = pathBlend(x, z);
 
@@ -1028,13 +1037,19 @@ export function makeTerrainField(plan: GardenPlan, opts: TerrainFieldOptions): T
       wet = wetBand * smoothstep(0.42, 0.12, Math.abs(height(x, z))) * 0.92;
     }
 
-    return { dirt, cobble, slab, sand, grass: grassOut, wear, moss, soil, wet };
+    // 菜畦(单子 BD3):新增地类,只在菜畦范围内非 0;别的地类权重一个不动。
+    let field = 0;
+    for (const f of fields) if (f.inside(x, z)) { field = 1; break; }
+
+    return { dirt, cobble, slab, sand, grass: grassOut, wear, moss, soil, wet, field };
   }
 
   function surface(x: number, z: number): string {
     const m = masks(x, z);
     if (Math.max(m.cobble, m.slab) > 0.45) return 'stone';
     if (m.sand > 0.4) return 'sand';
+    // 单子 BD3:菜畦地类。范围与路、水、墙篱不交(field-plots 各让一段),排在路土前只为明确。
+    if (m.field > 0.5) return 'field';
     if (m.dirt > 0.4) return 'dirt';
     return 'grass';
   }
