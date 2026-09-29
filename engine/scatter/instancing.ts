@@ -34,27 +34,41 @@ interface PooledCluster {
   lod?: ClusterLod;
 }
 
+type Masters = { attr: THREE.BufferAttribute; data: ArrayLike<number> }[];
+
 /**
  * 单子 BC1:远处档。一个簇的每个成员(一棵树)按它自己到相机的水平距离归近档或远档——
  * 不按簇整体切,所以 128 m 的大簇里也不会出现「一格一格换档」的线。
  *
- * 近档与远档是同一批成员、同一套逐实例数据(矩阵、色、aWind)的两组网格;
- * 每一帧(相机挪过 0.5 m 才重算)把成员分成两段:近档网格的缓冲前缀是近的那些、`count` = 近的株数,
- * 远档网格反过来。**两组网格的前缀并起来恰好是全体成员、各一次**——所以按 `count` 读实例的工具
+ * 近档仍是每簇一组网格(缓冲前缀 = 这一簇里近的那些,`count` = 近的株数);**远档是整个种一组网格**,
+ * 缓冲前缀 = 全园远的那些——不跟着簇走,因为远档本来就便宜,拆成每簇一组只是在加 draw call
+ * (第一版每簇各一组远档,三角降了 1.6M、draw call 却多了 13~45,帧成本不降反升 0.3~0.9 ms,
+ * 实测见 shots/BC/data)。近档各簇前缀 + 远档前缀 = 全体成员、各一次——所以按 `count` 读实例的工具
  * (`tree-census`)读到的集合与不分档时逐株相同。阴影 pass 用同一个 `count`,阴影随主相机档。
  */
 interface ClusterLod {
-  dist: number;
-  hysteresis: number;
+  /** 成员在这个种里的全局序号。 */
+  members: number[];
   /** 成员的世界 x/z(取自实例矩阵的平移)。 */
   xz: Float32Array;
   /** 成员当前是否在远档。 */
   far: Uint8Array;
   near: THREE.InstancedMesh[];
-  farMeshes: THREE.InstancedMesh[];
-  /** 每个网格按簇内原始成员序存的一份逐实例数据母本,重排时从这里抄。 */
-  masters: Map<THREE.InstancedMesh, { attr: THREE.BufferAttribute; data: ArrayLike<number> }[]>;
+  /** 近档网格按簇内原始成员序存的逐实例数据母本,重排时从这里抄。 */
+  masters: Map<THREE.InstancedMesh, Masters>;
   initialized: boolean;
+  pool: LodPool;
+}
+/** 一个种(一次 `add`)的远档:全园一组网格。 */
+interface LodPool {
+  dist: number;
+  hysteresis: number;
+  clusters: ClusterLod[];
+  farMeshes: THREE.InstancedMesh[];
+  /** 远档网格按全局成员序存的母本。 */
+  masters: Map<THREE.InstancedMesh, Masters>;
+  farIds: number[];
+  dirty: boolean;
 }
 
 export interface ClusterLodOptions {
@@ -81,6 +95,7 @@ export class ClusteredInstancePool {
   }
 
   private readonly lastLodCamera = new THREE.Vector3(Infinity, 0, Infinity);
+  private readonly lodPools: LodPool[] = [];
 
   add(sources: THREE.InstancedMesh[], options: {maxDist?:number;skipShadow?:THREE.InstancedMesh[];cellSize?:number;lod?:ClusterLodOptions} = {}): void {
     if (!sources.length || sources[0].count === 0) return;
@@ -103,6 +118,58 @@ export class ClusteredInstancePool {
       grid.add(combined.center.x,combined.center.z,i,combined.center.y,combined.radius);
     }
     if (options.lod && options.lod.geometries.length !== sources.length) throw new Error('lod.geometries must match sources');
+    let pool: LodPool | undefined;
+    if (options.lod) {
+      const n = sources[0].count;
+      const farMeshes: THREE.InstancedMesh[] = [];
+      const masters = new Map<THREE.InstancedMesh, Masters>();
+      const everyone = new THREE.Sphere().makeEmpty();
+      for (let i = 0; i < n; i++) {
+        sources[0].getMatrixAt(i, matrix); matrix.premultiply(sources[0].matrix);
+        const c = new THREE.Vector3().setFromMatrixPosition(matrix);
+        everyone.union(new THREE.Sphere(c, 0.1));
+      }
+      options.lod.geometries.forEach((g, k) => {
+        if (!g) return;
+        const src = sources[k];
+        const geometry = g.clone();
+        geometry.setIndex(g.index);
+        for (const [key, a] of Object.entries(g.attributes)) if (!(a as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) geometry.setAttribute(key, a);
+        for (const [key, a] of Object.entries(src.geometry.attributes)) {
+          const attr = a as THREE.InstancedBufferAttribute;
+          if (!attr.isInstancedBufferAttribute) continue;
+          geometry.setAttribute(key, new THREE.InstancedBufferAttribute(attr.array.slice(0, n * attr.itemSize), attr.itemSize, attr.normalized));
+        }
+        const mesh = new THREE.InstancedMesh(geometry, src.material, n);
+        // 名字里的 `@` 之后是格号的位置——`tree-census` 按 `@` 截种名,远档写 `@far`。
+        mesh.name = `${src.name}@far`;
+        mesh.castShadow = src.castShadow; mesh.receiveShadow = src.receiveShadow;
+        mesh.customDepthMaterial = src.customDepthMaterial; mesh.customDistanceMaterial = src.customDistanceMaterial;
+        const color = new THREE.Color();
+        for (let i = 0; i < n; i++) {
+          src.getMatrixAt(i, matrix); matrix.premultiply(src.matrix); mesh.setMatrixAt(i, matrix);
+          if (src.instanceColor) { src.getColorAt(i, color); mesh.setColorAt(i, color); }
+        }
+        if (!g.boundingSphere) g.computeBoundingSphere();
+        mesh.boundingSphere = everyone.clone();
+        mesh.boundingSphere.radius += g.boundingSphere!.radius * 1.6 + windPadding;
+        if (options.skipShadow?.includes(src)) {
+          mesh.onBeforeShadow = () => { mesh.count = 0; };
+          mesh.onAfterShadow = () => { mesh.count = (mesh.userData.lodCount as number | undefined) ?? 0; };
+        }
+        const list: Masters = [{ attr: mesh.instanceMatrix, data: mesh.instanceMatrix.array.slice() }];
+        if (mesh.instanceColor) list.push({ attr: mesh.instanceColor, data: mesh.instanceColor.array.slice() });
+        for (const a of Object.values(mesh.geometry.attributes))
+          if ((a as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) list.push({ attr: a as THREE.BufferAttribute, data: (a as THREE.BufferAttribute).array.slice() });
+        masters.set(mesh, list);
+        // 未分档之前:近档画全体,远档不画。
+        mesh.count = 0; mesh.userData.lodCount = 0; mesh.visible = false;
+        this.root.add(mesh);
+        farMeshes.push(mesh);
+      });
+      pool = { dist: options.lod.dist, hysteresis: options.lod.hysteresis ?? 2, clusters: [], farMeshes, masters, farIds: [], dirty: true };
+      this.lodPools.push(pool);
+    }
     for (const cluster of grid.cells()) {
       const members=cluster.items;
       const buildMesh=(source:THREE.InstancedMesh,base:THREE.BufferGeometry,suffix:string)=>{
@@ -150,25 +217,22 @@ export class ClusteredInstancePool {
       };
       const meshes=sources.map(source=>buildMesh(source,source.geometry,''));
       let lod:ClusterLod|undefined;
-      if(options.lod){
-        const farMeshes:THREE.InstancedMesh[]=[];
-        options.lod.geometries.forEach((g,k)=>{ if(g) farMeshes.push(buildMesh(sources[k],g,'~far')); });
+      if(pool){
         const xz=new Float32Array(members.length*2);
         const e=meshes[0].instanceMatrix.array;
         for(let j=0;j<members.length;j++){xz[j*2]=e[j*16+12];xz[j*2+1]=e[j*16+14];}
-        const masters=new Map<THREE.InstancedMesh,{attr:THREE.BufferAttribute;data:ArrayLike<number>}[]>();
-        for(const mesh of [...meshes,...farMeshes]){
-          const list:{attr:THREE.BufferAttribute;data:ArrayLike<number>}[]=[{attr:mesh.instanceMatrix,data:mesh.instanceMatrix.array.slice()}];
+        const masters=new Map<THREE.InstancedMesh,Masters>();
+        for(const mesh of meshes){
+          const list:Masters=[{attr:mesh.instanceMatrix,data:mesh.instanceMatrix.array.slice()}];
           if(mesh.instanceColor)list.push({attr:mesh.instanceColor,data:mesh.instanceColor.array.slice()});
           for(const a of Object.values(mesh.geometry.attributes))
             if((a as THREE.InstancedBufferAttribute).isInstancedBufferAttribute)list.push({attr:a as THREE.BufferAttribute,data:(a as THREE.BufferAttribute).array.slice()});
           masters.set(mesh,list);
         }
-        // 未分档之前:近档画全体,远档不画。
-        for(const m of farMeshes){m.count=0;m.userData.lodCount=0;}
-        lod={dist:options.lod.dist,hysteresis:options.lod.hysteresis??2,xz,far:new Uint8Array(members.length),near:meshes,farMeshes,masters,initialized:false};
+        lod={members:[...members],xz,far:new Uint8Array(members.length),near:meshes,masters,initialized:false,pool};
+        pool.clusters.push(lod);
       }
-      this.clusters.push({center:new THREE.Vector3(cluster.center.x,cluster.center.y,cluster.center.z),radius:cluster.radius,maxDist:options.maxDist??Infinity,meshes:lod?[...meshes,...lod.farMeshes]:meshes,lod});
+      this.clusters.push({center:new THREE.Vector3(cluster.center.x,cluster.center.y,cluster.center.z),radius:cluster.radius,maxDist:options.maxDist??Infinity,meshes,lod});
     }
     for(const source of sources){source.removeFromParent();source.geometry.dispose();}
   }
@@ -177,32 +241,51 @@ export class ClusteredInstancePool {
     this.clusters.push({center:center.clone(),radius,maxDist,build});
   }
 
-  /** BC1:按成员重排一个簇的近 / 远两组网格(见 ClusterLod)。 */
+  /** 按 `order` 把母本抄进网格缓冲前缀,`count` = 前缀长。 */
+  private static writeOrder(mesh: THREE.InstancedMesh, masters: Masters, order: number[], count: number): void {
+    for (const { attr, data } of masters) {
+      const size = attr.itemSize, arr = attr.array as unknown as { [i: number]: number };
+      order.forEach((src, dst) => { for (let c = 0; c < size; c++) arr[dst * size + c] = data[src * size + c]; });
+      attr.needsUpdate = true;
+    }
+    mesh.count = count;
+    mesh.userData.lodCount = count;
+  }
+
+  /** BC1:按成员重排一个簇的近档网格,并记下远档是否要重排(见 ClusterLod)。 */
   private applyLod(lod: ClusterLod, cx: number, cz: number): void {
-    const n = lod.far.length;
+    const n = lod.far.length, pool = lod.pool;
     let changed = !lod.initialized;
     for (let j = 0; j < n; j++) {
       const d = Math.hypot(lod.xz[j * 2] - cx, lod.xz[j * 2 + 1] - cz);
       const was = lod.far[j];
-      const now = was ? (d > lod.dist - lod.hysteresis ? 1 : 0) : (d > lod.dist + lod.hysteresis ? 1 : 0);
-      if (now !== was || !lod.initialized) { lod.far[j] = lod.initialized ? now : (d > lod.dist ? 1 : 0); changed = true; }
+      const now = !lod.initialized ? (d > pool.dist ? 1 : 0) : was ? (d > pool.dist - pool.hysteresis ? 1 : 0) : (d > pool.dist + pool.hysteresis ? 1 : 0);
+      if (now !== was || !lod.initialized) { lod.far[j] = now; changed = true; }
     }
     lod.initialized = true;
     if (!changed) return;
+    pool.dirty = true;
     const nearIdx: number[] = [], farIdx: number[] = [];
     for (let j = 0; j < n; j++) (lod.far[j] ? farIdx : nearIdx).push(j);
-    const write = (mesh: THREE.InstancedMesh, order: number[], count: number) => {
-      for (const { attr, data } of lod.masters.get(mesh)!) {
-        const size = attr.itemSize, arr = attr.array as unknown as { [i: number]: number };
-        order.forEach((src, dst) => { for (let c = 0; c < size; c++) arr[dst * size + c] = data[src * size + c]; });
-        attr.needsUpdate = true;
-      }
-      mesh.count = count;
-      mesh.userData.lodCount = count;
-    };
-    const nearFirst = [...nearIdx, ...farIdx], farFirst = [...farIdx, ...nearIdx];
-    for (const m of lod.near) write(m, nearFirst, nearIdx.length);
-    for (const m of lod.farMeshes) write(m, farFirst, farIdx.length);
+    const nearFirst = [...nearIdx, ...farIdx];
+    for (const m of lod.near) ClusteredInstancePool.writeOrder(m, lod.masters.get(m)!, nearFirst, nearIdx.length);
+  }
+
+  /** 远档:全园远的成员按簇序排成前缀。 */
+  private applyFar(pool: LodPool): void {
+    if (!pool.dirty) return;
+    pool.dirty = false;
+    const ids: number[] = [];
+    for (const c of pool.clusters) c.far.forEach((f, j) => { if (f) ids.push(c.members[j]); });
+    if (ids.length === pool.farIds.length && ids.every((v, i) => v === pool.farIds[i])) return;
+    pool.farIds = ids;
+    const inFar = new Set(ids), rest: number[] = [];
+    for (const c of pool.clusters) for (const id of c.members) if (!inFar.has(id)) rest.push(id);
+    const order = [...ids, ...rest];
+    for (const m of pool.farMeshes) {
+      ClusteredInstancePool.writeOrder(m, pool.masters.get(m)!, order, ids.length);
+      m.visible = ids.length > 0;
+    }
   }
 
   update(camera: THREE.Camera): void {
@@ -228,12 +311,15 @@ export class ClusteredInstancePool {
       }
       if(cluster.lod && (relod || !cluster.lod.initialized)) this.applyLod(cluster.lod, this.cameraPosition.x, this.cameraPosition.z);
       if(cluster.meshes)for(const mesh of cluster.meshes){
-        // 分档之后一组网格可能一株都不画(count 0),干脆不交给渲染器。
+        // 分档之后近档网格可能一株都不画(count 0),干脆不交给渲染器。
         mesh.visible=active && (mesh.userData.lodCount === undefined || (mesh.userData.lodCount as number) > 0);
         mesh.frustumCulled=this.enabled && this.frustumEnabled;
       }
     }
+    this.finishLod();
   }
+
+  private finishLod(): void { for (const p of this.lodPools) this.applyFar(p); }
 
   setEnabled(on:boolean): void {this.enabled=on;}
   setFrustumCulling(on:boolean): void {this.frustumEnabled=on;}
