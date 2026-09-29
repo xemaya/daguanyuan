@@ -35,14 +35,14 @@
 
 | 构件 | 要求 | 现状（2026-09-25 验收人查） | 数据在哪 | 状态 |
 |---|---|---|---|---|
-| 茆堂（主屋） | 数楹茅屋，茅顶悬山，纸窗土壁 | **BB 后**：`thatch-cottage` 建成（composer 对 C-r 放行，status 去掉 frame-ready；`pendingGeometry` 只剩竹牖），manifest 落 (−202, 1.2, −52) yaw 0；棚拍几何 78 614 三角（正门门屋 296 906）；土色 0x866c41，棚拍 45° 茅顶−墙亮度差 33.6；匾「稻香村」素木墨字（plan `plaqueStyle: plain-wood`）。**初诊**：plan 有 spec（3 间、朝南、(−202,−52)、匾「稻香村」），**`status: frame-ready`，composer 不建**（`composer.ts:446`）；乡野参数集挂着三项未做几何：`rustic-timber-joints` / `thatch` / `earth-walls`（`builder/derive/construction.ts:35`）。**BA1（2026-09-27）**：`projects/daguanyuan/scenes/daoxiangcun.json` named 绑 `building:tang` 顶替，manifest 落在 (−202, 1.2, −52) yaw 0（`shots/BA/ba1/BA1-after-r1/manifest.json`） | plan `daoxiangcun.main-cottage` | ✅ |
+| 茆堂（主屋） | 数楹茅屋，茅顶悬山，纸窗土壁 | **BD 后**：土壁改版筑贴图（层线断续带泥浆软边、夯窝、泥抹、竖向细裂在贴图里，几何只留微起伏与塌角，D-36 推翻条件），棚拍几何 78 614 → 43 962 三角；茅顶−墙亮度差（同框）cu_dx_eave 46.5 → 49.3、dx_court 27.0 → 29.1、棚拍 45° 33.6 → 39.2。**BB 后**：`thatch-cottage` 建成（composer 对 C-r 放行，status 去掉 frame-ready；`pendingGeometry` 只剩竹牖），manifest 落 (−202, 1.2, −52) yaw 0；棚拍几何 78 614 三角（正门门屋 296 906）；土色 0x866c41，棚拍 45° 茅顶−墙亮度差 33.6；匾「稻香村」素木墨字（plan `plaqueStyle: plain-wood`）。**初诊**：plan 有 spec（3 间、朝南、(−202,−52)、匾「稻香村」），**`status: frame-ready`，composer 不建**（`composer.ts:446`）；乡野参数集挂着三项未做几何：`rustic-timber-joints` / `thatch` / `earth-walls`（`builder/derive/construction.ts:35`）。**BA1（2026-09-27）**：`projects/daguanyuan/scenes/daoxiangcun.json` named 绑 `building:tang` 顶替，manifest 落在 (−202, 1.2, −52) yaw 0（`shots/BA/ba1/BA1-after-r1/manifest.json`） | plan `daoxiangcun.main-cottage` | ✅ |
 | 东厢田舍 | 数楹之一 | **BB 后**：`thatch-cottage` 建成，manifest (−189, 1.2, −42) yaw −π/2，棚拍几何 48 814 三角。**初诊**：2 间、朝西，同为 frame-ready。**BA0 乙档（D-35）挪到 (−189,−42)**，落脚面随之；锚点到西溪水面 17.22 m（`shots/BA/ba0-src/geo.mjs`，`shots/BA/ba1/data/geo-ba0-landed.txt`）。BA1 named 绑 `building:tang` 顶替，manifest 落在 (−189, 1.2, −42) yaw −π/2 | plan `daoxiangcun.side-cottage` | ✅ |
-| 黄泥矮墙 + 稻茎墙头 | 一带、矮、黄泥版筑 | **BB 后**：`wall:mud:daoxiangcun.mud-wall` 建成（版高 0.26–0.38 m 不等、稻茎草檐、随地起伏、墙根埋 0.35 m），plan 整段棚拍 50.6k 帧三角；到西溪水面最小 1.55 m（BA4 量，0 个采样点在水里）；矮墙 1.6 m 人眼墙头−墙身亮度差 29.9。**初诊**：plan 一段 (−227,−30)→(−178,−30)、宽 0.55 高 1.4、在 (−196,−30) 开 3 m 口；**`wall.ts` 只有粉墙青瓦压顶**。BA0 乙档西溪改道后墙线不动：锚点到水 14.05 m，全段最小到水 **1.47 m**（东头 (−178,−30)，geo.mjs）。BA1 未绑构件，`--coverage` 报缺 | plan `daoxiangcun.mud-wall` | ✅ |
+| 黄泥矮墙 + 稻茎墙头 | 一带、矮、黄泥版筑 | **BD 后**：同一套版筑贴图，墙身一整段扫出（无几何层线），6 m 直段几何 3 292 → 2 038 三角；dx_court 墙头−墙身亮度差 20.6 → 22.2。**BB 后**：`wall:mud:daoxiangcun.mud-wall` 建成（版高 0.26–0.38 m 不等、稻茎草檐、随地起伏、墙根埋 0.35 m），plan 整段棚拍 50.6k 帧三角；到西溪水面最小 1.55 m（BA4 量，0 个采样点在水里）；矮墙 1.6 m 人眼墙头−墙身亮度差 29.9。**初诊**：plan 一段 (−227,−30)→(−178,−30)、宽 0.55 高 1.4、在 (−196,−30) 开 3 m 口；**`wall.ts` 只有粉墙青瓦压顶**。BA0 乙档西溪改道后墙线不动：锚点到水 14.05 m，全段最小到水 **1.47 m**（东头 (−178,−30)，geo.mjs）。BA1 未绑构件，`--coverage` 报缺 | plan `daoxiangcun.mud-wall` | ✅ |
 | 两溜青篱 | 桑榆槿柘新条编成 | **BB 后**：`qingli:daoxiangcun.fence` 建成（活桩、密编新条、四种叶枝，6 m 直段几何 12 604 三角 ≈ 2.1k/m）；material 改 `live-shoots`；到西溪最小：西溜 5.80 m、东溜 2.69 m（BA4 量）。**初诊**：高 1.2、material 仍写「green-bamboo」（**与原文「桑榆槿柘新条」不符**，BA3 改）。BA0 乙档：西溜 (−207,−18)→(−207,−29.5)、最小到水 5.80 m；东溜 (−186,−23.5)→(−186,−29.5)、最小到水 2.69 m；两溜北端止于泥墙外皮 z=−29.5（geo.mjs）。BA1 未绑构件，`--coverage` 报缺 | plan `daoxiangcun.fence` | ✅ |
 | 土井 + 桔槔辘轳 | 篱外山坡之下 | **BB 后**：`jingtai` 毛石井台+井圈+辘轳+桔槔，yaw π/2，几何 6 466 三角。**初诊**：只有锚点。BA0 乙档挪到 **(−213,−19)**，落脚面随之；锚点到水 10.84 m、落脚面角点最小到水 8.73 m（geo.mjs）。BA1 未绑构件 | plan `daoxiangcun.well` | ✅ |
 | 酒幌（杏帘） | 竹竿挑在树梢 | **BB 后**：`jiuhuang` 青竹竿 9.2 m 斜挑 22°、青布帘「杏簾在望」；锚点挪到 (−189,−26)；竿梢世界高 8.39 m（地面 0.69 + 构件顶 7.70），最近三株杏冠顶 4.96 / 6.75 / 4.71 m（距竿脚 6.1 / 6.1 / 6.6 m）。**初诊**：只有锚点 (−190,−22)、匾文「杏簾在望」；BA0 后锚点到水 3.36 m（geo.mjs） | plan `daoxiangcun.wine-banner` | ✅ |
 | 石碣 | 路旁 | **BB 后**：plan 新增 (−198,−21.5) 朝东，`shijie` 圆首矮厚粗琢、不刻字（留题之备）、直接埋土，棚拍 4.0k 帧三角 | plan `daoxiangcun.stone-tablet` | ✅ |
-| 菜畦 | 分畦列亩、佳蔬菜花、漫然无际 | **BB 后**（用户裁定甲档）：plan 新增 planting 对象带 field 规格；`caiqi` 可种 2 115 m²、70 个田块种子、土垄 813 / 蔬菜 2 574 / 油菜 3 621 / 土片 940 个实例，共 53 414 三角；铺到区界，南沿 z≈−59 噪声抖边 | plan `daoxiangcun.vegetable-plots` | ✅ |
+| 菜畦 | 分畦列亩、佳蔬菜花、漫然无际 | **BD 后**：范围判定抽成 `builder/plan/field-plots.ts`（菜畦构件与地面 splat 共用）；splat 新增 `field` 地类（扩展 splat B 通道，深褐熟土），0.5 m 采样 2 103.5 m²；随 e09 改线，畦两侧让路 1.6 m 跟着新折线。**BB 后**（用户裁定甲档）：plan 新增 planting 对象带 field 规格；`caiqi` 可种 2 115 m²、70 个田块种子、土垄 813 / 蔬菜 2 574 / 油菜 3 621 / 土片 940 个实例，共 53 414 三角；铺到区界，南沿 z≈−59 噪声抖边 | plan `daoxiangcun.vegetable-plots` | ✅ |
 | 过溪木桥 | — | **BB 后**：`garden-bridge` 走乡野板桥分支（plan `bridgeStyle: rustic-plank`），棚拍 11.7k 帧三角；playtest 过桥 PASS。**初诊**：BA0 乙档随 e08 挪到 (−190.6,−5)(−192,−12)(−196,−18)，原桥位删；端点到水 2.16 / −4.92 / 2.03 m（geo.mjs）。**BA1 入建成后世界里没有这座桥**：manifest 的 constructions / linears 都不含 `daoxiang-creek` | plan `connection.daoxiang-creek` | ✅ |
 | 背山 | 「背山山无脉」 | **BB 后**：`beishan` 孤立土石小山 16×20 m、高 8.5 m（按 dx_approach 视张角定），`--coverage` 销项 | plan `daoxiangcun.rock-01` | ✅ |
 | 室内纸窗木榻 | — | 无 | — | P5 |
@@ -54,7 +54,7 @@
 | 杏花 | 几百株，如喷火蒸霞 | **BB 后**（施工甲杏林合回）：世界里 `Trunk_apricot*` 实例 139 株、`apricotGrove` 计 136。**初诊**：`vegetation.ts` 无杏；`REGION_TREES.daoxiangcun = ['peach','peach','elm','elm']`（杏用桃代、桑榆槿柘用榆代）；无点名坐标。BA1 入建成后区多边形内实撒 **树 6 株（elm 5 / peach 1）、灌木 26 丛**（`tree-census --dump`，`shots/BA/ba1/data/census-post-ba1.json`） | ✅（施工甲） |
 | 桑榆槿柘 | 编篱的新条（不是成树） | 并进青篱构件：叶图集四格（桑/榆/槿/柘） | ✅ |
 | 稻茎 | 墙头掩护 | 并进泥墙构件（稻茎草檐 + 垂茬） | ✅ |
-| 地面 | 村野：土路、场院、菜畦 | **BB 后**：playtest 村内脚下序列 716.3–718.3 m sand（溪岸）、718.6–748.1 m dirt（村口→茆堂前）；菜畦是构件铺的土片，splat 未加菜畦地类，e09 出村段脚下仍报 grass（施工乙试走 23.6–73.4 m grass）。**初诊**：BA1 入建成，地形窗口铺到这里（见 §6 扩区读数）；`dx_court` 图里 e08 土路直通茆堂。playtest 航点未到此，无脚下序列 | 场院土地 BA；菜畦第二轮 |
+| 地面 | 村野：土路、场院、菜畦 | **BD 后**：playtest 出村段脚下序列 772.9–785.7 m grass（e09 路）、**786.0–789.2 m field**（下畦一步）、789.5–811.7 m grass（到北口）。**BB 后**：playtest 村内脚下序列 716.3–718.3 m sand（溪岸）、718.6–748.1 m dirt（村口→茆堂前）；菜畦是构件铺的土片，splat 未加菜畦地类，e09 出村段脚下仍报 grass（施工乙试走 23.6–73.4 m grass）。**初诊**：BA1 入建成，地形窗口铺到这里（见 §6 扩区读数）；`dx_court` 图里 e08 土路直通茆堂。playtest 航点未到此，无脚下序列 | 场院土地 BA；菜畦第二轮 |
 | 西溪 | 07-30 水引进村 | BA0 乙档（D-35）：`creek.west` 中间一段改为 (−163,−45)(−169,−32)(−177,−20)(−189,−13)(−201,−9)(−207,−2)，岸线按 ±5 m 重算，上下游拼接点不动；走泥墙与青篱之外、篱外山坡脚下 | 已改道；墙篱不再在水里（最小 1.47 m） |
 
 ## 6 判据、机位、台账
@@ -113,6 +113,7 @@
 | 2026-09-29 | **BB**（施工乙，`ca4bfafe` 之后续到本次合回）：土色 0x866c41（验收人裁偏黄版 0xa3844f 实量棚拍亮度差 11，不达 ≥25，同色相压暗 18%）；乡野板桥（园桥五项 sha 一致）；桔槔辘轳；酒幌；石碣（返工一次）；背山；菜畦甲档。`--coverage` 32/34，本区缺项 0（剩沁芳 pool-railing、rock-01）；known-gap 73；AF 0。四镜相对 `ca4bfafe`（三次逐位相同）：gate_approach 394→399 calls、5 891 525→5 945 291（+0.91%）；mound_block 368→373、5 962 695→6 016 461（+0.90%）；grass_close 380→384、6 310 689→6 362 487（+0.82%）；xiaoxiang 322 / 4 306 286 不变；fps 42–45。增量约等于菜畦 53 414 三角 |
 | 2026-09-29 | 发现（未修，域外）：e09 叙事折线 (−202,−46)→(−202,−52)→(−202,−62) 穿过茆堂屋身，键盘走不通，要绕茆堂西山；playtest 航点止于茆堂前，e09 出村段未进 playtest（tools/ 不在 BB 文件域） |
 | 2026-09-29 | **验收人验收（§25）**，冻结 worktree @ `fb4b4988`：check:all 264/264、playtest PASS、`--coverage` 本区缺项 0；验收人自己 dump 证 `ac1f24dd` 的 174 树 / 352 灌木全部原位（D-37 成立）。五机位判读：dx_approach 四样 + 酒帘 ✅、dx_court ✅、dx_well ✅、dx_fields ✅、cu_dx_eave 土壁贴脸仍木板感 ⚠️。四镜 399/5 945 291 · 373/6 016 461 · 384/6 362 487 · 322/4 306 286，fps 44/44/44/42；视锥归因增量全在 120 m 外（植被 +1.29M、构件 +0.31M），**基线抬（D-38），远处 LOD 另开 BC**。稻香村收口 |
+| 2026-09-29 | **BD**（施工乙）：BD1 土壁版筑贴图（`662c3772`）；BD2 e09 区内改绕茆堂西山 (−208.8,−47.5)(−208.8,−58.5)、playtest 追加出村航点到北口（`58ae242c`）；BD3 菜畦地类 `field`（`5ac76440`）。check:all 264/264、playtest PASS（不 teleport，出村到北口）；`--coverage` 32/34（本区 0 缺）、AF 0。四镜相对 `perf-baseline.json`（2026-09-29）三次逐位相同：gate_approach 5 945 291→5 871 019（−1.25%）、mound_block 6 016 461→5 942 189（−1.23%）、grass_close 6 362 487→6 288 215（−1.17%）、xiaoxiang 4 306 286→4 298 244（−0.19%），calls 不变。**tree-census 不逐字节相同**：菜畦改报 `field` 后植被的可种掩码（只认 grass）在畦里归零——树 507→505（畦里 1 杏 1 榆退出）、灌木 843→823（畦里 22 丛退出，区北界外 0.02 m 一丛退出，区东界外 (−160~−162,−63) 一丛 3 株换位）；全部在 x∈[−233,−159]，别区 0 变化 |
 
 ### 未决
 
@@ -120,5 +121,6 @@
 2. ~~杏的树种~~ 已做：`apricot` 花色变体（树形借桃），139 株（`5d6a11c3`）。
 3. ~~第二轮（单子 BB）~~ 已做（2026-09-29）；东厢室内「紙窗木榻」归 P5。
 4. 第十八回《杏帘在望》诗正文、第四十一回贾母「往稻香村来歇息」原句未入库（考据补，不挡施工）。
-5. 菜畦地面 splat 未加地类（脚下序列在畦里仍报 grass）；e09 折线穿茆堂（见台账），蘅芜苑开建时一起修。
-6. **土壁贴脸仍有木板感**（`cu_dx_eave`，§25）：D-36 推翻条件已触发，改版筑贴图，不再加几何层线。
+5. ~~菜畦地类、e09 穿茆堂~~ BD2/BD3 已做（2026-09-29）。
+6. ~~土壁贴脸木板感~~ BD1 改版筑贴图（2026-09-29）；黄泥矮墙墙头−墙身亮度差 22.2 仍 < 25（墙头是稻茎垂茬，不是茅顶）。
+7. 菜畦地类让植被在畦里退出，tree-census 在本区变了（见台账 BD 行）——要不要为「逐字节相同」另开 vegetation.ts 的单子，待验收人裁。

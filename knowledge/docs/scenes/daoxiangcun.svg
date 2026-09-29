@@ -65,6 +65,8 @@
 <text x="349" y="699" fill="#2a6ab0" font-size="9">dx_court</text>
 <line x1="136.0" y1="752.0" x2="174.3" y2="740.5" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="136.0" cy="752.0" r="3" fill="#2a6ab0"/>
 <text x="141" y="763" fill="#2a6ab0" font-size="9">dx_well</text>
+<line x1="305.6" y1="376.0" x2="309.6" y2="336.2" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="305.6" cy="376.0" r="3" fill="#2a6ab0"/>
+<text x="310.6" y="387" fill="#2a6ab0" font-size="9">dx_fields</text>
 <line x1="312.0" y1="520.0" x2="312.0" y2="504.0" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="312.0" cy="520.0" r="2" fill="#2a6ab0"/>
 <text x="0" y="1070" fill="#666" font-size="9">■ 建筑锚点  ◆ plan 岩石锚点  ● scenes 散置件  ● 手放树(HERO_TREES)  ○ 十七回游线节点  ─ 机位(短线=朝向;小点=贴脸 cu_* 机位,名单见文档)  虚线框=占地登记  棕线=plan 路径(翠嶂那张是旧路基,潇湘馆那张是院内甬路)</text>
 </svg>
