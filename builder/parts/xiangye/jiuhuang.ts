@@ -13,9 +13,9 @@ import { planItem } from './plan-data';
  * 犬牙边,下缘三条燕尾——布是垂下来的、有褶,下缘不是一条直线。**不用 transmission**(P-05)。
  * 局部坐标:原点在竿脚,竿向 −X 斜挑;布面朝 +Z。variant = plan 里酒幌的 id。
  */
-const JH = { poleLen: 6.2, poleR: 0.04, lean: 26 * Math.PI / 180, clothW: 0.85, clothH: 2.0, batten: 1.25, out: 0.6, twist: 0.35 };
+const JH = { poleLen: 9.2, poleR: 0.045, lean: 22 * Math.PI / 180, clothW: 0.85, clothH: 2.0, batten: 1.25, out: 0.6, twist: 0.35 };
 const PROVENANCE = [{ id: 'project:wine-banner', name: '酒幌(杏帘)', method: 'artistic_choice',
-  note: '07-12「用竹竿挑在樹梢」「不必華麗,就依外面村莊的式樣」:青竹竿长 6.2 m、斜挑 26°(梢高约 5.6 m,高过近处树冠);青布帘 0.85×2.0 m,挂在竿梢伸出的横挑上、离竿 0.6 m,白字竖写、犬牙边、下缘燕尾;布有纵褶、下半截鼓出、整面斜转 20° 不与竿共面。尺寸与式样为艺术取值,字从 plan 读。' }];
+  note: '07-12「用竹竿挑在樹梢」「不必華麗,就依外面村莊的式樣」:青竹竿长 9.2 m、斜挑 22°(竿梢离地约 7.6 m;BB 收尾按合回后的实际杏树量:最近三株冠顶世界高 4.96/6.75/6.58 m,竿梢须明显高过);青布帘 0.85×2.0 m,挂在竿梢伸出的横挑上、离竿 0.6 m,白字竖写、犬牙边、下缘燕尾;布有纵褶、下半截鼓出、整面斜转 20° 不与竿共面。尺寸与式样为艺术取值,字从 plan 读。' }];
 
 const FONT = '"AR PL UKai","STKaiti","KaiTi","Kaiti SC","Noto Serif SC",serif';
 
@@ -87,7 +87,7 @@ export function buildJiuhuang(variant: string): PartBuild {
   const pts: THREE.Vector3[] = [];
   for (let i = 0; i <= 8; i++) {
     const t = i / 8, p = base.clone().addScaledVector(dir, JH.poleLen * t);
-    p.y -= 0.35 * t * t * t; // 梢头受帘重下弯
+    p.y -= 0.45 * t * t * t; // 梢头受帘重下弯
     pts.push(p);
   }
   const curve = new THREE.CatmullRomCurve3(pts);
