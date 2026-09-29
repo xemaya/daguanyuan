@@ -3928,6 +3928,33 @@
           "basis": "07-12「忽見路旁有一石碣,亦為留題之備」——留题之备即空白待题,碑面不刻字(plaque 为 null 是原文的意思,不是缺数据)。BB5:立在 e08 过桥后、泥墙开口前的村路西侧,离路中线 x=-196 约 2 m,面朝东对路;位置是艺术选择。",
           "id": "daoxiangcun.stone-tablet",
           "kind": "prop"
+        },
+        {
+          "name": "菜畦(分畦列亩·佳蔬菜花)",
+          "type": "畦",
+          "bays": 0,
+          "roof": "无",
+          "facing": "south",
+          "x": -205,
+          "z": -80,
+          "plaque": null,
+          "basis": "07-11「下面分畦列畝,佳蔬菜花,漫然無際」。位置由用户 2026-09-29 裁定(单子 BB6 甲档):茆堂以北到背山之间、e09 出村路两侧,一直铺到区多边形边界;南沿在 clipSouthZ 一线用噪声抖出参差边。锚点是田块群的大致中心,不是某一块。田块尺度、垄沟、油菜比例为艺术取值。",
+          "id": "daoxiangcun.vegetable-plots",
+          "kind": "planting",
+          "field": {
+            "clipSouthZ": -59,
+            "roadClearM": 1.6,
+            "waterClearM": 2,
+            "wallClearM": 1.5,
+            "hillClearM": 1.5,
+            "roads": ["ch17.e09", "connection.daoxiang-approach"],
+            "hill": "daoxiangcun.rock-01",
+            "rapeShare": 0.4,
+            "plotM": 7,
+            "bedM": 1.0,
+            "furrowM": 0.5,
+            "baulkM": 0.4
+          }
         }
       ],
       "plants": [

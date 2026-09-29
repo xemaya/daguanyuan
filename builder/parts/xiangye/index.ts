@@ -5,6 +5,7 @@ import { buildJingtai } from './jingtai';
 import { buildJiuhuang } from './jiuhuang';
 import { buildShijie } from './shijie';
 import { buildBeishan } from './beishan';
+import { buildCaiqi } from './caiqi';
 
 /**
  * 乡野门类(稻香村,单子 BA)的构件表。
@@ -20,4 +21,5 @@ export const XIANGYE_PARTS: [string, PartBuilder][] = [
   ['jiuhuang', (variant) => buildJiuhuang(variant)],
   ['shijie', (variant) => buildShijie(variant)],
   ['beishan', (variant) => buildBeishan(variant)],
+  ['caiqi', (variant, context) => buildCaiqi(variant, context)],
 ];

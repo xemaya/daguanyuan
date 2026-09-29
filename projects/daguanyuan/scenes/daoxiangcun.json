@@ -55,6 +55,13 @@
       "basis": "plan rock-01「人力穿凿的背山」;07-14 宝玉批「背山山無脉」——孤立的土石小山,不与青山连脉(beishan.ts,单子 BB7)。高度按 dx_approach 视张角定:茆堂屋脊仰角 0.073 rad,背山 98.5 m 外顶须 ≥ 世界 8.9 m,当地地面约 1.0 m,取山高 8.5 m。位置从 plan 锚点 (-224,-88) 读。"
     },
     {
+      "object": "daoxiangcun.vegetable-plots",
+      "part": "caiqi",
+      "variant": "daoxiangcun.vegetable-plots",
+      "tag": "稻香村",
+      "basis": "07-11「下面分畦列畝,佳蔬菜花,漫然無際」(单子 BB6,用户裁定甲档)。caiqi.ts:Voronoi 田块、每块自己的垄向、一垄一沟、垄上两行蔬菜或油菜花,全部实例化;范围、避让、南沿全读 plan 的 field 规格。几何按世界地面起伏,锚点只作归属。"
+    },
+    {
       "object": "daoxiangcun.well",
       "part": "jingtai",
       "variant": "daoxiangcun.well",
