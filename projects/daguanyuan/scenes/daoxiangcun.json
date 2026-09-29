@@ -70,15 +70,5 @@
       "basis": "07-11「篱外山坡之下,有一土井,旁有桔槔轆轤之屬」。jingtai.ts:毛石井台+毛石井圈+井水(BA4),单子 BB3 加辘轳(井口两柱、卷筒、曲柄、绳桶)与桔槔(叉柱、杠杆、坠石、垂绳挂桶),尺寸为艺术取值。位置从 plan 锚点 (-213,-19) 读(BA0 乙档挪到坡西北脚外)。yaw π/2:让桔槔杠杆南北向横着亮给 dx_well(验收人挪到 (-223,-16) 朝东)——杠杆顺着视线时只读得出一根柱顶一块石,横过来才读得出「一头坠石一头挂桶」。"
     }
   ],
-  "placements": [
-    {
-      "part": "garden-bridge",
-      "variant": "connection.daoxiang-creek",
-      "anchor": "daoxiangcun.fence",
-      "dx": 0,
-      "dz": 0,
-      "tag": "稻香村过溪木桥",
-      "basis": "e08 过西溪进村口(connection.daoxiang-creek,BA0 乙档随改道挪到篱外)。它在 plan.connections[] 里、不属任何区的 linears[],composer 的 plan 遍历只走 region.linears,所以此前世界里从来没建(单子 BA4 查明)。这里借本区一条落位把它挂出来:garden-bridge 是线性构件、几何自带世界坐标,锚点与 dx/dz 只为过契约门,装配器走零变换分支(anchor 取村口青篱,仅作归属)。木桥面、木栏,尺寸全读 plan。"
-    }
-  ]
+  "placements": []
 }

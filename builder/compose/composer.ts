@@ -10,7 +10,8 @@ import {offsetStation} from '@builder/plan/polyline';
 import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
-import { getPlan, builtRegions } from './terrain';
+import { getPlan, builtRegions, TERRAIN } from './terrain';
+import { pickConnections, connectionPart } from './connections';
 import { sceneFor, getScenes, type SceneNamed } from './scenes';
 import { getRoster, registerObject } from './roster';
 import { rulesForRegion, type StyledRegion } from './scatter-rules';
@@ -465,6 +466,27 @@ function plannedPlacements(): Placement[] {
   return out;
 }
 
+/**
+ * 单子 BE1:`plan.connections[]` 的连接(桥)走 plan 遍历这条正路(`P-37`)。
+ *
+ * 它们跨在区与区之间的公共地面上,不属任何区的 `linears[]`,所以上面的区遍历从来走不到——
+ * 四座桥从 P2 起一座没建。判定在 `connections.ts`(纯函数,对账门与测试读同一份):
+ * **全部折点都在当前地形窗口内才建**,否则构建日志记一行「未建:窗口外」,等随区入建成自动出现。
+ * 线性构件自带世界位置,落位与 `linears[]` 那一支同形:x/z 留 0 走零变换分支,planId = 连接 id。
+ */
+function connectionPlacements(): Placement[] {
+  const { build, skipped } = pickConnections(getPlan().connections ?? [], TERRAIN);
+  for (const s of skipped)
+    console.info(`[garden] 未建:窗口外 ${s.id}(出窗口的折点 ${s.outside.map(([x, z]) => `(${x.toFixed(1)},${z.toFixed(1)})`).join(' ')})`);
+  const out: Placement[] = [];
+  for (const c of build) {
+    const part = connectionPart(c.kind);
+    if (!part) throw new Error(`[garden] plan.connections 的 ${c.id} kind=${c.kind} 没有对应构件`);
+    out.push({ part, variant: c.id, planId: c.id, x: 0, z: 0, tag: c.id });
+  }
+  return out;
+}
+
 /** `scenes/<region>.json` 的 `placements[]`：plan 里没有锚点的散置件。 */
 function scenePlacements(): Placement[] {
   const out: Placement[] = [];
@@ -694,6 +716,9 @@ export function buildGarden(ctx: GameContext): void {  const ground = ctx.collis
   const all: Placement[] = [
     ...plannedPlacements(),
     ...scenePlacements(),
+    // 单子 BE1:plan.connections 的桥。排在 scenes 之后——稻香村那座原先借 scenes 最后一条落位挂出来,
+    // 这样它在装配序列里的位置不变。
+    ...connectionPlacements(),
     // 曲桥链与池岸驳石是**算出来的**(沿折线铺桥段、沿池边找刚露出水的位置)，
     // 不是人摆的，所以不进 scenes——scenes 的 placements 只放人写的落位。
     // 它们是接缝 ② 的活(写条件不写坐标)，归单子 Z。
