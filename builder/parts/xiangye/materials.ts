@@ -274,31 +274,66 @@ function aniso(s: Simplex, u: number, v: number, fu: number, fv: number): number
   return 0.5 * (s.noise3D(nx, ny, nz) + s.noise3D(ny + 7.1, nz, nw));
 }
 /**
- * 一张 = 1.28 m 见方的泥面:砂粒、淡斑、顺墙流下的雨痕。
- * 第一轮贴图里画过固定周期的版线、穿棍孔、一版一色——版高改成不等之后对不上,
- * 全部搬到几何(逐版挤出、泥抹痕、穿棍孔贴片,见 `earth.ts`)。
+ * 一张 = 1.28 m 见方的版筑墙面(单子 BD1:D-36 推翻条件触发——几何层线在园中光下读成木板墙)。
+ * 层线、夯窝、泥抹补丁、裂缝**全在贴图里**(颜色 + 法线),几何只留微起伏与塌角:
+ *   层线 —— 一张四版、版高不等(0.30/0.36/0.28/0.34 m);线**断续**(约三成断开)、上下摆 1 cm,
+ *           线上一道泥浆溢出的**软边**(浅、微鼓)并往下挂几道短流痕——夹板缝里挤出来的泥,不是刻出来的直槽;
+ *   夯窝 —— 每版里一排排浅圆窝(径 5–7 cm,杵头印),深浅不一;
+ *   补丁 —— 大块抹过的泥(更平、更浅),盖住层线;
+ *   裂缝 —— 稀疏的细裂(多为竖向),深色;
+ *   返潮 —— 仍走顶点色(墙脚,按构件局部高度),贴图四方连续给不了「只在墙脚」。
+ * v 向上(uv.v = 离墙脚高 / 1.28);bakeColorMap 的 v 是画布行号(向下),下面统一换成 up = 1 − v。
  */
+const LIFTS = [0, 0.3 / 1.28, 0.66 / 1.28, 0.94 / 1.28, 1];
+function earthFeatures(s: Simplex, u: number, v: number) {
+  const up = 1 - v;
+  // 层线:找最近一条(含周期接缝 0/1)。
+  let line = 0, lip = 0, drip = 0;
+  for (let k = 0; k < LIFTS.length; k++) {
+    const b = LIFTS[k] + 0.008 * aniso(s, u, k * 0.21, 7, 3);
+    const d = up - b; // >0 在线上方
+    const show = smoothstep(-0.25, 0.05, aniso(s, u, 0.13 + k * 0.17, 9, 2)); // 断续
+    line = Math.max(line, show * (1 - smoothstep(0.0, 0.006, Math.abs(d))));
+    lip = Math.max(lip, show * smoothstep(0.004, 0.009, d) * (1 - smoothstep(0.011, 0.022, d)));
+    // 流痕:线下方 0–7 cm,竖向细条,各条长短不一。
+    if (d < 0 && d > -0.06) {
+      const col = 0.5 + 0.5 * aniso(s, u * 1 + k * 0.37, 0.5, 80, 1);
+      const len = 0.015 + 0.045 * (0.5 + 0.5 * aniso(s, u + 0.11, k * 0.29, 40, 2));
+      drip = Math.max(drip, show * smoothstep(0.86, 0.96, col) * (1 - smoothstep(len * 0.6, len, -d)) * 0.7);
+    }
+  }
+  // 夯窝:worley 细胞,只有约三成细胞留窝,窝心浅凹。
+  const w = worley(u, up, 18, 13), pit = (w.id % 100 < 30 ? 1 : 0) * smoothstep(0.34, 0.14, w.f1) * (0.4 + 0.6 * (((w.id >>> 8) & 255) / 255));
+  // 补丁:低频大块,抹平处盖掉层线与夯窝。
+  const patch = smoothstep(0.35, 0.55, 0.5 + 0.5 * aniso(s, u + 0.3, up, 3, 3));
+  // 裂缝:竖向为主的细线,稀疏。
+  // 裂缝:高频在 u、低频在 v 的噪声等值线 → 竖向细缝;只在稀疏的低频斑里出现。
+  const cr = Math.abs(aniso(s, u * 1 + 0.7, up, 34, 3)), crackMask = smoothstep(0.72, 0.86, 0.5 + 0.5 * aniso(s, u + 0.5, up + 0.2, 3, 3));
+  const crack = (1 - smoothstep(0.0, 0.015, cr)) * crackMask;
+  const grit = worley(u, up, 90, 31).f1;
+  const keep = 1 - patch * 0.85;
+  return { line: line * keep, lip: lip * keep, drip: drip * keep, pit: pit * keep, patch, crack: crack * (1 - patch * 0.6), grit };
+}
 function earthHeight(s: Simplex, u: number, v: number): number {
-  // 版线、穿棍孔、一版一色自 D-36 起全归几何(版高不等,贴图的固定周期对不上),贴图只管泥面本身。
-  const grit = worley(u, v, 90, 31).f1;
-  return clamp(0.55 + 0.12 * smoothstep(0.35, 0.0, grit) + 0.08 * aniso(s, u, v, 3, 3) + 0.06 * aniso(s, u, v, 12, 5) + 0.06 * aniso(s, u, v, 60, 60), 0, 1);
+  const f = earthFeatures(s, u, v);
+  return clamp(0.55 + 0.04 * smoothstep(0.35, 0.0, f.grit) + 0.06 * aniso(s, u, v, 3, 3) + 0.05 * aniso(s, u, v, 12, 5)
+    - 0.1 * f.line + 0.12 * f.lip + 0.04 * f.drip - 0.16 * f.pit - 0.35 * f.crack + 0.05 * f.patch, 0, 1);
 }
 export function earthWallMaterial(): THREE.MeshStandardMaterial {
   return memo('xiangye.earth', () => {
     const size = 1024;
     const s = new Simplex(0xea27);
-    const map = cached(recipeKey('xiangye.earth.albedo', size, 2), () =>
+    const map = cached(recipeKey('xiangye.earth.albedo', size, 4), () =>
       bakeColorMap({ size, color: (u, v) => {
-        const hgt = earthHeight(s, u, v);
-        const rain = smoothstep(0.2, 0.8, aniso(s, u, v, 14, 3) * 0.5 + 0.5) * 0.2;
+        const f = earthFeatures(s, u, v);
+        const rain = smoothstep(0.2, 0.8, aniso(s, u, v, 14, 3) * 0.5 + 0.5) * 0.18;
         const blot = 0.5 + 0.5 * aniso(s, u, v, 5, 6);
-        const c = mixHex(XY.earthDark, XY.earth, clamp(0.2 + hgt * 0.7 + blot * 0.3 - rain, 0, 1));
-        const grain = worley(u, v, 150, 7).f1, speck = smoothstep(0.2, 0.05, grain);
-        const pale = smoothstep(0.16, 0.04, worley(u + 0.37, v, 70, 9).f1);
-        const k = (1 - speck * 0.22) * (1 + pale * 0.18);
+        const c = mixHex(XY.earthDark, XY.earth, clamp(0.25 + blot * 0.45 + f.patch * 0.2 - rain, 0, 1));
+        const speck = smoothstep(0.2, 0.05, worley(u, v, 150, 7).f1);
+        const k = (1 - speck * 0.18) * (1 - 0.22 * f.line) * (1 + 0.14 * f.lip) * (1 + 0.08 * f.drip) * (1 - 0.14 * f.pit) * (1 - 0.45 * f.crack);
         return [c[0] * k, c[1] * k, c[2] * k];
       } }));
-    const normalMap = cached(recipeKey('xiangye.earth.normal', size, 3.2, 2), () => bakeNormalMap({ size, height: (u, v) => earthHeight(s, u, v) }, 3.2));
+    const normalMap = cached(recipeKey('xiangye.earth.normal', size, 2.4, 4), () => bakeNormalMap({ size, height: (u, v) => earthHeight(s, u, v) }, 2.4));
     return new THREE.MeshStandardMaterial({ map, normalMap, roughness: 0.97, metalness: 0, vertexColors: true });
   });
 }

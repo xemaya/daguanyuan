@@ -10,7 +10,7 @@ import { plaqueFromPlan } from '@builder/plan/objects';
 import { mergeByMaterial } from '@builder/parts/merge';
 import { XY, EARTH_TILE_M, earthWallMaterial, thatchMaterial, thatchEndMaterial, strawFringeMaterial } from '@builder/parts/xiangye/materials';
 import { stations, splitByOpenings, arcAt, subPolyline, type P2 as XP2 } from '@builder/parts/xiangye/path';
-import { liftSequence, rowsUpTo, lineWobble, mudPatch, tieHole } from '@builder/parts/xiangye/earth';
+import { liftSequence, rowsUpTo } from '@builder/parts/xiangye/earth';
 import { sweepSection, hangingStrip } from '@builder/parts/xiangye/sweep';
 import { planLayout, planGround } from '@builder/parts/xiangye/plan-data';
 
@@ -909,7 +909,7 @@ const MUD = {
   capRise: 0.16, capOverhang: 0.12, capSink: 0.05, fringe: 0.15,
 };
 const MUD_PROVENANCE = [
-  { id: 'project:mud-wall-lift', name: '黄泥矮墙版高', method: 'artistic_choice', note: '版高 0.26–0.38 m 不等、层线起伏 ±2 cm、泥抹痕与穿棍孔、两端塌角(D-36 ② 返工),与茅屋土壁同一套;07-11 只给「黃泥筑就」名目。' },
+  { id: 'project:mud-wall-lift', name: '黄泥矮墙版筑', method: 'artistic_choice', note: '层线(断续、带泥浆溢出软边)、夯窝、泥抹补丁、裂缝在贴图里(BD1,D-36 推翻条件触发),几何只留微起伏与两端塌角;与茅屋土壁同一套;07-11 只给「黃泥筑就」名目。' },
   { id: 'project:mud-wall-taper', name: '泥墙收分', method: 'artistic_choice', note: '顶宽为底宽的 0.86;版筑墙上窄下宽,书无定数。' },
   { id: 'project:mud-wall-straw-cap', name: '稻茎墙头', method: 'artistic_choice', note: '07-11「牆頭皆用稻莖掩護」:草檐拱起 0.16 m、两侧挑出 0.12 m、垂茬 0.15 m;墙身顶 = plan heightM − 草檐拱起,总高仍为 plan heightM。' },
 ];
@@ -932,59 +932,25 @@ function mudRun(pts: XP2[], widthM: number, heightM: number, seed: number, footi
     return [lerp(1, tint[0], k) * patch, lerp(1, tint[1], k) * patch, lerp(1, tint[2], k) * patch];
   };
   // 墙身:逐版。
-  // 版线:不等高(0.26–0.38 m)、沿线起伏 ±2 cm;每版一个泥色;两端版头随机缩进(塌角)。D-36 ②。
+  // 分行只为两端版头随机缩进(塌角);各行外皮齐平、行间不倒圆、不逐行进出——
+  // 层线、夯窝、泥抹、裂缝全在贴图里(单子 BD1:D-36 推翻条件触发,几何层线在园中光下读成木板墙)。
   const rows = rowsUpTo(liftSequence(seed + 5, bodyTop), bodyTop);
-  const wob = lineWobble(seed + 6);
   const L = st[st.length - 1].s;
   const earth = earthWallMaterial();
   const widthAt = (y: number) => lerp(half0, half1, clamp(y / bodyTop, 0, 1));
-  rows.forEach(([y0, y1, k], ri) => {
-    const w0 = widthAt(y0), w1 = widthAt(y1), r = 0.014, j = (rng() - 0.5) * 0.01, tone = 0.9 + rng() * 0.16;
-    const sec: [number, number][] = [
-      [-w0 + r, y0], [w0 - r, y0], [w0 + j, y0 + r], [w1 + j, y1 - r], [w1 - r, y1], [-w1 + r, y1], [-w1 - j, y1 - r], [-w0 - j, y0 + r],
-    ];
-    const warp = (S: { s: number; p: [number, number] }, _j: number, _i: number, nn: number, y: number): [number, number] => {
-      const lower = y < (y0 + y1) / 2, line = lower ? k : k + 1;
-      const dy = line === 0 || (ri === rows.length - 1 && !lower) ? 0 : wob(line, S.s);
-      return [nn * (1 + 0.025 * simplex.noise2D(S.s * 0.8, y * 3 + 5) + 0.012 * simplex.noise2D(S.s * 4.3, y * 7)), y + dy + dyAt(S.p)];
-    };
+  // 墙身一整段扫出(BD1:行与行之间的接缝在园中光下也是一道线);两侧沿高每 0.15 m 一个截面点,
+  // 供微起伏与返潮顶点色。塌角只留两端各一处缩进。
+  void rows;
+  {
+    const n = Math.max(2, Math.ceil(bodyTop / 0.15)), sec: [number, number][] = [];
+    for (let k = 0; k <= n; k++) { const y = (bodyTop * k) / n; sec.push([widthAt(y), y]); }
+    for (let k = n; k >= 0; k--) { const y = (bodyTop * k) / n; sec.push([-widthAt(y), y]); }
+    const warp = (S: { s: number; p: [number, number] }, _j: number, _i: number, nn: number, y: number): [number, number] =>
+      [nn * (1 + 0.025 * simplex.noise2D(S.s * 0.8, y * 3 + 5) + 0.012 * simplex.noise2D(S.s * 4.3, y * 7)), y + dyAt(S.p)];
     const c0 = rng() * rng() * 0.08, c1 = rng() * rng() * 0.08;
     const lst = stations(subPolyline(pts, c0, L - c1), 0.25).map((S) => ({ ...S, s: S.s + c0 }));
-    const g = sweepSection(lst, sec, { tile: EARTH_TILE_M, color: (s0, n0, y) => color(s0, n0, y).map((v) => v * tone) as [number, number, number], warp });
+    const g = sweepSection(lst, sec, { tile: EARTH_TILE_M, color, warp });
     const m = new THREE.Mesh(g, earth); m.castShadow = m.receiveShadow = true; group.add(m);
-  });
-  // 泥抹痕(盖掉一段段层线)与穿棍孔,两面都有。
-  const frameAt = (s0: number, side: number, y: number) => {
-    let S = st[0];
-    for (const x of st) if (Math.abs(x.s - s0) < Math.abs(S.s - s0)) S = x;
-    const nl = Math.hypot(S.n[0], S.n[1]), nx = S.n[0] / nl, nz = S.n[1] / nl, off = widthAt(y) + 0.012;
-    const X = new THREE.Vector3(S.t[0] * side, 0, S.t[1] * side), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(nx * side, 0, nz * side);
-    return new THREE.Matrix4().makeBasis(X, Y, Z).setPosition(S.p[0] + nx * side * off, dyAt(S.p), S.p[1] + nz * side * off);
-  };
-  const decal = (g: THREE.BufferGeometry, s0: number, side: number, y: number) => {
-    const uv: number[] = [], p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) uv.push((s0 + side * p.getX(i)) / EARTH_TILE_M, p.getY(i) / EARTH_TILE_M);
-    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-    g.applyMatrix4(frameAt(s0, side, y));
-    g.computeVertexNormals();
-    const c = g.getAttribute('color'), dc = color(s0, 0, y);
-    for (let i = 0; i < c.count; i++) c.setXYZ(i, c.getX(i) * dc[0], c.getY(i) * dc[1], c.getZ(i) * dc[2]);
-    const m = new THREE.Mesh(g, earth); m.receiveShadow = true; group.add(m);
-  };
-  for (const side of [-1, 1]) {
-    for (let i = 0, n = Math.round(L * bodyTop * 1.6); i < n; i++) {
-      const s0 = 0.25 + rng() * Math.max(0.01, L - 0.5), line = rows[(rng() * rows.length) | 0];
-      const y = line[0] + (rng() - 0.3) * 0.2, rx = 0.15 + rng() * 0.4, ry = 0.07 + rng() * 0.12;
-      if (y - ry < 0.06 || y + ry > bodyTop - 0.06) continue;
-      decal(mudPatch(0, y + wob(line[2], s0), rx, ry, seed * 17 + i + side * 999, 0.8 + rng() * 0.38), s0, side, y);
-    }
-    rows.forEach(([y0, , k]) => {
-      if (k === 0) return;
-      for (let s0 = 0.3 + rng() * 0.4; s0 < L - 0.2; s0 += 0.55 + rng() * 0.5) {
-        if (rng() < 0.45) continue;
-        decal(tieHole(0, y0 + wob(k, s0), seed * 5 + k * 97 + ((s0 * 100) | 0) + side), s0, side, y0);
-      }
-    });
   }
   // 草檐截面:上拱、两侧挑出、底面压进墙头。
   const capH = half1 + MUD.capOverhang, yb = bodyTop - MUD.capSink, sec: [number, number][] = [];

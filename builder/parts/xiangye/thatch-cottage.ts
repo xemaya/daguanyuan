@@ -10,7 +10,7 @@ import { XY, EARTH_TILE_M, thatchMaterial, thatchEndMaterial, thatchUnderMateria
 import { planItem } from './plan-data';
 import { plaqueFromPlan } from '@builder/plan/objects';
 import { makePlainPlaque } from '../xiaomu/plaque';
-import { liftSequence, rowsUpTo, lineWobble, mudPatch, tieHole } from './earth';
+import { liftSequence, rowsUpTo } from './earth';
 
 /**
  * 茅屋近景(单子 BA2)——稻香村「數楹茅屋」「紙窗木榻」(07-11 / 07-13),C-r 乡野子档。
@@ -272,17 +272,15 @@ function ridgeRoll(X: number, y0: number, hw: number, hh: number, tiePitch: numb
 
 interface Opening { a0: number; a1: number; r0: number; r1: number }
 
-/** 版筑行:截面圆角矩形(厚 × 版高)沿墙长挤出,沿长度加密。局部系 x=沿墙 a、y=高、z=外法线(外皮 z=0)。 */
-function liftSlab(a0: number, a1: number, y0: number, y1: number, wt: number, out: number, rr = 0.014): THREE.BufferGeometry {
+/** 一段土壁:截面矩形(厚 × 高)沿墙长挤出,沿长度每 0.2 m、外皮沿高每 0.15 m 加密(微起伏与返潮顶点色要顶点)。
+ *  局部系 x=沿墙 a、y=高、z=外法线(外皮 z=0)。BD1:行与行之间不再倒圆——几何不出层线。 */
+function liftSlab(a0: number, a1: number, y0: number, y1: number, wt: number, out: number): THREE.BufferGeometry {
   const sh = new THREE.Shape();
-  const n0 = 0, n1 = wt; // 形状 X = 入墙深 n
-  sh.moveTo(n0 + rr, y0);
-  sh.lineTo(n1 - rr, y0); sh.quadraticCurveTo(n1, y0, n1, y0 + rr);
-  sh.lineTo(n1, y1 - rr); sh.quadraticCurveTo(n1, y1, n1 - rr, y1);
-  sh.lineTo(n0 + rr, y1); sh.quadraticCurveTo(n0, y1, n0, y1 - rr);
-  sh.lineTo(n0, y0 + rr); sh.quadraticCurveTo(n0, y0, n0 + rr, y0);
+  const n = Math.max(1, Math.ceil((y1 - y0) / 0.15));
+  sh.moveTo(0, y0); sh.lineTo(wt, y0); sh.lineTo(wt, y1); sh.lineTo(0, y1); // 形状 X = 入墙深 n
+  for (let k = n - 1; k >= 0; k--) sh.lineTo(0, y0 + ((y1 - y0) * k) / n); // 外皮(X=0)一侧加密
   const len = a1 - a0;
-  const g = new THREE.ExtrudeGeometry(sh, { depth: len, steps: Math.max(1, Math.ceil(len / 0.2)), bevelEnabled: false, curveSegments: 3 });
+  const g = new THREE.ExtrudeGeometry(sh, { depth: len, steps: Math.max(1, Math.ceil(len / 0.2)), bevelEnabled: false, curveSegments: 1 });
   // 形状 (X=n, Y=y, Z=a) → rotateY(π/2):x=Z=a、z=-X=-n。
   g.rotateY(Math.PI / 2);
   g.translate(a0, 0, out);
@@ -291,28 +289,32 @@ function liftSlab(a0: number, a1: number, y0: number, y1: number, wt: number, ou
 /** 山尖行:版带与山墙五边形的交,沿墙厚挤出并倒圆(倒圆就是层线槽)。 */
 function gableSlab(poly: [number, number][], wt: number, out: number): THREE.BufferGeometry {
   const sh = new THREE.Shape(poly.map(([a, y]) => new THREE.Vector2(a, y)));
-  const bev = 0.014;
-  const g = new THREE.ExtrudeGeometry(sh, { depth: wt - 2 * bev, bevelEnabled: true, bevelSize: bev * 0.8, bevelThickness: bev, bevelSegments: 2, curveSegments: 2 });
-  g.translate(0, 0, out - wt + bev);
+  // BD1:不倒圆——版与版之间的圆角就是几何层线槽,层线改归贴图。
+  const g = new THREE.ExtrudeGeometry(sh, { depth: wt, bevelEnabled: false, curveSegments: 2 });
+  g.translate(0, 0, out - wt);
   return g;
 }
 
 /**
- * 一面土壁(局部系)。版线取全栋共用的 `seq`(不等高);层线沿墙起伏(`wob`),外皮逐段鼓瘪;
- * 墙端与门窗边的版头随机缩进(塌角);另撒泥抹痕与穿棍孔(`earth.ts`)。
- * 每块几何带 `userData.tone`(一版一个泥色,由调用方乘进顶点色)。
+ * 一面土壁(局部系)。仍按全栋共用的版线 `seq` 分行——只为门窗洞上下口对齐、墙端与门窗边的版头随机缩进(塌角);
+ * 各行外皮齐平、行间不倒圆,外皮只有连续的微起伏。**层线、夯窝、泥抹、裂缝全在贴图里**(单子 BD1,D-36 推翻条件)。
  */
 function earthWall(opts: { a0: number; a1: number; height: number; topAt?: (a: number) => number; ridgeA?: number;
   wt: number; seq: number[]; openings: Opening[]; seed: number }): THREE.BufferGeometry[] {
   const { a0, a1, wt, seq, openings } = opts;
   const rng = makeRng(opts.seed), bump = new Simplex(opts.seed + 1);
-  const wob = lineWobble(opts.seed + 2);
   const out: THREE.BufferGeometry[] = [];
   const flatTop = opts.height;
   const rows = rowsUpTo(seq, flatTop);
-  const tones = rows.map(() => 0.9 + rng() * 0.16);
-  rows.forEach(([y0, y1, k], ri) => {
-    const jitter = (rng() - 0.5) * 0.01;
+  // BD1:相邻各行开洞情况相同就并成一段——行间接缝在园中光下也是一道线。
+  const bands: [number, number, number][] = [];
+  const cutKey = (k: number) => openings.filter((o) => k >= o.r0 && k < o.r1).map((o) => o.a0).join(',');
+  for (const [y0, y1, k] of rows) {
+    const last = bands[bands.length - 1];
+    if (last && cutKey(last[2]) === cutKey(k)) last[1] = y1; else bands.push([y0, y1, k]);
+  }
+  bands.forEach(([y0, y1, k]) => {
+    const jitter = 0;
     const cuts = openings.filter((o) => k >= o.r0 && k < o.r1).sort((p, q) => p.a0 - q.a0);
     let at = a0;
     for (const o of [...cuts, { a0: a1, a1: a1, r0: 0, r1: 0 }]) {
@@ -321,62 +323,24 @@ function earthWall(opts: { a0: number; a1: number; height: number; topAt?: (a: n
       const s1 = o.a0 - (o.a0 === a1 ? rng() * rng() * 0.06 : rng() * 0.025);
       if (s1 - s0 > 0.05) {
         const g = liftSlab(s0, s1, y0, y1, wt, jitter);
-        const p = g.attributes.position, mid = (y0 + y1) / 2;
+        const p = g.attributes.position;
         for (let i = 0; i < p.count; i++) {
           const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-          const lower = y < mid, line = lower ? k : k + 1;
-          // 贴地那条线与最上一版的顶(压额枋 / 接山尖)不摆,其余层线起伏。
-          const dy = line === 0 || (ri === rows.length - 1 && !lower) ? 0 : wob(line, x);
           const outer = z > jitter - wt / 2;
           const dz = outer ? 0.007 * bump.noise2D(x * 1.7, y * 2.3) + 0.004 * bump.noise2D(x * 6.1, y * 5.3) : 0;
-          p.setXYZ(i, x, y + dy, z + dz);
+          p.setXYZ(i, x, y, z + dz);
         }
         g.computeVertexNormals();
-        g.userData.tone = tones[ri];
         out.push(g);
       }
       at = Math.max(at, o.a1);
     }
   });
-  // 山尖:平顶以上逐版切五边形(版高续用 seq)。
+  // 山尖:平顶以上一整块三角(BD1:不再逐版切,免得出接缝)。
   if (opts.topAt && opts.ridgeA !== undefined) {
     const ridgeY = opts.topAt(opts.ridgeA), half = (a1 - a0) / 2, mid = (a0 + a1) / 2;
-    const aAt = (y: number) => (y <= flatTop ? half : Math.max(0, half * (ridgeY - y) / (ridgeY - flatTop)));
-    let y0 = flatTop, k = seq.findIndex((v) => v > flatTop + 0.1);
-    while (y0 < ridgeY - 0.02) {
-      const y1 = Math.min(ridgeY, k >= 0 && k < seq.length ? Math.max(seq[k], y0 + 0.2) : y0 + 0.32);
-      const poly: [number, number][] = [[mid - aAt(y0), y0], [mid + aAt(y0), y0]];
-      if (y1 >= ridgeY - 1e-6) poly.push([mid, ridgeY]);
-      else poly.push([mid + aAt(y1), y1], [mid - aAt(y1), y1]);
-      const g = gableSlab(poly, wt, (rng() - 0.5) * 0.01);
-      g.userData.tone = 0.9 + rng() * 0.16;
-      out.push(g);
-      y0 = y1; k++;
-    }
+    if (ridgeY > flatTop + 0.02) out.push(gableSlab([[mid - half, flatTop], [mid + half, flatTop], [mid, ridgeY]], wt, 0));
   }
-  // 泥抹痕:盖掉一些层线(断续),避开门窗洞;穿棍孔:层线上隔段一个,有的有、有的没有。
-  const top = opts.topAt ?? (() => flatTop);
-  const inHole = (x: number, y: number, r: number) => openings.some((o) => x > o.a0 - r && x < o.a1 + r && y > seq[o.r0] - r && y < seq[o.r1] + r);
-  const area = (a1 - a0) * flatTop;
-  for (let i = 0, n = Math.round(area * 1.6); i < n; i++) {
-    const x = lerp(a0 + 0.2, a1 - 0.2, rng());
-    const line = rows[(rng() * rows.length) | 0];
-    const y = line[0] + (rng() - 0.3) * 0.2;
-    const rx = 0.15 + rng() * 0.4, ry = 0.07 + rng() * 0.14;
-    if (y < 0.08 || y + ry > top(x) - 0.05 || inHole(x, y, Math.max(rx, ry))) continue;
-    const g = mudPatch(x, y + wob(line[2], x), rx, ry, opts.seed * 31 + i, 0.8 + rng() * 0.38);
-    g.translate(0, 0, 0.012);
-    out.push(g);
-  }
-  rows.forEach(([y0, , k]) => {
-    if (k === 0) return;
-    for (let x = a0 + 0.3 + rng() * 0.4; x < a1 - 0.2; x += 0.55 + rng() * 0.5) {
-      if (rng() < 0.45 || inHole(x, y0, 0.08)) continue;
-      const g = tieHole(x, y0 + wob(k, x), opts.seed * 7 + k * 101 + ((x * 100) | 0));
-      g.translate(0, 0, 0.011);
-      out.push(g);
-    }
-  });
   return out;
 }
 

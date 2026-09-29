@@ -1,8 +1,9 @@
-import * as THREE from 'three';
-import { Simplex, makeRng } from '@engine/core/Noise';
+import { makeRng } from '@engine/core/Noise';
 
 /**
- * 黄泥版筑的共用做法(茅屋土壁与黄泥矮墙同一套,单子 BA 返工 D-36 ②)。
+ * 黄泥版筑的共用做法(茅屋土壁与黄泥矮墙同一套)。
+ * 单子 BD1(D-36 推翻条件触发):层线、泥抹痕、穿棍孔已改归贴图(materials.ts 的 earthWallMaterial),
+ * 本文件只剩版线序列——几何按它分行,只为门窗洞对齐与塌角。下面是 D-36 ② 那一版的原始说明:
  *
  * 第一轮棚拍的病:版高一律一尺、层线又直又齐、一版一色 → 读成浅色木板。这里改三件:
  *   ① **版高不等**:每版 0.26–0.38 m(夹板一次夯多高,本来就看人看土),同一栋房四面同一套层线;
@@ -27,39 +28,4 @@ export function rowsUpTo(seq: number[], H: number, minLast = 0.13): [number, num
     rows[rows.length - 1][1] = last[1];
   }
   return rows;
-}
-
-/** 层线的上下摆:第 k 条线在沿墙 a 处的偏移(0 号线贴地不摆)。 */
-export function lineWobble(seed: number, amp = 0.02): (k: number, a: number) => number {
-  const s = new Simplex(seed);
-  return (k, a) => (k <= 0 ? 0 : amp * (0.7 * s.noise2D(a * 0.9, k * 3.7) + 0.3 * s.noise2D(a * 3.1, k * 5.3 + 9)));
-}
-
-/**
- * 泥抹痕一块:局部平面(x 沿墙、y 高、z 朝外),不规则扁圆,中间微鼓。
- * 顶点色 `tone`(补的泥与墙色略有出入)。uv 由调用方按墙面投影。
- */
-export function mudPatch(cx: number, cy: number, rx: number, ry: number, seed: number, tone: number, dome = 0.009): THREE.BufferGeometry {
-  const rng = makeRng(seed), s = new Simplex(seed);
-  const N = 18, pos: number[] = [cx, cy, dome], idx: number[] = [];
-  const ph = rng() * 10;
-  for (let i = 0; i < N; i++) {
-    const a = (i / N) * Math.PI * 2, k = 0.7 + 0.3 * (0.5 + 0.5 * s.noise2D(Math.cos(a) * 1.3 + ph, Math.sin(a) * 1.3));
-    pos.push(cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k, 0.0015);
-  }
-  for (let i = 0; i < N; i++) idx.push(0, 1 + i, 1 + ((i + 1) % N));
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setIndex(idx);
-  g.computeVertexNormals();
-  const col = new Float32Array((N + 1) * 3);
-  for (let i = 0; i <= N; i++) col.set([tone, tone * 0.99, tone * 0.97], i * 3);
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  return g;
-}
-
-/** 穿棍孔:层线上一个小暗洞(拆模后留下),断续有无。 */
-export function tieHole(cx: number, cy: number, seed: number): THREE.BufferGeometry {
-  const g = mudPatch(cx, cy, 0.02 + (seed % 7) * 0.001, 0.014, seed, 0.3, 0.0015);
-  return g;
 }
