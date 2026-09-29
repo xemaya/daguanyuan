@@ -70,8 +70,9 @@ export function buildBeishan(variant: string): PartBuild {
   const hill = new THREE.Mesh(g, turfMaterial()); hill.castShadow = hill.receiveShadow = true; group.add(hill);
   // 露石:坡上几块,半埋。
   const stone = stoneMaterial(1);
+  // 露石方位用黄金角错开、高低不一:随机两块并排落在同一高度时,从 e09 看读成一张脸(BB6 棚拍发现)。
   for (let k = 0; k < 7; k++) {
-    const a = rng() * Math.PI * 2, u = 0.25 + rng() * 0.55, r = 0.7 + rng() * 1.1;
+    const a = k * 2.39996 + rng() * 0.5, u = 0.3 + ((k * 0.37) % 0.55) + rng() * 0.08, r = 0.55 + rng() * 1.0;
     const x = Math.cos(a) * BS.rx * u, z = Math.sin(a) * BS.rz * u, y = height(u, a);
     const rg = new THREE.IcosahedronGeometry(r, 2);
     rg.scale(1.3, 0.8, 1);
