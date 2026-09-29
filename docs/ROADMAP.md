@@ -53,7 +53,9 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | 4c | **AL-c**：X-05 的 3D 可见性尺子 + 路牙画面贴住（着色器 warp）+ 院内读成苔地（先诊断） | **AL-c** `docs/superpowers/plans/2026-09-24-alc-xiaoxiang-3d-ruler-and-ground.md`（`D-33`） | 中 | ✅ **合回并验收（§24，2026-09-25）**：3D 尺子、路牙画面贴住过；X-05 视点改 (−105,146) 摘 hold（`D-34`）；c3 合入、苔地贴图挂起；**潇湘馆收口，下一步竹竿 LOD → 稻香村** |
 | 4d | **竹竿 LOD**：先剖析竹的成本在哪一层（叶的 alpha 片元 vs 三角），再按屏幕像素切档，挂 `isLOD` 帧钩子、阴影随主相机；点名竹丛补远处处理 | **AZ** `docs/superpowers/plans/2026-09-25-az-bamboo-lod.md` | 中 | **可派**；z0 剖析若竹不是瓶颈就停 |
 | 4e | **稻香村第一轮（P4 第一个新区）**：平面纠错（泥墙与西篱压在西溪里）⏸ → 扩窗空跑与性能复测（窗口 2.28 倍，可能触发 AY）⏸ → 茅屋近景几何棚拍 ⏸ → 黄泥墙稻茎头 + 青篱 → 落位、杏林、游线 | **BA** `docs/superpowers/plans/2026-09-25-ba-daoxiangcun-first-round.md`；需求 `knowledge/docs/scenes/daoxiangcun.md` | 大 | ✅ **合回并验收（§25，2026-09-29），稻香村收口**：BA 五件 + D-37 散布解耦 + 杏林 + 第二轮 **BB**（`docs/superpowers/plans/2026-09-28-bb-daoxiangcun-second-round.md`：土色/板桥/井桔槔辘轳/酒幌/石碣/背山/菜畦）全部合回；D-35~D-38；基线抬（远处面积账）；遗留土壁贴脸木板感、室内 P5 |
-| 4f | **远处 LOD**：120 m 外植被（D-37 后新地按正常密度，+1.29M）与乡野构件远景档，fps 拉回 ≥ 45；**蘅芜苑入建成前必须先落** | **BC** `docs/superpowers/plans/2026-09-29-bc-far-lod.md`（`D-38` ③） | 中 | **可派** |
+| 4f | **远处 LOD**：120 m 外植被（D-37 后新地按正常密度，+1.29M）与乡野构件远景档，fps 拉回 ≥ 45；**蘅芜苑入建成前必须先落** | **BC** `docs/superpowers/plans/2026-09-29-bc-far-lod.md`（`D-38` ③） | 中 | 已派 |
+| 4g | **稻香村尾账**：土壁版筑贴图（D-36 推翻条件触发）、e09 出村路绕开茆堂 + playtest 出村段、菜畦地类 | **BD** `docs/superpowers/plans/2026-09-29-bd-daoxiangcun-tail.md` | 小 | 已派 |
+| 4h | **纸上的桥建出来**：composer 通走 `plan.connections`（P-37）；沁芳 red-railing 首次建出；对账门数 connections | **BE** `docs/superpowers/plans/2026-09-29-be-plan-connections-bridges.md` | 小中 | 已派 |
 | 5d | **AV-b2 补**：土台南脚露土阈值一行（`terrain-from-plan.ts:946` `smoothstep(0.15,0.4,hillMoss)` → `(0.03,0.12)` 或按 `hillMask` 开关），判据 `gate_face` 无红棕斑 | 并进 **AL** 当第 0 件 | 微 | ✅ 随 AL 合回，**部分通过**（§22：`gate_face` 基本干净，`patch_close` 右下余一块，进 AL-b） |
 | 6 | 沁芳 D3/D4（桥亭、收窄水面）；E4 门前古松 | 未写 | 大 / 小 | AL 之后（D5 高照杆已并进 AU） |
 | 7 | 判断题 E3 / E5 / E6；**AE 形制断言门：正门冻结后可焊**；接缝⑤ AB、AC | — | — | AU 之后 |
