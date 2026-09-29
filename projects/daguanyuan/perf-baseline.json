@@ -5,32 +5,32 @@
   "fpsTarget": 45,
   "shots": {
     "gate_approach": {
-      "drawCalls": 312,
-      "triangles": 4244033,
-      "fps": 46,
-      "frameCostMs": 4.2
+      "drawCalls": 399,
+      "triangles": 5945291,
+      "fps": 44,
+      "frameCostMs": 5.4
     },
     "mound_block": {
-      "drawCalls": 280,
-      "triangles": 4195219,
-      "fps": 47,
-      "frameCostMs": 3.9
+      "drawCalls": 373,
+      "triangles": 6016461,
+      "fps": 44,
+      "frameCostMs": 4.8
     },
     "grass_close": {
-      "drawCalls": 290,
-      "triangles": 4395937,
-      "fps": 47,
-      "frameCostMs": 5.3
+      "drawCalls": 384,
+      "triangles": 6362487,
+      "fps": 44,
+      "frameCostMs": 5.2
     },
     "xiaoxiang": {
-      "drawCalls": 254,
-      "triangles": 3312662,
-      "fps": 44,
-      "frameCostMs": 4.7
+      "drawCalls": 322,
+      "triangles": 4306286,
+      "fps": 42,
+      "frameCostMs": 5.5
     }
   },
-  "measuredAt": "2026-09-24",
-  "commit": "85788a342dc0b50657be8fca98dd641ef27e5d28",
+  "measuredAt": "2026-09-29",
+  "commit": "fb4b4988e45e78bd375544a2d74bdbd835590516",
   "history": [
     {
       "date": "2026-09-15",
@@ -135,6 +135,14 @@
       "bought": "AL-b b0 灌木稳定散布(全园重洗一次,calls 变动);b1/b4/b5 让掉 9 丛竹、剔院内草(xiaoxiang −9.3%);AL-c 只动着色器与工具,几何不变",
       "by": "验收人(Claude)",
       "note": "AL-c 验收(§24)三次连拍中位数(shots/ALC-accept,c3 合入前;c3 只改着色器,几何逐位不变)。AL-b 验收时未抬,这里一并抬"
+    },
+    {
+      "date": "2026-09-29",
+      "order": "BA + D-37 + BB(稻香村入建成)",
+      "shots": "gate_approach 312/4244033→399/5945291;mound_block 280/4195219→373/6016461;grass_close 290/4395937→384/6362487;xiaoxiang 254/3312662→322/4306286",
+      "bought": "不是细节,是扩区面积成本:frustum-census(gate_approach,ac1f24dd→fb4b4988)植被 901k→2192k 全部在 120 m 外(近处 333k 不变)——D-37 窗口外新地按旧园同密度撒;园林构件 +315k 其中 314k 在 120 m 外(稻香村全套远看无 LOD);地形+海 +102k。fps 中位 46/47/47/44 → 44/44/44/42(load avg ≈6,有别的 session 在跑)",
+      "by": "验收人(Claude)",
+      "note": "D-38 用户拍板:先抬基线收口,远处植被/构件 LOD 另开单子 BC 把 fps 拉回 ≥45。三次连拍 shots/ACC-r{1,2,3}(冻结 worktree /private/tmp/dgy-acc @ fb4b4988),三次三角与 calls 逐位相同;frameCostMs 手工补(§19 工具缺陷)"
     }
   ]
 }

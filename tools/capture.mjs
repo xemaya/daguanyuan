@@ -57,7 +57,7 @@ const CLEAR_DIALOGUE = () => {
 };
 
 function parseArgs(argv) {
-  const args = { out: 'shots', width: 1600, height: 900, shots: null, group: null, url: 'http://127.0.0.1:5173/garden.html', settle: 1400 };
+  const args = { out: 'shots', width: 1600, height: 900, shots: null, group: null, url: 'http://127.0.0.1:5173/garden.html', settle: 1400, readyTimeout: 150000 };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--list') args.list = true;
@@ -67,6 +67,7 @@ function parseArgs(argv) {
     else if (a === '--shots') args.shots = argv[++i].split(',').map((s) => s.trim());
     else if (a === '--url') args.url = argv[++i];
     else if (a === '--settle') args.settle = Number(argv[++i]);
+    else if (a === '--ready-timeout') args.readyTimeout = Number(argv[++i]);
     else if (a === '--group') args.group = argv[++i];
   }
   return args;
@@ -130,7 +131,8 @@ const ready = await page
   .waitForFunction(
     () => window.__GAME__ !== undefined || document.querySelector('#app pre') !== null,
     null,
-    { timeout: 150000 },
+    // 5 区入建成后(单子 BA)开页到就绪常在 150 s 上下(着色器编译),验收连拍用 --ready-timeout 300000。
+    { timeout: args.readyTimeout },
   )
   .then(() => true)
   .catch(() => false);
