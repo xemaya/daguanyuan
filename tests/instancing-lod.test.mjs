@@ -43,3 +43,20 @@ test('远近分档:两组网格的前缀并起来恰好是全体成员,各一次
   assert.deepEqual(all, [...xs].sort((a, b) => a - b));
   assert.deepEqual(prefixX(near).sort((a, b) => a - b), [200, 400]);
 });
+
+import { DistanceSwitch } from '@engine/scatter/instancing.ts';
+
+test('静态件远近两档:同组的近档与远景代理按同一个包围盒同时交接,只有一个在画', () => {
+  const sw = new DistanceSwitch(120, 2);
+  const near = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 10), new THREE.MeshBasicMaterial());
+  const far = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 6), new THREE.MeshBasicMaterial());
+  sw.addItem(near, 'near', 'g'); sw.addItem(far, 'far', 'g');
+  sw.updateMatrixWorld(true);
+  const cam = new THREE.PerspectiveCamera();
+  const at = (x) => { cam.position.set(x, 1.6, 0); cam.updateMatrixWorld(); sw.update(cam); return [near.visible, far.visible]; };
+  assert.deepEqual(at(50), [true, false]);
+  assert.deepEqual(at(200), [false, true]);
+  // 滞回:从远处走回 5 + 120 m 处(盒边在 x=5,距盒 120 m)仍是远档,进到 5 + 117 m 才换回近档。
+  assert.deepEqual(at(125), [false, true]);
+  assert.deepEqual(at(122), [true, false]);
+});

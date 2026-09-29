@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ClusterGrid } from '@engine/scatter/cluster';
-import { ScreenSizeCull, SMALL_PART_MAX_RADIUS } from '@engine/scatter/instancing';
+import { ScreenSizeCull, SMALL_PART_MAX_RADIUS, DistanceSwitch, type FarLodRole } from '@engine/scatter/instancing';
 import { mergeByMaterial } from './merge';
 
 interface Entry { mesh: THREE.Mesh; matrix: THREE.Matrix4 }
@@ -9,9 +9,30 @@ interface Entry { mesh: THREE.Mesh; matrix: THREE.Matrix4 }
 export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 64, options:{singleCluster?:boolean} = {}): THREE.Group {
   root.updateWorldMatrix(true,true);
   const buckets=new Map<string,Entry[]>(),keep:Entry[]=[];
+  /*
+   * 单子 BC2:带远近档标记的件(`userData.farLod` = 'near' | 'far',乡野构件在构件里打)不进下面的
+   * 实例化与残余合并——近档与远景代理要分开合、分开切。按「构件根(`userData.farLodRoot`)所在的
+   * 残余簇」分组,组内按档、按材质合并,整组交给 DistanceSwitch 一起换档。
+   * 没有标记的件一律照旧,一个顶点都不动。
+   */
+  const lodEntries=new Map<string,{near:Entry[];far:Entry[]}>();
+  const lodKeyOf=(mesh:THREE.Object3D):string=>{
+    let o:THREE.Object3D|null=mesh;
+    while(o&&!o.userData.farLodRoot)o=o.parent;
+    const p=(o??mesh).getWorldPosition(new THREE.Vector3());
+    return `${Math.floor(p.x/128)},${Math.floor(p.z/128)}`;
+  };
+  root.traverse(object=>{
+    const mesh=object as THREE.Mesh;
+    const role=mesh.isMesh?mesh.userData.farLod as FarLodRole|undefined:undefined;
+    if(!role)return;
+    const key=lodKeyOf(mesh);
+    let e=lodEntries.get(key);if(!e){e={near:[],far:[]};lodEntries.set(key,e);}
+    e[role].push({mesh,matrix:mesh.matrixWorld.clone()});
+  });
   root.traverseVisible(object=>{
     const mesh=object as THREE.Mesh;
-    if(!mesh.isMesh)return;
+    if(!mesh.isMesh||mesh.userData.farLod)return;
     const entry={mesh,matrix:mesh.matrixWorld.clone()};
     if((mesh as THREE.InstancedMesh).isInstancedMesh||mesh.userData.keep||Array.isArray(mesh.material)||entry.matrix.determinant()<0){
       keep.push(entry);return;
@@ -128,6 +149,20 @@ export function assembleStatic(root: THREE.Object3D, threshold = 8, cellSize = 6
     }else out.add(copy);
   }
   if(smallParts.children.length)out.add(smallParts);
+  if(lodEntries.size){
+    const sw=new DistanceSwitch();
+    for(const [key,e] of lodEntries)for(const role of ['near','far'] as const){
+      const plain=e[role].filter(x=>!(x.mesh as THREE.InstancedMesh).isInstancedMesh);
+      const inst=e[role].filter(x=>(x.mesh as THREE.InstancedMesh).isInstancedMesh);
+      if(plain.length){
+        const bucket=new THREE.Group();
+        for(const entry of plain)bucket.add(flatten(entry));
+        for(const child of [...mergeByMaterial(bucket).children])sw.addItem(child,role,key);
+      }
+      for(const entry of inst)sw.addItem(flatten(entry),role,key);
+    }
+    out.add(sw);
+  }
   out.userData.staticBatches={instances,prototypes};
   return out;
 }

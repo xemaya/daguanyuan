@@ -11,6 +11,7 @@ import { planItem } from './plan-data';
 import { plaqueFromPlan } from '@builder/plan/objects';
 import { makePlainPlaque } from '../xiaomu/plaque';
 import { liftSequence, rowsUpTo } from './earth';
+import { markFarLod, farBox } from './far-proxy';
 
 /**
  * 茅屋近景(单子 BA2)——稻香村「數楹茅屋」「紙窗木榻」(07-11 / 07-13),C-r 乡野子档。
@@ -591,6 +592,24 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   }
   const root = mergeByMaterial(group);
   root.name = o.id ?? 'thatch-cottage';
+  // 单子 BC2:远景档——台基一块、屋身一块、茅顶一道两坡(厚 t,前后挑出到檐口、两山挑出到出际)。
+  // 120 m 外一个像素约 0.16 m:檐口乱茬、椽头、窗棂全在一个像素以下,体块与茅顶的色块才是那一眼读到的东西。
+  {
+    const mgF = d.platformMarginM, bodyTop = beamTop;
+    const plat = farBox(W + 2 * (ow + mgF), fl, 2 * (dh + ow + mgF), 0, 0, 0, stone, 1);
+    const body = farBox(W + 2 * ow, bodyTop - fl, 2 * (dh + ow), 0, fl, 0, earth, EARTH_TILE_M);
+    const prof = new THREE.Shape([
+      new THREE.Vector2(-zTip, top(zTip) - t), new THREE.Vector2(0, top(0) - t), new THREE.Vector2(zTip, top(zTip) - t),
+      new THREE.Vector2(zTip, top(zTip)), new THREE.Vector2(0, top(0)), new THREE.Vector2(-zTip, top(zTip)),
+    ]);
+    const rg = new THREE.ExtrudeGeometry(prof, { depth: 2 * X, bevelEnabled: false });
+    rg.rotateY(-Math.PI / 2);
+    rg.translate(X, 0, 0);
+    rg.computeVertexNormals();
+    const roof = new THREE.Mesh(rg, thatch);
+    roof.castShadow = roof.receiveShadow = true;
+    markFarLod(root, [plat, body, roof]);
+  }
   root.userData.construction = { paramSet: 'rustic', tier: 'C-r', roofType: frame.roofType,
     provenance: { evidence: frame.provenance.evidence, inference: [], art: [...frame.provenance.art, ...d.provenance.art] } };
   if (o.id) root.userData.planObject = { id: o.id };

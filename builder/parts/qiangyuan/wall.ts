@@ -13,6 +13,7 @@ import { stations, splitByOpenings, arcAt, subPolyline, type P2 as XP2 } from '@
 import { liftSequence, rowsUpTo } from '@builder/parts/xiangye/earth';
 import { sweepSection, hangingStrip } from '@builder/parts/xiangye/sweep';
 import { planLayout, planGround } from '@builder/parts/xiangye/plan-data';
+import { markFarLod, farBand } from '@builder/parts/xiangye/far-proxy';
 
 /**
  * 江南园林粉墙系列。
@@ -1042,6 +1043,16 @@ export function buildMudWall(variant: string, length?: number): PartBuild {
   runs.forEach((r, i) => root.add(mudRun(r.pts, r.w, r.h, 7303 + i * 101, id ? FOOTING : 0, rel)));
   const merged = mergeByMaterial(root);
   merged.name = id || 'wall:mud';
+  // 单子 BC2:远景档——墙身一条泥色带(含墙基埋深,收分取平均)、墙头一道草檐色的尖顶。站距 2 m,随地起伏同近档。
+  if (id) {
+    const far: THREE.Mesh[] = [];
+    for (const r of runs) {
+      const top = r.h - MUD.capRise, hw = (r.w / 2) * (1 + MUD.taper) / 2, ov = r.w / 2 + MUD.capOverhang;
+      far.push(farBand(r.pts, [[-hw, -FOOTING], [hw, -FOOTING], [hw, top], [-hw, top]], earthWallMaterial(), rel, EARTH_TILE_M));
+      far.push(farBand(r.pts, [[-ov, top - MUD.capSink], [ov, top - MUD.capSink], [0, r.h]], thatchMaterial(), rel));
+    }
+    markFarLod(merged, far);
+  }
   merged.userData.construction = { paramSet: 'rustic', tier: 'C-r', provenance: { evidence: [], inference: [], art: MUD_PROVENANCE } };
   if (!id) return { kind: 'wall-path', root: merged };
   // 入世界(单子 BA4):按 wall-path 的接口交出 path/spec,装配器零变换落在 origin、标高取 plan,

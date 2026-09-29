@@ -6,6 +6,7 @@ import { Simplex, makeRng, lerp, clamp } from '@engine/core/Noise';
 import { XY, shootMaterial, hedgeLeafMaterial } from './materials';
 import { stations, polylineLength, type P2, type Station } from './path';
 import { planLayout } from './plan-data';
+import { markFarLod, farBand, farPlainMaterial } from './far-proxy';
 
 /**
  * 两溜青篱(单子 BA3)。07-11「外面卻是桑,榆,槿,柘,各色樹稚新條,隨其曲折,編就兩溜青篱」。
@@ -225,6 +226,12 @@ export function buildQingli(variant: string, context?: PartContext): PartBuild {
   merged.name = variant === 'default' || variant === 'bend' ? `qingli:${variant}` : planId;
   merged.userData.construction = { paramSet: 'rustic', tier: 'C-r', provenance: { evidence: [], inference: [], art: PROVENANCE } };
   if (variant === 'default' || variant === 'bend') return { root: merged };
+  // 单子 BC2:远景档——每溜一条绿带(篱宽、篱高,顶略收),纯色取近档叶枝在园中光下的平均绿(艺术取值,并排图定)。
+  markFarLod(merged, layout.runs.map((r, ri) => {
+    const hw = r.widthM / 2;
+    return farBand(runs[ri].pts, [[-hw, -0.05], [hw, -0.05], [hw * 0.8, r.heightM], [-hw * 0.8, r.heightM]],
+      farPlainMaterial('qingli', 0x5d7438), rel);
+  }));
   // 入世界(单子 BA4):同泥墙,按 wall-path 接口交出 path/spec——零变换落在 origin、标高取 plan;
   // 篱是挡人的(人从两溜篱之间的村路走,不从篱里钻),每段直腿一块阻挡盒。
   const elev = layout.runs.map((r) => r.elevationsM ?? []).flat();

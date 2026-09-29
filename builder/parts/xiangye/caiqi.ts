@@ -5,6 +5,7 @@ import { Simplex, makeRng } from '@engine/core/Noise';
 import { cached, recipeKey, dirtPathMaps } from '@engine/core/TextureLab';
 import { planItem, planGround, type P2 } from './plan-data';
 import { compileFields, type FieldSpec } from '@builder/plan/field-plots';
+import { markFarLod, farPlainMaterial } from './far-proxy';
 
 /**
  * 菜畦(单子 BB6,用户 2026-09-29 取甲档:茆堂以北到背山,e09 出村路两侧)。
@@ -165,6 +166,7 @@ export function buildCaiqi(variant: string, context?: PartContext): PartBuild {
     return new THREE.Matrix4().compose(new THREE.Vector3(x - ox, ground(x, z) - g0 + dy, z - oz), q, new THREE.Vector3(s, sy, s));
   };
   let area = 0;
+  const cells: { cx: number; cz: number; t: THREE.Matrix4 }[] = [];
   // 土片:1.5 m 一格铺满可种范围(盖住草地),田埂也在内——田埂是土不是草。
   for (let x = minX; x < maxX; x += 1.5) for (let z = minZ; z < maxZ; z += 1.5) {
     const cx = x + 0.75, cz = z + 0.75;
@@ -174,6 +176,7 @@ export function buildCaiqi(variant: string, context?: PartContext): PartBuild {
     const n = new THREE.Vector3(-hx / (2 * e), 1, -hz / (2 * e)).normalize();
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
     soilT.push(new THREE.Matrix4().compose(new THREE.Vector3(cx - ox, ground(cx, cz) - g0 + 0.04, cz - oz), q, new THREE.Vector3(1, 1, 1))); area += 2.25;
+    cells.push({ cx, cz, t: new THREE.Matrix4().compose(new THREE.Vector3(cx - ox, ground(cx, cz) - g0 + 0.07, cz - oz), q, new THREE.Vector3(1, 1, 1)) });
   }
   // 垄与植株:按田块的垄向,在块内逐垄铺。
   seeds.forEach((s, pi) => {
@@ -216,6 +219,27 @@ export function buildCaiqi(variant: string, context?: PartContext): PartBuild {
   inst(cards(2, 0.5, 0.36), mats.veg, vegT, vegC, 'veg');
   inst(cards(3, 0.55, 0.85), mats.rape, rapeT, rapeC, 'rape');
   root.name = id;
+  // 单子 BC2:远景档——垄、菜、油菜 120 m 外换成贴地色块:每 1.5 m 土片上盖一片田块的平均色
+  // (菜畦取土与菜叶两行的混色、油菜畦取叶绿与黄花的混色,艺术取值,并排图定);田埂仍是土片本色。
+  // 土片两档都画(它本来就是贴地色块)。
+  {
+    const farC: THREE.Color[] = [], farT: THREE.Matrix4[] = [];
+    const vegCol = new THREE.Color(0x5f6f3a), rapeCol = new THREE.Color(0x9c9a45);
+    for (const c of cells) {
+      const p = plotAt(c.cx, c.cz);
+      if (p.i < 0 || p.baulk) continue;
+      farT.push(c.t); farC.push(seeds[p.i].rape ? rapeCol : vegCol);
+    }
+    const far: THREE.Object3D[] = [];
+    if (farT.length) {
+      const m = new THREE.InstancedMesh(tile(1.52), farPlainMaterial('caiqi', 0xffffff), farT.length);
+      farT.forEach((t, i) => { m.setMatrixAt(i, t); m.setColorAt(i, farC[i]); });
+      m.instanceMatrix.needsUpdate = true; m.computeBoundingSphere(); m.computeBoundingBox();
+      m.castShadow = false; m.receiveShadow = true; m.name = 'caiqi.far';
+      far.push(m);
+    }
+    markFarLod(root, far, (m) => m.name === 'caiqi.soil');
+  }
   root.userData.construction = { paramSet: 'rustic', tier: 'C-r', provenance: { evidence: [], inference: [], art: PROVENANCE } };
   root.userData.planObject = { id };
   root.userData.field = { areaM2: area, ridges: ridgeT.length, veg: vegT.length, rape: rapeT.length, plots: seeds.length };

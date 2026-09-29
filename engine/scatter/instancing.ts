@@ -647,3 +647,67 @@ export class ScreenSizeCull extends THREE.Object3D {
     }
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* 单子 BC2 · 静态件的远近两档                                          */
+/* ------------------------------------------------------------------ */
+
+/** 静态件在 mesh.userData 上的远近档标记:近档件(`near`)远处藏起来,远景代理(`far`)近处藏起来。 */
+export type FarLodRole = 'near' | 'far';
+/** 静态件换档的默认水平距离,米(与植被 BC1 的 `TREE_FAR_M` 同一个数,同一个依据)。 */
+export const STATIC_FAR_M = 120;
+
+interface SwitchGroup { box: THREE.Box3; items: { mesh: THREE.Object3D; role: FarLodRole }[]; placed: boolean; far: boolean }
+
+/**
+ * 按「相机到这一组东西包围盒最近点的水平距离」切远近两档。
+ *
+ * **按组切,不按网格切**:近档件合批时按材质拆成好几块、远景代理又是另一套材质,
+ * 各自的包围盒不一样大——各切各的,就会在分界附近出现「近的藏了、远的还没出来」的一圈空档。
+ * 所以同一组(静态合批的同一个簇)的近档与远档共用一个包围盒(全部成员的并)、一个决定,同时交接。
+ *
+ * 与 `ScreenSizeCull` 同一条路挂在帧上:`isLOD` 让渲染器每次投影场景先调 `update(camera)`;
+ * 正交(阴影)相机沿用上一次透视相机的决定——**阴影随主相机档**。2 m 滞回防止站在分界上一闪一闪。
+ * 不碰任何顶点与实例矩阵。
+ */
+export class DistanceSwitch extends THREE.Object3D {
+  readonly isLOD = true;
+  autoUpdate = true;
+  readonly dist: number;
+  readonly hysteresis: number;
+  private readonly groups = new Map<string, SwitchGroup>();
+  private readonly camPos = new THREE.Vector3();
+  private readonly probe = new THREE.Vector3();
+
+  constructor(dist = STATIC_FAR_M, hysteresis = 2) {
+    super();
+    this.name = 'FarLodSwitch';
+    this.dist = dist;
+    this.hysteresis = hysteresis;
+  }
+
+  addItem(mesh: THREE.Object3D, role: FarLodRole, group: string): void {
+    mesh.userData.farLod = role;
+    let g = this.groups.get(group);
+    if (!g) { g = { box: new THREE.Box3(), items: [], placed: false, far: false }; this.groups.set(group, g); }
+    g.items.push({ mesh, role });
+    g.placed = false;
+    // 未投影之前:近档画、远档不画(与第一帧之前的世界一致)。
+    mesh.visible = role === 'near';
+    this.add(mesh);
+  }
+
+  update(camera: THREE.Camera): void {
+    if (!(camera as THREE.PerspectiveCamera).isPerspectiveCamera) return;
+    this.camPos.setFromMatrixPosition(camera.matrixWorld);
+    for (const g of this.groups.values()) {
+      if (!g.placed) { g.box.makeEmpty(); for (const it of g.items) g.box.expandByObject(it.mesh, true); g.placed = true; }
+      // 水平距离:相机高度夹进盒子的高度范围,只量 x/z 上的差。
+      this.probe.copy(this.camPos);
+      this.probe.y = Math.min(Math.max(this.probe.y, g.box.min.y), g.box.max.y);
+      const d = g.box.isEmpty() ? Infinity : g.box.distanceToPoint(this.probe);
+      g.far = g.far ? d > this.dist - this.hysteresis : d > this.dist + this.hysteresis;
+      for (const it of g.items) it.mesh.visible = it.role === 'far' ? g.far : !g.far;
+    }
+  }
+}
