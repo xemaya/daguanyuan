@@ -99,6 +99,35 @@ export function coverage(plan, manifest, scenes = []) {
 }
 
 /**
+ * 单子 BE2 · 对账门认 connections(`P-37`)。
+ *
+ * `coverage()` 只数各区的 buildings / rocks / linears,`plan.connections[]` 不属任何区,
+ * 于是四座桥从 P2 起一座没建、门一直是绿的——plan 里有数据不等于世界里有东西。
+ * 这一栏数:**建成窗口内**的 connections 应建几座、世界名册里建了几座,缺的列名。
+ *
+ * 「应建」的判定与 composer 同一个函数(`builder/compose/connections.ts` 的 `pickConnections`),
+ * 窗口由调用方给(CLI 用 `terrainWindow(plan, 建成区, TERRAIN_PAD_M, cell)` 现算)。
+ * 世界的真窗口还要向外对到地形格网的整格上(`terrain.ts` snapToTerrainLattice,最多外扩一格 0.48 m),
+ * 所以这里的窗口 ⊆ 世界的窗口:折点正好落在那一条缝里的连接,世界会建、这里不算应建,
+ * 单列成「窗口边多建」——看得见,不判红。
+ *
+ * 纯函数,不碰 IO;`pickConnections` 由调用方传进来(它是 .ts,CLI 挂解析钩子后再 import)。
+ */
+export const TERRAIN_PAD_M = 15; // = builder/compose/terrain.ts 的 PAD(tests/connection-compose.test.mjs 核对两处相等)
+export function connectionCoverage(plan, manifest, win, pickConnections) {
+  const conns = plan.connections ?? [];
+  const { build, skipped } = pickConnections(conns, win);
+  const claimed = new Set();
+  for (const rec of manifest.constructions ?? []) for (const key of [rec.planId, rec.id, rec.variant]) if (key) claimed.add(key);
+  const expected = build.map((c) => c.id);
+  const built = expected.filter((id) => claimed.has(id));
+  const missing = expected.filter((id) => !claimed.has(id));
+  const outside = skipped.map((s) => s.id);
+  const extra = outside.filter((id) => claimed.has(id));
+  return { total: conns.length, expected, built, missing, outside, extra };
+}
+
+/**
  * 单子 AD · 第三档「接缝连续性」的世界名册那一侧。
  *
  * connection-audit.mjs 的 auditSeams 只看 plan 的线性构件——而正门那六段粉墙
@@ -242,6 +271,20 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`建成区 ${c.builtRegions.join(', ') || '(世界没报，manifest 是旧的？)'}`);
     console.log(`\n已建成区覆盖率  ${c.built.covered}/${c.built.total}`);
     for (const id of c.built.missing) console.log(`  缺  ${id}`);
+
+    /* 单子 BE2:连接(桥)一栏。窗口与 composer 同源(建成区 bbox + PAD),判定同一个 pickConnections。 */
+    await import('../tests/ts-resolver.mjs');
+    const { terrainWindow } = await import('../builder/plan/window.ts');
+    const { pickConnections } = await import('../builder/compose/connections.ts');
+    const man = loadManifest(dir);
+    const win = c.builtRegions.length ? terrainWindow(plan, c.builtRegions, TERRAIN_PAD_M, man.terrain?.cell ?? 0.48) : null;
+    const cc = win ? connectionCoverage(plan, man, win, pickConnections) : null;
+    if (cc) {
+      console.log(`\n连接(桥)  建成窗口内 ${cc.built.length}/${cc.expected.length}   (plan.connections ${cc.total} 座,窗口外 ${cc.outside.length} 座不建)`);
+      for (const id of cc.built) console.log(`  建  ${id}`);
+      for (const id of cc.missing) console.log(`  缺  ${id}`);
+      for (const id of cc.outside) console.log(`  外  ${id}${cc.extra.includes(id) ? '(世界建了:窗口边多建,见 connectionCoverage 注释)' : ''}`);
+    }
     console.log(`\n实体在别处(scenes 的 accountedFor，写明由什么实现)  ${c.elsewhere.length}`);
     for (const e of c.elsewhere) console.log(`  别  ${e.object.padEnd(30)} ← ${e.by}`);
     const ruleCounts = new Map();
@@ -291,6 +334,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
     if (solid.hits.length) { console.log(`\nFAIL ${solid.hits.length} 件实体落在墙体内——枝叶越墙是想要的景，茎干插进墙不是`); bad++; }
     if (c.built.missing.length) { console.log(`\nFAIL 已建成区内有 ${c.built.missing.length} 个 plan 对象在世界里没有对应物体`); bad++; }
+    if (cc?.missing.length) { console.log(`\nFAIL 建成窗口内有 ${cc.missing.length} 座连接(桥)在世界里没有:${cc.missing.join(', ')}`); bad++; }
     if (baseline && c.knownGaps > baseline.knownGaps) { console.log(`FAIL known-gap 从 ${baseline.knownGaps} 涨到 ${c.knownGaps}——未建区对象数只许降不许升`); bad++; }
     if (baseline && c.feral.length > baseline.feral) { console.log(`FAIL 野生件从 ${baseline.feral} 涨到 ${c.feral.length}`); bad++; }
     process.exit(bad ? 1 : 0);

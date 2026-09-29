@@ -12,10 +12,10 @@ import { makeTerrainField } from '@builder/compose/terrain-from-plan.ts';
 import { SEED } from '@builder/compose/config.ts';
 import { buildPart } from '@builder/parts/registry.ts';
 import { buildPlannedBridge } from '@project/construction.ts';
+import { connectionCoverage, TERRAIN_PAD_M } from '../tools/manifest-diff.mjs';
 
 const plan = JSON.parse(readFileSync('projects/daguanyuan/plan.json', 'utf8'));
 const builtRegions = readdirSync('projects/daguanyuan/scenes').filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')).sort();
-const TERRAIN_PAD_M = 15; // = builder/compose/terrain.ts 的 PAD
 const realWindow = () => terrainWindow(plan, builtRegions, TERRAIN_PAD_M, 0.48);
 
 /** 构件几何指纹:逐 mesh 的矩阵、材质、各 attribute、index,按遍历顺序。 */
@@ -100,4 +100,29 @@ test('BE1 · composer 真的走了这条路(源码守卫:删掉 connectionPlacem
     const s = JSON.parse(readFileSync(`projects/daguanyuan/scenes/${f}`, 'utf8'));
     for (const pl of s.placements ?? []) assert.ok(!String(pl.variant ?? '').startsWith('connection.'), `${f} 仍借道挂 ${pl.variant}`);
   }
+});
+
+test('BE2 · 对账门的窗口边距与 terrain.ts 的 PAD 相同', () => {
+  const src = readFileSync('builder/compose/terrain.ts', 'utf8');
+  const m = src.match(/^const PAD = (\d+(?:\.\d+)?);/m);
+  assert.ok(m, 'terrain.ts 里找不到 const PAD');
+  assert.equal(Number(m[1]), TERRAIN_PAD_M);
+});
+
+test('BE2 · --coverage 连接栏:窗口内 2 座,缺一座就点名;窗口外的不算缺', () => {
+  const win = realWindow();
+  const full = { constructions: [
+    { id: 'connection.daoxiang-creek', planId: 'connection.daoxiang-creek', part: 'garden-bridge', variant: 'connection.daoxiang-creek' },
+    { id: 'connection.red-railing', planId: 'connection.red-railing', part: 'garden-bridge', variant: 'connection.red-railing' },
+  ] };
+  const ok = connectionCoverage(plan, full, win, pickConnections);
+  assert.deepEqual(ok.built.sort(), ['connection.daoxiang-creek', 'connection.red-railing']);
+  assert.equal(ok.expected.length, 2);
+  assert.deepEqual(ok.missing, []);
+  assert.deepEqual(ok.outside.sort(), ['connection.qinfang-sluice', 'connection.yihong-return']);
+  // 突变:BE 之前的世界(只借道挂了稻香村那座)——门必须点名 red-railing。
+  const before = { constructions: full.constructions.slice(0, 1) };
+  const bad = connectionCoverage(plan, before, win, pickConnections);
+  assert.deepEqual(bad.missing, ['connection.red-railing']);
+  assert.equal(bad.built.length, 1);
 });
