@@ -29,7 +29,7 @@
 <polygon points="1600.0,2000.0 1680.0,1872.0 1936.0,1840.0 2128.0,1904.0 2176.0,2080.0 2096.0,2240.0 1856.0,2288.0 1664.0,2208.0 1600.0,2000.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
 <polygon points="2960.0,960.0 3136.0,880.0 3360.0,912.0 3504.0,1056.0 3488.0,1232.0 3296.0,1328.0 3056.0,1296.0 2944.0,1152.0 2960.0,960.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
 <polygon points="3496.8,-936.8 3441.6,-653.6 3343.2,-408.8 3188.8,-232.0 2948.8,-142.4 2696.0,-112.0 2405.6,-144.0 2110.4,-176.0 1860.8,-126.4 1623.2,-56.8 1513.6,83.2 1590.4,140.8 1672.8,24.8 1883.2,-33.6 2113.6,-80.0 2394.4,-48.0 2696.0,-16.0 2971.2,-49.6 3243.2,-152.0 3424.8,-359.2 3534.4,-626.4 3591.2,-919.2 3496.8,-936.8" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
-<polygon points="924.0,457.6 707.2,392.0 481.6,426.4 306.4,549.6 216.8,727.2 216.8,934.4 282.4,1150.4 379.2,1360.0 466.4,1565.6 528.8,1768.8 552.0,1941.6 632.0,1930.4 607.2,1751.2 541.6,1538.4 452.8,1328.0 357.6,1121.6 295.2,921.6 295.2,744.8 365.6,602.4 510.4,501.6 700.8,472.0 900.0,534.4 924.0,457.6" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
+<polygon points="924.0,457.6 707.2,392.0 583.2,496.8 532.8,604.8 476.8,691.2 391.2,740.0 291.2,773.6 228.0,847.2 216.8,934.4 282.4,1150.4 379.2,1360.0 466.4,1565.6 528.8,1768.8 552.0,1941.6 632.0,1930.4 607.2,1751.2 541.6,1538.4 452.8,1328.0 357.6,1121.6 295.2,921.6 300.0,880.8 332.8,842.4 424.8,812.0 531.2,748.8 603.2,643.2 648.8,543.2 700.8,472.0 900.0,534.4 924.0,457.6" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
 <polygon points="565.6,1944.8 639.2,2173.6 797.6,2372.8 1045.6,2530.4 1360.8,2596.0 1673.6,2514.4 1904.8,2390.4 2008.8,2252.8 2061.6,2072.8 2384.8,2044.0 2654.4,2060.0 2893.6,2076.0 3074.4,2088.8 3199.2,2237.6 3268.8,2456.0 3316.0,2642.4 3293.6,2694.4 3346.4,2713.6 3372.0,2637.6 3323.2,2440.0 3248.8,2210.4 3101.6,2039.2 2898.4,2020.0 2657.6,2004.0 2383.2,1988.0 2034.4,2023.2 1959.2,2227.2 1871.2,2345.6 1654.4,2461.6 1359.2,2540.0 1066.4,2477.6 834.4,2331.2 688.8,2146.4 618.4,1927.2 565.6,1944.8" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
 <polygon points="814.9,1427.0 941.7,1474.6 980.9,1553.0 996.8,1632.3 996.8,1720.4 1013.1,1793.6 1045.7,1826.3 1050.3,1821.7 1018.9,1790.4 1003.2,1719.6 1003.2,1631.7 987.1,1551.0 946.3,1469.4 817.1,1421.0 814.9,1427.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
 <polygon points="716.8,156.0 755.2,156.0 755.2,440.0 716.8,440.0 716.8,156.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
@@ -47,20 +47,24 @@
 <polyline points="320.0,768.0 288.0,432.0 224.0,48.0" fill="none" stroke="#c9a87a" stroke-width="3" stroke-linejoin="round" opacity="0.8"/>
 <polyline points="352.0,736.0 352.0,656.0 352.0,600.0 304.0,512.0 304.0,496.0 304.0,464.0" fill="none" stroke="#c9a87a" stroke-width="3" stroke-linejoin="round" opacity="0.8"/>
 <rect x="299" y="459" width="10" height="10" fill="#7a4a2a"/><text x="312" y="468" fill="#5a3a1a" font-weight="bold">茅堂(数楹茅屋·纸窗木榻) (-202,-52)</text>
-<rect x="195" y="555" width="10" height="10" fill="#7a4a2a"/><text x="208" y="564" fill="#5a3a1a" font-weight="bold">东厢田舍 (-215,-40)</text>
+<rect x="403" y="539" width="10" height="10" fill="#7a4a2a"/><text x="416" y="548" fill="#5a3a1a" font-weight="bold">东厢田舍 (-189,-42)</text>
 <rect x="331" y="635" width="10" height="10" fill="#7a4a2a"/><text x="344" y="630" fill="#5a3a1a" font-weight="bold">黄泥矮墙(墙头皆用稻茎掩护) (-198,-30)</text>
 <rect x="427" y="667" width="10" height="10" fill="#7a4a2a"/><text x="440" y="676" fill="#5a3a1a" font-weight="bold">两溜青篱 (-186,-26)</text>
-<rect x="315" y="811" width="10" height="10" fill="#7a4a2a"/><text x="328" y="820" fill="#5a3a1a" font-weight="bold">土井·桔槔辘轳 (-200,-8)</text>
-<rect x="395" y="699" width="10" height="10" fill="#7a4a2a"/><text x="408" y="708" fill="#5a3a1a" font-weight="bold">酒幌(杏帘在望) (-190,-22)</text>
+<rect x="211" y="723" width="10" height="10" fill="#7a4a2a"/><text x="224" y="732" fill="#5a3a1a" font-weight="bold">土井·桔槔辘轳 (-213,-19)</text>
+<rect x="403" y="667" width="10" height="10" fill="#7a4a2a"/><text x="416" y="688" fill="#5a3a1a" font-weight="bold">酒幌(杏帘在望) (-189,-26)</text>
+<rect x="331" y="703" width="10" height="10" fill="#7a4a2a"/><text x="344" y="712" fill="#5a3a1a" font-weight="bold">石碣(留题之备) (-198,-21.5)</text>
+<rect x="275" y="235" width="10" height="10" fill="#7a4a2a"/><text x="288" y="244" fill="#5a3a1a" font-weight="bold">菜畦(分畦列亩·佳蔬菜花) (-205,-80)</text>
 <polygon points="128,170 134,176 128,182 122,176" fill="#8a8f96"/><text x="136" y="180" fill="#4a4f56">rock-01 (-224,-88)</text>
+<circle cx="432.0" cy="672.0" r="4" fill="#5a6e8a"/>
+<text x="438" y="668" fill="#3a4e6a" font-size="9">稻香村过溪木桥 (-186.0,-26.0)</text>
 <circle cx="304.0" cy="512.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="304.0" y="515.5" fill="#b0402a" font-size="9" text-anchor="middle">9</text><text x="313" y="524" fill="#b0402a" font-size="9">稻香村</text>
 <circle cx="280.0" cy="16.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="280.0" y="19.5" fill="#b0402a" font-size="9" text-anchor="middle">10</text><text x="289" y="28" fill="#b0402a" font-size="9">转坡·抚石依泉</text>
 <line x1="448.0" y1="896.0" x2="432.2" y2="859.2" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="448.0" cy="896.0" r="3" fill="#2a6ab0"/>
 <text x="453" y="907" fill="#2a6ab0" font-size="9">dx_approach</text>
 <line x1="344.0" y1="688.0" x2="337.0" y2="648.6" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="344.0" cy="688.0" r="3" fill="#2a6ab0"/>
 <text x="349" y="699" fill="#2a6ab0" font-size="9">dx_court</text>
-<line x1="384.0" y1="864.0" x2="352.0" y2="840.0" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="384.0" cy="864.0" r="3" fill="#2a6ab0"/>
-<text x="389" y="875" fill="#2a6ab0" font-size="9">dx_well</text>
+<line x1="136.0" y1="752.0" x2="174.3" y2="740.5" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="136.0" cy="752.0" r="3" fill="#2a6ab0"/>
+<text x="141" y="763" fill="#2a6ab0" font-size="9">dx_well</text>
 <line x1="312.0" y1="520.0" x2="312.0" y2="504.0" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="312.0" cy="520.0" r="2" fill="#2a6ab0"/>
 <text x="0" y="1070" fill="#666" font-size="9">■ 建筑锚点  ◆ plan 岩石锚点  ● scenes 散置件  ● 手放树(HERO_TREES)  ○ 十七回游线节点  ─ 机位(短线=朝向;小点=贴脸 cu_* 机位,名单见文档)  虚线框=占地登记  棕线=plan 路径(翠嶂那张是旧路基,潇湘馆那张是院内甬路)</text>
 </svg>
