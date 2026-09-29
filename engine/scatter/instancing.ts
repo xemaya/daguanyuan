@@ -31,6 +31,39 @@ interface PooledCluster {
   maxDist: number;
   meshes?: THREE.InstancedMesh[];
   build?: () => THREE.InstancedMesh[];
+  lod?: ClusterLod;
+}
+
+/**
+ * 单子 BC1:远处档。一个簇的每个成员(一棵树)按它自己到相机的水平距离归近档或远档——
+ * 不按簇整体切,所以 128 m 的大簇里也不会出现「一格一格换档」的线。
+ *
+ * 近档与远档是同一批成员、同一套逐实例数据(矩阵、色、aWind)的两组网格;
+ * 每一帧(相机挪过 0.5 m 才重算)把成员分成两段:近档网格的缓冲前缀是近的那些、`count` = 近的株数,
+ * 远档网格反过来。**两组网格的前缀并起来恰好是全体成员、各一次**——所以按 `count` 读实例的工具
+ * (`tree-census`)读到的集合与不分档时逐株相同。阴影 pass 用同一个 `count`,阴影随主相机档。
+ */
+interface ClusterLod {
+  dist: number;
+  hysteresis: number;
+  /** 成员的世界 x/z(取自实例矩阵的平移)。 */
+  xz: Float32Array;
+  /** 成员当前是否在远档。 */
+  far: Uint8Array;
+  near: THREE.InstancedMesh[];
+  farMeshes: THREE.InstancedMesh[];
+  /** 每个网格按簇内原始成员序存的一份逐实例数据母本,重排时从这里抄。 */
+  masters: Map<THREE.InstancedMesh, { attr: THREE.BufferAttribute; data: ArrayLike<number> }[]>;
+  initialized: boolean;
+}
+
+export interface ClusterLodOptions {
+  /** 水平距离超过它(米)的成员换远档。 */
+  dist: number;
+  /** 与 `sources` 一一对应的远档几何;`null` = 这一件远处不画。 */
+  geometries: (THREE.BufferGeometry | null)[];
+  /** 进出远档的滞回,米(默认 2),免得站在分界上来回闪。 */
+  hysteresis?: number;
 }
 
 /** Keep camera culling in Three so each shadow camera gets its own frustum test. */
@@ -47,7 +80,9 @@ export class ClusteredInstancePool {
     this.root = root; this.cellSize = cellSize;
   }
 
-  add(sources: THREE.InstancedMesh[], options: {maxDist?:number;skipShadow?:THREE.InstancedMesh[];cellSize?:number} = {}): void {
+  private readonly lastLodCamera = new THREE.Vector3(Infinity, 0, Infinity);
+
+  add(sources: THREE.InstancedMesh[], options: {maxDist?:number;skipShadow?:THREE.InstancedMesh[];cellSize?:number;lod?:ClusterLodOptions} = {}): void {
     if (!sources.length || sources[0].count === 0) return;
     const grid = new ClusterGrid<number>(options.cellSize ?? this.cellSize);
     const matrix = new THREE.Matrix4(), sphere = new THREE.Sphere();
@@ -67,18 +102,21 @@ export class ClusteredInstancePool {
       combined.radius+=windPadding;
       grid.add(combined.center.x,combined.center.z,i,combined.center.y,combined.radius);
     }
+    if (options.lod && options.lod.geometries.length !== sources.length) throw new Error('lod.geometries must match sources');
     for (const cluster of grid.cells()) {
       const members=cluster.items;
-      const meshes=sources.map(source=>{
-        const geometry=source.geometry.clone();
+      const buildMesh=(source:THREE.InstancedMesh,base:THREE.BufferGeometry,suffix:string)=>{
+        const geometry=base.clone();
         // Vertex/index buffers are immutable for the world's lifetime. Only
         // the per-instance streams differ between clusters; sharing the base
         // attributes prevents re-uploading one prototype for every cell.
-        geometry.setIndex(source.geometry.index);
+        geometry.setIndex(base.index);
+        for (const [key,attribute] of Object.entries(base.attributes)) {
+          if (!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) geometry.setAttribute(key,attribute);
+        }
+        // 逐实例的流一律取自近档源(远档几何只换形,不换这一株的风相 / 色 / 位置)。
         for (const [key,attribute] of Object.entries(source.geometry.attributes)) {
-          if (!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) {
-            geometry.setAttribute(key,attribute);continue;
-          }
+          if (!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) continue;
           const attr=attribute as THREE.InstancedBufferAttribute;
           const ArrayType=attr.array.constructor as {new(length:number):typeof attr.array};
           const data=new ArrayType(members.length*attr.itemSize);
@@ -89,7 +127,7 @@ export class ClusteredInstancePool {
           geometry.setAttribute(key,new THREE.InstancedBufferAttribute(data,attr.itemSize,attr.normalized));
         }
         const mesh=new THREE.InstancedMesh(geometry,source.material,members.length);
-        mesh.name=`${source.name}@${cluster.key}`;
+        mesh.name=`${source.name}@${cluster.key}${suffix}`;
         mesh.castShadow=source.castShadow;mesh.receiveShadow=source.receiveShadow;
         mesh.customDepthMaterial=source.customDepthMaterial;
         mesh.customDistanceMaterial=source.customDistanceMaterial;
@@ -104,12 +142,33 @@ export class ClusteredInstancePool {
         mesh.boundingSphere=new THREE.Sphere(new THREE.Vector3(cluster.center.x,cluster.center.y,cluster.center.z),cluster.radius);
         if(options.skipShadow?.includes(source)){
           mesh.onBeforeShadow=()=>{mesh.count=0;};
-          mesh.onAfterShadow=()=>{mesh.count=members.length;};
+          // 分档后 count 不再恒等于成员数:阴影 pass 之后还原到这一帧的档内株数。
+          mesh.onAfterShadow=()=>{mesh.count=(mesh.userData.lodCount as number|undefined)??members.length;};
         }
         this.root.add(mesh);
         return mesh;
-      });
-      this.clusters.push({center:new THREE.Vector3(cluster.center.x,cluster.center.y,cluster.center.z),radius:cluster.radius,maxDist:options.maxDist??Infinity,meshes});
+      };
+      const meshes=sources.map(source=>buildMesh(source,source.geometry,''));
+      let lod:ClusterLod|undefined;
+      if(options.lod){
+        const farMeshes:THREE.InstancedMesh[]=[];
+        options.lod.geometries.forEach((g,k)=>{ if(g) farMeshes.push(buildMesh(sources[k],g,'~far')); });
+        const xz=new Float32Array(members.length*2);
+        const e=meshes[0].instanceMatrix.array;
+        for(let j=0;j<members.length;j++){xz[j*2]=e[j*16+12];xz[j*2+1]=e[j*16+14];}
+        const masters=new Map<THREE.InstancedMesh,{attr:THREE.BufferAttribute;data:ArrayLike<number>}[]>();
+        for(const mesh of [...meshes,...farMeshes]){
+          const list:{attr:THREE.BufferAttribute;data:ArrayLike<number>}[]=[{attr:mesh.instanceMatrix,data:mesh.instanceMatrix.array.slice()}];
+          if(mesh.instanceColor)list.push({attr:mesh.instanceColor,data:mesh.instanceColor.array.slice()});
+          for(const a of Object.values(mesh.geometry.attributes))
+            if((a as THREE.InstancedBufferAttribute).isInstancedBufferAttribute)list.push({attr:a as THREE.BufferAttribute,data:(a as THREE.BufferAttribute).array.slice()});
+          masters.set(mesh,list);
+        }
+        // 未分档之前:近档画全体,远档不画。
+        for(const m of farMeshes){m.count=0;m.userData.lodCount=0;}
+        lod={dist:options.lod.dist,hysteresis:options.lod.hysteresis??2,xz,far:new Uint8Array(members.length),near:meshes,farMeshes,masters,initialized:false};
+      }
+      this.clusters.push({center:new THREE.Vector3(cluster.center.x,cluster.center.y,cluster.center.z),radius:cluster.radius,maxDist:options.maxDist??Infinity,meshes:lod?[...meshes,...lod.farMeshes]:meshes,lod});
     }
     for(const source of sources){source.removeFromParent();source.geometry.dispose();}
   }
@@ -118,8 +177,39 @@ export class ClusteredInstancePool {
     this.clusters.push({center:center.clone(),radius,maxDist,build});
   }
 
+  /** BC1:按成员重排一个簇的近 / 远两组网格(见 ClusterLod)。 */
+  private applyLod(lod: ClusterLod, cx: number, cz: number): void {
+    const n = lod.far.length;
+    let changed = !lod.initialized;
+    for (let j = 0; j < n; j++) {
+      const d = Math.hypot(lod.xz[j * 2] - cx, lod.xz[j * 2 + 1] - cz);
+      const was = lod.far[j];
+      const now = was ? (d > lod.dist - lod.hysteresis ? 1 : 0) : (d > lod.dist + lod.hysteresis ? 1 : 0);
+      if (now !== was || !lod.initialized) { lod.far[j] = lod.initialized ? now : (d > lod.dist ? 1 : 0); changed = true; }
+    }
+    lod.initialized = true;
+    if (!changed) return;
+    const nearIdx: number[] = [], farIdx: number[] = [];
+    for (let j = 0; j < n; j++) (lod.far[j] ? farIdx : nearIdx).push(j);
+    const write = (mesh: THREE.InstancedMesh, order: number[], count: number) => {
+      for (const { attr, data } of lod.masters.get(mesh)!) {
+        const size = attr.itemSize, arr = attr.array as unknown as { [i: number]: number };
+        order.forEach((src, dst) => { for (let c = 0; c < size; c++) arr[dst * size + c] = data[src * size + c]; });
+        attr.needsUpdate = true;
+      }
+      mesh.count = count;
+      mesh.userData.lodCount = count;
+    };
+    const nearFirst = [...nearIdx, ...farIdx], farFirst = [...farIdx, ...nearIdx];
+    for (const m of lod.near) write(m, nearFirst, nearIdx.length);
+    for (const m of lod.farMeshes) write(m, farFirst, farIdx.length);
+  }
+
   update(camera: THREE.Camera): void {
     camera.getWorldPosition(this.cameraPosition);
+    // 相机挪过 0.5 m 才重分远近档(站着不动时一次都不重排)。
+    const relod = Math.hypot(this.cameraPosition.x - this.lastLodCamera.x, this.cameraPosition.z - this.lastLodCamera.z) > 0.5;
+    if (relod) this.lastLodCamera.copy(this.cameraPosition);
     for(const cluster of this.clusters){
       const distance=this.cameraPosition.distanceTo(cluster.center)-cluster.radius;
       const active=!this.enabled || !this.distanceEnabled || distance<cluster.maxDist;
@@ -136,8 +226,10 @@ export class ClusteredInstancePool {
           cluster.center.copy(actual.center);cluster.radius=actual.radius;
         }
       }
+      if(cluster.lod && (relod || !cluster.lod.initialized)) this.applyLod(cluster.lod, this.cameraPosition.x, this.cameraPosition.z);
       if(cluster.meshes)for(const mesh of cluster.meshes){
-        mesh.visible=active;
+        // 分档之后一组网格可能一株都不画(count 0),干脆不交给渲染器。
+        mesh.visible=active && (mesh.userData.lodCount === undefined || (mesh.userData.lodCount as number) > 0);
         mesh.frustumCulled=this.enabled && this.frustumEnabled;
       }
     }
@@ -148,7 +240,7 @@ export class ClusteredInstancePool {
   setDistanceCulling(on:boolean): void {this.distanceEnabled=on;}
   stats(): {clusters:number;built:number;instances:number} {
     return {clusters:this.clusters.length,built:this.clusters.filter(c=>c.meshes).length,
-      instances:this.clusters.reduce((n,c)=>n+(c.meshes?.reduce((sum,m)=>sum+m.instanceMatrix.count,0)??0),0)};
+      instances:this.clusters.reduce((n,c)=>n+((c.lod?c.lod.near:c.meshes)?.reduce((sum,m)=>sum+m.instanceMatrix.count,0)??0),0)};
   }
 }
 

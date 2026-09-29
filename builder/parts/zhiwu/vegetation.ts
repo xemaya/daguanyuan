@@ -107,6 +107,12 @@ const LEGACY_MASK_BOUNDS = { minX: LEGACY_WINDOW.minX, minZ: LEGACY_WINDOW.minZ,
  * 草不用这个块：草是逐格点哈希的抖动格网，天生与原点无关，只按 13 m 的世界对齐草块分网格。
  */
 const EXT_BLOCK = 32;
+/**
+ * 单子 BC1:树换远景档的水平距离,米。BC0 剖析(`shots/BC/bc0-profile-*.json`):四镜关掉「包围球心 120 m 外」
+ * 的树,帧成本 −2.40 / −1.35 / −0.15 / −0.90 ms、三角 −2.04M / −1.73M / −1.95M / −0.71M,是四镜里最贵的一类;
+ * 120 m 处 1600×900、FOV 62° 一个像素 ≈ 0.16 m,缘叶卡(0.3–1 m)只剩两到六个像素,远景档的冠面与卡数够用。
+ */
+const TREE_FAR_M = 120;
 /** 块外的草块边长（世界对齐 k·13 m）：与旧草块同一个 13 m，理由见 `VEG.chunk`。 */
 const EXT_GRASS_CHUNK = 13;
 /** 块里用的世界格点掩码格距，米。旧掩码是 270/256 × 218/288 = 1.05 × 0.76 m，取 1 m 同一量级。 */
@@ -842,7 +848,13 @@ interface TreeGeo {
   trunkR: number;
 }
 
-function buildTree(def: TreeDef, seed: number): TreeGeo {
+/**
+ * `far`(单子 BC1):同一棵树的远景档——**同种子、同骨架、同冠形**(树干脊线、枝位、冠球都吃同一串 rng,
+ * 与近档逐球相同),只降分辨率:干 13×11 → 5×5 环段,枝 6×7 → 3×4,根不画(远处埋在草里),
+ * 冠面 metaball 分辨率降到约四成,缘叶卡数取三成、每张放大 1.5 倍补回覆盖、不做有体积的小枝簇。
+ * 用在 120 m 外——那里一张 0.5 m 的卡只有三四个像素。
+ */
+function buildTree(def: TreeDef, seed: number, far = false): TreeGeo {
   const rng = makeRng(seed);
 
   /* ---- spine ------------------------------------------------------ */
@@ -890,8 +902,8 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
 
   const trunkGeo = taperedTube({
     spine,
-    rings: 13,
-    radial: 11,
+    rings: far ? 5 : 13,
+    radial: far ? 5 : 11,
     // Bark texel density is now fixed per metre of trunk rather than per trunk.
     // At 0.42 * h a four-metre spine got 1.7 v repeats, so a single bark fissure
     // was stretched over two metres — the vertical streak in the treeline shot.
@@ -948,7 +960,8 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
           ),
         );
       }
-      parts.push(
+      // 远景档不画根(上面那串 rng 照抽,冠与枝才与近档逐位同形)。
+      if (!far) parts.push(
         taperedTube({
           spine: rp,
           rings: 5,
@@ -1005,8 +1018,8 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
     parts.push(
       taperedTube({
         spine: lp,
-        rings: 6,
-        radial: 7,
+        rings: far ? 3 : 6,
+        radial: far ? 4 : 7,
         vScale: len * 0.6,
         radius: (u) => baseR * Math.pow(1 - u * 0.94, 0.7) + 0.012,
         lobe: (_u, theta) => 1 + Math.sin(theta * 5) * 0.04,
@@ -1131,7 +1144,7 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
   // and further where blobs overlap, so a tight bounding box slices the crown
   // flat at the top. Scale the pad with the crown instead of using a constant.
   const canopy = metaSurface(balls, {
-    resolution: def.res,
+    resolution: far ? Math.max(8, Math.round(def.res * 0.42)) : def.res,
     isoLevel: 1.0,
     padding: cR * 0.4,
     smooth: 0.85,
@@ -1198,7 +1211,7 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
   const droopN = def.droop ?? 0;
   const fringe = shellCards(canopy, {
     seed: seed ^ 0x1eaf,
-    count: Math.round(150 + cR * cR * def.crownSquash * 88),
+    count: Math.round((150 + cR * cR * def.crownSquash * 88) * (far ? 0.3 : 1)),
     // A wider size band for the same card count. The silhouette of a real crown
     // is broken at several scales at once — big terminal clumps with scraps
     // between them — and a narrow band gives an evenly scalloped edge, which is
@@ -1206,12 +1219,12 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
     // have to stand proud of the blob to break its outline at all.
     // Droop species (willow) get smaller, narrower cards so the fringe reads
     // as hanging twigs with leaf strips rather than broad pads.
-    minSize: cR * (droopN > 0 ? 0.15 : 0.20),
+    minSize: cR * (droopN > 0 ? 0.15 : 0.20) * (far ? 1.5 : 1),
     // 0.66 was too far: the biggest cards are wider than the opaque pad at the
     // root of the cluster texture is tall, so a card caught face-on showed that
     // pad as a bare green lozenge sitting on the crown. 0.56 keeps the size
     // spread without any single card being large enough to read as a panel.
-    maxSize: cR * (droopN > 0 ? 0.42 : 0.56),
+    maxSize: cR * (droopN > 0 ? 0.42 : 0.56) * (far ? 1.5 : 1),
     upBias: def.crown === 'conic' ? 0.12 : droopN > 0 ? 0.1 : 0.26,
     sink: 0.30,
     flexBoost: 0.45 + droopN * 0.35,
@@ -1219,7 +1232,7 @@ function buildTree(def: TreeDef, seed: number): TreeGeo {
     narrow: droopN > 0 ? 0.6 : 1,
     // C2(2026-09-14 backlog):「植物……质感还是假发片」——real depth only on the
     // outer, most-exposed ring (see shellCards' volumetric option / twigCluster).
-    volumetric: { fraction: 0.4, leaves: 3 },
+    volumetric: far ? undefined : { fraction: 0.4, leaves: 3 },
   });
   // Re-normalise compliance against the whole tree so a card 6m up moves like
   // the branch under it rather than like a blade of grass on the ground.
@@ -1895,6 +1908,8 @@ export function buildVegetation(ctx: GameContext): void {
   const built = SPECIES.map((def, i) => ({
     def,
     geo: buildTree(def, (ctx.seed ^ 0x7ee0) + i * 7919),
+    /** BC1 远景档:同种子(骨架与冠形同近档),只降分辨率,见 buildTree 的 `far`。 */
+    farGeo: buildTree(def, (ctx.seed ^ 0x7ee0) + i * 7919, true),
     mat: canopyMat(def.leafSet, def.tint, 1.0),
     fringeMat: fringeMats[def.leafSet],
     barkMat: barkMats[def.bark],
@@ -2507,7 +2522,11 @@ export function buildVegetation(ctx: GameContext): void {
     // Trees remain visible much farther than ground cover. Larger tree-only
     // buckets trade some clipped vertices for fewer material submissions;
     // grass and small plants keep their finer spatial buckets.
-    culler.add([trunkMesh, canopyMesh, fringeMesh], { skipShadow: [fringeMesh], cellSize: 128 });
+    // 单子 BC1:水平距离 > TREE_FAR_M 的树逐株换远景档(簇不变、位置不变,只换画什么)。
+    culler.add([trunkMesh, canopyMesh, fringeMesh], {
+      skipShadow: [fringeMesh], cellSize: 128,
+      lod: { dist: TREE_FAR_M, geometries: [b.farGeo.trunk, b.farGeo.canopy, b.farGeo.fringe] },
+    });
   }
 
   mark('tree instancing');
