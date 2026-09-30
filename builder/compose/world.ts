@@ -12,7 +12,8 @@ import { getScenes } from './scenes';
 import { buildWater, setWaterFlows } from '@engine/render/Water';
 import { buildVegetation } from '@builder/parts/zhiwu/vegetation';
 import { buildGarden } from './composer';
-import { prewarmTextures } from './prewarm-textures';
+import { startTextureWarmup } from './prewarm-textures';
+import { TERRAIN_TEXTURE_JOBS } from './texture-jobs';
 import {SEED} from './config';
 
 /**
@@ -81,9 +82,15 @@ export class World {
   }
 
   async build(onProgress?: (label: string, pct: number) => void): Promise<void> {
+    // 单子 BH1:贴图预热开页就发起,不再是第一步整段 await(以前主线程在「调色」里干等 5–8 s)。
+    // 只在真要用预热贴图之前等:「理地」要四张地面图(排在队列最前),「植树」「起屋叠石」要其余全部。
+    // 夹在中间的开天、圈地、引水,以及理地里的 splat 与网格,都不读预热贴图,于是和 worker 同时跑。
+    // 等的时间仍是建时里的两步(「调色·地面」「调色」),不从加载预算里消失(prewarm-textures.ts 头注)。
+    // 派单顺序:地面四张最先(理地在等它们),植被的树皮 / 叶片(`foliage`,主线程上原要 3.7 s)紧随其后,赶在植树之前烤完。
+    const warmup = startTextureWarmup([...TERRAIN_TEXTURE_JOBS, 'foliage']);
     const steps: [string, (ctx: GameContext) => void | Promise<void>][] = [
-      ['调色', async () => { this.root.userData.textureWarmup = await prewarmTextures(); }],
       ['开天', buildAtmosphere],
+      ['调色·地面', () => warmup.ready(TERRAIN_TEXTURE_JOBS)],
       // 清单每次重建清空一次,免得热重载时越攒越多(它是模块级的共享数组)。
       ['理地', (ctx) => { resetRoster(); buildTerrain(ctx); }],
       // 单子 Z · 接缝 ③:占位预计算。必须排在「植树」之前——植被读它来避让。
@@ -93,6 +100,7 @@ export class World {
       // 建筑与植被的顺序,而是把占位从「建出来的几何」里解耦成一次预计算。
       ['圈地', () => setOccupancy(buildOccupancy(getPlan(), builtRegions(), getScenes()))],
       ['引水', (ctx) => { setWaterFlows(getPlan().water); buildWater(ctx); }],
+      ['调色', async () => { this.root.userData.textureWarmup = await warmup.done; }],
       ['植树', buildVegetation],
       ['起屋叠石', buildGarden],
     ];

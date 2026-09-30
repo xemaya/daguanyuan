@@ -79,6 +79,23 @@ async function boot(): Promise<void> {
   });
   hud.pauseSuppressed = () => gardenMap.visible;
 
+  // ---- 单子 BG2:闲着少画(D-43) ---------------------------------------
+  // 暂停卡 / 标题卡 / 游园图开着 → 画完当前帧就停;玩家位置、yaw、pitch 1 s 没变 → 静止档。
+  // 「不动」按状态量判,不按输入事件——传送、落地、被推开都算动。工具下(navigator.webdriver)引擎不看这个。
+  {
+    const last = { x: NaN, y: NaN, z: NaN, yaw: NaN, pitch: NaN };
+    let movedAt = performance.now();
+    engine.renderState = () => {
+      if (hud.menuOpen || gardenMap.visible) return 'paused';
+      const s = player.state, p = s.position;
+      if (p.x !== last.x || p.y !== last.y || p.z !== last.z || s.yaw !== last.yaw || s.pitch !== last.pitch) {
+        last.x = p.x; last.y = p.y; last.z = p.z; last.yaw = s.yaw; last.pitch = s.pitch;
+        movedAt = performance.now();
+      }
+      return performance.now() - movedAt >= 1000 ? 'idle' : 'active';
+    };
+  }
+
   engine.add({
     name: 'map-sys',
     update: () => {
