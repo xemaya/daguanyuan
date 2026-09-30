@@ -50,7 +50,20 @@ export class Engine {
   readonly statisticsVersion = 2;
   adaptiveResolution = !new URLSearchParams(location.search).has('fixed');
   fixedTime: number | null = new URLSearchParams(location.search).has('fixed') ? 10 : null;
-  frameLimit = 60;
+  /**
+   * 工具判据 = `navigator.webdriver`:所有 headless 工具(capture、playtest、visibility-probe、frustum-census、
+   * tree-census、record……)都经 Playwright 启动,浏览器自己把它置真。与 `HUD` 判断「自动化 → 不挂开场卡」同一个判据。
+   * 单子 BG2 的「闲着少画」也用它关掉。
+   */
+  readonly throttle = navigator.webdriver !== true;
+  /**
+   * 单子 BG1(D-43):帧率上限 60 → 30。用户「一打开这个网站,风扇就狂转」;游戏逻辑 0.2 ms/帧,
+   * 渲染提交 4 ms/帧,一直满速画是风扇的主因。`?fps=60` 临时回 60(对比用)。
+   * **工具下(`navigator.webdriver`)仍是 60**:playtest 按帧积分走路,上限一变脚下序列的采样就变,
+   * 单子要求工具一个都不受影响;工具量性能看的是抬开上限的 frameCostMs(D-40)。
+   */
+  frameLimit = Number(new URLSearchParams(location.search).get('fps')) > 0
+    ? Number(new URLSearchParams(location.search).get('fps')) : (this.throttle ? 30 : 60);
   readonly timings: { frameMs: number[]; cpuMs: number[] } = { frameMs: [], cpuMs: [] };
   private lastFrame = 0;
   private disposed = false;
@@ -193,10 +206,13 @@ export class Engine {
     const cap = this.quality.pixelRatioCap;
     const current = this.renderer.getPixelRatio();
     const target = Math.min(window.devicePixelRatio, cap);
-    if (this.measuredFps < 45 && current > 0.75) {
+    // 阈值按上限折算(原来是 60 帧上限下的 45 / 58);上限 30 时就是 22.5 / 29——
+    // 不折算的话 30 帧上限下 fps 永远 < 45,像素比会被一路降到 0.75。
+    const low = this.frameLimit * 0.75, high = this.frameLimit * (58 / 60);
+    if (this.measuredFps < low && current > 0.75) {
       this.renderer.setPixelRatio(Math.max(0.75, current - 0.15));
       this.postfx?.setSize(window.innerWidth, window.innerHeight);
-    } else if (this.measuredFps > 58 && current < target) {
+    } else if (this.measuredFps > high && current < target) {
       this.renderer.setPixelRatio(Math.min(target, current + 0.1));
       this.postfx?.setSize(window.innerWidth, window.innerHeight);
     }
