@@ -18,7 +18,7 @@ MVP(2026-09-10)验证了三件事:程序化的表现力、《营造法式》推�
 | 知道架构往哪走 | `docs/superpowers/specs/2026-09-14-scale-architecture-design.md` ← 六条接缝、三条目标的可验判据 |
 | 改翠嶂 / 沁芳 / 潇湘馆 | `knowledge/docs/qingshi/{cuizhang,qinfang,xiaoxiangguan}.md` ← 三份考据，含反算与落地思路 |
 | 踩过的坑 | `docs/PITFALLS.md`（`P-1` … `P-38`） |
-| 拍过的板 | `docs/DECISIONS.md`（`D-01` … `D-41`） |
+| 拍过的板 | `docs/DECISIONS.md`（`D-01` … `D-42`） |
 
 **下一步**（2026-09-15 晚更新）：用户交来 codex 的《程序化细节深化评审》并定调**优先于 AL / AM**。
 核验与执行顺序见 `docs/reviews/2026-09-15-detail-review-response.md`——一句话：**先让已有细节被看见（AN1 后期对照、AQ-a 管线小修），
@@ -56,6 +56,7 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | 4f | **远处 LOD**：120 m 外植被（D-37 后新地按正常密度，+1.29M）与乡野构件远景档，fps 拉回 ≥ 45；**蘅芜苑入建成前必须先落** | **BC** `docs/superpowers/plans/2026-09-29-bc-far-lod.md`（`D-38` ③） | 中 | ✅ 合回并验收（§26，2026-09-30）|
 | 4g | **稻香村尾账**：土壁版筑贴图（D-36 推翻条件触发）、e09 出村路绕开茆堂 + playtest 出村段、菜畦地类 | **BD** `docs/superpowers/plans/2026-09-29-bd-daoxiangcun-tail.md` | 小 | ✅ 合回并验收（§26，2026-09-30）|
 | 4h | **纸上的桥建出来**：composer 通走 `plan.connections`（P-37）；沁芳 red-railing 首次建出；对账门数 connections | **BE** `docs/superpowers/plans/2026-09-29-be-plan-connections-bridges.md` | 小中 | ✅ 合回并验收（§26，2026-09-30）|
+| 4i | **稻香村茅屋改「雅村」**：精茅顶 + 细抹黄壁 + 石台基 + 前廊格扇纸窗（贵族园里搭的假村，不是真农舍） | **BF** `docs/superpowers/plans/2026-09-30-bf-daoxiangcun-refined-cottage.md`（`D-42`） | 中 | 已派；棚拍 ⏸ 等用户 |
 | 5d | **AV-b2 补**：土台南脚露土阈值一行（`terrain-from-plan.ts:946` `smoothstep(0.15,0.4,hillMoss)` → `(0.03,0.12)` 或按 `hillMask` 开关），判据 `gate_face` 无红棕斑 | 并进 **AL** 当第 0 件 | 微 | ✅ 随 AL 合回，**部分通过**（§22：`gate_face` 基本干净，`patch_close` 右下余一块，进 AL-b） |
 | 6 | 沁芳 D3/D4（桥亭、收窄水面）；E4 门前古松 | 未写 | 大 / 小 | AL 之后（D5 高照杆已并进 AU） |
 | 7 | 判断题 E3 / E5 / E6；**AE 形制断言门：正门冻结后可焊**；接缝⑤ AB、AC | — | — | AU 之后 |
