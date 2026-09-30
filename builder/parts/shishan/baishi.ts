@@ -690,8 +690,31 @@ export function baishiCrownPoints(variant: string): BaishiCrownPoint[] {
   return out;
 }
 
-/** 纯几何入口(可在 node 里跑校验,不碰材质)。 */
+/**
+ * 单子 BH1:按 variant 记忆化。
+ *
+ * 同一份白石几何有两个消费者:构件本身(「起屋叠石」里 `registerPart` 建 mesh)与藤萝找挂点
+ * (「植树」里 vegetation.ts 调 `baishiCrownPoints`)。BH0 剖析量到后者每调一次就把整组峰的
+ * 雕刻几何重算一遍——翠嶂在「植树 / 点名种植」里白花 3.2 s,到「起屋」又原样再算一遍。
+ * 几何只由 variant 决定(种子取自 variant 的序号,见 buildPeak / buildGroup),所以缓存不改任何顶点。
+ *
+ * **调用方只许读,不许就地改**:构件 mesh 直接用这份 geometry(以前也是每个原型一份、各 clone 共享);
+ * 合批 `merge.ts` 是先 clone 再变换,不碰原件。要一份不走缓存的,用 `buildBaishiGeometryFresh`。
+ */
+const GEOMETRY_CACHE = new Map<string, BaishiGeometry>();
+
+/** 纯几何入口(可在 node 里跑校验,不碰材质)。按 variant 记忆化(单子 BH1,见上)。 */
 export function buildBaishiGeometry(variant: string): BaishiGeometry {
+  let g = GEOMETRY_CACHE.get(variant);
+  if (!g) {
+    g = buildBaishiGeometryFresh(variant);
+    GEOMETRY_CACHE.set(variant, g);
+  }
+  return g;
+}
+
+/** 不走缓存、每次现算(测试比对「缓存与现算逐位相同」用)。 */
+export function buildBaishiGeometryFresh(variant: string): BaishiGeometry {
   const { kind, n } = parseVariant(variant);
   if (kind === 'tablet') return buildTablet(n);
   if (kind === 'skirt') return buildSkirt(n);
