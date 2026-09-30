@@ -34,6 +34,9 @@ export const QUALITY: Record<QualityTier['name'], QualityTier> = {
   ultra: { name: 'ultra', pixelRatioCap: 2, shadowMapSize: 4096, ssao: true, bloom: true, dof: true, msaaSamples: 4 },
 };
 
+/** BG3:真浏览器里 governor 开始「许降」之前,满速可动档要累计画够的毫秒数。 */
+const GOVERN_WARMUP_MS = 3000;
+
 export class Engine {
   readonly renderer: THREE.WebGPURenderer;
   readonly scene: THREE.Scene;
@@ -68,11 +71,14 @@ export class Engine {
     ? Number(new URLSearchParams(location.search).get('fps')) : (this.throttle ? 30 : 60);
   /**
    * 当前该怎么画,项目层接线(见 projects/daguanyuan/main.ts):
-   * `active` 走动 / 转视角——上限;`idle` 站着不动 ≥ 1 s——15 帧;`paused` 暂停卡 / 游园图 / 标题卡——画完当前帧就停。
+   * `active` 走动 / 转视角——上限;`idle` 站着不动 ≥ 1 s——20 帧;`paused` 暂停卡 / 游园图 / 标题卡——画完当前帧就停。
    */
   renderState: () => RenderState = () => 'active';
-  /** 静止档帧率(BG2 表)。 */
-  idleFps = 15;
+  /**
+   * 静止档帧率。BG2 定 15;BG3(验收人裁定)改 20——dt 正好 0.05,不被 `min(raw, 1/20)` 钳住,
+   * 站着时风 / 水 / 云按真实速度走(15 帧时每帧 0.067 s 被钳到 0.05,只走 75%)。
+   */
+  idleFps = 20;
   /** 窗口失焦(看得见但不在前台)档帧率。 */
   blurFps = 2;
   private focused = typeof document.hasFocus === 'function' ? document.hasFocus() : true;
@@ -84,6 +90,11 @@ export class Engine {
   private lastPace = '';
   /** 这一帧的档是不是「满速可动」——只有这一档的 fps 读数交给 governor。 */
   private governable = true;
+  /**
+   * BG3:真浏览器里「满速可动」档累计画了多少毫秒。开页、开场卡、刚收卡那几秒是着色器按需编译的停顿,
+   * governor 把它读成「卡」就先把像素比降下去(BG 之前就有),所以累计满 `GOVERN_WARMUP_MS` 之前只许升、不许降。
+   */
+  private activeMs = 0;
   readonly timings: { frameMs: number[]; cpuMs: number[] } = { frameMs: [], cpuMs: [] };
   private lastFrame = 0;
   private disposed = false;
@@ -229,6 +240,7 @@ export class Engine {
     }
     this.governable = !this.throttle || (state === 'active' && this.focused && limit === this.frameLimit);
     const frameMs = this.lastFrame ? timestamp - this.lastFrame : interval;
+    if (this.throttle && this.governable && !skipSample) this.activeMs += Math.min(frameMs, 100);
     this.lastFrame = timestamp;
     const cpuStart = performance.now();
     // Clamp dt so a background tab or a GC pause cannot teleport the player
@@ -267,8 +279,12 @@ export class Engine {
     const target = Math.min(window.devicePixelRatio, cap);
     // 阈值按上限折算(原来是 60 帧上限下的 45 / 58);上限 30 时就是 22.5 / 29——
     // 不折算的话 30 帧上限下 fps 永远 < 45,像素比会被一路降到 0.75。
-    const low = this.frameLimit * 0.75, high = this.frameLimit * (58 / 60);
-    if (this.measuredFps < low && current > 0.75) {
+    // BG3:回升阈值在真浏览器里取上限的 0.9(30 → 27)。58/60 在 30 上限下是 29,实测走动 27.6–29.6,
+    // 降下去的像素比可能一直升不回来、画面一直偏糊。工具下(60 上限)仍是原来的 58,一个字节不动。
+    const low = this.frameLimit * 0.75, high = this.frameLimit * (this.throttle ? 0.9 : 58 / 60);
+    // BG3:满速可动档累计不足 3 s(开页 / 开场卡 / 刚收卡的编译停顿)时只许升不许降。
+    const mayLower = !this.throttle || this.activeMs >= GOVERN_WARMUP_MS;
+    if (mayLower && this.measuredFps < low && current > 0.75) {
       this.renderer.setPixelRatio(Math.max(0.75, current - 0.15));
       this.postfx?.setSize(window.innerWidth, window.innerHeight);
     } else if (this.measuredFps > high && current < target) {
