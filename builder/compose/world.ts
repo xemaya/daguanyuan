@@ -86,7 +86,8 @@ export class World {
     // 只在真要用预热贴图之前等:「理地」要四张地面图(排在队列最前),「植树」「起屋叠石」要其余全部。
     // 夹在中间的开天、圈地、引水,以及理地里的 splat 与网格,都不读预热贴图,于是和 worker 同时跑。
     // 等的时间仍是建时里的两步(「调色·地面」「调色」),不从加载预算里消失(prewarm-textures.ts 头注)。
-    const warmup = startTextureWarmup(TERRAIN_TEXTURE_JOBS);
+    // 派单顺序:地面四张最先(理地在等它们),植被的树皮 / 叶片(`foliage`,主线程上原要 3.7 s)紧随其后,赶在植树之前烤完。
+    const warmup = startTextureWarmup([...TERRAIN_TEXTURE_JOBS, 'foliage']);
     const steps: [string, (ctx: GameContext) => void | Promise<void>][] = [
       ['开天', buildAtmosphere],
       ['调色·地面', () => warmup.ready(TERRAIN_TEXTURE_JOBS)],

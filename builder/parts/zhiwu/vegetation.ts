@@ -36,6 +36,7 @@ import { registerObject } from '@builder/compose/roster';
 import { TERRAIN, getPlan } from '@builder/compose/terrain';
 import { getScenes } from '@builder/compose/scenes';
 import { makeGrassCoverField } from '@builder/compose/grass-cover';
+import { BARK_SETS, LEAF_SETS } from '@builder/compose/texture-jobs';
 import {
   bananaClusterGeometry,
   wisteriaDrapeGeometry,
@@ -1786,14 +1787,15 @@ export function buildVegetation(ctx: GameContext): void {
    * hue arrives entirely as the per-species `barkTint` instance colour, which
    * means eight species of trunk cost three textures and zero extra draw calls.
    */
+  // 单子 BH1:参数的真源搬到 `texture-jobs.ts` 的 BARK_SETS(worker 预热同一份);下面的取色理由照旧留在这里。
   const barkSets: Record<BarkSet, ReturnType<typeof barkSet>> = {
-    oak: barkSet('oak', 0x3d2716, 0xb28c5a, 1.0, 512),
+    oak: barkSet(...BARK_SETS.oak),
     // Was 0x4e4335 → 0xa8977a: both neutral, and the crack colour in particular
     // was a dead grey, so the deepest, most visible part of the relief carried no
     // hue at all. Warm both ends and the whole surface reads as wood.
-    ash: barkSet('ash', 0x453424, 0xac9268, 0.72, 512),
+    ash: barkSet(...BARK_SETS.ash),
     // Birch: the paper is warm-white, the lenticels are grey-brown.
-    pale: barkSet('pale', 0x7d7565, 0xf2ece0, 0.22, 512),
+    pale: barkSet(...BARK_SETS.pale),
   };
   const makeBarkMat = (set: BarkSet) =>
     createFoliageMaterial(ctx.env, {
@@ -1825,10 +1827,11 @@ export function buildVegetation(ctx: GameContext): void {
   // instance tint, and three 512² bakes is already a noticeable slice of the
   // loading budget.
   const leafSets: Record<LeafSet, ReturnType<typeof leafMaps>> = {
-    warm: leafMaps('warm', 0x4e8c3c, 0xaadd6c, 512),
-    cool: leafMaps('cool', 0x3f7d4a, 0x92d072, 512),
-    needle: leafMaps('needle', 0x3a6b46, 0x7cb266, 512),
-    apricot: leafMaps('apricot', 0xa8344c, 0xf4a494, 512),
+    // 单子 BH1:参数真源在 `texture-jobs.ts` 的 LEAF_SETS。
+    warm: leafMaps(...LEAF_SETS.warm),
+    cool: leafMaps(...LEAF_SETS.cool),
+    needle: leafMaps(...LEAF_SETS.needle),
+    apricot: leafMaps(...LEAF_SETS.apricot),
   };
 
   const canopyMat = (set: LeafSet, tint: number, wind: number, tri = 0.55) =>
