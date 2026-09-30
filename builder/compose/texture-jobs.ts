@@ -11,6 +11,12 @@ import { bakeTiaohuanAtlas } from '@builder/parts/ornament/tiaohuan-band';
 export const TEXTURE_JOBS = ['wood', 'dirt', 'sand', 'turf', 'tile', 'stone', 'taihu', 'plaster', 'cobble', 'paper', 'xifancao', 'tiaohuan'] as const;
 export type TextureJob = typeof TEXTURE_JOBS[number];
 
+/**
+ * 单子 BH1:「理地」要用的四张地面图(`terrain.ts` 的 turf / trackEarth / cobble / sand)。
+ * `world.ts` 把它们排在预热队列最前、只等它们就开始理地,其余的图在理地、引水的同时接着烤。
+ */
+export const TERRAIN_TEXTURE_JOBS: readonly TextureJob[] = ['turf', 'dirt', 'sand', 'cobble'];
+
 export function bakeTextureJob(job: TextureJob): void {
   switch (job) {
     case 'turf': grassTurfMaps(); break;
