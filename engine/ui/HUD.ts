@@ -60,6 +60,14 @@ export class HUD {
   private hintTimer = 0;
 
   pauseSuppressed = (): boolean => false;
+
+  /**
+   * 单子 BG2:开场卡 / 暂停卡是否挂着(引擎据此「画完当前帧就停」)。只读,不改外观。
+   * 载入幕还在时世界还没建好、引擎还没开跑,不归这里管。
+   */
+  get menuOpen(): boolean {
+    return this.start.visible;
+  }
   private booted = false;
   private auto = false;
   /** Seconds left before an unlock is treated as a real pause. */
