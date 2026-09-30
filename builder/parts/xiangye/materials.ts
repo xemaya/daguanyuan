@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { bakeColorMap, bakeNormalMap, cached, recipeKey, mixHex, hexToRgb, NOISE } from '@engine/core/TextureLab';
 import { Simplex, makeRng, clamp, smoothstep, lerp, worley } from '@engine/core/Noise';
-import { woodMaps } from '../materials';
+import { woodMaps, plasterMaps } from '../materials';
 import { dirtPathMaps } from '@engine/core/TextureLab';
 
 /**
@@ -466,5 +466,141 @@ export function hedgeLeafMaterial(): THREE.MeshStandardMaterial {
       return texFrom(cv, true, false);
     });
     return new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.78, metalness: 0, vertexColors: true });
+  });
+}
+
+/* ================================================================== */
+/* 雅村(D-42,单子 BF):茆堂 / 东厢改「贵族园里搭的假村」——茅顶精修,屋身细抹、   */
+/* 青砖下碱、刨光本色木。**只新增**:黄泥矮墙仍用上面的 earthWall / thatch / 垂茬, */
+/* 那几个函数一个字节不动(矮墙像素不许变)。                                       */
+/* ================================================================== */
+
+/** 新苫的茅:金黄偏暖、不灰败;草把宽匀、秆笔直、没有雨沟。一张 = 1 m × 1 m,v 顺坡。 */
+let freshHeights: Float32Array | undefined;
+function freshThatchMaps(): { map: THREE.Texture; normalMap: THREE.Texture } {
+  const size = 1024;
+  const map = cached(recipeKey('xiangye.thatch-fresh.albedo', size, 2), () => {
+    const rng = makeRng(0xf7e5);
+    const col = canvas(size), hgt = canvas(size);
+    const c = col.ctx, h = hgt.ctx;
+    const light = 0xd9ad5c, mid = 0xb58a44, dark = 0x7b5829, gap = 0x4a3419;
+    c.fillStyle = rgb(hexToRgb(mid)); c.fillRect(0, 0, size, size);
+    h.fillStyle = 'rgb(110,110,110)'; h.fillRect(0, 0, size, size);
+    // 草把:宽 3–4.5 cm 的整齐列,色调差很小(新苫是一批草)。
+    for (let x = 0; x < size; ) {
+      const w = 30 + rng() * 15, tone = 0.95 + rng() * 0.08;
+      c.fillStyle = rgb(hexToRgb(mid), tone, 0.5); c.fillRect(x, 0, w, size);
+      const g = h.createLinearGradient(x, 0, x + w, 0);
+      g.addColorStop(0, 'rgba(70,70,70,0.8)'); g.addColorStop(0.5, 'rgba(175,175,175,0.8)'); g.addColorStop(1, 'rgba(70,70,70,0.8)');
+      h.fillStyle = g; h.fillRect(x, 0, w, size);
+      x += w;
+    }
+    const palette = [light, light, mid, mid, dark];
+    const stroke = (n: number, wMin: number, wMax: number, isGap: boolean) => {
+      for (let i = 0; i < n; i++) {
+        const x0 = rng() * size, y0 = rng() * size, len = 120 + rng() * 300, ang = (rng() - 0.5) * 0.03;
+        const x1 = x0 + Math.sin(ang) * len, y1 = y0 + Math.cos(ang) * len, w = wMin + rng() * (wMax - wMin);
+        const cc = isGap ? hexToRgb(gap) : hexToRgb(palette[(rng() * palette.length) | 0]);
+        const a = isGap ? 0.35 + rng() * 0.25 : 0.5 + rng() * 0.45, hv = isGap ? 25 + rng() * 20 : 160 + rng() * 90;
+        wrapped(size, x0, y0, x1, y1, (dx, dy) => {
+          for (const [ctx, style] of [[c, rgb(cc, 1, a)], [h, `rgba(${hv | 0},${hv | 0},${hv | 0},${a})`]] as const) {
+            ctx.strokeStyle = style; ctx.lineWidth = w;
+            ctx.beginPath(); ctx.moveTo(x0 + dx, y0 + dy); ctx.lineTo(x1 + dx, y1 + dy); ctx.stroke();
+          }
+        });
+      }
+    };
+    stroke(9000, 1.0, 2.2, false);
+    stroke(1600, 0.7, 1.2, true);
+    stroke(3000, 1.0, 2.0, false);
+    freshHeights = heightsOf(h, size);
+    return texFrom(col.cv, true);
+  });
+  const normalMap = normalFrom('xiangye.thatch-fresh.normal2', size, freshHeights ?? new Float32Array(size * size).fill(0.5), 2.6);
+  return { map, normalMap };
+}
+export function freshThatchMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.thatch-fresh', () => {
+    const m = freshThatchMaps();
+    return new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughness: 0.92, metalness: 0, vertexColors: true });
+  });
+}
+
+/** 修齐的檐口切面:秆口整齐密排(平刀切,正看是圆口),金黄,缝浅。一张 = 0.25 m。 */
+let freshStubbleHeights: Float32Array | undefined;
+export function freshStubbleMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.thatch-fresh-end', () => {
+    const size = 512;
+    const map = cached(recipeKey('xiangye.stubble-fresh.albedo', size, 3), () => {
+      const rng = makeRng(0x5ea1);
+      const col = canvas(size), hgt = canvas(size);
+      const c = col.ctx, h = hgt.ctx;
+      c.fillStyle = rgb(hexToRgb(0x4e3618)); c.fillRect(0, 0, size, size);
+      h.fillStyle = 'rgb(40,40,40)'; h.fillRect(0, 0, size, size);
+      // 近乎六方密排的秆口,位置微抖。秆口够大(约 3.5 mm)、秆缝够深,贴脸与 5 m 外都读成「一根根草茎的断面」,不读成一块浅色板。
+      // 列数、行数取整除贴图边长(行数取偶数),四方连续不出接缝格。
+      const dx = size / 36, dy = size / 32, r = dx / 2.05;
+      for (let row = 0; row < 32; row++) for (let col = 0; col < 36; col++) {
+        const x = col * dx + (row % 2) * dx * 0.5, y = row * dy;
+        const px = x + (rng() - 0.5) * 1.6, py = y + (rng() - 0.5) * 1.6, rr = r * (0.85 + rng() * 0.25);
+        const cc = mixHex(0xb88a44, 0xdcb468, rng()), k = 0.85 + rng() * 0.2;
+        wrapped(size, px - rr, py - rr, px + rr, py + rr, (ox, oy) => {
+          c.fillStyle = rgb(cc, k); c.beginPath(); c.arc(px + ox, py + oy, rr, 0, Math.PI * 2); c.fill();
+          c.fillStyle = rgb(hexToRgb(0x6e4c20), 0.9); c.beginPath(); c.arc(px + ox, py + oy, rr * 0.42, 0, Math.PI * 2); c.fill();
+          h.fillStyle = 'rgb(200,200,200)'; h.beginPath(); h.arc(px + ox, py + oy, rr, 0, Math.PI * 2); h.fill();
+          h.fillStyle = 'rgb(120,120,120)'; h.beginPath(); h.arc(px + ox, py + oy, rr * 0.38, 0, Math.PI * 2); h.fill();
+        });
+      }
+      freshStubbleHeights = heightsOf(h, size);
+      return texFrom(col.cv, true);
+    });
+    const normalMap = normalFrom('xiangye.stubble-fresh.normal3', size, freshStubbleHeights ?? new Float32Array(size * size).fill(0.5), 1.8);
+    return new THREE.MeshStandardMaterial({ map, normalMap, roughness: 0.9, metalness: 0, vertexColors: true });
+  });
+}
+
+/** 细抹浅黄壁:借粉墙的细砂灰面贴图(均匀、只带极轻抹纹),换浅黄泥色,微哑光。 */
+export function refinedPlasterMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.plaster-yellow', () => {
+    const m = plasterMaps();
+    const mat = new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap, roughness: 1, metalness: 0, color: 0xe2c58e });
+    mat.normalScale.set(0.35, 0.35);
+    return mat;
+  });
+}
+
+/** 青砖(下碱、槛墙):顺砖错缝,砖 0.24 × 0.053 m,灰缝浅。一张 = 0.96 m 见方。 */
+let brickHeights: Float32Array | undefined;
+export function blueBrickMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.blue-brick', () => {
+    const size = 512;
+    const map = cached(recipeKey('xiangye.brick.albedo', size), () => {
+      const rng = makeRng(0xb71c);
+      const col = canvas(size), hgt = canvas(size);
+      const c = col.ctx, h = hgt.ctx;
+      c.fillStyle = rgb(hexToRgb(0x9a9c98)); c.fillRect(0, 0, size, size);
+      h.fillStyle = 'rgb(60,60,60)'; h.fillRect(0, 0, size, size);
+      const bw = size / 4, bh = size / 18, joint = 3;
+      for (let row = 0; row < 18; row++) for (let k = -1; k < 5; k++) {
+        const x = k * bw + (row % 2) * bw / 2, y = row * bh;
+        const tone = mixHex(0x5f6468, 0x747a7e, rng());
+        c.fillStyle = rgb(tone, 0.95 + rng() * 0.1); c.fillRect(x + joint / 2, y + joint / 2, bw - joint, bh - joint);
+        h.fillStyle = `rgb(${(180 + rng() * 40) | 0},180,180)`; h.fillRect(x + joint / 2, y + joint / 2, bw - joint, bh - joint);
+      }
+      brickHeights = heightsOf(h, size);
+      return texFrom(col.cv, true);
+    });
+    const normalMap = normalFrom('xiangye.brick.normal', size, brickHeights ?? new Float32Array(size * size).fill(0.5), 2.0);
+    return new THREE.MeshStandardMaterial({ map, normalMap, roughness: 0.88, metalness: 0 });
+  });
+}
+
+/** 刨光本色木(柱、枋、格扇):暖褐,不施彩画、不描金、不上漆,木纹细。 */
+export function planedWoodMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.planed-wood', () => {
+    const m = woodMaps('xiangye-planed', 0xa87850);
+    const mat = new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughness: 0.62, metalness: 0 });
+    mat.normalScale.set(0.4, 0.4);
+    return mat;
   });
 }

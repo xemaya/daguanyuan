@@ -6,7 +6,7 @@ import { mergeByMaterial } from '../merge';
 import { roundedBox, boxProjectedUV, noiseDisplace } from '../sculpt';
 import { stoneMaterial, paperMaterial } from '../materials';
 import { Simplex, makeRng, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
-import { XY, EARTH_TILE_M, thatchMaterial, thatchEndMaterial, thatchUnderMaterial, earthWallMaterial, roughWoodMaterial, strawFringeMaterial, tampedEarthMaterial } from './materials';
+import { XY, EARTH_TILE_M, thatchUnderMaterial, earthWallMaterial, roughWoodMaterial, tampedEarthMaterial, freshThatchMaterial, freshStubbleMaterial } from './materials';
 import { planItem } from './plan-data';
 import { plaqueFromPlan } from '@builder/plan/objects';
 import { makePlainPlaque } from '../xiaomu/plaque';
@@ -114,90 +114,68 @@ function log(a: V3, b: V3, ra: number, rb: number, seed: number, seg = 9, bend =
 /* 茅苫                                                                 */
 /* ------------------------------------------------------------------ */
 
-interface RoofGeom { W: number; X: number; zTip: number; top: (z: number) => number; t: number; r: number; below: number; undercut: number }
+interface RoofGeom { X: number; zTip: number; top: (z: number) => number; t: number; edge: number; belly: number; chamfer: number }
 
 /**
- * 一坡茅苫。截面(沿 X)= 左草卷(自底绕外侧到顶)→ 苫面 → 右草卷(自顶绕外侧到底);
- * 沿坡逐站扫出。最末一站是檐口:自顶向下内收 `undercut`,草茬切面用同一圈点三角化,
- * 与苫面共边、不留缝。
+ * 一坡茅苫(D-42 雅村,单子 BF1:新苫、修剪过)。截面(沿 X)= 左山**竖直切齐**的草边 → 饱满的苫面 → 右山切齐;
+ * 顶角只倒一道小圆(`chamfer`),不再是鼓出下垂的草卷。沿坡逐站扫出:
+ *   - 苫面顺坡**略鼓**(`belly`,中段最高),不是平板;起伏只剩毫米级(新苫压得匀);
+ *   - 近檐 0.8 m 苫面往上加厚到 `edge`(檐口厚边 0.28 m,新苫檐口一层层压厚),苫底不动——椽不受影响;
+ *   - 檐口站**竖直一刀切平**:切面用同一圈点三角化,与苫面共边,贴整齐的秆口贴图。
  */
-function thatchSlope(g: RoofGeom, sign: 1 | -1, lump: (x: number, s: number) => number, seed: number) {
-  const { X, zTip, top, t, r, below, undercut } = g;
-  // --- 截面 ---
-  const sec: { x: number; dy: number; roll: number }[] = [];
-  const cy = -t - below + r, cxL = -X + r;
-  const RS = 9;
-  for (let i = 0; i <= RS; i++) { // 左卷:θ 从 -π/2 → -3π/2
-    const th = -Math.PI / 2 - (Math.PI * i) / RS;
-    sec.push({ x: cxL + r * Math.cos(th), dy: cy + r * Math.sin(th), roll: 1 - Math.max(0, Math.sin(th + Math.PI)) * 0 });
-  }
-  const flatTop = cy + r;
-  const N = Math.max(4, Math.ceil((2 * (X - r)) / 0.12));
-  for (let i = 1; i < N; i++) {
-    const x = cxL + (2 * (X - r) * i) / N;
-    // 离草卷 0.25 m 内苫面从卷顶缓落到苫面(卷比苫面鼓)。
-    const e = Math.min(x - cxL, X - r - x);
-    sec.push({ x, dy: lerp(flatTop, 0, smoothstep(0, 0.25, e)), roll: 0 });
-  }
-  for (let i = 0; i <= RS; i++) { // 右卷:θ 从 π/2 → -π/2
-    const th = Math.PI / 2 - (Math.PI * i) / RS;
-    sec.push({ x: -cxL + r * Math.cos(th), dy: cy + r * Math.sin(th), roll: 1 });
-  }
-  for (let i = 0; i <= RS; i++) sec[i].roll = 1;
-  // u = 截面弧长。
+function thatchSlope(g: RoofGeom, sign: 1 | -1, seed: number) {
+  const { X, zTip, top, t, edge, belly, chamfer } = g;
+  const extra = edge - t;
+  const sec: { x: number; top: boolean; dy: number }[] = [];
+  // 左山:自底向上竖直,再倒角上到苫面。
+  for (let k = 0; k <= 4; k++) sec.push({ x: -X, top: false, dy: -t + ((t - chamfer) * k) / 4 });
+  sec.push({ x: -X + chamfer * 0.3, top: true, dy: -chamfer * 0.3 });
+  const N = Math.max(4, Math.ceil((2 * (X - chamfer)) / 0.15));
+  for (let i = 0; i <= N; i++) sec.push({ x: -X + chamfer + (2 * (X - chamfer) * i) / N, top: true, dy: 0 });
+  sec.push({ x: X - chamfer * 0.3, top: true, dy: -chamfer * 0.3 });
+  for (let k = 4; k >= 0; k--) sec.push({ x: X, top: false, dy: -t + ((t - chamfer) * k) / 4 });
   const us: number[] = [0];
   for (let i = 1; i < sec.length; i++) us.push(us[i - 1] + Math.hypot(sec[i].x - sec[i - 1].x, sec[i].dy - sec[i - 1].dy));
   const C = sec.length;
-  // --- 沿坡站点 ---
   const NS = Math.max(6, Math.ceil(zTip / 0.12));
   const slopeLen = Math.hypot(1, (top(0) - top(zTip)) / zTip);
-  const pos: number[] = [], uv: number[] = [], col: number[] = [];
   const tint = new Simplex(seed + 91);
+  const pos: number[] = [], uv: number[] = [], col: number[] = [];
   const ends: V3[] = [];
+  // 某站某点的高:基准坡 + 顺坡鼓 + 近檐加厚(加厚只加在上皮,且按点在截面里的高低比例摊:底边不动)。
+  const yAt = (s: number, dy: number) => {
+    const bump = belly * Math.sin((Math.PI * s) / zTip);
+    const thick = extra * Math.pow(smoothstep(zTip - 0.8, zTip, s), 1.4);
+    const f = clamp((dy + t) / t, 0, 1);
+    return top(sign * s) + dy + (bump + thick) * f;
+  };
   for (let j = 0; j <= NS; j++) {
     const s = (zTip * j) / NS, last = j === NS;
     for (let i = 0; i < C; i++) {
-      const { x, dy, roll } = sec[i];
-      // 苫面起伏(卷上减半),檐口最后 0.12 m 顶边圆下去一点(风雨磨圆)。
-      const bump = lump(x, s) * (roll ? 0.5 : 1);
-      const round = -0.035 * Math.pow(smoothstep(zTip - 0.14, zTip, s), 2) * smoothstep(-t, 0, dy);
-      const y = top(sign * s) + dy + bump + round;
-      // 檐口站:自顶向下内收。
-      const back = last ? undercut * clamp(-dy / t, 0, 1.1) : 0;
-      const z = sign * (s - back);
+      const { x, dy } = sec[i];
+      const y = yAt(s, dy), z = sign * s;
       pos.push(x, y, z);
       uv.push(us[i], s * slopeLen);
-      // 顶点色:近檐发灰发暗(淋得多)、斑驳、草卷背阴面暗。
-      const weather = lerp(1.04, 0.84, smoothstep(0.35 * zTip, zTip, s));
-      const patch = 1 + 0.07 * fbm2(tint, x * 0.45, s * 0.6, 3);
-      const under = roll && dy < cy ? lerp(1, 0.62, clamp((cy - dy) / r, 0, 1)) : 1;
-      const k = weather * patch * under;
-      col.push(k, k * 0.99, k * 0.96);
+      const k = (1.02 - 0.05 * smoothstep(0.5 * zTip, zTip, s)) * (1 + 0.025 * tint.noise2D(x * 0.4, s * 0.5));
+      col.push(k, k, k);
       if (last) ends.push([x, y, z]);
     }
   }
   const skin = meshGeo(pos, uv, gridIndex(NS + 1, C));
   skin.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   orient(skin, new THREE.Vector3(0, 1, 0.4 * sign));
-  // --- 檐口草茬切面:用檐口站那一圈点三角化(沿底边闭合)---
-  const shape = ends.map(([x, y]) => new THREE.Vector2(x, y));
-  const tris = THREE.ShapeUtils.triangulateShape(shape, []);
+  // 檐口切面:檐口站那一圈点(左山底 → 苫面 → 右山底)沿底边闭合,三角化。
+  const tris = THREE.ShapeUtils.triangulateShape(ends.map(([x, y]) => new THREE.Vector2(x, y)), []);
   const fp: number[] = [], fu: number[] = [], fi: number[] = [], fc: number[] = [];
-  const ft = new Simplex(seed + 7);
-  for (const [x, y, z] of ends) {
-    fp.push(x, y, z);
-    fu.push(x * 4, y * 4);
-    const k = 1.0 + 0.06 * ft.noise2D(x * 1.7, 0.3);
-    fc.push(k, k, k);
-  }
+  for (const [x, y, z] of ends) { fp.push(x, y, z + sign * 0.001); fu.push(x * 4, y * 4); fc.push(1, 1, 1); }
   for (const [a, b, c] of tris) fi.push(a, b, c);
   const face = meshGeo(fp, fu, fi);
   face.setAttribute('color', new THREE.Float32BufferAttribute(fc, 3));
   orient(face, new THREE.Vector3(0, 0, sign));
-  // --- 苫底(椽上苇箔)---
+  // 苫底(椽上苇箔)。
   const ux: number[] = [], uu: number[] = [], NX = 8, NZ = 6;
   for (let j = 0; j <= NZ; j++) for (let i = 0; i <= NX; i++) {
-    const x = -X + r + (2 * (X - r) * i) / NX, s = ((zTip - undercut) * j) / NZ;
+    const x = -X + (2 * X * i) / NX, s = (zTip * j) / NZ;
     ux.push(x, top(sign * s) - t, sign * s);
     uu.push(x * 2, s * slopeLen * 2);
   }
@@ -206,63 +184,58 @@ function thatchSlope(g: RoofGeom, sign: 1 | -1, lump: (x: number, s: number) => 
   return { skin, face, under };
 }
 
-/** 草脊:沿 X 的一道草把,椭圆截面,隔段草绳勒一道;两端露草茬。 */
-function ridgeRoll(X: number, y0: number, hw: number, hh: number, tiePitch: number, seed: number) {
-  const s = new Simplex(seed);
-  const x0 = -X - 0.05, x1 = X + 0.05, SEG = 16;
-  const NS = Math.ceil((x1 - x0) / 0.06);
+/**
+ * 草脊(BF1 规整):一道圆润压实的脊筒——截面近圆、各处同粗;每 `tiePitch` 一道竹篾箍(微勒进 3%、箍本身是细管);
+ * 两端平切收头(倒一道小圆),端面是整齐秆口。
+ */
+function ridgeRoll(X: number, y0: number, hw: number, hh: number, tiePitch: number) {
+  const x0 = -X - 0.04, x1 = X + 0.04, SEG = 20;
+  const NS = Math.ceil((x1 - x0) / 0.05);
   const pos: number[] = [], uv: number[] = [], col: number[] = [];
   const ties: number[] = [];
-  for (let x = Math.ceil((x0 + 0.25) / tiePitch) * tiePitch; x <= x1 - 0.25; x += tiePitch) ties.push(x);
-  if (!ties.length) ties.push(0);
-  const radiusAt = (x: number, a: number) => {
-    let k = 1 + 0.06 * s.noise2D(x * 2.2, a * 0.7) + 0.04 * s.noise2D(x * 7, a * 2);
-    for (const tx of ties) k -= 0.13 * Math.exp(-(((x - tx) / 0.035) ** 2));
+  const nT = Math.max(1, Math.round((x1 - x0 - 0.5) / tiePitch));
+  for (let i = 0; i <= nT; i++) ties.push(x0 + 0.25 + ((x1 - x0 - 0.5) * i) / nT);
+  const radiusAt = (x: number) => {
+    let k = 1;
+    for (const tx of ties) k -= 0.03 * Math.exp(-(((x - tx) / 0.03) ** 2));
     const end = Math.min(x - x0, x1 - x);
-    k *= lerp(0.55, 1, smoothstep(0, 0.16, end));
-    return k;
+    return k * (0.9 + 0.1 * smoothstep(0, 0.05, end));
   };
-  const ringPt = (x: number, a: number): V3 => {
-    const k = radiusAt(x, a);
-    return [x, y0 + Math.sin(a) * hh * k, Math.cos(a) * hw * k];
-  };
+  const ringPt = (x: number, a: number): V3 => { const k = radiusAt(x); return [x, y0 + Math.sin(a) * hh * k, Math.cos(a) * hw * k]; };
   for (let j = 0; j <= NS; j++) {
     const x = x0 + ((x1 - x0) * j) / NS;
     for (let i = 0; i <= SEG; i++) {
-      const a = (Math.PI * 2 * i) / SEG;
-      const p = ringPt(x, a);
+      const a = (Math.PI * 2 * i) / SEG, p = ringPt(x, a);
       pos.push(...p);
       uv.push((a / (Math.PI * 2)) * Math.PI * (hw + hh), x);
-      const k = (0.9 + 0.1 * Math.sin(a)) * (1 + 0.05 * s.noise2D(x * 0.8, 3));
-      col.push(k, k, k * 0.97);
+      const k = 0.94 + 0.08 * Math.sin(a);
+      col.push(k, k, k);
     }
   }
   const body = meshGeo(pos, uv, gridIndex(NS + 1, SEG + 1));
   body.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   orient(body, (c) => new THREE.Vector3(0, c.y - y0, c.z));
-  // 两端草茬:端环扇形封口。
   const caps: THREE.BufferGeometry[] = [];
   for (const [x, dir] of [[x0, -1], [x1, 1]] as const) {
-    const cp: number[] = [x + dir * 0.012, y0, 0], cu: number[] = [0, 0], ci: number[] = [];
+    const cp: number[] = [x, y0, 0], cu: number[] = [0, 0], ci: number[] = [];
     for (let i = 0; i <= SEG; i++) {
       const a = (Math.PI * 2 * i) / SEG, p = ringPt(x, a);
       cp.push(...p); cu.push(p[2] * 4, (p[1] - y0) * 4);
       if (i) ci.push(0, i, i + 1);
     }
     const cap = meshGeo(cp, cu, ci);
-    cap.setAttribute('color', new THREE.Float32BufferAttribute(new Array((cp.length / 3) * 3).fill(0.95), 3));
+    cap.setAttribute('color', new THREE.Float32BufferAttribute(new Array((cp.length / 3) * 3).fill(1), 3));
     orient(cap, new THREE.Vector3(dir, 0, 0));
     caps.push(cap);
   }
-  // 草绳:每道一圈细管。
   const ropes: THREE.BufferGeometry[] = [];
   for (const tx of ties) {
     const pts: THREE.Vector3[] = [];
-    for (let i = 0; i <= 24; i++) {
-      const a = (Math.PI * 2 * i) / 24, p = ringPt(tx, a);
-      pts.push(new THREE.Vector3(p[0], y0 + (p[1] - y0) * 1.06, p[2] * 1.06));
+    for (let i = 0; i <= 28; i++) {
+      const a = (Math.PI * 2 * i) / 28, p = ringPt(tx, a);
+      pts.push(new THREE.Vector3(p[0], y0 + (p[1] - y0) * 1.02, p[2] * 1.02));
     }
-    ropes.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 24, 0.016, 5, true));
+    ropes.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 28, 0.018, 6, true));
   }
   return { body, caps, ropes };
 }
@@ -383,46 +356,26 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   const beamTop = under(dh) - rd, beamBot = beamTop - m.lan.w;
   const wt = d.wallThicknessM, ow = d.wallOutsetM;
 
-  const thatch = thatchMaterial(), stubble = thatchEndMaterial(), reed = thatchUnderMaterial();
+  const thatch = freshThatchMaterial(), stubble = freshStubbleMaterial(), reed = thatchUnderMaterial();
   const earth = earthWallMaterial(), wood = roughWoodMaterial(), stone = stoneMaterial(1), paper = paperMaterial();
   const group = new THREE.Group();
   const add = (g: THREE.BufferGeometry, mat: THREE.Material) => group.add(shadowed(new THREE.Mesh(g, mat)));
 
-  /* --- 茅苫 --- */
-  const lumpN = new Simplex(seed + 3);
-  // 苫面起伏:大块鼓瘪(±2 cm)+ 顺坡拉长的草把沟(沿檐 0.2–0.4 m 一起伏、顺坡拉长 5 倍,随机不成垄)。
-  const lump = (x: number, s: number) => 0.02 * fbm2(lumpN, x * 0.8 + 11, s * 1.0, 3) + 0.011 * fbm2(lumpN, x * 3.4, s * 0.65 + 5, 2);
-  const roofG: RoofGeom = { W, X, zTip, top, t, r: d.vergeRollM, below: 0.02, undercut: d.eaveUndercutM };
+  /* --- 茅苫(BF1:新苫修齐)--- */
+  const roofG: RoofGeom = { X, zTip, top, t, edge: d.eaveEdgeM, belly: d.roofBellyM, chamfer: d.vergeChamferM };
   for (const sign of [1, -1] as const) {
-    const s = thatchSlope(roofG, sign, lump, seed + (sign > 0 ? 0 : 50));
+    const s = thatchSlope(roofG, sign, seed + (sign > 0 ? 0 : 50));
     add(s.skin, thatch); add(s.face, stubble); add(s.under, reed);
   }
-  // 檐口乱茬:切面下沿挂一溜稻茎 alpha 卡(2–11 cm 参差),「一刀齐」之下仍是草不是板。
-  {
-    const fr = strawFringeMaterial(), frng = makeRng(seed + 13);
-    const x0 = -X + d.vergeRollM * 0.6, x1 = X - d.vergeRollM * 0.6, n = Math.ceil((x1 - x0) / 0.45);
-    for (const sign of [1, -1]) for (let i = 0; i < n; i++) {
-      const w = (x1 - x0) / n + 0.08, x = x0 + ((x1 - x0) * (i + 0.5)) / n;
-      const g = new THREE.PlaneGeometry(w, 0.13);
-      const uvs = g.attributes.uv;
-      const u0 = frng();
-      for (let k = 0; k < uvs.count; k++) uvs.setX(k, u0 + uvs.getX(k) * w * 2);
-      g.translate(0, -0.13 / 2, 0);
-      g.rotateX(sign * 0.22);
-      if (sign < 0) g.rotateY(Math.PI);
-      g.translate(x, under(zTip) + 0.035 + (frng() - 0.5) * 0.01, sign * (zTip - d.eaveUndercutM - 0.015));
-      add(g, fr);
-    }
-  }
-  const ridge = ridgeRoll(X, top(0) + 0.035, d.ridgeRollHalfWidthM, d.ridgeRollHalfHeightM, d.ridgeTiePitchM, seed + 5);
+  const ridge = ridgeRoll(X, top(0) + d.ridgeRollHalfHeightM * 0.45, d.ridgeRollHalfWidthM, d.ridgeRollHalfHeightM, d.ridgeTiePitchM);
   add(ridge.body, thatch);
   for (const c of ridge.caps) add(c, stubble);
   for (const r of ridge.ropes) add(r, reed);
 
   /* --- 椽:外露段(檐下自墙外皮起;两山出际下全长)--- */
   const rng = makeRng(seed + 11);
-  const xr0 = -X + d.vergeRollM + 0.08, count = Math.max(2, Math.round((2 * -xr0) / d.rafterPitchM));
-  const tipS = zTip - d.rafterTipSetbackM - d.eaveUndercutM;
+  const xr0 = -X + 0.18, count = Math.max(2, Math.round((2 * -xr0) / d.rafterPitchM));
+  const tipS = zTip - d.rafterTipSetbackM;
   for (let i = 0; i <= count; i++) {
     const x = xr0 + (-2 * xr0 * i) / count + (rng() - 0.5) * 0.04;
     const r = (rd / 2) * (0.9 + rng() * 0.2);
