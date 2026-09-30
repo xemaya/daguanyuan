@@ -57,7 +57,7 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | 4g | **稻香村尾账**：土壁版筑贴图（D-36 推翻条件触发）、e09 出村路绕开茆堂 + playtest 出村段、菜畦地类 | **BD** `docs/superpowers/plans/2026-09-29-bd-daoxiangcun-tail.md` | 小 | ✅ 合回并验收（§26，2026-09-30）|
 | 4h | **纸上的桥建出来**：composer 通走 `plan.connections`（P-37）；沁芳 red-railing 首次建出；对账门数 connections | **BE** `docs/superpowers/plans/2026-09-29-be-plan-connections-bridges.md` | 小中 | ✅ 合回并验收（§26，2026-09-30）|
 | 4i | **稻香村茅屋改「雅村」**：精茅顶 + 细抹黄壁 + 石台基 + 前廊格扇纸窗（贵族园里搭的假村，不是真农舍） | **BF** `docs/superpowers/plans/2026-09-30-bf-daoxiangcun-refined-cottage.md`（`D-42`） | 中 | ✅ 合回并验收（§27，2026-09-30）|
-| 4j | **风扇狂转**：帧率上限 30 + 闲着少画（静止 15 / 暂停停画 / 失焦 2），工具不受影响 | **BG** `docs/superpowers/plans/2026-10-01-bg-idle-throttle-30fps.md`（`D-43`） | 小 | 已派 |
+| 4j | **风扇狂转**：帧率上限 30 + 闲着少画（静止 15 / 暂停停画 / 失焦 2），工具不受影响 | **BG** `docs/superpowers/plans/2026-10-01-bg-idle-throttle-30fps.md`（`D-43`） | 小 | ✅ 合回并验收（§28，2026-10-01）|
 | 4k | **分区加载**（区级流式，接缝 ④）：先剖析 + 设计稿，停下定方案 | **BH** `docs/superpowers/plans/2026-10-01-bh-region-streaming.md`（`D-43`） | 大 | BH0 ✅ 设计稿合回（D-44）|
 | 4l | **BH1 全局减负**：白石几何缓存、调色不干等、植被材质进 worker（画面零变化） | **BH1** `docs/superpowers/plans/2026-10-01-bh1-global-trim.md` | 中 | 已派 |
 | 4m | **BH2 两段就绪 + 后台建完**：出生两区先可玩，其余进园后排队建完 | **BH2** `docs/superpowers/plans/2026-10-01-bh2-two-stage-background.md` | 大 | 等 BG、BH1 合回 |
