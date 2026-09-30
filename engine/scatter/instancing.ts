@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { applyWind } from './wind';
+import { applyWind, instanceWindPadding } from './wind';
+import { ClusterGrid } from './cluster';
 
 /**
  * Creates an InstancedMesh with its own copy of the geometry so the
@@ -14,10 +15,319 @@ export function makeInstanced(
   windMul = 1,
 ): THREE.InstancedMesh {
   const g = geo.clone();
+  g.setIndex(geo.index);
+  for(const [name,attribute] of Object.entries(geo.attributes)) {
+    if(!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute)g.setAttribute(name,attribute);
+  }
   applyWind(g, count, rng, windMul);
   const mesh = new THREE.InstancedMesh(g, mat, count);
   mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
   return mesh;
+}
+
+interface PooledCluster {
+  center: THREE.Vector3;
+  radius: number;
+  maxDist: number;
+  meshes?: THREE.InstancedMesh[];
+  build?: () => THREE.InstancedMesh[];
+  lod?: ClusterLod;
+}
+
+type Masters = { attr: THREE.BufferAttribute; data: ArrayLike<number> }[];
+
+/**
+ * 单子 BC1:远处档。一个簇的每个成员(一棵树)按它自己到相机的水平距离归近档或远档——
+ * 不按簇整体切,所以 128 m 的大簇里也不会出现「一格一格换档」的线。
+ *
+ * 近档仍是每簇一组网格(缓冲前缀 = 这一簇里近的那些,`count` = 近的株数);**远档是整个种一组网格**,
+ * 缓冲前缀 = 全园远的那些——不跟着簇走,因为远档本来就便宜,拆成每簇一组只是在加 draw call
+ * (第一版每簇各一组远档,三角降了 1.6M、draw call 却多了 13~45,帧成本不降反升 0.3~0.9 ms,
+ * 实测见 shots/BC/data)。近档各簇前缀 + 远档前缀 = 全体成员、各一次——所以按 `count` 读实例的工具
+ * (`tree-census`)读到的集合与不分档时逐株相同。阴影 pass 用同一个 `count`,阴影随主相机档。
+ */
+interface ClusterLod {
+  /** 成员在这个种里的全局序号。 */
+  members: number[];
+  /** 成员的世界 x/z(取自实例矩阵的平移)。 */
+  xz: Float32Array;
+  /** 成员当前是否在远档。 */
+  far: Uint8Array;
+  near: THREE.InstancedMesh[];
+  /** 近档网格按簇内原始成员序存的逐实例数据母本,重排时从这里抄。 */
+  masters: Map<THREE.InstancedMesh, Masters>;
+  initialized: boolean;
+  pool: LodPool;
+}
+/** 一个种(一次 `add`)的远档:全园一组网格。 */
+interface LodPool {
+  dist: number;
+  hysteresis: number;
+  clusters: ClusterLod[];
+  farMeshes: THREE.InstancedMesh[];
+  /** 远档网格按全局成员序存的母本。 */
+  masters: Map<THREE.InstancedMesh, Masters>;
+  farIds: number[];
+  dirty: boolean;
+}
+
+export interface ClusterLodOptions {
+  /** 水平距离超过它(米)的成员换远档。 */
+  dist: number;
+  /** 与 `sources` 一一对应的远档几何;`null` = 这一件远处不画。 */
+  geometries: (THREE.BufferGeometry | null)[];
+  /** 进出远档的滞回,米(默认 2),免得站在分界上来回闪。 */
+  hysteresis?: number;
+}
+
+/** Keep camera culling in Three so each shadow camera gets its own frustum test. */
+export class ClusteredInstancePool {
+  private readonly root: THREE.Object3D;
+  private readonly clusters: PooledCluster[] = [];
+  private enabled = true;
+  private frustumEnabled = true;
+  private distanceEnabled = true;
+  private readonly cameraPosition = new THREE.Vector3();
+  readonly cellSize: number;
+
+  constructor(root: THREE.Object3D, cellSize = 32) {
+    this.root = root; this.cellSize = cellSize;
+  }
+
+  private readonly lastLodCamera = new THREE.Vector3(Infinity, 0, Infinity);
+  private readonly lodPools: LodPool[] = [];
+
+  add(sources: THREE.InstancedMesh[], options: {maxDist?:number;skipShadow?:THREE.InstancedMesh[];cellSize?:number;lod?:ClusterLodOptions} = {}): void {
+    if (!sources.length || sources[0].count === 0) return;
+    const grid = new ClusterGrid<number>(options.cellSize ?? this.cellSize);
+    const matrix = new THREE.Matrix4(), sphere = new THREE.Sphere();
+    const windPadding=Math.max(0,...sources.map(instanceWindPadding));
+    for (let i=0;i<sources[0].count;i++) {
+      const combined = new THREE.Sphere().makeEmpty();
+      for (const source of sources) {
+        if (source.count !== sources[0].count) throw new Error('Clustered instance layouts must match');
+        if (!source.geometry.boundingSphere) source.geometry.computeBoundingSphere();
+        source.updateMatrix();
+        source.getMatrixAt(i,matrix);
+        matrix.premultiply(source.matrix);
+        sphere.copy(source.geometry.boundingSphere!).applyMatrix4(matrix);
+        if(combined.isEmpty())combined.copy(sphere);
+        else combined.union(sphere);
+      }
+      combined.radius+=windPadding;
+      grid.add(combined.center.x,combined.center.z,i,combined.center.y,combined.radius);
+    }
+    if (options.lod && options.lod.geometries.length !== sources.length) throw new Error('lod.geometries must match sources');
+    let pool: LodPool | undefined;
+    if (options.lod) {
+      const n = sources[0].count;
+      const farMeshes: THREE.InstancedMesh[] = [];
+      const masters = new Map<THREE.InstancedMesh, Masters>();
+      const everyone = new THREE.Sphere().makeEmpty();
+      for (let i = 0; i < n; i++) {
+        sources[0].getMatrixAt(i, matrix); matrix.premultiply(sources[0].matrix);
+        const c = new THREE.Vector3().setFromMatrixPosition(matrix);
+        everyone.union(new THREE.Sphere(c, 0.1));
+      }
+      options.lod.geometries.forEach((g, k) => {
+        if (!g) return;
+        const src = sources[k];
+        const geometry = g.clone();
+        geometry.setIndex(g.index);
+        for (const [key, a] of Object.entries(g.attributes)) if (!(a as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) geometry.setAttribute(key, a);
+        for (const [key, a] of Object.entries(src.geometry.attributes)) {
+          const attr = a as THREE.InstancedBufferAttribute;
+          if (!attr.isInstancedBufferAttribute) continue;
+          geometry.setAttribute(key, new THREE.InstancedBufferAttribute(attr.array.slice(0, n * attr.itemSize), attr.itemSize, attr.normalized));
+        }
+        const mesh = new THREE.InstancedMesh(geometry, src.material, n);
+        // 名字里的 `@` 之后是格号的位置——`tree-census` 按 `@` 截种名,远档写 `@far`。
+        mesh.name = `${src.name}@far`;
+        mesh.castShadow = src.castShadow; mesh.receiveShadow = src.receiveShadow;
+        mesh.customDepthMaterial = src.customDepthMaterial; mesh.customDistanceMaterial = src.customDistanceMaterial;
+        const color = new THREE.Color();
+        for (let i = 0; i < n; i++) {
+          src.getMatrixAt(i, matrix); matrix.premultiply(src.matrix); mesh.setMatrixAt(i, matrix);
+          if (src.instanceColor) { src.getColorAt(i, color); mesh.setColorAt(i, color); }
+        }
+        if (!g.boundingSphere) g.computeBoundingSphere();
+        mesh.boundingSphere = everyone.clone();
+        mesh.boundingSphere.radius += g.boundingSphere!.radius * 1.6 + windPadding;
+        if (options.skipShadow?.includes(src)) {
+          mesh.onBeforeShadow = () => { mesh.count = 0; };
+          mesh.onAfterShadow = () => { mesh.count = (mesh.userData.lodCount as number | undefined) ?? 0; };
+        }
+        const list: Masters = [{ attr: mesh.instanceMatrix, data: mesh.instanceMatrix.array.slice() }];
+        if (mesh.instanceColor) list.push({ attr: mesh.instanceColor, data: mesh.instanceColor.array.slice() });
+        for (const a of Object.values(mesh.geometry.attributes))
+          if ((a as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) list.push({ attr: a as THREE.BufferAttribute, data: (a as THREE.BufferAttribute).array.slice() });
+        masters.set(mesh, list);
+        // 未分档之前:近档画全体,远档不画。
+        mesh.count = 0; mesh.userData.lodCount = 0; mesh.visible = false;
+        this.root.add(mesh);
+        farMeshes.push(mesh);
+      });
+      pool = { dist: options.lod.dist, hysteresis: options.lod.hysteresis ?? 2, clusters: [], farMeshes, masters, farIds: [], dirty: true };
+      this.lodPools.push(pool);
+    }
+    for (const cluster of grid.cells()) {
+      const members=cluster.items;
+      const buildMesh=(source:THREE.InstancedMesh,base:THREE.BufferGeometry,suffix:string)=>{
+        const geometry=base.clone();
+        // Vertex/index buffers are immutable for the world's lifetime. Only
+        // the per-instance streams differ between clusters; sharing the base
+        // attributes prevents re-uploading one prototype for every cell.
+        geometry.setIndex(base.index);
+        for (const [key,attribute] of Object.entries(base.attributes)) {
+          if (!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) geometry.setAttribute(key,attribute);
+        }
+        // 逐实例的流一律取自近档源(远档几何只换形,不换这一株的风相 / 色 / 位置)。
+        for (const [key,attribute] of Object.entries(source.geometry.attributes)) {
+          if (!(attribute as THREE.InstancedBufferAttribute).isInstancedBufferAttribute) continue;
+          const attr=attribute as THREE.InstancedBufferAttribute;
+          const ArrayType=attr.array.constructor as {new(length:number):typeof attr.array};
+          const data=new ArrayType(members.length*attr.itemSize);
+          members.forEach((id,j)=>{
+            const start=Math.floor(id/attr.meshPerAttribute)*attr.itemSize;
+            for(let c=0;c<attr.itemSize;c++)data[j*attr.itemSize+c]=attr.array[start+c];
+          });
+          geometry.setAttribute(key,new THREE.InstancedBufferAttribute(data,attr.itemSize,attr.normalized));
+        }
+        const mesh=new THREE.InstancedMesh(geometry,source.material,members.length);
+        mesh.name=`${source.name}@${cluster.key}${suffix}`;
+        mesh.castShadow=source.castShadow;mesh.receiveShadow=source.receiveShadow;
+        mesh.customDepthMaterial=source.customDepthMaterial;
+        mesh.customDistanceMaterial=source.customDistanceMaterial;
+        const color=new THREE.Color();
+        members.forEach((id,j)=>{
+          source.getMatrixAt(id,matrix);matrix.premultiply(source.matrix);mesh.setMatrixAt(j,matrix);
+          if(source.instanceColor){source.getColorAt(id,color);mesh.setColorAt(j,color);}
+        });
+        mesh.instanceMatrix.needsUpdate=true;
+        if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+        // Use the whole plant's union, not a separate tighter trunk/fringe bound.
+        mesh.boundingSphere=new THREE.Sphere(new THREE.Vector3(cluster.center.x,cluster.center.y,cluster.center.z),cluster.radius);
+        if(options.skipShadow?.includes(source)){
+          mesh.onBeforeShadow=()=>{mesh.count=0;};
+          // 分档后 count 不再恒等于成员数:阴影 pass 之后还原到这一帧的档内株数。
+          mesh.onAfterShadow=()=>{mesh.count=(mesh.userData.lodCount as number|undefined)??members.length;};
+        }
+        this.root.add(mesh);
+        return mesh;
+      };
+      const meshes=sources.map(source=>buildMesh(source,source.geometry,''));
+      let lod:ClusterLod|undefined;
+      if(pool){
+        const xz=new Float32Array(members.length*2);
+        const e=meshes[0].instanceMatrix.array;
+        for(let j=0;j<members.length;j++){xz[j*2]=e[j*16+12];xz[j*2+1]=e[j*16+14];}
+        const masters=new Map<THREE.InstancedMesh,Masters>();
+        for(const mesh of meshes){
+          const list:Masters=[{attr:mesh.instanceMatrix,data:mesh.instanceMatrix.array.slice()}];
+          if(mesh.instanceColor)list.push({attr:mesh.instanceColor,data:mesh.instanceColor.array.slice()});
+          for(const a of Object.values(mesh.geometry.attributes))
+            if((a as THREE.InstancedBufferAttribute).isInstancedBufferAttribute)list.push({attr:a as THREE.BufferAttribute,data:(a as THREE.BufferAttribute).array.slice()});
+          masters.set(mesh,list);
+        }
+        lod={members:[...members],xz,far:new Uint8Array(members.length),near:meshes,masters,initialized:false,pool};
+        pool.clusters.push(lod);
+      }
+      this.clusters.push({center:new THREE.Vector3(cluster.center.x,cluster.center.y,cluster.center.z),radius:cluster.radius,maxDist:options.maxDist??Infinity,meshes,lod});
+    }
+    for(const source of sources){source.removeFromParent();source.geometry.dispose();}
+  }
+
+  addLazy(center: THREE.Vector3, radius:number, build:()=>THREE.InstancedMesh[], maxDist:number): void {
+    this.clusters.push({center:center.clone(),radius,maxDist,build});
+  }
+
+  /** 按 `order` 把母本抄进网格缓冲前缀,`count` = 前缀长。 */
+  private static writeOrder(mesh: THREE.InstancedMesh, masters: Masters, order: number[], count: number): void {
+    for (const { attr, data } of masters) {
+      const size = attr.itemSize, arr = attr.array as unknown as { [i: number]: number };
+      order.forEach((src, dst) => { for (let c = 0; c < size; c++) arr[dst * size + c] = data[src * size + c]; });
+      attr.needsUpdate = true;
+    }
+    mesh.count = count;
+    mesh.userData.lodCount = count;
+  }
+
+  /** BC1:按成员重排一个簇的近档网格,并记下远档是否要重排(见 ClusterLod)。 */
+  private applyLod(lod: ClusterLod, cx: number, cz: number): void {
+    const n = lod.far.length, pool = lod.pool;
+    let changed = !lod.initialized;
+    for (let j = 0; j < n; j++) {
+      const d = Math.hypot(lod.xz[j * 2] - cx, lod.xz[j * 2 + 1] - cz);
+      const was = lod.far[j];
+      const now = !lod.initialized ? (d > pool.dist ? 1 : 0) : was ? (d > pool.dist - pool.hysteresis ? 1 : 0) : (d > pool.dist + pool.hysteresis ? 1 : 0);
+      if (now !== was || !lod.initialized) { lod.far[j] = now; changed = true; }
+    }
+    lod.initialized = true;
+    if (!changed) return;
+    pool.dirty = true;
+    const nearIdx: number[] = [], farIdx: number[] = [];
+    for (let j = 0; j < n; j++) (lod.far[j] ? farIdx : nearIdx).push(j);
+    const nearFirst = [...nearIdx, ...farIdx];
+    for (const m of lod.near) ClusteredInstancePool.writeOrder(m, lod.masters.get(m)!, nearFirst, nearIdx.length);
+  }
+
+  /** 远档:全园远的成员按簇序排成前缀。 */
+  private applyFar(pool: LodPool): void {
+    if (!pool.dirty) return;
+    pool.dirty = false;
+    const ids: number[] = [];
+    for (const c of pool.clusters) c.far.forEach((f, j) => { if (f) ids.push(c.members[j]); });
+    if (ids.length === pool.farIds.length && ids.every((v, i) => v === pool.farIds[i])) return;
+    pool.farIds = ids;
+    const inFar = new Set(ids), rest: number[] = [];
+    for (const c of pool.clusters) for (const id of c.members) if (!inFar.has(id)) rest.push(id);
+    const order = [...ids, ...rest];
+    for (const m of pool.farMeshes) {
+      ClusteredInstancePool.writeOrder(m, pool.masters.get(m)!, order, ids.length);
+      m.visible = ids.length > 0;
+    }
+  }
+
+  update(camera: THREE.Camera): void {
+    camera.getWorldPosition(this.cameraPosition);
+    // 相机挪过 0.5 m 才重分远近档(站着不动时一次都不重排)。
+    const relod = Math.hypot(this.cameraPosition.x - this.lastLodCamera.x, this.cameraPosition.z - this.lastLodCamera.z) > 0.5;
+    if (relod) this.lastLodCamera.copy(this.cameraPosition);
+    for(const cluster of this.clusters){
+      const distance=this.cameraPosition.distanceTo(cluster.center)-cluster.radius;
+      const active=!this.enabled || !this.distanceEnabled || distance<cluster.maxDist;
+      // Prepare one chunk early so normal walking does not meet an unbuilt border.
+      if(!cluster.meshes && (active || distance<cluster.maxDist+13)) {
+        cluster.meshes=cluster.build!();
+        for(const mesh of cluster.meshes){
+          if(!mesh.boundingSphere)mesh.computeBoundingSphere();
+          this.root.add(mesh);
+        }
+        if(cluster.meshes.length){
+          const actual=cluster.meshes[0].boundingSphere?.clone()??new THREE.Sphere();
+          for(const mesh of cluster.meshes.slice(1))if(mesh.boundingSphere)actual.union(mesh.boundingSphere);
+          cluster.center.copy(actual.center);cluster.radius=actual.radius;
+        }
+      }
+      if(cluster.lod && (relod || !cluster.lod.initialized)) this.applyLod(cluster.lod, this.cameraPosition.x, this.cameraPosition.z);
+      if(cluster.meshes)for(const mesh of cluster.meshes){
+        // 分档之后近档网格可能一株都不画(count 0),干脆不交给渲染器。
+        mesh.visible=active && (mesh.userData.lodCount === undefined || (mesh.userData.lodCount as number) > 0);
+        mesh.frustumCulled=this.enabled && this.frustumEnabled;
+      }
+    }
+    this.finishLod();
+  }
+
+  private finishLod(): void { for (const p of this.lodPools) this.applyFar(p); }
+
+  setEnabled(on:boolean): void {this.enabled=on;}
+  setFrustumCulling(on:boolean): void {this.frustumEnabled=on;}
+  setDistanceCulling(on:boolean): void {this.distanceEnabled=on;}
+  stats(): {clusters:number;built:number;instances:number} {
+    return {clusters:this.clusters.length,built:this.clusters.filter(c=>c.meshes).length,
+      instances:this.clusters.reduce((n,c)=>n+((c.lod?c.lod.near:c.meshes)?.reduce((sum,m)=>sum+m.instanceMatrix.count,0)??0),0)};
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -287,7 +597,7 @@ export class InstanceCuller {
     camera.updateMatrixWorld();
     this.viewInverse.copy(camera.matrixWorld).invert();
     this.projScreen.multiplyMatrices(camera.projectionMatrix, this.viewInverse);
-    this.frustum.setFromProjectionMatrix(this.projScreen);
+    this.frustum.setFromProjectionMatrix(this.projScreen, camera.coordinateSystem, camera.reversedDepth);
     camera.getWorldPosition(this.camPos);
     const px = this.camPos.x;
     const py = this.camPos.y;
@@ -343,6 +653,147 @@ export class InstanceCuller {
       g.visibleCount = k;
       for (const b of g.buffers) b.attr.needsUpdate = true;
       for (const m of g.meshes) m.count = k;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 单子 AX3 · 远处小件按屏幕尺寸剔除                                    */
+/* ------------------------------------------------------------------ */
+
+/** 原型包围半径投影小于这么多像素就藏起来(单子 AX3 起步值 1.5 px,实测定)。 */
+export const SMALL_PART_CULL_PIXELS = 1.5;
+/**
+ * 滞回:藏起来以后要投影回到 N×1.1 才重新露出来。与地形分档同一个比例、同一个理由——
+ * 切点附近走路每帧只挪 0.1 m,10% 的距离带宽一帧跨不过去,不会一闪一闪。
+ */
+export const SMALL_PART_CULL_HYSTERESIS = 0.1;
+/** 只管包围半径小于这个数的原型(单子 AX3:瓦当、斗拱分件、鼓钉这一类)。 */
+export const SMALL_PART_MAX_RADIUS = 0.5;
+
+interface SmallPart { mesh: THREE.InstancedMesh; radius: number; hidden: boolean }
+interface SmallPartCell { box: THREE.Box3; parts: SmallPart[]; placed: boolean }
+
+/**
+ * 按簇、按屏幕尺寸藏远处的小实例件。
+ *
+ * **挂在哪一帧上**:它把自己标成 `isLOD`,于是 three 的渲染器在每次投影场景时
+ * (`Renderer._projectObject`)都会先调它的 `update(camera)`,再去看它的子节点——
+ * 与 `THREE.LOD` 同一条现成的路,不另起调度。透视相机按自己的视口算;
+ * 正交相机(方向光的阴影相机)直接沿用上一次透视相机的决定,
+ * 所以**阴影 pass 与主相机同藏同现**(亚像素的东西,影子也看不见)。
+ *
+ * **每簇一个判断**:一簇一个 AABB,相机到它最近点的距离算一次;
+ * 簇里每个原型只比一次 `半径 × 投影系数 / 距离`。不碰任何实例矩阵。
+ */
+export class ScreenSizeCull extends THREE.Object3D {
+  readonly isLOD = true;
+  autoUpdate = true;
+  readonly cells: SmallPartCell[] = [];
+  private readonly byKey = new Map<string, SmallPartCell>();
+  private readonly camPos = new THREE.Vector3();
+  private readonly pixels: number;
+
+  constructor(pixels = SMALL_PART_CULL_PIXELS) {
+    super();
+    this.name = 'SmallPartCull';
+    this.pixels = pixels;
+  }
+
+  /** `radius` 是原型在世界里的包围半径(几何半径 × 这一簇里最大的实例缩放)。 */
+  addPart(mesh: THREE.InstancedMesh, cellKey: string, radius: number): void {
+    let cell = this.byKey.get(cellKey);
+    if (!cell) { cell = { box: new THREE.Box3(), parts: [], placed: false }; this.byKey.set(cellKey, cell); this.cells.push(cell); }
+    cell.parts.push({ mesh, radius, hidden: false });
+    mesh.userData.smallPart = { radius };
+    this.add(mesh);
+  }
+
+  update(camera: THREE.Camera): void {
+    if (!(camera as THREE.PerspectiveCamera).isPerspectiveCamera) return;
+    const height = (globalThis.innerHeight ?? 900) * (globalThis.devicePixelRatio ?? 1);
+    const k = (height / 2) * camera.projectionMatrix.elements[5];
+    this.camPos.setFromMatrixPosition(camera.matrixWorld);
+    const show = this.pixels * (1 + SMALL_PART_CULL_HYSTERESIS);
+    for (const cell of this.cells) {
+      if (!cell.placed) {
+        // 第一次投影时父链的世界矩阵已经就位;这些件是静态的,算一次就够。
+        for (const part of cell.parts) {
+          if (!part.mesh.boundingBox) part.mesh.computeBoundingBox();
+          cell.box.union(part.mesh.boundingBox!.clone().applyMatrix4(part.mesh.matrixWorld));
+        }
+        cell.placed = true;
+      }
+      const d = cell.box.distanceToPoint(this.camPos);
+      for (const part of cell.parts) {
+        const px = d > 0 ? part.radius * k / d : Infinity;
+        part.hidden = part.hidden ? px < show : px < this.pixels;
+        part.mesh.visible = !part.hidden;
+      }
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 单子 BC2 · 静态件的远近两档                                          */
+/* ------------------------------------------------------------------ */
+
+/** 静态件在 mesh.userData 上的远近档标记:近档件(`near`)远处藏起来,远景代理(`far`)近处藏起来。 */
+export type FarLodRole = 'near' | 'far';
+/** 静态件换档的默认水平距离,米(与植被 BC1 的 `TREE_FAR_M` 同一个数,同一个依据)。 */
+export const STATIC_FAR_M = 120;
+
+interface SwitchGroup { box: THREE.Box3; items: { mesh: THREE.Object3D; role: FarLodRole }[]; placed: boolean; far: boolean }
+
+/**
+ * 按「相机到这一组东西包围盒最近点的水平距离」切远近两档。
+ *
+ * **按组切,不按网格切**:近档件合批时按材质拆成好几块、远景代理又是另一套材质,
+ * 各自的包围盒不一样大——各切各的,就会在分界附近出现「近的藏了、远的还没出来」的一圈空档。
+ * 所以同一组(静态合批的同一个簇)的近档与远档共用一个包围盒(全部成员的并)、一个决定,同时交接。
+ *
+ * 与 `ScreenSizeCull` 同一条路挂在帧上:`isLOD` 让渲染器每次投影场景先调 `update(camera)`;
+ * 正交(阴影)相机沿用上一次透视相机的决定——**阴影随主相机档**。2 m 滞回防止站在分界上一闪一闪。
+ * 不碰任何顶点与实例矩阵。
+ */
+export class DistanceSwitch extends THREE.Object3D {
+  readonly isLOD = true;
+  autoUpdate = true;
+  readonly dist: number;
+  readonly hysteresis: number;
+  private readonly groups = new Map<string, SwitchGroup>();
+  private readonly camPos = new THREE.Vector3();
+  private readonly probe = new THREE.Vector3();
+
+  constructor(dist = STATIC_FAR_M, hysteresis = 2) {
+    super();
+    this.name = 'FarLodSwitch';
+    this.dist = dist;
+    this.hysteresis = hysteresis;
+  }
+
+  addItem(mesh: THREE.Object3D, role: FarLodRole, group: string): void {
+    mesh.userData.farLod = role;
+    let g = this.groups.get(group);
+    if (!g) { g = { box: new THREE.Box3(), items: [], placed: false, far: false }; this.groups.set(group, g); }
+    g.items.push({ mesh, role });
+    g.placed = false;
+    // 未投影之前:近档画、远档不画(与第一帧之前的世界一致)。
+    mesh.visible = role === 'near';
+    this.add(mesh);
+  }
+
+  update(camera: THREE.Camera): void {
+    if (!(camera as THREE.PerspectiveCamera).isPerspectiveCamera) return;
+    this.camPos.setFromMatrixPosition(camera.matrixWorld);
+    for (const g of this.groups.values()) {
+      if (!g.placed) { g.box.makeEmpty(); for (const it of g.items) g.box.expandByObject(it.mesh, true); g.placed = true; }
+      // 水平距离:相机高度夹进盒子的高度范围,只量 x/z 上的差。
+      this.probe.copy(this.camPos);
+      this.probe.y = Math.min(Math.max(this.probe.y, g.box.min.y), g.box.max.y);
+      const d = g.box.isEmpty() ? Infinity : g.box.distanceToPoint(this.probe);
+      g.far = g.far ? d > this.dist - this.hysteresis : d > this.dist + this.hysteresis;
+      for (const it of g.items) it.mesh.visible = it.role === 'far' ? g.far : !g.far;
     }
   }
 }

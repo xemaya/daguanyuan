@@ -22,6 +22,13 @@
 - 大木作的数字只从规则表出，不许在代码里写字面量。
 - **每处抽象过一问：能不能让下一个区域更快、更准、更美？** 不能就先不做（`docs/DECISIONS.md` D-18）。
 - 收工前 `npm run check`、`npm test`、`npm run check:layers`、`npm run check:rules` 全过。
+- **提交只按路径 `git add`，不许 `git add -A` / `git add .`。** 并行时工作区里有别人的
+  半成品,`-A` 会把它们卷进你的提交——后果不是代码错,是署名与可回溯性错
+  (2026-09-13 单子 O 就这样把单子 Q 的三个文件带走了,查「虎皮石是谁做的」会查到
+  一条讲植物的提交)。派单人自己也踩过:从 `daguanyuan/` 跑 `git add -A` 暂存了整个 monorepo。
+- **多单并行时不许 `git stash`。** 工作区里同时有别人的半成品,stash 会把它们一起卷走
+  (2026-09-12 我与单子 P 各犯过一次)。要单独量自己的改动,用
+  `git worktree add --detach /tmp/<名> <commit>` 开隔离检出,自带独立端口跑。
 - 提交信息末尾附：
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
@@ -789,7 +796,7 @@ SCENE 改成锚点驱动:plan 点了名的构件按 buildings[].x/z 摆,没点�
 
 **Files:**
 - Create: `engine/scatter/cluster.ts`、`engine/render/TerrainChunks.ts`
-- Modify: `engine/scatter/instancing.ts`、`builder/parts/zhiwu/vegetation.ts`、`builder/compose/terrain.ts`
+- Modify: `engine/scatter/instancing.ts`、`builder/parts/zhiwu/vegetation.ts`、`builder/compose/terrain.ts`、`builder/compose/terrain-from-plan.ts`（Step 0 的空间索引）
 - Test: `tests/cluster.test.mjs`
 
 **Interfaces:**
@@ -798,6 +805,60 @@ SCENE 改成锚点驱动:plan 点了名的构件按 buildings[].x/z 摆,没点�
   - `Cluster = { center: Vector3; radius: number; items: T[] }`
   - `class ClusteredInstancePool` — 按簇建 `InstancedMesh`，每簇一个包围球做视锥剔除
   - `buildTerrainChunks(field, bounds, chunkSize): THREE.Mesh[]`
+
+> **2026-09-10 追加：Task 7 还要修世界构建卡死。**
+> E 落地后实测，世界构建从 20 秒涨到 **28 秒以上**，Chrome 直接弹「页面无响应」（PITFALLS P-12 的复发）。
+> 这不是内存问题——内存爆掉是「Aw, Snap!」，这个弹窗是主线程被同步计算占死。
+> 决定放在 Task 7 一起修（用户 2026-09-10 定），因为它和分簇分块是同一件事：都是"画布变大之后按需付费"。
+
+- [ ] **Step 0: 先把世界构建的 28 秒砍下来**
+
+实测单价（`seed 20260910`，Node，与浏览器同量级）：
+
+```
+field.height   11.8 µs/次
+field.surface   9.5 µs/次
+field.masks     9.4 µs/次
+```
+
+再数调用次数：
+
+| 环节 | 次数 | 耗时 |
+|---|---|---|
+| 地形网格顶点 584×472，**每顶点 5 次 `height`**（1 次取高 + 4 次中心差分算法线） | 138 万 | **16.3 s** |
+| `bakeSplat(field, 1024)`，1024² 次 `masks` | 105 万 | **9.9 s** |
+| 植被 `DensityMask` 256×288 | 7.4 万 | 1.5 s |
+| | | **≈ 28 s 起** |
+
+**根因不是窗口开大了**——E 的窗口是对的（280×226 m / 0.48 m 格 = 55 万三角，在 60 万预算内）。
+涨的是**每次求值的单价**：老的场是一个椭圆池加三条路，新的场每次调用要走 7 个水体多边形（最长 35 点）、
+6 座山、9 条路径（最长 60 点）、19 个区。单价涨了约一个数量级，而调用次数还被 ×5（法线）与 ×100 万（splat 烘焙）放大。
+
+三处改法，**按收益排序，1 和 3 是必做**：
+
+1. **法线不要再调 4 次场。** 先把 (segX+3)×(segZ+3) 的高度采一遍存进一个 `Float32Array`，
+   法线从数组取中心差分。每顶点 5 次降到 1 次，**省约 13 秒，结果逐位相同**（差分的步长 `e` 本来就等于格边）。
+2. **`bakeSplat` 的 1024 要重新算，但别单独降。** 它现在覆盖 280 m 而不是原来的 64 m，
+   每米像素数已经掉了 4.4 倍；再降分辨率地面材质会更糊。先做 1 和 3，量完再决定它还要不要动。
+3. **给场加空间索引。** `terrain-from-plan.ts` 每次求值都在遍历全部多边形与折线。
+   按网格分桶（复用你这个任务写的 `ClusterGrid` 思路），每次只测落在附近桶里的那几个。
+   这条收益最大也最通用——`ctx.collision.terrainHeight` 每帧都在调它，**它同时是构建成本也是运行时成本**。
+
+**预算：世界构建 ≤ 15 秒**（老的 64×72 米世界是 20 秒，这次要比它更快，因为面积大了 14 倍，
+不靠单价下降追不回来）。量法：在 `world.build()` 两端打 `performance.now()`，数字写进提交信息。
+
+- [ ] **Step 0b: 草丛数会顶穿三角预算**
+
+`VEG` 的散布盒跟着窗口涨了 **14 倍**，但 `grassCell` 还是 0.32——草丛数从约 2.7 万涨到约 **60 万**。
+`cullRadius`（41 m）只管画不管建，构建时是一次性全生成的。
+
+这正是本任务分簇要解决的东西，但**光分簇不够**：60 万个实例的矩阵本身就是几十 MB，
+而且它们的三角数会顶穿 P1 定的 790 万上限。两个旋钮一起用：
+
+- **按需建簇**：`ClusteredInstancePool` 只为镜头可能到达的簇分配实例缓冲，远处的簇留空壳。
+- **`grassCell` 按距离分档**：游线沿线保持 0.32，远处放粗。
+
+**验收把 `shots/p1t7/manifest.json` 的 `triangles` 拿出来对 790 万那条线**，超了就是没做完。
 
 - [ ] **Step 1: 先读，避免重复踩坑**
 
@@ -848,7 +909,9 @@ test('空网格不产簇', () => {
 - `TerrainChunks.ts`：地形按 `chunkSize`（建议 64 米）切成多块 `Mesh`，各自有包围盒，让 three 自己剔除。
 - `vegetation.ts`：把散布结果喂进 `ClusteredInstancePool` 而不是单个大池。
 
-**shader 注入改成有序 stage**：给注入点排个序（`rtc` → `wind` → `lod`），每段追加而不是各自覆盖 `project_vertex`。
+~~**shader 注入改成有序 stage**~~——**2026-09-11 取消。** 渲染层已定迁 WebGPU + TSL
+（`docs/ROADMAP.md §WG`），给 GLSL 字符串注入盖一套 stage 框架，迁移时整个作废。
+注入顺序留给 WG2 用节点组合表达；现在只有风摆一个注入点,不盖框架也不会打架。
 
 - [ ] **Step 4: 量一遍，证明剔除真的生效**
 

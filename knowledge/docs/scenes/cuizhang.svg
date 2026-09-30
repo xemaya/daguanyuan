@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1304" height="652" viewBox="-20 -40 1304 652" font-family="'PingFang SC','Noto Sans CJK SC',sans-serif" font-size="11">
+<rect x="-20" y="-40" width="1304" height="652" fill="#fbfaf6"/>
+<text x="0" y="-22" font-size="14" font-weight="bold">翠嶂(曲径通幽处)(cuizhang)— 现状平面,1 px = 0.125 m,上=北(−Z)</text>
+<line x1="48.0" y1="0" x2="48.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="48.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x-60</text>
+<line x1="128.0" y1="0" x2="128.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="128.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x-50</text>
+<line x1="208.0" y1="0" x2="208.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="208.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x-40</text>
+<line x1="288.0" y1="0" x2="288.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="288.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x-30</text>
+<line x1="368.0" y1="0" x2="368.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="368.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x-20</text>
+<line x1="448.0" y1="0" x2="448.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="448.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x-10</text>
+<line x1="528.0" y1="0" x2="528.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="528.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x0</text>
+<line x1="608.0" y1="0" x2="608.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="608.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x10</text>
+<line x1="688.0" y1="0" x2="688.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="688.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x20</text>
+<line x1="768.0" y1="0" x2="768.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="768.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x30</text>
+<line x1="848.0" y1="0" x2="848.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="848.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x40</text>
+<line x1="928.0" y1="0" x2="928.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="928.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x50</text>
+<line x1="1008.0" y1="0" x2="1008.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="1008.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x60</text>
+<line x1="1088.0" y1="0" x2="1088.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="1088.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x70</text>
+<line x1="1168.0" y1="0" x2="1168.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="1168.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x80</text>
+<line x1="1248.0" y1="0" x2="1248.0" y2="592" stroke="#e6e2d8" stroke-width="0.5"/><text x="1248.0" y="-6" fill="#999" font-size="9" text-anchor="middle">x90</text>
+<line x1="0" y1="32.0" x2="1264" y2="32.0" stroke="#e6e2d8" stroke-width="0.5"/><text x="-4" y="35" fill="#999" font-size="9" text-anchor="end">z180</text>
+<line x1="0" y1="112.0" x2="1264" y2="112.0" stroke="#e6e2d8" stroke-width="0.5"/><text x="-4" y="115" fill="#999" font-size="9" text-anchor="end">z190</text>
+<line x1="0" y1="192.0" x2="1264" y2="192.0" stroke="#e6e2d8" stroke-width="0.5"/><text x="-4" y="195" fill="#999" font-size="9" text-anchor="end">z200</text>
+<line x1="0" y1="272.0" x2="1264" y2="272.0" stroke="#e6e2d8" stroke-width="0.5"/><text x="-4" y="275" fill="#999" font-size="9" text-anchor="end">z210</text>
+<line x1="0" y1="352.0" x2="1264" y2="352.0" stroke="#e6e2d8" stroke-width="0.5"/><text x="-4" y="355" fill="#999" font-size="9" text-anchor="end">z220</text>
+<line x1="0" y1="432.0" x2="1264" y2="432.0" stroke="#e6e2d8" stroke-width="0.5"/><text x="-4" y="435" fill="#999" font-size="9" text-anchor="end">z230</text>
+<line x1="0" y1="512.0" x2="1264" y2="512.0" stroke="#e6e2d8" stroke-width="0.5"/><text x="-4" y="515" fill="#999" font-size="9" text-anchor="end">z240</text>
+<line x1="0" y1="592.0" x2="1264" y2="592.0" stroke="#e6e2d8" stroke-width="0.5"/><text x="-4" y="595" fill="#999" font-size="9" text-anchor="end">z250</text>
+<polygon points="-496.0,-1872.0 -336.0,-2112.0 -48.0,-2208.0 224.0,-2176.0 480.0,-2032.0 736.0,-2144.0 1056.0,-2192.0 1360.0,-2112.0 1584.0,-1920.0 1632.0,-1680.0 1392.0,-1600.0 1088.0,-1680.0 768.0,-1616.0 496.0,-1744.0 208.0,-1680.0 -96.0,-1648.0 -368.0,-1680.0 -496.0,-1872.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
+<polygon points="208.0,-288.0 288.0,-416.0 544.0,-448.0 736.0,-384.0 784.0,-208.0 704.0,-48.0 464.0,0.0 272.0,-80.0 208.0,-288.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
+<polygon points="1568.0,-1328.0 1744.0,-1408.0 1968.0,-1376.0 2112.0,-1232.0 2096.0,-1056.0 1904.0,-960.0 1664.0,-992.0 1552.0,-1136.0 1568.0,-1328.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
+<polygon points="2104.8,-3224.8 2049.6,-2941.6 1951.2,-2696.8 1796.8,-2520.0 1556.8,-2430.4 1304.0,-2400.0 1013.6,-2432.0 718.4,-2464.0 468.8,-2414.4 231.2,-2344.8 121.6,-2204.8 198.4,-2147.2 280.8,-2263.2 491.2,-2321.6 721.6,-2368.0 1002.4,-2336.0 1304.0,-2304.0 1579.2,-2337.6 1851.2,-2440.0 2032.8,-2647.2 2142.4,-2914.4 2199.2,-3207.2 2104.8,-3224.8" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
+<polygon points="-468.0,-1830.4 -684.8,-1896.0 -910.4,-1861.6 -1085.6,-1738.4 -1175.2,-1560.8 -1175.2,-1353.6 -1109.6,-1137.6 -1012.8,-928.0 -925.6,-722.4 -863.2,-519.2 -840.0,-346.4 -760.0,-357.6 -784.8,-536.8 -850.4,-749.6 -939.2,-960.0 -1034.4,-1166.4 -1096.8,-1366.4 -1096.8,-1543.2 -1026.4,-1685.6 -881.6,-1786.4 -691.2,-1816.0 -492.0,-1753.6 -468.0,-1830.4" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
+<polygon points="-826.4,-343.2 -752.8,-114.4 -594.4,84.8 -346.4,242.4 -31.2,308.0 281.6,226.4 512.8,102.4 616.8,-35.2 669.6,-215.2 992.8,-244.0 1262.4,-228.0 1501.6,-212.0 1682.4,-199.2 1807.2,-50.4 1876.8,168.0 1924.0,354.4 1901.6,406.4 1954.4,425.6 1980.0,349.6 1931.2,152.0 1856.8,-77.6 1709.6,-248.8 1506.4,-268.0 1265.6,-284.0 991.2,-300.0 642.4,-264.8 567.2,-60.8 479.2,57.6 262.4,173.6 -32.8,252.0 -325.6,189.6 -557.6,43.2 -703.2,-141.6 -773.6,-360.8 -826.4,-343.2" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
+<polygon points="-577.1,-861.0 -450.3,-813.4 -411.1,-735.0 -395.2,-655.7 -395.2,-567.6 -378.9,-494.4 -346.3,-461.7 -341.7,-466.3 -373.1,-497.6 -388.8,-568.4 -388.8,-656.3 -404.9,-737.0 -445.7,-818.6 -574.9,-867.0 -577.1,-861.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
+<polygon points="-675.2,-2132.0 -636.8,-2132.0 -636.8,-1848.0 -675.2,-1848.0 -675.2,-2132.0" fill="#cfe3ee" stroke="#8fb6c9" stroke-width="0.8"/>
+<polygon points="88.0,240.0 176.0,112.0 464.0,64.0 720.0,88.0 944.0,96.0 1072.0,128.0 1168.0,176.0 1136.0,288.0 912.0,352.0 576.0,344.0 288.0,344.0 96.0,328.0 88.0,240.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="88.0" y="236" fill="#6a7a4a" font-size="10">hill.cuizhang 高 4 m</text>
+<polygon points="1032.0,192.0 1008.6,248.6 952.0,272.0 895.4,248.6 872.0,192.0 895.4,135.4 952.0,112.0 1008.6,135.4 1032.0,192.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="1032.0" y="188" fill="#6a7a4a" font-size="10">hill.cuizhang.zhutai 高 2 m</text>
+<polygon points="-1272.0,-3008.0 -1136.0,-3232.0 -832.0,-3312.0 -480.0,-3296.0 -208.0,-3200.0 -32.0,-3008.0 -80.0,-2816.0 -336.0,-2704.0 -688.0,-2688.0 -1008.0,-2752.0 -1216.0,-2848.0 -1272.0,-3008.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-1272.0" y="-3012" fill="#6a7a4a" font-size="10">hill.dazhushan 高 26 m</text>
+<polygon points="-952.0,-1152.0 -832.0,-1280.0 -592.0,-1328.0 -368.0,-1296.0 -232.0,-1184.0 -272.0,-1040.0 -496.0,-968.0 -736.0,-984.0 -896.0,-1040.0 -952.0,-1152.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-952.0" y="-1156" fill="#6a7a4a" font-size="10">hill.qingshan 高 14 m</text>
+<polygon points="1688.0,-816.0 1744.0,-992.0 1936.0,-1048.0 2160.0,-1008.0 2336.0,-864.0 2384.0,-608.0 2320.0,-400.0 2112.0,-288.0 1872.0,-336.0 1728.0,-512.0 1688.0,-816.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="1688.0" y="-820" fill="#6a7a4a" font-size="10">hill.tubi 高 18 m</text>
+<polygon points="-96.0,-2624.0 64.0,-2720.0 288.0,-2712.0 432.0,-2624.0 416.0,-2480.0 240.0,-2432.0 32.0,-2456.0 -96.0,-2624.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-96.0" y="-2628" fill="#6a7a4a" font-size="10">hill.huaxu 高 12 m</text>
+<polygon points="-1296.0,-1472.0 -1120.0,-1520.0 -960.0,-1472.0 -928.0,-1360.0 -1040.0,-1280.0 -1216.0,-1296.0 -1296.0,-1472.0" fill="#e3e9d3" stroke="#8a9a6a" stroke-width="1" stroke-dasharray="4 2"/><text x="-1296.0" y="-1476" fill="#6a7a4a" font-size="10">hill.daoxiang-slope 高 7 m</text>
+<polygon points="648.0,384.0 832.0,384.0 832.0,368.0 1112.0,368.0 1112.0,384.0 1288.0,384.0 1288.0,528.0 1128.0,528.0 1128.0,560.0 808.0,560.0 808.0,528.0 648.0,528.0 648.0,384.0" fill="none" stroke="#b08a5a" stroke-width="1" stroke-dasharray="6 3"/><text x="648.03" y="396" fill="#8a6a3a" font-size="10">zhengmen 区(标高 0.8 m)</text>
+<polygon points="48.0,176.0 128.0,88.0 432.0,64.0 736.0,96.0 968.0,96.0 1136.0,184.0 1136.0,288.0 936.0,352.0 296.0,352.0 96.0,320.0 48.0,256.0 48.0,176.0" fill="none" stroke="#b08a5a" stroke-width="1" stroke-dasharray="6 3"/><text x="48.03" y="188" fill="#8a6a3a" font-size="10">cuizhang 区(标高 0 m)</text>
+<polygon points="88.0,-288.0 128.0,-456.0 288.0,-480.0 648.0,-480.0 848.0,-384.0 848.0,-80.0 720.0,16.0 336.0,48.0 192.0,16.0 88.0,-80.0 88.0,-288.0" fill="none" stroke="#b08a5a" stroke-width="1" stroke-dasharray="6 3"/><text x="88.03" y="-276" fill="#8a6a3a" font-size="10">qinfang_ting_qiao 区(标高 0.4 m)</text>
+<polygon points="1168.0,-128.0 1336.0,-128.0 1336.0,-176.0 1632.0,-176.0 1632.0,-128.0 1792.0,-128.0 1792.0,80.0 1640.0,80.0 1640.0,128.0 1304.0,128.0 1304.0,96.0 1168.0,96.0 1168.0,-128.0" fill="none" stroke="#b08a5a" stroke-width="1" stroke-dasharray="6 3"/><text x="1168.03" y="-116" fill="#8a6a3a" font-size="10">yihongyuan 区(标高 1 m)</text>
+<polyline points="968.0,544.0 768.0,448.0 512.0,384.0 304.0,288.0 256.0,240.0 232.0,208.0 208.0,176.0 208.0,160.0 336.0,80.0 480.0,32.0" fill="none" stroke="#c9a87a" stroke-width="3" stroke-linejoin="round" opacity="0.8"/>
+<polyline points="1128.0,512.0 968.0,544.0" fill="none" stroke="#c9a87a" stroke-width="3" stroke-linejoin="round" opacity="0.8"/>
+<polyline points="968.0,508.8 968.0,560.0 1232.0,512.0" fill="none" stroke="#c9a87a" stroke-width="3" stroke-linejoin="round" opacity="0.8"/>
+<polyline points="912.0,480.0 752.0,480.0" fill="none" stroke="#444" stroke-width="3"/>
+<text x="912.0" y="475" fill="#444" font-size="9">zhengmen.flanking-wall.west</text>
+<polyline points="1024.0,480.0 1184.0,480.0" fill="none" stroke="#444" stroke-width="3"/>
+<text x="1024.0" y="475" fill="#444" font-size="9">zhengmen.flanking-wall.east</text>
+<polyline points="256.0,240.0 208.0,176.0" fill="none" stroke="#6a8aa0" stroke-width="4"/>
+<text x="256.0" y="235" fill="#6a8aa0" font-size="9">cuizhang.creek-crossing</text>
+<polygon points="952,186 958,192 952,198 946,192" fill="#8a8f96"/><text x="960" y="196" fill="#4a4f56">screen-rocks (53,200)</text>
+<polygon points="256,186 262,192 256,198 250,192" fill="#8a8f96"/><text x="264" y="196" fill="#4a4f56">rock-02 (-34,200)</text>
+<polygon points="232,202 238,208 232,214 226,208" fill="#8a8f96"/><text x="240" y="212" fill="#4a4f56">rock-03 (-37,202)</text>
+<polygon points="1120,234 1126,240 1120,246 1114,240" fill="#8a8f96"/><text x="1128" y="244" fill="#4a4f56">rock-04 (74,206)</text>
+<rect x="929.0" y="177.4" width="45.9" height="29.1" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="184.4" y="222.1" width="47.2" height="51.8" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="365.4" y="212.8" width="37.1" height="38.4" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="809.5" y="159.7" width="45.0" height="40.6" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="1072.6" y="198.1" width="30.7" height="39.0" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="570.8" y="149.3" width="42.4" height="45.4" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<rect x="241.6" y="177.0" width="28.8" height="30.1" fill="none" stroke="#c55" stroke-width="0.8" stroke-dasharray="2 2"/>
+<circle cx="924.0" cy="219.2" r="4" fill="#5a6e8a"/>
+<circle cx="988.8" cy="216.0" r="4" fill="#5a6e8a"/>
+<text x="930" y="215.2" fill="#3a4e6a" font-size="9">taihu:peak2 (49.5,203.4)</text>
+<text x="994.8" y="212" fill="#3a4e6a" font-size="9">taihu:edge3 (57.6,203.0)</text>
+<circle cx="208.0" cy="248.0" r="4" fill="#5a6e8a"/>
+<circle cx="384.0" cy="232.0" r="4" fill="#5a6e8a"/>
+<circle cx="832.0" cy="180.0" r="4" fill="#5a6e8a"/>
+<circle cx="1088.0" cy="217.6" r="4" fill="#5a6e8a"/>
+<circle cx="592.0" cy="172.0" r="4" fill="#5a6e8a"/>
+<circle cx="946.4" cy="218.4" r="4" fill="#5a6e8a"/>
+<circle cx="979.2" cy="209.6" r="4" fill="#5a6e8a"/>
+<circle cx="828.8" cy="208.8" r="4" fill="#5a6e8a"/>
+<circle cx="593.6" cy="207.2" r="4" fill="#5a6e8a"/>
+<circle cx="380.8" cy="263.2" r="4" fill="#5a6e8a"/>
+<circle cx="206.4" cy="282.4" r="4" fill="#5a6e8a"/>
+<circle cx="1089.6" cy="249.6" r="4" fill="#5a6e8a"/>
+<circle cx="164.0" cy="273.6" r="4" fill="#5a6e8a"/>
+<circle cx="1118.4" cy="212.0" r="4" fill="#5a6e8a"/>
+<text x="672.2" y="242.7" fill="#3a4e6a" font-size="9" text-anchor="middle">baishi ×14</text>
+<circle cx="852.0" cy="545.6" r="6" fill="#7fae5a" opacity="0.8"/><text x="859" y="549.6" fill="#4a7a2a" font-size="9">pine-old</text>
+<circle cx="1084.0" cy="545.6" r="6" fill="#7fae5a" opacity="0.8"/><text x="1091" y="549.6" fill="#4a7a2a" font-size="9">pine-old</text>
+<circle cx="344.0" cy="222.4" r="6" fill="#4f8a3a" opacity="0.9"/><text x="351" y="226.4" fill="#2f6a1a" font-size="9">pine-old ↗10°</text>
+<circle cx="552.0" cy="162.4" r="6" fill="#4f8a3a" opacity="0.9"/><text x="559" y="166.4" fill="#2f6a1a" font-size="9">pine-old ↗9°</text>
+<circle cx="872.0" cy="170.4" r="6" fill="#4f8a3a" opacity="0.9"/><text x="879" y="174.4" fill="#2f6a1a" font-size="9">pine-old ↗11°</text>
+<circle cx="912.0" cy="182.4" r="6" fill="#4f8a3a" opacity="0.9"/><text x="919" y="186.4" fill="#2f6a1a" font-size="9">pine-old ↗9°</text>
+<circle cx="1124.0" cy="192.0" r="6" fill="#4f8a3a" opacity="0.9"/><text x="1131" y="196" fill="#2f6a1a" font-size="9">pine-old ↗11°</text>
+<circle cx="120.0" cy="296.0" r="6" fill="#4f8a3a" opacity="0.9"/><text x="127" y="300" fill="#2f6a1a" font-size="9">locust ↗4°</text>
+<circle cx="176.0" cy="168.0" r="6" fill="#4f8a3a" opacity="0.9"/><text x="183" y="172" fill="#2f6a1a" font-size="9">locust ↗3°</text>
+<circle cx="1134.4" cy="280.0" r="6" fill="#4f8a3a" opacity="0.9"/><text x="1141.4" y="284" fill="#2f6a1a" font-size="9">locust ↗3°</text>
+<circle cx="968.0" cy="544.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="968.0" y="547.5" fill="#b0402a" font-size="9" text-anchor="middle">1</text><text x="977" y="556" fill="#b0402a" font-size="9">正门</text>
+<circle cx="848.0" cy="400.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="848.0" y="403.5" fill="#b0402a" font-size="9" text-anchor="middle">2</text><text x="857" y="412" fill="#b0402a" font-size="9">迎面翠嶂</text>
+<circle cx="256.0" cy="240.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="256.0" y="243.5" fill="#b0402a" font-size="9" text-anchor="middle">3</text><text x="265" y="252" fill="#b0402a" font-size="9">镜面白石·曲径通幽处</text>
+<circle cx="232.0" cy="208.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="232.0" y="211.5" fill="#b0402a" font-size="9" text-anchor="middle">4</text><text x="241" y="220" fill="#b0402a" font-size="9">石洞·羊肠小径</text>
+<circle cx="968.0" cy="544.0" r="7" fill="#fff" stroke="#b0402a" stroke-width="1.5"/><text x="968.0" y="547.5" fill="#b0402a" font-size="9" text-anchor="middle">29</text><text x="977" y="556" fill="#b0402a" font-size="9">平坦大路·正门出园</text>
+<line x1="968.0" y1="672.0" x2="968.0" y2="352" stroke="#b0402a" stroke-width="1" stroke-dasharray="5 3"/><text x="972" y="384" fill="#b0402a" font-size="9">X-04 轴线 x=55</text>
+<line x1="987.2" y1="552.8" x2="984.0" y2="512.9" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="987.2" cy="552.8" r="3" fill="#2a6ab0"/>
+<text x="992.2" y="563.8" fill="#2a6ab0" font-size="9">gate_approach</text>
+<line x1="592.0" y1="260.0" x2="592.0" y2="220.0" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="592.0" cy="260.0" r="3" fill="#2a6ab0"/>
+<text x="597" y="271" fill="#2a6ab0" font-size="9">mound_block</text>
+<line x1="401.0" y1="243.9" x2="368.3" y2="221.0" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="401.0" cy="243.9" r="3" fill="#2a6ab0"/>
+<text x="406" y="254.9" fill="#2a6ab0" font-size="9">mound_west</text>
+<line x1="968.0" y1="488.0" x2="968.0" y2="448.0" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="968.0" cy="488.0" r="3" fill="#2a6ab0"/>
+<text x="973" y="499" fill="#2a6ab0" font-size="9">gate_face</text>
+<line x1="264.0" y1="228.0" x2="260.5" y2="212.4" stroke="#2a6ab0" stroke-width="1.5"/><circle cx="264.0" cy="228.0" r="2" fill="#2a6ab0"/>
+<text x="0" y="606" fill="#666" font-size="9">■ 建筑锚点  ◆ plan 岩石锚点  ● scenes 散置件  ● 手放树(HERO_TREES)  ○ 十七回游线节点  ─ 机位(短线=朝向;小点=贴脸 cu_* 机位,名单见文档)  虚线框=占地登记  棕线=plan 路径(翠嶂那张是旧路基,潇湘馆那张是院内甬路)</text>
+</svg>

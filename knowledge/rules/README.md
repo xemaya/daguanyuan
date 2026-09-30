@@ -27,7 +27,7 @@
 | `qing.rules.json` | `docs/qingshi/01-04` 清《工程做法》斗口制 | 70 |
 | `fayuan.rules.json` | `docs/qingshi/05-06` 《营造法原》与屋顶瓦作 | 43 |
 | `honglou.rules.json` | `docs/qingshi/07` 《红楼梦》建筑原文 | 74 |
-| `plants.rules.json` | 跨章汇编：花木名录与用法 | 24 |
+| `plants.rules.json` | 跨章汇编：花木名录与用法（params 带 category 六类与 region；研究稿 `knowledge/docs/plants/00-catalog.md`） | 41 |
 | `missing.rules.json` | 两份批评稿：已知缺口 | 22 |
 | `components.rules.json` | 构件级本体：斗拱一类（清五踩/七踩、宋五/六铺作及分件） | 37 |
 | `schema.json` | 字段契约（不在门里强制，供人对照） | — |

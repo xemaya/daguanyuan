@@ -1,0 +1,351 @@
+/*
+ * fashi.css — 《营造法式》图解页。
+ *
+ * 只用 engine/ui/tokens.css 的令牌,不新发明颜色:
+ * 三支出处(证据/裁断/艺术)与五种规则状态(通过/存疑/驳倒/欠定/缺失)
+ * 的配色即规则状态机的语义,见 ART_DIRECTION.md §9。
+ * 界面文字简体无衬线,原文引句繁体衬线——字体即"我们说的"与"书里说的"的分界。
+ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  background: var(--dgy-ground);
+  color: var(--dgy-silk);
+  font-family: var(--dgy-font-ui);
+  font-size: 14px;
+  line-height: 1.7;
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><path d='M5 3 L5 19 L9.5 14.8 L12.4 21 L14.4 20.1 L11.6 14 L17.5 14 Z' fill='%23e8e2d2' stroke='%23cda95f' stroke-width='1'/></svg>") 5 3, auto;
+}
+
+a { color: var(--dgy-azure); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button { font-family: inherit; cursor: inherit; }
+
+/* ---- 页头 -------------------------------------------------------- */
+
+.fashi-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: baseline;
+  gap: var(--dgy-pad);
+  padding: var(--dgy-pad) calc(var(--dgy-pad) * 1.5);
+  background: var(--dgy-ground);
+  border-bottom: var(--dgy-hair) solid var(--dgy-line);
+}
+
+.fashi-head h1 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--dgy-silk);
+  /* 泥金只此一道勾线。 */
+  border-bottom: var(--dgy-hair) solid var(--dgy-gold);
+  padding-bottom: 2px;
+}
+
+.fashi-head .sub {
+  color: var(--dgy-silk-dim);
+  font-size: 13px;
+  flex: 1;
+}
+
+.fashi-head .home { font-size: 13px; }
+
+/* ---- 格子 --------------------------------------------------------- */
+
+.fashi-section { padding: calc(var(--dgy-pad) * 1.5); }
+
+.fashi-section > h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.fashi-section > p.note {
+  color: var(--dgy-silk-dim);
+  font-size: 12px;
+  margin-bottom: var(--dgy-gap);
+}
+
+.fashi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--dgy-gap);
+}
+
+.fashi-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--dgy-panel);
+  border: var(--dgy-hair) solid var(--dgy-line);
+  border-radius: var(--dgy-radius);
+  color: var(--dgy-silk);
+  padding: 0;
+  overflow: hidden;
+  transition: background var(--dgy-fast) var(--dgy-ease);
+}
+
+.fashi-card:hover { background: var(--dgy-raise); }
+
+.fashi-card .thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: #2a3038; /* 与棚拍台 studio 底一致 */
+}
+
+.fashi-card .no-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  color: var(--dgy-silk-faint);
+  font-size: 12px;
+  text-align: center;
+  padding: var(--dgy-pad);
+}
+
+.fashi-card .meta { padding: 10px 12px 12px; }
+
+.fashi-card .name { font-size: 14px; font-weight: 600; }
+
+.fashi-card .sub2 { color: var(--dgy-silk-dim); font-size: 12px; margin-top: 2px; }
+
+.fashi-card .badges { margin-top: 8px; }
+
+/* ---- 徽记(状态 / 支 / 门类) --------------------------------------- */
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 0 6px;
+  margin-right: 6px;
+  border: var(--dgy-hair) solid var(--dgy-line);
+  border-radius: var(--dgy-radius);
+  color: var(--dgy-silk-dim);
+}
+
+.badge.st-ok { color: var(--dgy-status-ok); border-color: var(--dgy-status-ok); }
+.badge.st-contested { color: var(--dgy-status-contested); border-color: var(--dgy-status-contested); }
+.badge.st-refuted { color: var(--dgy-status-refuted); border-color: var(--dgy-status-refuted); }
+.badge.st-underdetermined { color: var(--dgy-status-underdetermined); border-color: var(--dgy-status-underdetermined); }
+.badge.st-missing { color: var(--dgy-status-missing); border-color: var(--dgy-status-missing); }
+
+.badge.pv-evidence { color: var(--dgy-prov-evidence); border-color: var(--dgy-prov-evidence); }
+.badge.pv-inference { color: var(--dgy-prov-inference); border-color: var(--dgy-prov-inference); }
+.badge.pv-art { color: var(--dgy-prov-art); border-color: var(--dgy-prov-art); }
+
+/* ---- 详情 ---------------------------------------------------------- */
+
+#detail {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: var(--dgy-ground);
+  display: flex;
+  flex-direction: column;
+}
+
+#detail[hidden] { display: none; }
+
+.detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--dgy-pad);
+  padding: var(--dgy-pad) calc(var(--dgy-pad) * 1.5);
+  border-bottom: var(--dgy-hair) solid var(--dgy-line);
+}
+
+.detail-head h2 { font-size: 17px; font-weight: 600; }
+.detail-head .badges { flex: 1; }
+
+.detail-close {
+  background: none;
+  border: var(--dgy-hair) solid var(--dgy-line);
+  border-radius: var(--dgy-radius);
+  color: var(--dgy-silk);
+  padding: 4px 12px;
+  font-size: 13px;
+}
+.detail-close:hover { background: var(--dgy-raise); }
+
+.detail-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.detail-stage {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  background: #2a3038; /* 棚拍台 studio 底,与缩略图一致 */
+}
+
+.detail-stage canvas { display: block; position: absolute; inset: 0; }
+
+.detail-stage .stage-note {
+  position: absolute;
+  left: var(--dgy-pad);
+  bottom: var(--dgy-pad);
+  color: var(--dgy-silk-dim);
+  font-size: 12px;
+  background: color-mix(in srgb, var(--dgy-ground) 72%, transparent);
+  padding: 4px 10px;
+  border: var(--dgy-hair) solid var(--dgy-line);
+  border-radius: var(--dgy-radius);
+}
+
+.detail-stage .stage-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dgy-gap);
+  color: var(--dgy-silk-dim);
+  background: var(--dgy-ground);
+}
+
+.detail-stage .stage-empty .zh {
+  font-family: var(--dgy-font-quote);
+  font-size: 56px;
+  color: var(--dgy-silk-faint);
+  letter-spacing: 0.2em;
+}
+
+.detail-side {
+  width: 420px;
+  flex: none;
+  overflow-y: auto;
+  border-left: var(--dgy-hair) solid var(--dgy-line);
+  padding: var(--dgy-pad) calc(var(--dgy-pad) * 1.5);
+}
+
+@media (max-width: 900px) {
+  .detail-body { flex-direction: column; }
+  .detail-stage { min-height: 46vh; }
+  .detail-side { width: auto; border-left: none; border-top: var(--dgy-hair) solid var(--dgy-line); }
+}
+
+/* ---- 出处栏 -------------------------------------------------------- */
+
+.prov-summary {
+  color: var(--dgy-silk-dim);
+  font-size: 12px;
+  margin-bottom: var(--dgy-pad);
+}
+
+.prov-branch { margin-bottom: var(--dgy-pad); }
+
+.prov-branch > h3 {
+  font-size: 13px;
+  font-weight: 600;
+  padding-left: 8px;
+  margin-bottom: 6px;
+  border-left: 3px solid transparent;
+}
+
+.prov-branch.evidence > h3 { border-left-color: var(--dgy-prov-evidence); color: var(--dgy-prov-evidence); }
+.prov-branch.inference > h3 { border-left-color: var(--dgy-prov-inference); color: var(--dgy-prov-inference); }
+.prov-branch.art > h3 { border-left-color: var(--dgy-prov-art); color: var(--dgy-prov-art); }
+
+.prov-entry {
+  background: var(--dgy-panel);
+  border: var(--dgy-hair) solid var(--dgy-line);
+  border-radius: var(--dgy-radius);
+  padding: 10px 12px;
+  margin-bottom: var(--dgy-gap);
+}
+
+.prov-entry .head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+.rule-id {
+  font-family: var(--dgy-font-num);
+  font-size: 12px;
+  color: var(--dgy-azure);
+}
+
+.prov-entry .rname { font-weight: 600; font-size: 13px; }
+.prov-entry .loc { color: var(--dgy-silk-dim); font-size: 12px; }
+.prov-entry .pnote { color: var(--dgy-silk-dim); font-size: 12px; margin-top: 4px; }
+
+/* 原文引句:衬线繁体,即"书里说的"。 */
+.quote {
+  font-family: var(--dgy-font-quote);
+  font-size: 13px;
+  color: var(--dgy-silk);
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: var(--dgy-hair) solid var(--dgy-line);
+}
+
+.rule-missing-ref {
+  margin-top: 6px;
+  color: var(--dgy-status-refuted);
+  font-size: 12px;
+}
+
+.detail-side h3.block {
+  font-size: 13px;
+  font-weight: 600;
+  margin: var(--dgy-pad) 0 6px;
+  color: var(--dgy-silk-dim);
+  letter-spacing: 0.06em;
+}
+
+.detail-side .statement { font-size: 13px; }
+
+.detail-side table.parts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.detail-side table.parts td {
+  border-top: var(--dgy-hair) solid var(--dgy-line);
+  padding: 4px 0;
+  color: var(--dgy-silk);
+}
+
+.detail-side table.parts td.n {
+  text-align: right;
+  font-family: var(--dgy-font-num);
+  color: var(--dgy-silk-dim);
+  width: 3em;
+}
+
+.detail-side .dim-rule {
+  border-top: var(--dgy-hair) solid var(--dgy-line);
+  padding: 8px 0;
+}
+
+.detail-error {
+  margin: calc(var(--dgy-pad) * 2);
+  padding: var(--dgy-pad);
+  border: var(--dgy-hair) solid var(--dgy-status-refuted);
+  border-radius: var(--dgy-radius);
+  color: var(--dgy-status-refuted);
+  font-family: var(--dgy-font-num);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.kv { color: var(--dgy-silk-dim); font-size: 12px; }
+.kv b { color: var(--dgy-silk); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fashi-card { transition: none; }
+}

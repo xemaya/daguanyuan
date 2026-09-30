@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="data:," />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>营造法式图解 · 大观园</title>
+    <style>
+      /* 匾额用字(单子 AW2)——与 garden.html 同一条 @font-face,法式图解里的匾才不回落成系统楷体。 */
+      @font-face {
+        font-family: "AR PL UKai";
+        src: url(fonts/ARPLUKai-plaque-subset.woff2) format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="detail" hidden></div>
+    <script type="module" src="/projects/daguanyuan/fashi.ts"></script>
+  </body>
+</html>

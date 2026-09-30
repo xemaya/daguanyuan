@@ -6,7 +6,7 @@
 
 ```bash
 npm install
-npm run dev            # http://127.0.0.1:5173
+npm run dev            # http://127.0.0.1:5173/garden.html(根路径 / 是门厅)
 npm run check          # 类型检查
 npm test               # 单元测试
 npm run check:layers   # 分层依赖门
@@ -31,6 +31,7 @@ BASE=/daguanyuan/ npm run build   # 部署到 hub 子路径
 | 4 | [ART_DIRECTION.md](ART_DIRECTION.md) | 艺术圣经。做几何或材质的必读，它压过个人品味 |
 | 5 | [docs/ROADMAP.md](docs/ROADMAP.md) | 下一步做什么，怎么分期 |
 | 6 | [CONTRIBUTING.md](CONTRIBUTING.md) | 协作规矩：碰哪些文件、过哪些门、怎么提交 |
+| 7 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | 工作方法：一景一轮六步、三个角色、验收清单、派单模板、站住了的经验 |
 
 外部调研（要用先看它们各自的使用说明）：
 
@@ -41,6 +42,7 @@ BASE=/daguanyuan/ npm run build   # 部署到 hub 子路径
 
 - 改建筑推导 → `knowledge/docs/fashi/README.md`、`knowledge/docs/qingshi/README.md`、`knowledge/docs/qingshi/tiers.md`
 - 改园子布局 → `knowledge/docs/plan/README.md`、`knowledge/docs/plan/04-conflicts.md`（下游只读这篇判决书）
+- 动某一个景 → `knowledge/docs/scenes/<景>.md`（该是什么 / 现在是什么 / 怎么验；开单前读、收工必改）
 - 执行 P0 剩余任务 → `docs/superpowers/plans/2026-09-10-p0-skeleton-migration.md`
 - 执行 P1 → `docs/superpowers/plans/2026-09-10-p1-foundation.md`（计划）与 `-p1-task-orders.md`（分派单）
 
@@ -80,7 +82,7 @@ plan.json + scenes/*.json → derive(按 tier 选参数集) → Frame(骨架表,
 | 驳倒 | 禁用，引用即抛，错误信息带更正值与出处 |
 | 缺失 | 抛错，说明缺什么、该查哪本书；要覆盖必须显式传值并留痕 |
 
-第一个"缺失"的案例：Tier A 要求由柱高反算斗口，两本书都没给反函数，六个口径互差 8% 到 21%。所以正门和大观楼现在会直接抛错，而不是拿一个中值蒙混过去。**这是设计意图，不是 bug。**
+第一个"缺失"的案例：Tier A 若要求由柱高反算斗口，两本书都没给反函数，六个口径互差 8% 到 21%。清式推导器在未显式给斗口时会抛错，不拿中值蒙混过去。现有沁芳亭和潇湘馆已消费 plan 中的 fayuan 施工参数；正门仍用旧 fashi 预设，清式及复合建筑接入尚未完成。**缺失规则拒绝静默猜值，是设计意图。**
 
 **要不要选口径，由这条规则有没有并存口径决定，不由状态决定。** 殿阁举高 `04-03` 状态是"通过"——条文本身没问题——但法式 L/3、唐构实测、辽构 L/4 三档并存，差到 32%。状态说的是"这条读得对不对"，口径说的是"这栋屋按谁的读法造"。逐条选太吵，所以 `builder/derive/profiles.ts` 把时代翻译成一张口径表（`song`/`tang`/`liao`）——里面只有口径的名字，没有营造数字。
 
@@ -94,10 +96,12 @@ plan.json + scenes/*.json → derive(按 tier 选参数集) → Frame(骨架表,
 | `npm test` | 单元测试，含推导链的手算断言（佛光寺、长春宫、月到风来亭） |
 | `npm run check:layers` | 分层依赖 |
 | `npm run check:rules` | 研究稿与机读规则表的条目与状态是否对齐 |
-| `node tools/check-plan.mjs` | 平面几何自检，含七条不可违约束 |
+| `node tools/check-plan.mjs` | 平面几何及七条约束的覆盖报告；全园最终使用 `--strict` 拒绝待完成项 |
+| `npm run check:p2` | P2几何/施工输入门；不替代全园严格验收 |
 | `node tools/manifest-diff.mjs A B` | 两次截图的结构数字（draw calls / 三角数 / 几何数 / 材质数） |
 | `node tools/playtest.mjs` | 键盘走完游线，验门、桥、水、假山缝 |
-| `node tools/shoot-part.mjs` | 构件棚拍 |
+| `node tools/shoot-part.mjs` | 构件棚拍，施工模型记录尺寸与出处；缺图或错误退出失败 |
+| `node tools/verify-building-catalog.mjs` | 逐个核验已声明施工spec的建筑网格与柱碰撞 |
 | `node tools/side-by-side.mjs` | 出左右对照图交人眼判观感 |
 
 **观感回归不用逐像素**。场景里水面、竹叶、云一直在动，同一份构建连拍两次平均每像素就差 7 到 17 个色阶，噪声底比任何有意义的阈值都高。结构数字是确定性的，人眼判观感。详见 `docs/PITFALLS.md`。
@@ -108,10 +112,10 @@ plan.json + scenes/*.json → derive(按 tier 选参数集) → Frame(骨架表,
 
 知识库有三份研究稿共 362 条核验规则（法式 155、清式与法原与红楼 207），一份 19 区的平面真源，全部经过两名独立核验者（一个对原文逐字，一个对实测建筑）裁决。
 
-正在做 P0 骨架搬家的收尾。之后按 `docs/ROADMAP.md` 的五期推进。
+P0、P1 已完成；P2几何输入已完成并验收：19区轮廓、32项建筑规格、29节点规划路线、五组可生成远景、32项线性几何契约。20项建筑有单体模型，12项仍待P3细化，游戏仍为原四区MVP。P2门与全园严格门分开，后者仍有六项空间关系待验；详见 [P2收口记录](docs/reviews/2026-09-11-p2-closeout.md)。139项测试、构建及现有四区键盘通行回归通过。本次任务到P2停止，不推进后续阶段。
 
 ## 授权
 
-MIT。引擎壳取自 [pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)（MIT），中式部分全部新写。
+Apache 2.0(见 [LICENSE](LICENSE))。引擎壳取自 [pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)(MIT),上游许可全文与版权行见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md);中式部分全部新写。
 
 《红楼梦》原文属公有领域。本项目是同人性质的技术实验。

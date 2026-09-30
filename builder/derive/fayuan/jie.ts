@@ -15,7 +15,9 @@ export type HallKind = '民房' | '圆堂' | '厅' | '殿庭';
 
 export interface JieInput {
   tier: 'B' | 'C';
-  /** 亭的平面形状,tier C 必填。 */
+  /** 档次不是平面类型：Tier C 同时包含亭、廊、敞厅。旧调用缺省 B=hall/C=pavilion。 */
+  form?: 'hall' | 'pavilion';
+  /** 亭的平面形状,pavilion 必填。 */
   shape?: TingShape;
   /** 亭:每面边长(米)。 */
   sideM?: number;
@@ -94,8 +96,10 @@ function deriveTingJie(book: RuleBook, spec: JieInput): Jie {
 
 function deriveHallJie(book: RuleBook, spec: JieInput): Jie {
   const bays = spec.bayWidthsM;
-  if (!bays?.length) throw new Error('tier B 厅堂必须给 bayWidthsM');
-  if (spec.jieDepthChi === undefined) throw new Error('tier B 厅堂必须给 jieDepthChi(界深,尺)');
+  if (!bays?.length) throw new Error('厅堂必须给 bayWidthsM');
+  if (spec.jieDepthChi === undefined) throw new Error('厅堂必须给 jieDepthChi(界深,尺)');
+  if (spec.tier === 'C' && spec.columnHeightM === undefined)
+    throw new Error('Tier C 厅/廊须显式给 columnHeightM，不能套用05-02住宅檐高或05-11亭柱比例');
   const chiM = spec.chiCm / 100;
   const halfJie = spec.jieCount / 2;
   if (!Number.isInteger(halfJie) || halfJie < 1) throw new Error('界数须为 ≥2 的偶数');
@@ -146,5 +150,18 @@ function deriveHallJie(book: RuleBook, spec: JieInput): Jie {
 }
 
 export function deriveJie(book: RuleBook, spec: JieInput): Jie {
-  return spec.tier === 'C' ? deriveTingJie(book, spec) : deriveHallJie(book, spec);
+  if (spec.tier !== 'B' && spec.tier !== 'C') throw new Error('法原界推导只接受 Tier B/C');
+  if (spec.form !== undefined && spec.form !== 'hall' && spec.form !== 'pavilion') throw new Error('未知法原平面类型');
+  const positive = (v: number | undefined, label: string) => {
+    if (v !== undefined && (!Number.isFinite(v) || v <= 0)) throw new Error(`${label} 须为有限正数`);
+  };
+  positive(spec.chiCm, 'chiCm');
+  if (spec.chiCm === undefined) throw new Error('必须显式给 chiCm');
+  positive(spec.sideM, 'sideM');
+  positive(spec.jieDepthChi, 'jieDepthChi');
+  positive(spec.columnHeightM, 'columnHeightM');
+  for (const width of spec.bayWidthsM ?? []) positive(width, 'bayWidthsM');
+  const form = spec.form ?? (spec.tier === 'C' ? 'pavilion' : 'hall');
+  if (form === 'pavilion' && spec.tier !== 'C') throw new Error('亭柱比例只用于 Tier C pavilion');
+  return form === 'pavilion' ? deriveTingJie(book, spec) : deriveHallJie(book, spec);
 }

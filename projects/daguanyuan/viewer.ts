@@ -1,11 +1,17 @@
-import * as THREE from 'three';
+import * as THREE from 'three/webgpu';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { pass } from 'three/tsl';
+import { smaa } from 'three/addons/tsl/display/SMAANode.js';
+import { backendName, rendererOptions } from '@engine/core/renderer';
 import { buildPart, partNames } from '@builder/parts/registry';
 import '@builder/parts/index';
+import { setPlan, type GardenPlan } from '@builder/compose/terrain';
+import planFile from './plan.json' with { type: 'json' };
+import './construction';
+import { BUILT_REGIONS } from './scenes';
+
+// 构件的匾额文字从 plan.json 读(99-26),棚拍台也要注入真源,否则门额/檐下匾不挂。
+setPlan(planFile as unknown as GardenPlan, BUILT_REGIONS);
 
 /**
  * 构件棚拍台。
@@ -19,22 +25,32 @@ import '@builder/parts/index';
  *   ?bg=studio|dark|white                   (default: studio)
  */
 
+async function boot(): Promise<void> {
 const params = new URLSearchParams(location.search);
-const [subject, variant = 'default'] = (params.get('subject') ?? partNames()[0] ?? 'probe').split(':');
+const selection = params.get('subject') ?? partNames()[0] ?? 'probe';
+const separator = selection.indexOf(':');
+const subject = separator < 0 ? selection : selection.slice(0, separator);
+const variant = separator < 0 ? 'default' : selection.slice(separator + 1);
 const angleName = params.get('angle') ?? 'three_quarter';
 const bg = params.get('bg') ?? 'studio';
 
 const container = document.getElementById('app')!;
+if (params.has('sample')) {
+  const { runSample } = await import('./wg-samples');
+  await runSample(container, params.get('sample')!);
+  return;
+}
 
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGPURenderer({ ...rendererOptions(), antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 container.appendChild(renderer.domElement);
+await renderer.init();
 
 const scene = new THREE.Scene();
 const BG = { studio: 0x2a3038, dark: 0x0d0f12, white: 0xe8e4dd }[bg] ?? 0x2a3038;
@@ -129,13 +145,10 @@ const [az, el] = ANGLES[angleName] ?? ANGLES.three_quarter;
 frameFrom(az, el);
 
 /* ---- Post ------------------------------------------------------------ */
-const composer = new EffectComposer(
-  renderer,
-  new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, { type: THREE.HalfFloatType, samples: 4 }),
-);
-composer.addPass(new RenderPass(scene, camera));
-composer.addPass(new OutputPass());
-composer.addPass(new SMAAPass());
+const scenePass = pass(scene, camera);
+const composer = new THREE.RenderPipeline(renderer, smaa(scenePass));
+await scenePass.compileAsync(renderer);
+composer.render();
 
 const clock = new THREE.Clock();
 let spin = false;
@@ -150,7 +163,7 @@ renderer.setAnimationLoop(() => {
   renderer.info.autoReset = false;
   composer.render();
   stats.triangles = renderer.info.render.triangles;
-  stats.calls = renderer.info.render.calls;
+  stats.calls = renderer.info.render.drawCalls;
   renderer.info.autoReset = true;
 });
 
@@ -158,7 +171,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
+
   frameFrom(az, el);
 });
 window.addEventListener('keydown', (e) => {
@@ -167,7 +180,8 @@ window.addEventListener('keydown', (e) => {
 
 Object.assign(window, {
   __VIEWER__: {
-    scene, camera, renderer, root, part,
+    scene, camera, renderer, root, part, THREE,
+    backend: backendName(renderer), statisticsVersion: 2,
     setAngle(a: string) { const v = ANGLES[a]; if (v) frameFrom(v[0], v[1]); },
     triangles: () => stats.triangles,
     drawCalls: () => stats.calls,
@@ -179,3 +193,6 @@ window.dispatchEvent(new CustomEvent('viewer:ready'));
 requestAnimationFrame(() =>
   console.info(`[viewer] ${subject}:${variant} ${angleName} — ${(stats.triangles / 1000).toFixed(1)}k tris, ${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}m`),
 );
+
+}
+boot().catch((error) => { console.error("[viewer] boot failed", error); document.getElementById("app")!.textContent = String(error); });

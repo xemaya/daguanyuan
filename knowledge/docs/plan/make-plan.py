@@ -1,11 +1,35 @@
 # -*- coding: utf-8 -*-
 """projects/daguanyuan/plan.json -> plan.svg (hand-written SVG, no external resources)"""
-import json, math, os
+import json, math, os, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, '..', '..', '..', 'projects', 'daguanyuan', 'plan.json')
 OUT = os.path.join(HERE, 'plan.svg')
 d = json.load(open(SRC, encoding='utf-8'))
+ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
+# The exact same compiler validates P2 and drives the SVG. No Python copy of
+# bay/roof formulae, and no implicit claim that a planned frame is already built.
+construction = json.loads(subprocess.run(
+    ['node', os.path.join(ROOT, 'tools', 'export-plan-construction.mjs')],
+    cwd=ROOT, check=True, capture_output=True, text=True).stdout)
+building_names = {b['id']:b['name'] for r in d['regions'] for b in r['buildings']}
+narrative_report = json.loads(subprocess.run(
+    ['node', os.path.join(ROOT, 'tools', 'export-narrative-route.mjs')],
+    cwd=ROOT, check=True, capture_output=True, text=True).stdout)
+narrative = next(r for r in narrative_report['routes'] if r['source']['id'] == 'ch17')
+connection_report = json.loads(subprocess.run(
+    ['node', os.path.join(ROOT, 'tools', 'export-plan-connections.mjs')],
+    cwd=ROOT, check=True, capture_output=True, text=True).stdout)
+
+distant_report = json.loads(subprocess.run(
+    ['node', os.path.join(ROOT, 'tools', 'export-distant-scenes.mjs')],
+    cwd=ROOT, check=True, capture_output=True, text=True).stdout)
+distant_by_id = {s['spec']['id']:s['compiled'] for s in distant_report['scenes']}
+
+linear_report = json.loads(subprocess.run(
+    ['node', os.path.join(ROOT, 'tools', 'export-linear-layouts.mjs')],
+    cwd=ROOT, check=True, capture_output=True, text=True).stdout)
+
 
 # ---------- viewBox: world units == svg units, y down = south (svg y = z) ----------
 VB_X, VB_Y, VB_W, VB_H = -300, -390, 940, 790
@@ -140,6 +164,50 @@ for r in d['regions']:
           % (en[0], en[1], C['paper'], col))
     e('</g>')
 
+# Explicit ground, deck and boat-opening footprints are different surfaces.
+for r in d['regions']:
+    for pad in r.get('pads', []):
+        colour = {'grade':'#927441','deck':'#386c88','water-opening':'#338884'}[pad['kind']]
+        e('<g><title>%s · %s · %.2fm</title><polygon points="%s" fill="%s" fill-opacity="0.3" stroke="%s" stroke-width="0.8" stroke-dasharray="2 1"/></g>' % (esc(pad['id']),pad['kind'],pad['elevation_m'],pts(pad['polygon']),colour,colour))
+
+# Actual wall centerlines and registered openings from P2 linear construction.
+for r in d['regions']:
+    for wall in r.get('linears', []):
+        e('<g><title>%s</title><polyline points="%s" fill="none" stroke="#5a5245" stroke-width="1.1"/>' % (esc(wall['id']),pts(wall['points'])))
+        for insert in wall.get('inserts', []):
+            x,z=insert['at']
+            e('<circle cx="%.2f" cy="%.2f" r="1.8" fill="%s" stroke="#5a5245" stroke-width="0.7"><title>%s</title></circle>' % (x,z,C['paper'],esc(insert.get('object',insert['variant']))))
+        e('</g>')
+
+# P2 construction envelopes use the TypeScript compiler, including width and portals.
+for obj in linear_report['objects']:
+    for run in obj.get('runs', []):
+        colour = '#557868' if run['sectionRole']=='clearance' else '#7b6250'
+        e('<g><title>%s · 几何施工图，非已装配模型 · %s</title><polygon points="%s" fill="%s" fill-opacity="0.24" stroke="%s" stroke-width="0.4" stroke-dasharray="1.2 0.6"/></g>' % (esc(obj['id']),esc(run['material']),pts(run['footprint']),colour,colour))
+    for opening in obj.get('openings', []):
+        x,z=opening['at']
+        e('<circle cx="%s" cy="%s" r="1.5" fill="%s" stroke="#7b6250" stroke-width="0.4"><title>净口 %.2f × %.2f m</title></circle>' % (x,z,C['paper'],opening['widthM'],opening['heightM']))
+
+# ================= gates =================
+for connection in connection_report['connections']:
+    spec=connection['spec']
+    colour='#944b40' if spec.get('railingMaterial')=='vermilion' else '#8a5a3e' if spec.get('deckMaterial')=='wood' else '#687b7d'
+    e('<g><title>%s · 可生成桥构件，整园装配待验</title><polygon points="%s" fill="%s" fill-opacity="0.5" stroke="%s" stroke-width="0.55"/></g>' % (esc(spec['id']),pts(connection['polygon']),colour,colour))
+
+# ================= gates =================
+e('<!-- 32项施工骨架：柱网实线、屋面保守包络虚线；不表示已建实景 -->')
+for building in construction['objects']:
+    for footprint in building['footprints']:
+        e('<g><title>%s · %s · %s</title>' % (
+            esc(building_names[building['id']]), esc(footprint['id']),
+            '有单体模型，非实景装配证明' if building['meshFactoryAvailable'] else '仅施工骨架，细部几何待P3'))
+        e('<polygon points="%s" fill="none" stroke="#625046" stroke-width="0.45" stroke-dasharray="1.3 1"/>' % pts(footprint['roof']))
+        if footprint['body']:
+            e('<polygon points="%s" fill="%s" fill-opacity="0.22" stroke="#625046" stroke-width="0.7"/>' % (pts(footprint['body']), 'none' if building['boat'] else '#8b6c51'))
+        for x,z in footprint['columns']:
+            e('<circle cx="%.3f" cy="%.3f" r="%.3f" fill="#554336"/>' % (x,z,footprint['columnRadius']))
+        e('</g>')
+
 # ================= gates =================
 e('<!-- 门 -->')
 GATE_LBL = {  # name-key -> (anchor, dx, dz)
@@ -165,7 +233,7 @@ for g in d['gates']:
     e('</g>')
 # 正门 callout
 e('<text x="55" y="292" font-size="9" text-anchor="middle" fill="%s">五间 · 桶瓦泥鳅脊 · 白石台矶 · '
-  '南墙偏东 · 门内翠嶂全遮视线(十七回)</text>' % C['muted'])
+  '南墙偏东 · 门内遮挡为目标(三维待验)</text>' % C['muted'])
 
 # water in / out annotations
 e('<g font-size="9" fill="#2f6b74">')
@@ -182,7 +250,7 @@ CN = ["1 缀锦阁在大观楼东、含芳阁在西(十八回,唯一东西向硬
       "4 水系线状五段:外河 → 沁芳闸(东北)→ 洞口 → 东北山坳 → 稻香村 →〔岔口 → 西南〕→ 怡红院后合流 → 墙下出园",
       "5 翠嶂全遮门内视线,正门内不得望见任何院落或正殿(十七回贾政语)",
       "6 十七回游线须连续走通且成环(小径入 / 另一边出),至正殿累计路程 ≈ 全程 55%",
-      "7 暖香坞正门朝南,其北为东西向夹道,西门额「穿云 / 度月」,东门外接山坡(五十回)"]
+      "7 暖香坞正门朝南,院落在东西向夹道之北,西门额「穿云 / 度月」,东门外接山坡(五十回)"]
 e('<rect x="-252" y="296" width="506" height="84" rx="5" fill="%s" stroke="%s" stroke-width="1.2"/>'
   % (C['panel'], C['panelEdge']))
 e('<text x="-242" y="311" font-size="10" fill="%s" letter-spacing="1">七条不可违约束(任何布局调整后须复检 · 出自 04-conflicts.md §四)</text>' % C['ink'])
@@ -191,48 +259,50 @@ for i, t in enumerate(CN):
       % (-242, 322 + i * 8.8, C['muted'], esc(t)))
 
 # ================= route (17th chapter tour) =================
-route_line = d['paths'][0]['points']
-e('<!-- 十七回游线 -->')
-e('<g><title>%s</title>' % esc(d['paths'][0]['name']))
-e('<polyline points="%s" fill="none" stroke="%s" stroke-width="3.4" stroke-linecap="round" '
-  'stroke-linejoin="round" opacity="0.95"/>' % (pts(route_line), C['route']))
-# direction arrows every k segments
-for i in range(2, len(route_line) - 1, 5):
-    x0, z0 = route_line[i]; x1, z1 = route_line[i + 1]
-    mx, mz = (x0 + x1) / 2, (z0 + z1) / 2
-    dx, dz = x1 - x0, z1 - z0
-    L = math.hypot(dx, dz) or 1
-    e('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="2" '
-      'marker-end="url(#ah)"/>' % (mx - dx / L * 4, mz - dz / L * 4, mx + dx / L * 4, mz + dz / L * 4, C['route']))
+route_data = narrative['source']
+route_line = [route_data['legs'][0]['points'][0]]
+for leg in route_data['legs']:
+    route_line.extend(leg['points'][1:])
+e('<g id="narrative-route"><title>第17回29节点规划路线：未完成全线实景通行验收</title>')
+e('<polyline points="%s" fill="none" stroke="%s" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' % (pts(route_line),C['route']))
+for leg in route_data['legs']:
+    candidates = [(a,b) for a,b in zip(leg['points'],leg['points'][1:]) if math.dist(a,b)>12]
+    if candidates:
+        a,b=candidates[len(candidates)//2]
+        mx,mz=(a[0]+b[0])/2,(a[1]+b[1])/2
+        dx,dz=b[0]-a[0],b[1]-a[1];L=math.hypot(dx,dz)
+        e('<line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" stroke="%s" stroke-width="0.8" marker-end="url(#ah)"/>' % (mx-dx/L*2,mz-dz/L*2,mx+dx/L*2,mz+dz/L*2,C['route']))
 e('</g>')
 
-# station dots: 每站落在该区自己的 entrances 上(第 n 次到访取第 n 个门),缺则取形心
-route = d['route_ch17']
-visits, stations = {}, []
-for k, rid in enumerate(route):
-    r = regions[rid]
-    v = visits.get(rid, 0); visits[rid] = v + 1
-    ents = r.get('entrances') or []
-    sx, sz = ents[min(v, len(ents) - 1)] if ents else centroid(r['polygon'])
-    if rid == 'zhengmen':
-        sz -= 14                                            # 让开正门门标
-    merged = False
-    for t, st in enumerate(stations):                       # 同区同点(环线首尾)合并成一颗
-        if st[1] == rid and abs(st[2] - sx) < 6 and abs(st[3] - sz) < 6:
-            stations[t] = (st[0] + '·' + str(k + 1), rid, st[2], st[3]); merged = True; break
-    if merged:
-        continue
-    while any(abs(sx - px) < 13 and abs(sz - pz) < 13 for _, _, px, pz in stations):
-        sx += 16; sz += 7
-    stations.append((str(k + 1), rid, sx, sz))
+# Five unentered scenic groups share node25; the observer is on the return leg.
+e('<g id="distant-scenes">')
+for i,scene in enumerate(d.get('distantScenes',[])):
+    observation=next(o for o in route_data['observations'] if o['scene']==scene['id'])
+    ox,oz=observation['at'];tx,tz=scene['at']
+    e('<g><title>D%d %s：远景模型；整园视线及近景另验</title>' % (i+1,esc(scene['name'])))
+    e('<polygon points="%s" fill="#668b76" fill-opacity="0.13" stroke="#476e59" stroke-width="0.8" stroke-dasharray="2 1"/>' % pts(scene['polygon']))
+    for item in distant_by_id[scene['id']]['items']:
+        colour = '#4a7851' if item['kind']=='tree' else '#57605a'
+        e('<polygon points="%s" fill="%s" fill-opacity="0.3" stroke="%s" stroke-width="0.4"><title>%s · %s</title></polygon>' % (pts(item['footprint']),colour,colour,esc(item['id']),esc(item['kind'])))
+    e('<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="#476e59" stroke-width="0.5" stroke-dasharray="1 2"/>' % (ox,oz,tx,tz))
+    e('<text x="%s" y="%s" font-size="5" fill="#305a43">D%d</text></g>' % (tx,tz,i+1))
+e('</g>')
 
-DOTS = []
-for n, rid, x, z in stations:
-    w = 17 if len(n) <= 2 else 30
-    DOTS.append('<g><title>%s. %s</title>'
-                '<rect x="%.1f" y="%.1f" width="%.1f" height="17" rx="8.5" fill="%s" stroke="%s" stroke-width="1.6"/>'
-                '<text x="%.1f" y="%.1f" font-size="9.5" text-anchor="middle" fill="#fff" font-weight="bold">%s</text></g>'
-                % (n, esc(regions[rid]['name']), x - w / 2, z - 8.5, w, C['route'], C['paper'], x, z + 3.4, n))
+# Dots stay at their true route coordinates; only labels may use a leader.
+DOTS=[]
+for node in route_data['nodes']:
+    if node['order']==29:continue
+    x,z=node['at'];n=str(node['order']);kind=node['kind']
+    label='1/29' if node['order']==1 else n
+    r=3.2 if kind=='station' else 2.2
+    fill=C['route'] if kind=='station' else C['paper']
+    ink=C['paper'] if kind=='station' else C['route']
+    if kind=='scene':shape='<rect x="%.2f" y="%.2f" width="4.4" height="4.4" rx="0.6" fill="%s" stroke="%s" stroke-width="0.6"/>' % (x-r,z-r,fill,C['route'])
+    else:shape='<circle cx="%.2f" cy="%.2f" r="%.2f" fill="%s" stroke="%s" stroke-width="0.6"/>' % (x,z,r,fill,C['route'])
+    if node['order']==1:
+        text='<text x="%.2f" y="%.2f" font-size="5" fill="%s" stroke="%s" stroke-width="1.4" paint-order="stroke">%s</text>' % (x+5,z-2,C['route'],C['paper'],label)
+    else:text='<text x="%.2f" y="%.2f" font-size="3.2" text-anchor="middle" fill="%s">%s</text>' % (x,z+1.1,ink,label)
+    DOTS.append('<g data-route-node="%s"><title>%s %s · %s</title>%s%s</g>' % (node['id'],label,esc(node['name']),kind,shape,text))
 
 # ================= region labels (drawn above route so text stays readable) =================
 LBL = {  # id -> (dx, dz) nudge to dodge route dots / neighbours
@@ -251,11 +321,11 @@ for r in d['regions']:
     x, z = cx + dx, cz + dz
     col = TIER_COLOR.get(r.get('tier'), C['Cc'])
     nm = short(r['name'])
-    e('<text x="%.1f" y="%.1f" font-size="11" fill="%s" stroke="%s" stroke-width="2.6" '
+    e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s" stroke="%s" stroke-width="1.8" '
       'paint-order="stroke" stroke-linejoin="round">%s</text>' % (x, z, C['ink'], C['paper'], esc(nm)))
-    e('<text x="%.1f" y="%.1f" font-size="7.5" fill="%s" stroke="%s" stroke-width="2.2" '
+    e('<text x="%.1f" y="%.1f" font-size="5.5" fill="%s" stroke="%s" stroke-width="1.6" '
       'paint-order="stroke">%s级·信度%s</text>'
-      % (x, z + 10, col, C['paper'], r.get('tier'), CONF_CN.get(r.get('confidence'), '?')))
+      % (x, z + 7, col, C['paper'], r.get('tier'), CONF_CN.get(r.get('confidence'), '?')))
 e('</g>')
 
 e('<!-- 游线站次 -->')
@@ -271,27 +341,16 @@ def panel(x, y, w, h, title):
     e('<text x="%.1f" y="%.1f" font-size="13" fill="%s" letter-spacing="1">%s</text>'
       % (x + 12, y + 22, C['ink'], title))
 
-# route station index
+# route event index; the 19 areas remain labelled on the map.
 IDX_Y = -340
-n_rows = len(d['regions'])
-panel(RX0, IDX_Y, RX1 - RX0, 30 + n_rows * 14.5 + 20, '景区索引(19 区)')
-e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">序号 = 十七回游线站次;'
-  '× = 不在游线上</text>' % (RX0 + 12, IDX_Y + 36, C['muted']))
-order = {}
-for n, rid, _, _ in stations:
-    order.setdefault(rid, []).append(n)
-y = IDX_Y + 52
-for r in d['regions']:
-    col = TIER_COLOR.get(r.get('tier'), C['Cc'])
-    num = '·'.join(str(n) for n in order.get(r['id'], [])) or '×'
-    e('<rect x="%.1f" y="%.1f" width="7" height="7" fill="%s" fill-opacity="0.25" stroke="%s" '
-      'stroke-width="1" stroke-dasharray="%s"/>' % (RX0 + 12, y - 6, col, col,
-                                                    CONF_DASH.get(r.get('confidence'), 'none')))
-    e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s" text-anchor="end">%s</text>'
-      % (RX0 + 40, y, C['route'] if num != '×' else C['muted'], num))
-    e('<text x="%.1f" y="%.1f" font-size="9.5" fill="%s">%s</text>'
-      % (RX0 + 46, y, C['ink'], esc(r['name'] if len(r['name']) <= 26 else r['name'][:25] + '…')))
-    y += 14.5
+panel(RX0, IDX_Y, RX1-RX0, 338, '第十七回路线 · 29节点')
+e('<text x="%.1f" y="%.1f" font-size="8" fill="%s">站=停驻 / 点=转折或通路 / 景=沿途观赏；实景通行待验</text>' % (RX0+12,IDX_Y+36,C['muted']))
+y=IDX_Y+50
+for node in route_data['nodes']:
+    kind={'station':'站','waypoint':'点','scene':'景'}[node['kind']]
+    e('<text x="%.1f" y="%.1f" font-size="8" fill="%s">%02d · %s</text>' % (RX0+12,y,C['route'],node['order'],kind))
+    e('<text x="%.1f" y="%.1f" font-size="8.4" fill="%s">%s</text>' % (RX0+54,y,C['ink'],esc(node['name'])))
+    y+=9.6
 
 # measured facts (computed from the very geometry drawn above)
 def _plen(pl):
@@ -301,18 +360,12 @@ def _area(pl):
     return abs(sum(q[i][0]*q[i+1][1] - q[i+1][0]*q[i][1] for i in range(len(q)-1))) / 2
 PERIM = _plen(d['wall'])
 AREA = _area(d['wall']) / 1e4
-WAREA = sum(_area(w['polygon']) for w in d['water']) / 1e4
-RLEN = _plen(route_line)
-_c = [0.0]
-for i in range(1, len(route_line)):
-    _c.append(_c[-1] + math.hypot(route_line[i][0]-route_line[i-1][0], route_line[i][1]-route_line[i-1][1]))
-_hall = regions['shengqin_biesu']['entrances'][0]
-_j = min(range(len(route_line)), key=lambda i: (route_line[i][0]-_hall[0])**2 + (route_line[i][1]-_hall[1])**2)
-RATIO = _c[_j] / RLEN
+RLEN = narrative['compiled']['length']
+RATIO = narrative['compiled']['milestone']['ratio']
 
 # ================= legend =================
 LG_Y = y + 18
-LG_H = 252
+LG_H = 290
 panel(RX0, LG_Y, RX1 - RX0, LG_H, '图例')
 gy = LG_Y + 40
 def row(draw, text, gap=16.5):
@@ -334,12 +387,14 @@ row(lambda t: e('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" strok
 row(lambda t: (e('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="3.4" '
                  'marker-end="url(#ah)"/>' % (RX0 + 12, t, RX0 + 42, t, C['route'])),
                e('<circle cx="%.1f" cy="%.1f" r="6" fill="%s" stroke="%s" stroke-width="1.4"/>'
-                 % (RX0 + 26, t, C['route'], C['paper']))), '十七回游线(环线,①→⑭)')
+                 % (RX0 + 26, t, C['route'], C['paper']))), '29叙事节点与五组未入远景;通行与视线待验')
+row(lambda t: e('<rect x="%.1f" y="%.1f" width="34" height="10" fill="#927441" fill-opacity="0.3" stroke="#927441" stroke-dasharray="2 1"/>' % (RX0+12,t-5)), '显式落脚面:土色陆地 / 蓝色跨水 / 青色水洞')
+row(lambda t: e('<rect x="%.1f" y="%.1f" width="28" height="9" fill="#8b6c51" fill-opacity="0.22" stroke="#625046"/>' % (RX0+15,t-4)), '建筑/桥面施工轮廓;虚线为屋面包络,装配另验')
 for tier in ('A', 'B', 'C'):
     row(lambda t, tier=tier: e('<rect x="%.1f" y="%.1f" width="34" height="11" fill="%s" fill-opacity="0.2" '
                                'stroke="%s" stroke-width="2"/>' % (RX0 + 12, t - 5.5, TIER_COLOR[tier], TIER_COLOR[tier])),
         '%s 级 — %s' % (tier, TIER_NAME[tier]))
-for cf, lb in (('high', '信度高(L1 原文明证)'), ('medium', '信度中(L2 共识)'), ('low', '信度低(L4 推测,可改)')):
+for cf, lb in (('high', '关系证据高(L1;轮廓尺寸另作设计)'), ('medium', '关系证据中(L2 共识)'), ('low', '关系证据低(L4 推测,可改)')):
     row(lambda t, cf=cf: e('<rect x="%.1f" y="%.1f" width="34" height="11" fill="none" stroke="%s" '
                            'stroke-width="2" stroke-dasharray="%s"/>' % (RX0 + 12, t - 5.5, C['muted'], CONF_DASH[cf])),
         lb)
@@ -366,9 +421,9 @@ for i, lab in enumerate(('0', '50', '100', '150', '200 m')):
       % (RX0 + 12 + i * 50, SB_Y + 18, C['ink'], lab))
 e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">1 svg 单位 = 1 m(世界坐标直出:svg x = x,svg y = z)</text>'
   % (RX0 + 12, SB_Y + 34, C['muted']))
-e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">图上实测:墙内 %.1f ha · 水面 %.2f ha(%.1f%%)· 游线全长 %.0f m</text>'
-  % (RX0 + 12, SB_Y + 47, C['muted'], AREA, WAREA, WAREA / AREA * 100, RLEN))
-e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">至正殿累计路程 %.1f%%(约束 6 要求 50–62%%,通过)</text>'
+e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">图上实测:墙内 %.1f ha · 选定步行折线 %.0f m</text>'
+  % (RX0 + 12, SB_Y + 47, C['muted'], AREA, RLEN))
+e('<text x="%.1f" y="%.1f" font-size="8.5" fill="%s">第23节点牌坊累计 %.1f%%(平面里程,非实景通行验收)</text>'
   % (RX0 + 12, SB_Y + 60, C['muted'], RATIO * 100))
 e('</g>')
 
@@ -377,5 +432,5 @@ svg = '\n'.join(out)
 open(OUT, 'w', encoding='utf-8').write(svg)
 print('wrote', OUT, len(svg), 'bytes')
 print('viewBox %d %d %d %d  px %dx%d' % (VB_X, VB_Y, VB_W, VB_H, W_PX, H_PX))
-print('stations:', [(n, rid, round(x), round(z)) for n, rid, x, z in stations])
+print('narrative nodes:', len(route_data['nodes']), 'planned length:', round(RLEN,1), 'milestone:', round(RATIO,4))
 print('right column bottom y =', SB_Y + 34, '(vb bottom', VB_Y + VB_H, ')')

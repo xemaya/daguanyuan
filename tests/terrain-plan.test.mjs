@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { makeTerrainField } from '@builder/compose/terrain-from-plan.ts';
+import {compileCorridor} from '@builder/plan/corridor-path.ts';
+import {compileBridgePath} from '@builder/plan/bridge-path.ts';
+import { locatePoint } from '@builder/plan/geometry.ts';
 
 const plan = JSON.parse(readFileSync('projects/daguanyuan/plan.json', 'utf8'));
 const field = makeTerrainField(plan, { seed: 17910000 });
@@ -54,58 +57,76 @@ function interiorPoint(poly) {
   return best;
 }
 
-test('水体多边形内部低于水面，外部高于水面', () => {
+test('水体多边形内部采样低于水面', () => {
   for (const w of plan.water) {
     const [cx, cz] = interiorPoint(w.polygon);
     assert.ok(field.height(cx, cz) < 0, `${w.name} 中心应在水下，实际 ${field.height(cx, cz).toFixed(2)}`);
   }
 });
 
-// 堆山断言跳过的山：
-// - 凸碧山：环园东路从山体质心 0.03m 处穿山而过（[184,100]→[194,72] 段）。
-//   环路翻越全园最高山的山顶本身不合理；路按 10% 限坡切山，只能到 ~5.5m，
-//   与 18m 标称峰在该点不可兼得。这是 plan.json 的数据冲突，P2 修 plan 时
-//   应让环园东路绕山脚；在此之前跳过此山的高程断言（其余五座山照测）。
-const SKIP_HILL = new Set(['凸碧山(东部主山·山脊凸碧堂,山坳凹晶馆,山脚栊翠庵)']);
-
 test('堆山中心高于其标称高程的一半', () => {
   for (const h of plan.hills) {
-    if (SKIP_HILL.has(h.name)) continue;
     const [cx, cz] = centroid(h.polygon);
     assert.ok(field.height(cx, cz) > h.height_m * 0.5,
       `${h.name} 中心应接近 ${h.height_m}m，实际 ${field.height(cx, cz).toFixed(2)}`);
   }
 });
 
-test('园路沿线平缓：相邻采样点高差不超过 12%', () => {
+test('控制点同面坡度不超12%，线性结构边界允许明示单阶', () => {
+  const surfaces = [...plan.regions.flatMap(r=>r.linears??[]),...(plan.connections??[])].filter(l=>l.kind==='corridor'||l.kind==='bridge').map(spec=>{
+    const c=spec.kind==='corridor'?compileCorridor(spec):compileBridgePath(spec);
+    const poly=(spec.kind==='corridor'?c.deckPolygon:c.polygon).map(p=>[p[0]+c.origin[0],p[1]+c.origin[1]]);
+    return {poly,y:spec.elevation_m+(spec.kind==='corridor'?spec.platformH_m:0),step:(spec.kind==='corridor'?spec.platformH_m:spec.deckThickness_m)+.08,id:spec.id};
+  });
+  const at=(x,z)=>{let h=field.height(x,z),surface=null;for(const s of surfaces)if(locatePoint(s.poly,[x,z])!=='outside'&&s.y>h){h=s.y;surface=s;}return {h,surface};};
   for (const p of plan.paths) {
+    // This archived path is intentionally active only in its declared MVP
+    // window. Its distant points are not the current 29-event route.
+    const scope=p.compatibilityScope;
+    const scopedPoints=scope?plan.regions.filter(r=>scope.regions.includes(r.id)).flatMap(r=>r.polygon):null;
+    const active=([x,z])=>!scopedPoints||(x>=Math.min(...scopedPoints.map(p=>p[0]))-scope.margin_m&&x<=Math.max(...scopedPoints.map(p=>p[0]))+scope.margin_m&&z>=Math.min(...scopedPoints.map(p=>p[1]))-scope.margin_m&&z<=Math.max(...scopedPoints.map(p=>p[1]))+scope.margin_m);
     for (let i = 1; i < p.points.length; i++) {
+      if(!active(p.points[i-1])||!active(p.points[i]))continue;
       const [ax, az] = p.points[i - 1];
       const [bx, bz] = p.points[i];
       const d = Math.hypot(bx - ax, bz - az);
       if (d < 1) continue;
-      const grade = Math.abs(field.height(bx, bz) - field.height(ax, az)) / d;
-      assert.ok(grade < 0.12, `${p.name} 第 ${i} 段坡度 ${(grade * 100).toFixed(1)}%`);
+      const a=at(ax,az),b=at(bx,bz),delta=Math.abs(b.h-a.h),grade=delta/d;
+      const step=a.surface?.id!==b.surface?.id&&delta<=Math.max(a.surface?.step??0,b.surface?.step??0);
+      assert.ok(grade < 0.12 || step, `${p.name} 第 ${i} 段坡度 ${(grade * 100).toFixed(1)}%`);
     }
   }
 });
 
-// 台基平坦断言跳过的区域（只跳断言，不改 plan.json——任务单 D 的明确约定）：
-// - xiaoxiangguan：「潇湘馆穿院引泉沟」（开沟仅尺许）从区域质心 0.1m 处穿院而过，
-//   ±3m 采样框横跨沟岸。水沟穿院是 plan 的真数据，不是生成器的错。
-// - qinfangzha：沁芳闸本来就是跨在水上的闸，质心在沁芳溪北段河道内 3.2m。
-// - liaoting_huaxu：蓼汀花溆是港洞渡口，质心压在沁芳溪北段岸线（0.4m）。
-// 与 missing 99-20 的 4 个越界建筑锚点不同：那 4 个是锚点数据缺陷（P2 修），
-// 这 3 个是「区域质心落在水里」的几何事实。
-const SKIP_FLAT = new Set(['xiaoxiangguan', 'qinfangzha', 'liaoting_huaxu']);
+test('显式落脚面：陆地台地逐网格平整，桥与港洞保留水下地形', () => {
+  let graded = 0, decks = 0, portals = 0;
+  for (const r of plan.regions) for (const pad of r.pads ?? []) {
+    const center = field.height(...pad.anchor);
+    if (pad.kind === 'grade') {
+      graded++;
+      const xs = pad.polygon.map(p=>p[0]), zs = pad.polygon.map(p=>p[1]);
+      for(let x=Math.min(...xs); x<=Math.max(...xs); x+=.5)
+        for(let z=Math.min(...zs); z<=Math.max(...zs); z+=.5) {
+          if(locatePoint(pad.polygon,[x,z])==='outside')continue;
+          assert.ok(Math.abs(field.height(x,z)-pad.elevation_m)<.001, `${pad.id} (${x},${z}) 不在显式标高 ${pad.elevation_m}`);
+        }
+      assert.equal(center,pad.elevation_m);
+    } else {
+      assert.ok(center<0, `${pad.id} 下方须保留水域，不把结构面当土方`);
+      if(pad.kind==='deck') { decks++; assert.ok(pad.elevation_m>0); }
+      else { portals++; assert.equal(pad.kind,'water-opening'); }
+    }
+  }
+  assert.equal(graded,11); assert.equal(decks,3); assert.equal(portals,1);
+});
 
-test('区域台基处平坦：区域中心 3 米见方内高差小于 8 厘米', () => {
+test('仍采用区域整地的陆地区域中心平缓（不把池面或新台地质心当基础）', () => {
   for (const r of plan.regions) {
-    if (!r.buildings?.length) continue;
-    if (SKIP_FLAT.has(r.id)) continue;
-    const [cx, cz] = centroid(r.polygon);
-    const hs = [[0,0],[3,0],[0,3],[3,3],[-3,0],[0,-3]].map(([dx,dz]) => field.height(cx+dx, cz+dz));
-    assert.ok(Math.max(...hs) - Math.min(...hs) < 0.08, `${r.id} 台基不平：${(Math.max(...hs)-Math.min(...hs)).toFixed(3)}m`);
+    if (!r.buildings?.length || r.pads?.length || r.grading==='pads') continue;
+    const [cx,cz]=centroid(r.polygon);
+    const hs=[[0,0],[3,0],[0,3],[3,3],[-3,0],[0,-3]].map(([dx,dz])=>field.height(cx+dx,cz+dz));
+    assert.ok(Math.max(...hs)-Math.min(...hs)<.08,`${r.id} 整地高差过大`);
+    assert.ok(Math.min(...hs)>=0,`${r.id} 应声明跨水面，不能以平池底冒充平地`);
   }
 });
 

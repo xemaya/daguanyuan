@@ -1,4 +1,5 @@
-import * as THREE from 'three';
+import { backendName, rendererOptions } from './renderer';
+import * as THREE from 'three/webgpu';
 import { PostFX } from './PostFX';
 import { Input } from './Input';
 
@@ -33,7 +34,7 @@ export const QUALITY: Record<QualityTier['name'], QualityTier> = {
 };
 
 export class Engine {
-  readonly renderer: THREE.WebGLRenderer;
+  readonly renderer: THREE.WebGPURenderer;
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
   readonly clock = new THREE.Clock();
@@ -46,6 +47,13 @@ export class Engine {
   /** Set true once the world is built; gates the frame loop. */
   running = false;
 
+  readonly statisticsVersion = 2;
+  adaptiveResolution = !new URLSearchParams(location.search).has('fixed');
+  fixedTime: number | null = new URLSearchParams(location.search).has('fixed') ? 10 : null;
+  frameLimit = 60;
+  readonly timings: { frameMs: number[]; cpuMs: number[] } = { frameMs: [], cpuMs: [] };
+  private lastFrame = 0;
+  private disposed = false;
   private container: HTMLElement;
   private accum = 0;
   private frames = 0;
@@ -55,11 +63,11 @@ export class Engine {
   constructor(container: HTMLElement) {
     this.container = container;
 
-    this.renderer = new THREE.WebGLRenderer({
+    this.renderer = new THREE.WebGPURenderer({
+      ...rendererOptions(),
       antialias: false, // handled by the composer's multisampled target + SMAA
       powerPreference: 'high-performance',
-      stencil: false,
-      depth: true,
+
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quality.pixelRatioCap));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -69,11 +77,14 @@ export class Engine {
     // ACES conversion at the end of the chain. Tone mapping in both places
     // would crush the highlights twice.
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.NoToneMapping;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
 
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.VSMShadowMap;
+    // The local shadow window exposes VSM moment acne on thin walls and also
+    // renders every receiver into the map. PCF keeps contact shadows without
+    // replaying the whole grass layer as casters (see the P1 environment review).
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     container.appendChild(this.renderer.domElement);
 
@@ -86,6 +97,29 @@ export class Engine {
 
     window.addEventListener('resize', this.onResize);
   }
+
+  async init(): Promise<void> {
+    await this.renderer.init();
+    this.camera.coordinateSystem = this.renderer.coordinateSystem;
+    this.camera.updateProjectionMatrix();
+    if (!this.adaptiveResolution) this.renderer.setPixelRatio(1);
+    const markDeviceLost = this.renderer.onDeviceLost.bind(this.renderer);
+    this.renderer.onDeviceLost = (info) => {
+      if (this.disposed) return;
+      markDeviceLost(info);
+      this.running = false;
+      this.input.suspended = true;
+      if (document.pointerLockElement === this.renderer.domElement) document.exitPointerLock();
+      const recovery = document.createElement('button');
+      recovery.textContent = '图形设备已重置，点击重新载入';
+      Object.assign(recovery.style, {position:'fixed',zIndex:'10000',top:'50%',left:'50%',transform:'translate(-50%,-50%)',padding:'16px 24px',cursor:'pointer'});
+      recovery.onclick = () => location.reload();
+      this.container.appendChild(recovery);
+      console.error('[renderer] device lost', info);
+    };
+  }
+
+  get backend(): string { return backendName(this.renderer); }
 
   initPost(): void {
     this.postfx = new PostFX(this);
@@ -118,13 +152,18 @@ export class Engine {
     this.renderer.setAnimationLoop(this.frame);
   }
 
-  private frame = (): void => {
-    if (!this.running) return;
+  private frame = (timestamp = performance.now()): void => {
+    if (!this.running || document.hidden) { this.lastFrame = 0; return; }
+    const interval = 1000 / this.frameLimit;
+    if (this.lastFrame && timestamp - this.lastFrame < interval - 0.5) return;
+    const frameMs = this.lastFrame ? timestamp - this.lastFrame : interval;
+    this.lastFrame = timestamp;
+    const cpuStart = performance.now();
     // Clamp dt so a background tab or a GC pause cannot teleport the player
     // through a collider on the frame it resumes.
     const raw = this.clock.getDelta();
     const dt = Math.min(raw, 1 / 20);
-    const elapsed = this.clock.elapsedTime;
+    const elapsed = this.fixedTime ?? this.clock.elapsedTime;
 
     this.fpsWindow += raw;
     this.frames++;
@@ -137,6 +176,9 @@ export class Engine {
 
     for (const s of this.systems) s.update?.(dt, elapsed);
 
+    this.timings.cpuMs.push(performance.now() - cpuStart);
+    this.timings.frameMs.push(frameMs);
+    if (this.timings.frameMs.length > 600) { this.timings.frameMs.shift(); this.timings.cpuMs.shift(); }
     this.input.endFrame();
     this.postfx.render(dt);
   };
@@ -147,6 +189,7 @@ export class Engine {
    * direction survives even when the hardware does not.
    */
   private governResolution(): void {
+    if (!this.adaptiveResolution) return;
     const cap = this.quality.pixelRatioCap;
     const current = this.renderer.getPixelRatio();
     const target = Math.min(window.devicePixelRatio, cap);
@@ -169,10 +212,12 @@ export class Engine {
   };
 
   dispose(): void {
+    this.disposed = true;
     this.running = false;
     this.renderer.setAnimationLoop(null);
     window.removeEventListener('resize', this.onResize);
     for (const s of this.systems) s.dispose?.();
+    this.postfx?.dispose();
     this.renderer.dispose();
     this.container.innerHTML = '';
   }

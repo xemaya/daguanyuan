@@ -1,6 +1,6 @@
-# P1 任务分派单
+# P1 任务分派单 ✅ 全部完成（2026-09-11）
 
-**Task 1–5 已完成**（2026-09-10）。56/56 测试通过、五门全过、14 镜结构一致、试玩 PASS。剩单子 E、F。
+**Task 1–7 已交付**（2026-09-11）。E 提交 `1d7cb2c9`；F 通过64个测试、14镜与完整游线，详见 [F 交付](../../reviews/2026-09-11-p1f-delivery.md)。P1 环境坐标与实例化亦已收尾（[验收](../../reviews/2026-09-11-p1-complete.md)），不重复派 E/F。以下保留各单子的原任务合同。
 
 计划在实现过程中更正过四处（Task 1 撞出三处、写单子 E 时实测撞出第四处）。
 **照计划里更正后的正文写，不要照最初的草稿。**
@@ -20,6 +20,13 @@
 - 大木作的数字只从规则表出，不许在代码里写字面量。规则表里缺就补规则表，**不要补代码**——`book.num()` 取不到会抛，错误信息里带着 `formula` 原文告诉你该结构化哪个数。
 - **不许用 TypeScript 参数属性、`enum`、`namespace`、装饰器**：`tsc --noEmit` 认，`npm test` 的 strip-only 模式不认，而且不报编译错，整个模块直接挂（PITFALLS P-15）。
 - **规则号只在规则集内唯一**，273 个里 115 个跨文件重号。开工先跑 `book.collisions()`，撞了的写限定形式 `use('fayuan:06-01')`（PITFALLS P-16）。
+- **提交只按路径 `git add`，不许 `git add -A` / `git add .`。** 并行时工作区里有别人的
+  半成品,`-A` 会把它们卷进你的提交——后果不是代码错,是署名与可回溯性错
+  (2026-09-13 单子 O 就这样把单子 Q 的三个文件带走了,查「虎皮石是谁做的」会查到
+  一条讲植物的提交)。派单人自己也踩过:从 `daguanyuan/` 跑 `git add -A` 暂存了整个 monorepo。
+- **多单并行时不许 `git stash`。** 工作区里同时有别人的半成品,stash 会把它们一起卷走
+  (2026-09-12 我与单子 P 各犯过一次)。要单独量自己的改动,用
+  `git worktree add --detach /tmp/<名> <commit>` 开隔离检出,自带独立端口跑。
 - 提交信息末尾附：
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
@@ -49,7 +56,8 @@
 ```
 
 **A / B / C / D 已全部完成并合入**（`d68afe4c` / `7f807bdd` / `de6e26a3` / `168002ca`）。
-**现在可派**：单子 E。**单子 E 必须单跑**——它大改 `composer.ts` 与 `terrain.ts`,与任何并行任务都冲突。之后是单子 F。
+**当前**：E/F/G 已交付。E/F 原始依赖与独占规则保留供审计；后续按 [执行台账](../../reviews/2026-09-11-roadmap-execution.md) 进入 P2。
+**单子 E 必须单跑**——它大改 `composer.ts` 与 `terrain.ts`,与任何**碰几何的**并行任务都冲突。之后是单子 F。
 
 单子 E 还要碰 `builder/parts/zhiwu/vegetation.ts`(散布盒与建筑禁区是旧坐标)——计划最初的文件清单漏了它。
 
@@ -159,9 +167,9 @@
 
 ---
 
-## 现在可派
+## 已完成（续）
 
-### 单子 E — Task 6 世界切到 plan 坐标系
+### 单子 E — Task 6 世界切到 plan 坐标系 ✅ `1d7cb2c9`
 
 **前置：单子 D 已合入（`168002ca`）。可以派。**
 
@@ -227,12 +235,108 @@
 
 ---
 
-### 单子 F — Task 7 分簇剔除与地形分块（等 E）
+### 单子 G — 仓库卫生 ✅ `ad8fef4a`
+
+**来源**：2026-09-10 外部 code review。八条里**四条归这张单**，加一条我自己核出来的（G5）。
+**三条不做**：公开版 CONTRIBUTING、CI、拆独立仓——用户 2026-09-10 定「不着急共建」，见 D-22。
+**一条推到 P4**：builder 认识大观园 / scenes/*.json，同上。
+
+> 在 `~/Workspace/games/daguanyuan` 做一批仓库卫生修补。**这不是功能任务，不要碰任何几何或规则逻辑。**
+>
+> 你只碰：`LICENSE`、`README.md`、`THIRD_PARTY_NOTICES.md`（新建）、`.gitignore`、`ART_DIRECTION.md`、
+> `docs/ROADMAP.md`、`tools/check-docs.mjs`（新建）、`package.json`（只加一个 script）、
+> `builder/derive/index.ts`（只改一行，见 G4）、`builder/compose/world.ts`（只改注释，见 G5）。
+>
+> **单子 E 和 F 正在改 `builder/compose/`、`builder/parts/zhiwu/`、`engine/`、`tools/playtest.mjs`、`tools/capture.mjs`——
+> 这些一个都不许碰。** 上一轮 A/B 就是这么互相覆盖的。
+>
+> **G1 — 许可证矛盾（确认属实）**
+> `LICENSE` 是 Apache 2.0，`README.md` 第 115 行写的是 MIT，首个 commit 也写了 Apache 2.0。
+> **保留 Apache 2.0**，改 README。同时新建 `THIRD_PARTY_NOTICES.md`，保留上游 MIT attribution：
+> 引擎壳取自 [pallet-town-3d](https://github.com/PauliusOS/pallet-town-3d)（MIT），
+> 附完整 MIT 许可全文与版权行。README 的 License 一节指向它。
+>
+> **G2 — 脏文件出仓（比 review 说的多）**
+> 进了 Git 的是 **4 个 `.DS_Store`**（根目录、`docs/`、`docs/superpowers/`，用 `git ls-files` 自己核）
+> 加 `dev.log`（532 行，198 处本机绝对路径）。
+> `git rm --cached` 移出索引，`.gitignore` 补 `.DS_Store`、`*.log`（`preview.log` 也在漏网）。
+> **不需要改写历史**——我已经扫过 `dev.log`，`token|secret|password|api_key` 零命中。
+> 只有将来真进过密钥才值得动历史，那是另一件事。
+>
+> **G3 — 文档路径漂移（62 处，不止 ART_DIRECTION）**
+> P0 搬家后 markdown 里还写着 `src/cn/`、`src/fashi/`、`src/world/`、`core/Noise.ts`。
+> 实际是 `builder/parts/`、`builder/derive/`、`builder/compose/`、`engine/core/Noise`。
+> 四个文件有命中：`ART_DIRECTION.md`、`docs/ROADMAP.md`、
+> `docs/superpowers/plans/2026-09-10-p0-skeleton-migration.md`、`docs/superpowers/specs/2026-09-10-layered-architecture-design.md`。
+>
+> **后两个是搬家文档，它们提到旧路径是对的，别改**——那是历史记录不是失效引用。只改前两个。
+>
+> 然后加一道门 `tools/check-docs.mjs`：扫所有 markdown 里形如 `路径/文件.ts` 的引用，
+> 文件不存在就报错。**白名单要能写**（搬家文档、外部 URL、示意性路径），白名单条目要写明为什么豁免。
+> 挂进 `package.json` 的 `check:docs`，并加进 `check:all`。
+> `ART_DIRECTION.md` 是"每个 agent 必读、违反就退回"的圣经，**最权威的文件给错路径对外部贡献者伤害最大**。
+>
+> **G4 — 漏网的艺术数字（一行，但很值钱）**
+> `builder/derive/index.ts:178` 有 `drop: yanchu * lastSlope * 0.85`，
+> 注释自己承认「0.85 是几何近似不是营造数字」——**问题不是它不该存在，是它没进 `provenance.art`**。
+> `RuleBook` 已经有现成的 `artChoice(id, note, value)`，照 `deriveZhu` 里 `03-24` 那个用法改。
+> 改完 `deriveBuilding()` 的 `provenance.art` 应该多一条，能回答「这里史料没有，我们为观感取了 0.85」。
+> **顺手全仓扫一遍还有没有别的**：`grep -rnE "\* 0\.[0-9]{2}|\+ 0\.[0-9]{2}" builder/derive`，
+> 找到的每一个要么进 `art`，要么说明它是纯几何（如 `Math.PI/2`）。回报扫出几个、处理了几个。
+>
+> **G5 — `world.ts` 的注释在说谎（我核出来的，不在 review 的八条里）**
+> `builder/compose/world.ts` 的头注释写着「buildings claim their footprints before vegetation scatters so trees
+> never grow through a porch」，但实际构建顺序是 `开天 → 理地 → 引水 → 植树 → 起屋叠石`——**植被在建筑之前**。
+> 现在没穿帮，只因为 `vegetation.ts` 自己偷偷维护了一份硬编码 `FOOTPRINTS`，等于**有两份 footprint 真源**。
+>
+> **这一步只改注释，不许调构建顺序。** 把注释改成陈述事实：植被先于建筑散布，靠 `vegetation.ts` 里那份
+> 手抄的 `FOOTPRINTS` 副本避让，**这是已知的技术债**。同时在 `knowledge/rules/missing.rules.json` 补一条
+> `99-25`（`paramSet: "none"`，`status: "missing"`）记下这笔债：真源应当是一份 occupancy prepass，
+> 从 plan + scenes 生成一份 occupancy mask，地形、植被、建筑读同一份；落点 P4。
+> `whereToLook` 指向 `builder/compose/world.ts` 与 `docs/ROADMAP.md §P4`。
+>
+> **为什么只改注释**：真修法要等 `scenes/*.json` 落地（P4），现在调顺序会让 `FOOTPRINTS` 那份副本
+> 变成唯一真源，把债做得更深。**注释说谎比债本身更危险——它让下一个人以为这里是对的。**
+>
+> **交付**：`npm run check:all`（含新的 `check:docs`）全过、`git ls-files` 里没有 `.DS_Store` 与 `.log`、提交。
+> 回报：路径漂移改了多少处、白名单豁免了哪几条为什么、G4 扫出几个艺术数字。
+
+**规模**：中。**风险**：低。**唯一的失败模式是手伸进 E/F 正在改的文件。**
+
+**不做的三条**（用户 2026-09-10 定「不着急共建」，记为 D-22）：
+
+- **公开版 `CONTRIBUTING.md` 三条入口** — 为一个还不存在的读者写的。真要开放时再写，那时才知道他们卡在哪。
+- **CI** — 建议本身对，但前提不成立：本仓还在 `games` monorepo 里，没有自己的 GitHub 远端。要 CI 得先拆独立仓。
+- **拆独立仓** — 产品决定，不着急共建就不着急拆。
+
+**推到 P4 的一条**：`builder/` 还认识大观园（`composer.ts` 硬编码整条 SCENE、`terrain.ts` 硬编码潇湘馆台基与沁芳池、
+`vegetation.ts` 硬编码 footprint）。review 把它列为最高工程优先级，理由是"否则外部 builder 领建一个亭子还是要改核心 composer"——
+**理由成立，但它买的是外部贡献者，不是更好的园子**。不着急共建，它在 P4 的位置就是对的。
+提前做属于为通用性而通用性，正是 D-18 要防的。G5 只把这笔债记明白，不提前还。
+
+---
+
+### 单子 F — Task 7 分簇剔除与地形分块 ✅ 内容已由 `2bf7420c` + `3096e761` 完成，未派发
 
 > **前置：单子 E 必须已合入。** 在 `~/Workspace/games/daguanyuan` 实现 P1 计划的 **Task 7**。
-> 完整步骤与三条测试的全部源码在计划的 Task 7 一节。
+> 完整步骤与三条测试的全部源码在计划的 Task 7 一节。**那一节 2026-09-10 追加了 Step 0 与 Step 0b，先做它们。**
 >
-> 你碰：`engine/scatter/cluster.ts`（新建）、`engine/render/TerrainChunks.ts`（新建）、`engine/scatter/instancing.ts`、`builder/parts/zhiwu/vegetation.ts`、`builder/compose/terrain.ts`。
+> 你碰：`engine/scatter/cluster.ts`（新建）、`engine/render/TerrainChunks.ts`（新建）、`engine/scatter/instancing.ts`、`builder/parts/zhiwu/vegetation.ts`、`builder/compose/terrain.ts`、`builder/compose/terrain-from-plan.ts`。
+>
+> **这个任务有两半，第一半是修 E 留下的卡顿，不是加功能。**
+> E 落地后世界构建从 20 秒涨到 **28 秒以上**，Chrome 弹「页面无响应」。**这不是内存问题**——
+> 内存爆掉是「Aw, Snap!」，这个弹窗是主线程被同步计算占死（PITFALLS P-12 复发）。
+> 也**不是窗口开大了**——E 的窗口是对的（280×226 m / 0.48 m 格 = 55 万三角，在预算内）。
+> 涨的是**每次求值的单价**：新的场每次调用要走 7 个水体多边形、6 座山、9 条路径、19 个区，
+> 单价涨了约一个数量级，而调用次数还被 ×5（法线中心差分）与 ×100 万（`bakeSplat` 1024²）放大。
+> 实测单价 `height` 11.8 µs、`masks` 9.4 µs；地形网格 138 万次 = 16.3 s，splat 烘焙 105 万次 = 9.9 s。
+> **先砍这两处，预算是世界构建 ≤ 15 秒**，量法与三处改法在计划的 Step 0 里。
+> 顺带一条：草丛数跟着散布盒涨了 14 倍（2.7 万 → 约 60 万），会顶穿 790 万三角上限，见 Step 0b。
+>
+> **2026-09-11 收窄:shader 注入的有序 stage 不做了。** 渲染层已定路线迁 WebGPU + TSL
+> （[方案](../../reviews/2026-09-11-webgpu-migration-plan.md)，`docs/ROADMAP.md §WG`）。
+> 给 GLSL 字符串注入盖一套 stage 框架，迁移时整个作废。**F 只做分块、分簇、空间索引与构建性能**，
+> 注入顺序留给 WG2 用节点组合表达。现在只有风摆一个注入点，不盖框架也不会打架。
 >
 > **开工前读 `docs/tellux-borrowing.md` 第 4、5 条。** 两个要点：实例按固定网格分簇每簇一个包围球做视锥剔除；shader 注入要做成**有序 stage**（`rtc` → `wind` → `lod`），现在只有风摆一个所以没暴露，后面加实例偏移和 LOD 形变时三方会争抢 `project_vertex`。
 >
@@ -244,7 +348,8 @@
 >
 > 交付：三条测试通过、三角数证据、对照图无差别、提交。回报两组三角数。
 
-**规模**：中偏大。**风险**：中——剔多了会被人眼抓到，剔少了会被数字抓到，两头都有网。
+**规模**：大（比原计划涨了一半——多了 Step 0 的构建性能）。
+**风险**：中——剔多了会被人眼抓到，剔少了会被数字抓到，两头都有网；构建时间和三角数各有一条硬线。
 
 ---
 

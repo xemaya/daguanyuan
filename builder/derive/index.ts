@@ -48,6 +48,10 @@ export interface BuildingSpec {
   /** 檐柱高覆盖(分)。 */
   columnHeightFen?: number;
   columnDiameterFen?: number;
+  /** 屋脊做法:raised=起脊(缺省,现状);rolled=卷棚(省正脊)。
+   *  规则表未收 fashi 屋脊做法,给了非缺省值须在消费处记 provenance.art
+   *  [07-76]。fayuan 参数集另有同名字段,两条链独立实现,互不借用。 */
+  ridgeStyle?: 'raised' | 'rolled';
 }
 
 export interface Frame {
@@ -56,6 +60,8 @@ export interface Frame {
   zhu: Zhu;
   juzhe: Juzhe;
   yanchu: Yanchu;
+  /** 缺省 raised(现状起脊);见 BuildingSpec.ridgeStyle。 */
+  ridgeStyle: 'raised' | 'rolled';
   /** 这一栋屋每个数字的来路,分证据/推定/艺术三支。 */
   provenance: Provenance;
   /** 以下全部为米。 */
@@ -159,7 +165,7 @@ export function deriveWithBook(book: RuleBook, spec: BuildingSpec, era: Era = 's
     zhu,
     juzhe,
     yanchu: yc,
-    provenance: book.provenance(),
+    ridgeStyle: spec.ridgeStyle ?? 'raised',
     m: {
       columnX,
       depthHalf: (depthFen / 2) * f,
@@ -175,7 +181,7 @@ export function deriveWithBook(book: RuleBook, spec: BuildingSpec, era: Era = 's
       yanchu,
       // 檐口最外点:椽尾沿下架坡度外伸再下垂。0.85 是**几何近似**不是营造数字
       // ——飞子起翘会把实际下垂压小,原文对此无定量 [05-13]。
-      eaveTip: { out: yanchu, drop: yanchu * lastSlope * 0.85 },
+      eaveTip: { out: yanchu, drop: book.artChoice('05-13', '檐口下垂系数 0.85 是几何近似不是营造数字——飞子起翘会把实际下垂压小,原文对此无定量,为观感取 0.85', yanchu * lastSlope * 0.85) },
       qiqiao: yc.qiqiaoFen * f,
       shengchu: yc.shengchuFen * f,
       rafterDia: yc.rafterPitchFen / book.num('05-03', 'rafterPitchToDiaRatio') * f,
@@ -185,6 +191,8 @@ export function deriveWithBook(book: RuleBook, spec: BuildingSpec, era: Era = 's
       width: width * f,
       depth: depthFen * f,
     },
+    // 最后取快照:m 的构造里还会登记(如 05-03 的 num、05-13 的 artChoice)。
+    provenance: book.provenance(),
   };
 }
 

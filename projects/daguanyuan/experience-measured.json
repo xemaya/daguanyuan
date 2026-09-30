@@ -1,0 +1,22 @@
+{
+  "X-05": {
+    "ratio": 0.3959,
+    "views": [
+      {
+        "from": [
+          -105,
+          146
+        ],
+        "A": 5794,
+        "B": 3500,
+        "ratio": 0.3959,
+        "visible": true
+      }
+    ],
+    "visible": true,
+    "measuredAt": "2026-09-27T07:28:40.153Z",
+    "commit": "ac1f24dd",
+    "inputsHash": "7360805756b6f3ee",
+    "tool": "tools/visibility-probe.mjs"
+  }
+}

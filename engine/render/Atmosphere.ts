@@ -1,7 +1,8 @@
-import * as THREE from 'three';
+import * as THREE from 'three/webgpu';
 import type { GameContext } from '@engine/core/Context';
 import { createSkyMaterial, createSkyUniforms, SKY_PALETTE } from './SkyShader';
-import { buildCloudLayer } from './Clouds';
+import { buildCloudLayer, CLOUD_DRIFT_RATE } from './Clouds';
+import { RollingShadow } from './RollingShadow';
 
 /**
  * Atmosphere — sky, clouds, light rig, environment map and fog.
@@ -13,27 +14,15 @@ import { buildCloudLayer } from './Clouds';
  * specular and the visible sky can never disagree.
  *
  * The single most important number here is the shadow ortho frustum. It is
- * computed by projecting the playable-area AABB into light space rather than
- * guessed, because a frustum twice as large as it needs to be throws away 75%
- * of the shadow map and is the usual reason procedural scenes have mushy,
- * crawling shadow edges.
+ * computed from a viewer-local box and snapped in light space. Its resolution
+ * stays local as the garden grows, while the texel grid remains stable under
+ * camera motion. RollingShadow owns that transform.
  */
 
 /** Late-morning sun, ~9:30. Elevation and azimuth per the art bible. */
 const SUN_ELEVATION = THREE.MathUtils.degToRad(38);
 /** Measured from due south (+Z) rotating toward east (+X). */
 const SUN_AZIMUTH = THREE.MathUtils.degToRad(42);
-
-/** The area the key light must resolve shadows for. */
-const PLAY_AREA = {
-  cx: 0,
-  cz: -1,
-  // The art bible's 44 x 52 m playable footprint, plus canopy headroom.
-  hx: 22,
-  hz: 26,
-  minY: -1.0,
-  maxY: 11.5,
-};
 
 /** Distance from the play-area centre to the virtual sun. */
 const SUN_DISTANCE = 95;
@@ -113,14 +102,43 @@ export function buildAtmosphere(ctx: GameContext): void {
     // the two layers share one horizon line.
     hazeColor: hazeColor.clone().multiplyScalar(SKY_INTENSITY * 0.95),
     exposure: SKY_INTENSITY * 1.06,
+    sunDir: toSun.clone(),
+    // W3 档 2 对照:?cloudvol=1 给球团云加体积感(仅烘图参数,运行时零代价)。
+    volume: new URLSearchParams(location.search).has('cloudvol') ? 1 : 0,
   });
   scene.add(clouds.group);
+
+  /* ---------------------------------------------------------------- */
+  /* 天光挂钩:云影(W1) + 空气透视(W2) 进后期链                          */
+  /* ---------------------------------------------------------------- */
+
+  // The post chain owns both effects because they need scene depth: cloud
+  // shadows must land on every material at once, and the aerial swap needs
+  // the per-pixel fog depth. Fog itself stays exactly where P-17 put it.
+  engine.postfx.setSkyHook({
+    shadowTex: clouds.shadow.texture,
+    shadowExtent: clouds.shadow.extent,
+    // A passing cumulus drops global horizontal illuminance by roughly a
+    // quarter; stronger than that reads as weather, softer reads as nothing.
+    shadowStrength: 0.30,
+    shadowRate: CLOUD_DRIFT_RATE,
+    windTime: env.windTime,
+    // 85% of the flat fog colour becomes direction-aware; the remainder keeps
+    // the P-17 "slightly deeper than the sky" character at the horizon.
+    aerialStrength: 0.85,
+    zenith: skyColor.clone(),
+    horizon: horizonColor.clone(),
+    haze: hazeColor.clone(),
+    sunColor: sunColor.clone(),
+    sunDir: toSun.clone(),
+    skyIntensity: SKY_INTENSITY,
+  });
 
   /* ---------------------------------------------------------------- */
   /* Light rig                                                         */
   /* ---------------------------------------------------------------- */
 
-  const centre = new THREE.Vector3(PLAY_AREA.cx, (PLAY_AREA.minY + PLAY_AREA.maxY) * 0.5, PLAY_AREA.cz);
+  const centre = ctx.camera.position.clone();
 
   const key = new THREE.DirectionalLight(sunColor.getHex(), 3.2);
   key.name = 'SunKey';
@@ -132,12 +150,11 @@ export function buildAtmosphere(ctx: GameContext): void {
 
   const shadowSize = engine.quality.shadowMapSize;
   key.shadow.mapSize.set(shadowSize, shadowSize);
-  fitShadowFrustum(key, centre);
+  const rollingShadow = new RollingShadow(key, toSun);
+  rollingShadow.update(centre, shadowSize);
 
-  // VSM stores depth moments, so it does not suffer classic slope-scale acne;
-  // what it does suffer is light bleeding through thin geometry. A near-zero
-  // bias plus a small normalBias kills the residual self-shadowing on the
-  // low-angle-lit roofs without lifting contact shadows off their objects.
+  // Keep the offset in centimetres: the local PCF map resolves roof edges and
+  // thin walls without lifting their contact shadows away from the surface.
   key.shadow.bias = -0.00012;
   key.shadow.normalBias = 0.022;
   key.shadow.radius = 2.0;
@@ -174,11 +191,20 @@ export function buildAtmosphere(ctx: GameContext): void {
   /* ---------------------------------------------------------------- */
 
   // Exponential-squared so the near and mid ground stay completely clear and
-  // only the far treeline and the sea pick up the blue. Tuned against the
-  // dome's own horizon radiance so distant geometry dissolves into the sky
-  // instead of silhouetting against it.
-  const fogColor = horizonColor.clone().lerp(hazeColor, 0.18).multiplyScalar(SKY_INTENSITY * 0.84);
-  const fog = new THREE.FogExp2(0xffffff, 0.0031);
+  // only the far walls and hills pick up the haze. The density was tuned for
+  // the old 80 m garden; at the current 200–300 m sightlines 0.0031 put 32–58%
+  // of fog on the enclosing wall and hills, dissolving them into a white wall.
+  // At 0.0017 the obscuration 1−exp(−(d·ρ)²) is 3% at 100 m, 11% at 200 m,
+  // 23% at 300 m — a depth cue, not an eraser.
+  //
+  // Colour carries the other half of the fix. The old mix (lerp 0.18, ×0.84)
+  // landed brighter than the sky's own horizon after ACES, so fogged geometry
+  // and sky converged to the same near-white and the horizon read as one flat
+  // sheet. Pulling the mix toward the horizon swatch and down to ×0.68 makes
+  // distance fade into a slightly deeper blue-grey than the sky — a coloured
+  // gradient (aerial perspective), not a white wall and not no fog.
+  const fogColor = horizonColor.clone().lerp(hazeColor, 0.08).multiplyScalar(SKY_INTENSITY * 0.68);
+  const fog = new THREE.FogExp2(0xffffff, 0.0017);
   fog.color.copy(fogColor);
   stage.fog = fog;
 
@@ -192,65 +218,10 @@ export function buildAtmosphere(ctx: GameContext): void {
     // player can never walk far enough to see its far side.
     ctx.camera.getWorldPosition(camPos);
     skyDome.position.copy(camPos);
+    rollingShadow.update(camPos, engine.quality.shadowMapSize);
 
     clouds.update(env.windTime.value);
   });
-}
-
-/* ------------------------------------------------------------------ */
-/* Shadow frustum fitting                                              */
-/* ------------------------------------------------------------------ */
-
-const _corner = new THREE.Vector3();
-const _up = new THREE.Vector3(0, 1, 0);
-
-/**
- * Projects the playable-area box into the key light's view space and sizes the
- * ortho frustum to exactly contain it (plus a small margin for objects that
- * lean over the boundary). At 4096² over the ~55 m footprint this yields a
- * shadow texel of roughly 1.4 cm — fine enough to resolve a fence post's
- * shadow, which a naïve ±100 frustum never manages.
- */
-function fitShadowFrustum(light: THREE.DirectionalLight, centre: THREE.Vector3): void {
-  const view = new THREE.Matrix4()
-    .lookAt(light.position, centre, _up)
-    .setPosition(light.position)
-    .invert();
-
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-  let minZ = Infinity;
-  let maxZ = -Infinity;
-
-  for (let i = 0; i < 8; i++) {
-    _corner.set(
-      PLAY_AREA.cx + (i & 1 ? PLAY_AREA.hx : -PLAY_AREA.hx),
-      i & 2 ? PLAY_AREA.maxY : PLAY_AREA.minY,
-      PLAY_AREA.cz + (i & 4 ? PLAY_AREA.hz : -PLAY_AREA.hz),
-    );
-    _corner.applyMatrix4(view);
-    minX = Math.min(minX, _corner.x);
-    maxX = Math.max(maxX, _corner.x);
-    minY = Math.min(minY, _corner.y);
-    maxY = Math.max(maxY, _corner.y);
-    minZ = Math.min(minZ, _corner.z);
-    maxZ = Math.max(maxZ, _corner.z);
-  }
-
-  const margin = 1.5;
-  const cam = light.shadow.camera;
-  cam.left = minX - margin;
-  cam.right = maxX + margin;
-  cam.bottom = minY - margin;
-  cam.top = maxY + margin;
-  // Light space looks down -Z, so the near plane is the largest (least
-  // negative) Z. Pull the near plane back so tall trees just outside the box
-  // still cast into it.
-  cam.near = Math.max(0.5, -maxZ - 14);
-  cam.far = -minZ + margin;
-  cam.updateProjectionMatrix();
 }
 
 /* ------------------------------------------------------------------ */

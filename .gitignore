@@ -7,8 +7,19 @@ shots/
 
 # Throwaway debug probes.
 .tmp-*
+# 下划线开头的那一批(tools/_tmp-*.mjs)同样是探针,但不在 .tmp-* 的范围里,
+# 任何人一个 git add -A 就会把它们提交进去——P-19 那次事故的同一个形状。
+_tmp-*
 .vegstats/
 tools/tmp/
 tools/.labtmp/
 .vercel
 .env*
+
+# OS / editor droppings and local run logs are not sources.
+.DS_Store
+*.log
+
+# 影像素材:二进制不进库,索引在 docs/film/README.md
+docs/film/**/*.mp4
+docs/film/**/*.webm

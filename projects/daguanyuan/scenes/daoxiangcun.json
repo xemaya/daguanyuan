@@ -1,0 +1,74 @@
+{
+  "region": "daoxiangcun",
+  "$comment": "稻香村(杏帘在望 / 浣葛山庄)。BA1(2026-09-27)入建成空跑时两栋茅屋用 building:tang 顶替;单子 BA4(2026-09-28)换成乡野构件:茆堂/东厢 thatch-cottage、黄泥矮墙 wall:mud、两溜青篱 qingli、土井只做井台 jingtai、过溪木桥 garden-bridge。两栋 construction.status 由 frame-ready 推进为「无 status」(与其余已建房屋同档:几何齐备、可建成);composer 对乡野子档放行到 thatch-cottage。酒幌、石碣、桔槔辘轳、菜畦第二轮(单子 BB)。平面按 BA0 乙档(D-35)。",
+  "named": [
+    {
+      "object": "daoxiangcun.main-cottage",
+      "part": "thatch-cottage",
+      "variant": "daoxiangcun.main-cottage",
+      "yaw": 0,
+      "tag": "稻香村",
+      "basis": "07-13「引人步入茆堂,里面紙窗木榻」、07-11「里面數楹茅屋」。乡野子档近景构件 thatch-cottage(单子 BA2,D-36 返工后):框架尺寸全取 plan construction.spec 经 deriveRusticBuilding,细部见 builder/derive/rustic/detail.ts 的 provenance.art。位置从 plan 锚点 (-202,-52) 读;朝向照 plan facing=south 取 yaw 0(construction.ts 的 facing→yaw 表)。匾「稻香村」素木墨字挂明间檐下(plan plaqueStyle=plain-wood,D-36 ④)。"
+    },
+    {
+      "object": "daoxiangcun.side-cottage",
+      "part": "thatch-cottage",
+      "variant": "daoxiangcun.side-cottage",
+      "yaw": -1.5707963267948966,
+      "tag": "稻香村",
+      "basis": "07-11「數楹茅屋」之二,两间田舍。同构件 thatch-cottage;位置从 plan 锚点读(BA0 乙档挪到 (-189,-42),D-35);朝向照 plan facing=west 取 yaw -π/2(construction.ts 的 facing→yaw 表)。"
+    },
+    {
+      "object": "daoxiangcun.mud-wall",
+      "part": "wall",
+      "variant": "mud:daoxiangcun.mud-wall",
+      "tag": "稻香村",
+      "basis": "07-11「隱隱露出一帶黃泥筑就矮牆,牆頭皆用稻莖掩護」。wall.ts 的 mud 变体(单子 BA3,D-36 ② 返工):走线、截面(宽 0.55 高 1.4)、3 m 开口全读 plan layout;线性构件自带世界位置,不在这里叠变换。墙基埋 0.35 m 碎石(见 wall.ts buildMudWall)。"
+    },
+    {
+      "object": "daoxiangcun.fence",
+      "part": "qingli",
+      "variant": "daoxiangcun.fence",
+      "tag": "稻香村",
+      "basis": "07-11「外面卻是桑,榆,槿,柘,各色樹稚新條,隨其曲折,編就兩溜青篱」。青篱构件 qingli(单子 BA3,D-36 ③ 加密):活桩+密编新条+四种叶枝,两溜走线与高 1.2 m 全读 plan layout;线性构件自带世界位置。"
+    },
+    {
+      "object": "daoxiangcun.wine-banner",
+      "part": "jiuhuang",
+      "variant": "daoxiangcun.wine-banner",
+      "tag": "稻香村",
+      "basis": "07-12「還少一個酒幌……不必華麗,就依外面村莊的式樣作來,用竹竿挑在樹梢」。jiuhuang.ts(单子 BB4):青竹竿斜挑、横挑挂青布帘,字从 plan(「杏簾在望」),犬牙边燕尾、布有褶,不用 transmission。位置从 plan 锚点读(BB4 挪到 (-188.5,-22.5));yaw 0 帘面朝 +Z(e08 来路一侧)。"
+    },
+    {
+      "object": "daoxiangcun.stone-tablet",
+      "part": "shijie",
+      "variant": "daoxiangcun.stone-tablet",
+      "yaw": 1.5707963267948966,
+      "tag": "稻香村",
+      "basis": "07-12「路旁有一石碣,亦為留題之備」。shijie.ts(单子 BB5):圆首立石+素面碑座,碑面磨平不刻字(空白待题)。位置从 plan 锚点 (-198,-21.5) 读;yaw π/2 碑面朝东对村路(facing east)。"
+    },
+    {
+      "object": "daoxiangcun.rock-01",
+      "part": "beishan",
+      "variant": "daoxiangcun.rock-01",
+      "tag": "稻香村",
+      "basis": "plan rock-01「人力穿凿的背山」;07-14 宝玉批「背山山無脉」——孤立的土石小山,不与青山连脉(beishan.ts,单子 BB7)。高度按 dx_approach 视张角定:茆堂屋脊仰角 0.073 rad,背山 98.5 m 外顶须 ≥ 世界 8.9 m,当地地面约 1.0 m,取山高 8.5 m。位置从 plan 锚点 (-224,-88) 读。"
+    },
+    {
+      "object": "daoxiangcun.vegetable-plots",
+      "part": "caiqi",
+      "variant": "daoxiangcun.vegetable-plots",
+      "tag": "稻香村",
+      "basis": "07-11「下面分畦列畝,佳蔬菜花,漫然無際」(单子 BB6,用户裁定甲档)。caiqi.ts:Voronoi 田块、每块自己的垄向、一垄一沟、垄上两行蔬菜或油菜花,全部实例化;范围、避让、南沿全读 plan 的 field 规格。几何按世界地面起伏,锚点只作归属。"
+    },
+    {
+      "object": "daoxiangcun.well",
+      "part": "jingtai",
+      "variant": "daoxiangcun.well",
+      "yaw": 1.5707963267948966,
+      "tag": "稻香村",
+      "basis": "07-11「篱外山坡之下,有一土井,旁有桔槔轆轤之屬」。jingtai.ts:毛石井台+毛石井圈+井水(BA4),单子 BB3 加辘轳(井口两柱、卷筒、曲柄、绳桶)与桔槔(叉柱、杠杆、坠石、垂绳挂桶),尺寸为艺术取值。位置从 plan 锚点 (-213,-19) 读(BA0 乙档挪到坡西北脚外)。yaw π/2:让桔槔杠杆南北向横着亮给 dx_well(验收人挪到 (-223,-16) 朝东)——杠杆顺着视线时只读得出一根柱顶一块石,横过来才读得出「一头坠石一头挂桶」。"
+    }
+  ],
+  "placements": []
+}

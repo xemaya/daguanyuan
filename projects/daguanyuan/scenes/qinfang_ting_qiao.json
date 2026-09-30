@@ -1,0 +1,27 @@
+{
+  "region": "qinfang_ting_qiao",
+  "$comment": "沁芳亭桥。亭与滴翠亭由规则 2 从 construction.spec 生成，三港石桥由 named 绑到曲桥构件。池岸驳石与曲桥链现在仍由 composer 程序生成（沿池边找「刚露出水」的位置、沿折线铺桥段）——它们不写坐标，是接缝 ② 的活，归单子 Z。",
+  "named": [
+    {
+      "object": "qinfang_ting_qiao.pavilion",
+      "part": "garden-building",
+      "variant": "qinfang_ting_qiao.pavilion",
+      "yaw": 0,
+      "y": 0,
+      "pier": true,
+      "tag": "沁芳亭",
+      "basis": "亭预设 railingSides:['e','w']，开口在 n/s；桥就在正南，零旋转天然对齐桥轴（P-09 教训：阻挡体带旋转、开口对着桥）。pier 从池底砌青石墩到亭底面——亭离水面，没有墩就悬空。"
+    },
+    {
+      "object": "qinfang_ting_qiao.three-opening-bridge",
+      "part": "bridge",
+      "variant": "zigzag",
+      "yaw": 1.5707963267948966,
+      "y": 0,
+      "tag": "沁芳桥",
+      "basis": "plan 把三港石桥登记成一个 bridge 对象但没给 layout 折线，所以用通用曲桥构件顶替，yaw=π/2 让桥轴南北向、对上亭的 n/s 开口。补上折线之后改走规则 3。"
+    }
+  ],
+  "placements": [],
+  "scatters": []
+}

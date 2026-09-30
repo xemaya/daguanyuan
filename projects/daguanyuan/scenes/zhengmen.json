@@ -1,0 +1,96 @@
+{
+  "region": "zhengmen",
+  "$comment": "正门。点名件由 plan 生成，这里只写 plan 里没有锚点的东西。单子 AI（2026-09-14）收尾：六段独立 wall 顶替 zhengmen.flanking-wall 的历史遗留已解——flanking-wall 补了 layout 折线（plan.json 的 zhengmen.linears，model-reference 指向两条 garden-wall），六条 placements 整段删掉，改由 region.linears 自动生成。zhengmen.forecourt-terrace 同一单补了 construction：plan 里只给了锚点，这里绑 forecourt-terrace 构件。",
+  "named": [
+    {
+      "object": "zhengmen.main-gate",
+      "part": "building",
+      "variant": "men",
+      "yaw": 0,
+      "tag": "正门",
+      "basis": "zhengmen.main-gate 的 construction.status 是 frame-ready（P3 分件/楼层几何未完），garden-building 按约定拒绝生成，暂用通用门构件顶替。P3 完成后删掉这条，让规则 2 接管。"
+    },
+    {
+      "object": "zhengmen.forecourt-terrace",
+      "part": "forecourt-terrace",
+      "variant": "default",
+      "yaw": 0,
+      "tag": "白石台矶",
+      "basis": "07-01「下面白石台磯，鑿成西番草花樣」。此前顶替它的是 menSpec() 的 platformMarginM:0.9（台基外扩 0.9m，读不出台矶），且门前一段裸地在 playtest 脚下序列里是 dirt（用户反馈第 6/8 条）。这里绑到独立的 forecourt-terrace 构件，宽度按门脸 13.76m 取，见构件自身 provenance.art。"
+    }
+  ],
+  "placements": [
+    {
+      "part": "gaozhao",
+      "variant": "default",
+      "anchor": "zhengmen.forecourt-terrace",
+      "dx": -5.0122,
+      "dz": -0.8,
+      "yaw": 0,
+      "dy": 0.4,
+      "tag": "高照·西二",
+      "basis": "53 回「大觀園正門上也挑著大明角燈，兩溜高照，各處皆有路燈」(07-70)、「兩邊**階下**一色朱紅大高照」(07-69)。**「两溜高照」是阶下两列落地灯杆**，此前正门一根都没有（台账 D5），檐下只有两盏小宫灯——用户 2026-09-16「灯笼只有两盏，而且不够大，略小气」里的另一半就是这个。落位：锚在白石台矶（zhengmen.forecourt-terrace，世界 55,241）。dz=-0.8 → z=240.2，是台矶 Z 向墁缝网格（格距 0.80m，缝线自 z=238.2 起排）的**行中**，紧挨踏跺脚外侧一行（垂带抱鼓落在 239.4 那一行，单子 AT2）——07-69 说的「阶下」就是这里。⚠️ 起草时写的是「沿台矶南沿」(z≈243.4)，实拍否掉了：gate_approach 机位站在南沿外 1.3m，93.8° 水平 FOV 下 1.7m 处的杆子整根顶脸、杆顶还出框（见 shots/AU/gate_approach-nanyan-reject.png）。退到阶下，同一根在 4.9m 外读成一根挑灯的杆，两件事都成立。dx=±3.4700 / ±5.0122 是 X 向墁缝格距 0.77111m（立面长 13.88m 均分 18 格，缝线自 x=48.06 起排）的**格心**，同侧两根相距 2 格 = 1.5422m——与单子 AT2 抱鼓石同一条「别骑缝」的规矩；内侧一根离抱鼓石鼓面外皮还有 1.16m，不打架。dy=0.40 = 台矶面层顶（台矶自身 platH 0.40）；台矶下的地面从路心 0.760 渐到区高 0.800，构件自带 0.05m 座脚埋深吃掉这 4cm，四根都埋得住、一根也不露缝。朱红不上（07-01「並無朱粉塗飾」，裁定见 gaozhao.ts 的 provenance.inference）。"
+    },
+    {
+      "part": "gaozhao",
+      "variant": "default",
+      "anchor": "zhengmen.forecourt-terrace",
+      "dx": -3.47,
+      "dz": -0.8,
+      "yaw": 0,
+      "dy": 0.4,
+      "tag": "高照·西一",
+      "basis": "同「高照·西二」那一条（07-69/07-70 两溜高照，阶下、对墁缝格心、每侧两根相距 2 格）。"
+    },
+    {
+      "part": "gaozhao",
+      "variant": "default",
+      "anchor": "zhengmen.forecourt-terrace",
+      "dx": 3.47,
+      "dz": -0.8,
+      "yaw": 0,
+      "dy": 0.4,
+      "tag": "高照·东一",
+      "basis": "同「高照·西二」那一条（07-69/07-70 两溜高照，阶下、对墁缝格心、每侧两根相距 2 格）。"
+    },
+    {
+      "part": "gaozhao",
+      "variant": "default",
+      "anchor": "zhengmen.forecourt-terrace",
+      "dx": 5.0122,
+      "dz": -0.8,
+      "yaw": 0,
+      "dy": 0.4,
+      "tag": "高照·东二",
+      "basis": "同「高照·西二」那一条（07-69/07-70 两溜高照，阶下、对墁缝格心、每侧两根相距 2 格）。"
+    }
+  ],
+  "clearances": [
+    {
+      "anchor": "zhengmen.main-gate",
+      "dx": 0,
+      "dz": 6.1,
+      "hx": 4.5,
+      "hz": 5.0,
+      "tag": "门外甬道净空",
+      "basis": "plan 的 zhengmen.plants 写着「门外净空,不作密植」(用户走完提的第 9 条「门前树乱」正是这块地没被尊重)。建筑檐口外包络只管到屋檐,甬道这段净空是 plan 说不出来的取舍,所以显式写在这里。"
+    },
+    {
+      "anchor": "zhengmen.main-gate",
+      "dx": 0,
+      "dz": 0.8,
+      "hx": 28.5,
+      "hz": 0.7,
+      "tag": "南粉墙墙线",
+      "basis": "单子 AI（2026-09-14）已给 zhengmen.flanking-wall 补上 layout 折线（两条 garden-wall，见 plan.json），墙不再是野生件，但 occupancy.ts 仍不认线性墙体的占地（F1，`docs/reviews/2026-09-14-mvp-four-regions.md`，归单子 AF）——散石/灯笼那类规则生成仍会撞进墙体，这条手写净空还得留着，等 AF 把线性墙体接进占位场之后再删。"
+    }
+  ],
+  "accountedFor": [
+    {
+      "object": "zhengmen.rock-01",
+      "by": "沿 zhengmen.flanking-wall 折线连续生成的 garden-wall 构件自带的虎皮石基座",
+      "basis": "plan 给它的名字就是「虎皮石墙基」——它不是一块要摆的石头,是墙的做法。07-02「雪白粉墙,下面虎皮石,隨勢砌去」。单子 AI（2026-09-14）把六段独立 wall 改成沿路径连续生成后，虎皮石材质与随势起伏的墙脚沉深都保留（wall.ts 的 gardenFoot 分支）。复验:tools/shoot-part.mjs 拍 wall:plain 一件,或直接贴脸看 gate_approach 沿线,墙脚都有虎皮石乱石基座。摆一块太湖石在这里是伪造覆盖率。"
+    }
+  ],
+  "scatters": []
+}

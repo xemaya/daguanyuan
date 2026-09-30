@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { GameContext } from '@engine/core/Context';
 import { EVENTS } from '@engine/core/Context';
 import { clamp } from '@engine/core/Noise';
+import { getComfortScale } from '@engine/core/Comfort';
 
 /**
  * First-person player controller.
@@ -239,14 +240,17 @@ export class PlayerController {
     this.eyeY += this.eyeVel * dt;
 
     // ---- Head bob ----------------------------------------------------
+    const comfort = getComfortScale();
     if (s.grounded && horizontalSpeed > 0.15) {
       this.bobDistance += horizontalSpeed * dt;
       const cycle = this.bobDistance * 3.1;
       const intensity = clamp(horizontalSpeed / RUN_SPEED, 0, 1);
       // Vertical bobs at twice the lateral rate — one dip per footfall,
-      // one sway per stride.
+      // one sway per stride. Only the lateral (left-right) component is
+      // scaled by comfort: it's the sideways sway players read as "wobbly",
+      // the vertical dip reads as footfalls and isn't what B1 complained about.
       const vert = Math.sin(cycle * 2) * 0.032 * intensity;
-      const lat = Math.sin(cycle) * 0.026 * intensity;
+      const lat = Math.sin(cycle) * 0.026 * intensity * comfort;
       this.bobOffset.x += (lat - this.bobOffset.x) * Math.min(1, dt * 18);
       this.bobOffset.y += (vert - this.bobOffset.y) * Math.min(1, dt * 18);
 
@@ -266,12 +270,14 @@ export class PlayerController {
 
     // ---- Strafe roll -------------------------------------------------
     // A degree and a half of camera roll when strafing; below the threshold
-    // of conscious notice, but the motion reads as weight.
-    this.rollTarget = -ix * 0.026 * clamp(horizontalSpeed / WALK_SPEED, 0, 1);
+    // of conscious notice, but the motion reads as weight. Tilting horizon
+    // lines are the strongest known motion-sickness trigger, so this is the
+    // first thing "comfort" turns down (see engine/core/Comfort.ts).
+    this.rollTarget = -ix * 0.026 * comfort * clamp(horizontalSpeed / WALK_SPEED, 0, 1);
     this.roll += (this.rollTarget - this.roll) * Math.min(1, dt * 8);
 
     // ---- Speed FOV ---------------------------------------------------
-    const fovTarget = this.fovBase + clamp((horizontalSpeed - WALK_SPEED) / (RUN_SPEED - WALK_SPEED), 0, 1) * 6;
+    const fovTarget = this.fovBase + clamp((horizontalSpeed - WALK_SPEED) / (RUN_SPEED - WALK_SPEED), 0, 1) * 6 * comfort;
     this.fovCurrent += (fovTarget - this.fovCurrent) * Math.min(1, dt * 5);
 
     this.applyCamera();

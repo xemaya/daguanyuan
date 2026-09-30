@@ -1,0 +1,156 @@
+{
+  "$comment": "单子 AK 落成 D-25 的判据：每镜相对回归，三角与 draw call 按 ±tolerance 比，fps 只是参考不进门。照 coverage-baseline.json 的做法——数字是量的不是估的。四镜（gate_approach / mound_block / grass_close / xiaoxiang）与单子 AJ 用的一致。drawCalls/triangles 各由三次独立进程连拍（各自重新起 chromium、重新建世界）取中位数；这三次读数逐位相同，中位数就是原始读数本身（细节见回报与 docs/PITFALLS.md P-22）。fps 同样取三次中位数，但会随机器负载浮动，不比、只参考，见 docs/DECISIONS.md D-25。history 由验收人在每次「买了细节、基线该抬」时追加一行，本单留空。",
+  "decision": "D-25",
+  "tolerance": 0.03,
+  "fpsTarget": 45,
+  "shots": {
+    "gate_approach": {
+      "drawCalls": 337,
+      "triangles": 4285465,
+      "fps": 43,
+      "frameCostMs": 4.6
+    },
+    "mound_block": {
+      "drawCalls": 332,
+      "triangles": 4499915,
+      "fps": 43,
+      "frameCostMs": 4.5
+    },
+    "grass_close": {
+      "drawCalls": 347,
+      "triangles": 4638419,
+      "fps": 43,
+      "frameCostMs": 4.9
+    },
+    "xiaoxiang": {
+      "drawCalls": 305,
+      "triangles": 3758682,
+      "fps": 40,
+      "frameCostMs": 5.3
+    }
+  },
+  "measuredAt": "2026-09-29",
+  "commit": "1c560893d8c1831036500007fe7ded1a7082cc95",
+  "history": [
+    {
+      "date": "2026-09-15",
+      "order": "AJ",
+      "shots": "gate_approach 4208871→4232k, mound_block 4191277→4209k, grass_close 4344847→4363k, xiaoxiang 3250633→3263k",
+      "bought": "AJ1 台矶石作分层、AJ2 抱鼓石三段形制、AJ3 瓦当放大盖缝(作用于全部建筑)",
+      "by": "验收人(Claude)",
+      "note": "+0.4~0.55%,未超容差;与 AN2/AP 一并抬"
+    },
+    {
+      "date": "2026-09-15",
+      "order": "AN2",
+      "shots": "draw call gate_approach 269→271, mound_block 255→256, grass_close 292→293",
+      "bought": "白石两档各占一个材质桶(fine/rough)",
+      "by": "验收人(Claude)",
+      "note": "三角几乎不变"
+    },
+    {
+      "date": "2026-09-15",
+      "order": "AP",
+      "shots": "gate_approach 4232k→4282759, xiaoxiang 3263k→3313353 (+50k/镜)",
+      "bought": "灯笼锦棂条 8 顶点截面挤出 + 节点方块 + 纸面退后(作用于全部格扇)",
+      "by": "验收人(Claude)",
+      "note": "三单累计 +1.6~1.9%,抬基线给 AO 一个干净的 ±3%;新基线 commit 3a3e86cb"
+    },
+    {
+      "date": "2026-09-16",
+      "order": "AQ-b1",
+      "shots": "draw call gate_approach 271→258, mound_block 256→243, grass_close 293→274, xiaoxiang 250→213; tris +2.6%/+1.4%/+0.6%/-3.0%(AS 的减量)",
+      "bought": "构件不再内部提前合并,末端实例化接住原型;三角微涨在阴影 pass(全园一锅端残余 mesh 剔不掉,AQ-c 收)",
+      "by": "验收人(Claude)",
+      "note": "名册 74→74、同机位 pixel diff 0.25~0.34 色阶,无视觉回归;fps 一栏换新尺子口径,加 frameCostMs"
+    },
+    {
+      "date": "2026-09-16",
+      "order": "AQ-c",
+      "shots": "draw call 258→277 / 243→265 / 274→298 / 213→219; tris −11.0% / −8.8% / −8.5% / −9.4%",
+      "bought": "末端残余合并按 128 m 簇分桶,视锥与阴影窗剔得掉(为扩区铺路)",
+      "by": "验收人(Claude)",
+      "note": "名册 74→74、pixel diff 0.25~0.34 无回归、建时 +1.7%、frameCostMs 不升;新基线 commit 6035bebd"
+    },
+    {
+      "date": "2026-09-16",
+      "order": "AM1/AM2",
+      "shots": "gate_approach 4395055→4716621(+7.32%,calls -6), mound_block 4317505→4660605(+7.95%,calls +1), grass_close 4441493→4623915(+4.11%,calls -27), xiaoxiang 3214313→3480769(+8.29%,calls +7,超±3%)",
+      "bought": "AM1 白石峰群构件(baishi:peakN/groupN,土岭换峰群);AM2 山体收形 212×11m→135×4m + rocks 换绑 5 组 21 峰",
+      "by": "AM 施工 agent 自报;验收人(Claude)2026-09-16 在 5177 复拍四镜逐位一致后认可",
+      "note": "三镜(gate/mound/grass)在 ≤+10%/+12calls 内;xiaoxiang 超容差——独立复核逐件归因:+3.61% 是山体收形通过全园阴影 pass 漏进这一镜(与峰群本身无关),余下是峰群真实成本(峰群总量与 AM1 单组数字对账一致);未降细节去凑数,如实抬线。遮挡探针(tools/occlusion-probe.mjs)只测≥97%射线遮挡这条不进此表,退休为参考数(见 docs/superpowers/plans/2026-09-15-am-cuizhang-rebuild.md 验收裁定)。此账是 AM 分支独立测的,起点是 AQ-b1 之后、AQ-c 之前——AQ-c 的收益在合并时已叠进下面的合并重测,数字不重复扣。"
+    },
+    {
+      "date": "2026-09-16",
+      "order": "AM3",
+      "shots": "gate_approach 4716621→4792365(+75,744/+1.61%), mound_block 4660605→4736349(+75,744/+1.63%), grass_close 4623915→4699659(+75,744/+1.64%), xiaoxiang 3480769→3518641(+37,872/+1.09%);draw call 四镜全 +0(252/244/247/220 不变)",
+      "bought": "AM3 题字石 baishi:tablet(cuizhang.rock-02「曲徑通幽處」;构件本体 75.8k 三角,含字面 2 个;draw call 被静态合批吃掉)",
+      "by": "收尾单(Claude)补记——AM3 当时没记 history,计划 §预算 要求逐件归因含 AM3",
+      "note": "**不抬基线**:四镜全在 ±3% 容差内,shots/commit 保持 AM1/AM2 那一版(403a3315)。数字来源:AM3 回报 §三镜预算(gate/grass 两镜)+ AM4 回报 §2 的前值表(补齐 mound_block/xiaoxiang),两份对同一状态,逐位一致。xiaoxiang 只涨 +37,872(恰好是另三镜的一半)——口径差在哪没追,记数不记因。"
+    },
+    {
+      "date": "2026-09-16",
+      "order": "AM4",
+      "shots": "四镜三角/draw call **逐位不变**:gate_approach 4792365/252、mound_block 4736349/244、grass_close 4699659/247、xiaoxiang 3518641/220",
+      "bought": "AM4 苔斑(baishi 峰的顶点色里混一路苔绿;藤萝未做,原因见 AM4 回报 §4)",
+      "by": "收尾单(Claude)补记",
+      "note": "**+0 三角 / +0 draw call**:改的只是已经存在的 color 属性里的数,没有新几何、新 mesh、新材质、新 pass。收尾单在 HEAD 474e3d90 现跑 `capture.mjs --shots gate_approach,mound_block,grass_close,xiaoxiang` 复测过,读数与 AM3/AM4 回报**逐位相同**,距记录基线 +1.09%~+1.64%,在 ±3% 内——所以只补 history,`shots`/`commit`/`measuredAt` 一个不动。收尾单同时改了 `mound_west` 的取景,那一镜不在本表四镜里,复测已确认对四镜零影响。"
+    },
+    {
+      "date": "2026-09-16",
+      "order": "merge(AQ-c + AM)",
+      "shots": "gate_approach 3912537→4020205(+107668/+2.75%,calls 277→271), mound_block 3937457→4211480(+274023/+6.96%,calls 265→267), grass_close 4061925→4174790(+112865/+2.78%,calls 298→270), xiaoxiang 2913186→2967908(+54722/+1.88%,calls 219→225)",
+      "bought": "合并两条独立分支：AQ-c 的残余合批优化 + AM 的翠嶂重做(白石峰群/题字石/苔藓)——AM 在自己分支上量的账全是相对 AQ-b1(AQ-c 之前)算的,这是两支代码第一次真正一起跑,mound_block 的 +6.96% 正是峰群几何第一次落进 AQ-c 优化后的世界里的真实成本",
+      "by": "AM 施工 agent 自报;验收人(Claude)2026-09-16 在 5177 复拍四镜逐位一致后认可",
+      "note": "三次独立进程连拍(shots/merge-final、merge-final2、merge-final3),drawCalls/triangles 三次逐位相同;fps/frameCostMs 取三次中位数。mound_block 单镜 +6.96% 超 ±3%——如实抬线,不是回归,是两支功能第一次合体的真实买入(峰群 276k 三角 vs AQ-c 优化前的旧土岭,合并后两边效果都在);其余三镜在 ±3% 内。"
+    },
+    {
+      "date": "2026-09-17",
+      "order": "AV(翠嶂第二轮)",
+      "shots": "gate_approach 4020205→4665063(+644858/+16.0%,calls 271→317), mound_block 4211480→4665921(+454441/+10.8%,calls 267→293), grass_close 4174790→4641963(+467173/+11.2%,calls 270→296), xiaoxiang 2967908→3242702(+274794/+9.3%,calls 225→246)",
+      "bought": "主组上轴(group9 五块最高)+ 土台 + 九件石脚 + 新补一组峰 + 八棵点名松槐 + 全园灌木(0→350)+ 藤萝 14 根 + 苔地。按视锥逐类数三角(验收 §19):gate_approach 合批静态件 +182k / 树 +60k / 灌木 +30k,是这一单要的四件;xiaoxiang 的 +9.3% 是 Bridson 散布全园重洗(P-28)把 13 棵树洗进潇湘馆视锥,不是买的——AV-b1 修散布稳定性后这一镜应回落,届时重写。",
+      "by": "验收人(Claude)2026-09-17 在 5177 三次独立进程连拍(shots/AV/verify-four、-2、-3)取中位数,drawCalls/triangles 三次逐位相同",
+      "note": "四镜全超 ±3%(+9.3%~+16.0%),如实抬线。fps 45–46 贴着目标 45、frameCostMs 4.0–4.5:翠嶂这一轮把四镜余量吃光,下一次买细节之前先做 AV-b 的回收。"
+    },
+    {
+      "date": "2026-09-18",
+      "order": "AW + AV-b",
+      "shots": "gate_approach 4665063→4540551(−2.7%,calls 317→310), mound_block 4665921→4430711(−5.0%,calls 293→293), grass_close 4641963→4563365(−1.7%,calls 296→303), xiaoxiang 3242702→3145172(−3.0%,calls 246→251)",
+      "bought": "没有买细节,是回收:AV-b1 树散布改「先撒后筛」(P-28),树 183→174、灌木整体重铺一次(350→355,山上 47→41);AW 只换匾字贴图,三角零变化。mound_block −5.0% 与 xiaoxiang −3.0% 是重铺的副产物,两镜双向越过 ±3% 所以重写基线;xiaoxiang 没回到 AV 前的 2967908(哈希筛是同一密度场上另一套点集,视锥内约 44 棵 vs AV 前 36),这一点验收 §20 认了。",
+      "by": "验收人(Claude)2026-09-18 在 5177 三次独立进程连拍(shots/AW/verify-four、-2、-3)取中位数,drawCalls/triangles 逐位相同",
+      "note": "fps 44–46 贴着目标 45,frameCostMs 4.2–4.6;余量仍然吃光,下一次买细节前先做回收。"
+    },
+    {
+      "date": "2026-09-23",
+      "order": "AL + AX",
+      "shots": "gate_approach 4540551→4241509, mound_block 4430711→4200307, grass_close 4563365→4405081, xiaoxiang 3145172→3653018",
+      "bought": "AL3 竹夹路整列(xiaoxiang +620k,无竹竿 LOD);AX1/AX3 远处地形分档与小件剔除(三镜 −3.5~−6.6%,xiaoxiang 回吐 101k)",
+      "by": "验收人(Claude)",
+      "note": "逐提交 worktree 分步拍图归因(shots/AL-steps,§22);用户 2026-09-23 裁定现在抬(D-32);xiaoxiang fps 中位 44 < 45,竹竿 LOD 单子排在稻香村前;frameCostMs 手工补(write-baseline 仍丢该字段)"
+    },
+    {
+      "date": "2026-09-25",
+      "order": "AL-b + AL-c",
+      "shots": "grass_close calls 302→290; xiaoxiang 3653018→3312662",
+      "bought": "AL-b b0 灌木稳定散布(全园重洗一次,calls 变动);b1/b4/b5 让掉 9 丛竹、剔院内草(xiaoxiang −9.3%);AL-c 只动着色器与工具,几何不变",
+      "by": "验收人(Claude)",
+      "note": "AL-c 验收(§24)三次连拍中位数(shots/ALC-accept,c3 合入前;c3 只改着色器,几何逐位不变)。AL-b 验收时未抬,这里一并抬"
+    },
+    {
+      "date": "2026-09-29",
+      "order": "BA + D-37 + BB(稻香村入建成)",
+      "shots": "gate_approach 312/4244033→399/5945291;mound_block 280/4195219→373/6016461;grass_close 290/4395937→384/6362487;xiaoxiang 254/3312662→322/4306286",
+      "bought": "不是细节,是扩区面积成本:frustum-census(gate_approach,ac1f24dd→fb4b4988)植被 901k→2192k 全部在 120 m 外(近处 333k 不变)——D-37 窗口外新地按旧园同密度撒;园林构件 +315k 其中 314k 在 120 m 外(稻香村全套远看无 LOD);地形+海 +102k。fps 中位 46/47/47/44 → 44/44/44/42(load avg ≈6,有别的 session 在跑)",
+      "by": "验收人(Claude)",
+      "note": "D-38 用户拍板:先抬基线收口,远处植被/构件 LOD 另开单子 BC 把 fps 拉回 ≥45。三次连拍 shots/ACC-r{1,2,3}(冻结 worktree /private/tmp/dgy-acc @ fb4b4988),三次三角与 calls 逐位相同;frameCostMs 手工补(§19 工具缺陷)"
+    },
+    {
+      "date": "2026-09-30",
+      "order": "BD + BE + BC(远处 LOD)",
+      "shots": "gate_approach 399/5945291→337/4285465;mound_block 373/6016461→332/4499915;grass_close 384/6362487→347/4638419;xiaoxiang 322/4306286→305/3758682",
+      "bought": "降线:BC1/BC1b 120 m 外树换远景档(gate_approach 植被 2192k→781k,120 m 外 1859k→448k)、BC2 乡野构件远景档(园林构件 120 m 外 1266k→1089k);BD1 土壁几何层线换贴图(-1.2%);BE 红栏桥 +4.7k/镜。frameCostMs 4.6/4.5/4.9/5.3(BC 前 5.4/4.8/5.2/5.5,09-25 稻香村前 4.2/3.9/5.3/4.7)",
+      "by": "验收人(Claude)",
+      "note": "§26 三次连拍 shots/ACC2-r{1,2,3}(冻结 worktree /private/tmp/dgy-acc2 @ 1c560893),三角与 calls 三次逐位相同;load avg 2.9–5.2。fps 43/43/43/40 未到 45:capture.mjs 注释已写明 fps 栏量的是限帧闸(约 22 ms 量化),负载下被调度抖动压低;D-40 验收人裁定性能判据改看 frameCostMs"
+    }
+  ]
+}

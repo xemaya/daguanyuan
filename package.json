@@ -12,14 +12,18 @@
     "check:layers": "node tools/check-layers.mjs",
     "check:rules": "node tools/check-rules.mjs",
     "check:plan": "node tools/check-plan.mjs",
-    "check:all": "npm run check && npm run check:layers && npm run check:rules && npm run check:plan && npm test",
-    "test": "node --experimental-strip-types --import ./tests/ts-resolver.mjs --test tests/*.test.mjs"
+    "check:experience": "node tools/check-experience.mjs",
+    "check:docs": "node tools/check-docs.mjs",
+    "check:all": "npm run check && npm run check:layers && npm run check:rules && npm run check:plan && npm run check:experience && npm run check:scenes && npm run check:p2 && npm run check:docs && npm test",
+    "test": "node --experimental-strip-types --import ./tests/ts-resolver.mjs --test tests/*.test.mjs",
+    "check:p2": "node tools/check-p2.mjs",
+    "check:scenes": "node tools/check-scenes.mjs"
   },
   "dependencies": {
-    "three": "^0.185.1"
+    "three": "0.185.1"
   },
   "devDependencies": {
-    "@types/three": "^0.185.1",
+    "@types/three": "0.185.1",
     "playwright": "^1.62.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.5"

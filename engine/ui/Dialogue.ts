@@ -57,20 +57,20 @@ export class DialogueBox {
   constructor(ctx: GameContext) {
     this.ctx = ctx;
 
-    this.el = el('div', 'pt-dialogue');
+    this.el = el('div', 'dgy-dialogue');
 
-    this.nameEl = el('div', 'pt-name is-empty');
+    this.nameEl = el('div', 'dgy-name is-empty');
     this.el.appendChild(this.nameEl);
 
-    const panel = el('div', 'pt-dialogue__panel');
-    this.textEl = el('p', 'pt-dialogue__text');
-    this.caret = el('span', 'pt-caret', '▌');
+    const panel = el('div', 'dgy-dialogue__panel');
+    this.textEl = el('p', 'dgy-dialogue__text');
+    this.caret = el('span', 'dgy-caret', '▌');
     this.textEl.appendChild(document.createTextNode(''));
     this.textEl.appendChild(this.caret);
     panel.appendChild(this.textEl);
 
-    this.nextEl = el('div', 'pt-dialogue__next');
-    this.nextEl.appendChild(el('span', 'pt-dialogue__hint', 'Next'));
+    this.nextEl = el('div', 'dgy-dialogue__next');
+    this.nextEl.appendChild(el('span', 'dgy-dialogue__hint', '继续'));
     const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     chev.setAttribute('viewBox', '0 0 24 24');
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');

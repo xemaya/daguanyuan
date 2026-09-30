@@ -24,15 +24,17 @@ export default defineConfig({
   /** 部署到 games.findu.life/daguanyuan/ 时 `BASE=/daguanyuan/ npm run build`。 */
   base: process.env.BASE ?? '/',
   /**
-   * The part turntable at `/viewer.html` is a second entry point (it comes
-   * back once the first 构件 exists). Vite only builds `index.html` unless the
-   * others are named.
+   * The part turntable at `/viewer.html` and the garden at `/garden.html` are
+   * extra entry points (the front door at `/` stays pure static). Vite only
+   * builds `index.html` unless the others are named.
    */
   build: {
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        garden: fileURLToPath(new URL('./garden.html', import.meta.url)),
         viewer: fileURLToPath(new URL('./viewer.html', import.meta.url)),
+        fashi: fileURLToPath(new URL('./fashi.html', import.meta.url)),
       },
     },
   },

@@ -11,6 +11,7 @@
  * lock, and it emits nothing except what Dialogue emits on its behalf.
  */
 
+import './tokens.css';
 import './ui.css';
 import type { GameContext } from '@engine/core/Context';
 import type { Interactable } from '@engine/player/Interaction';
@@ -58,6 +59,7 @@ export class HUD {
   private hint: HTMLElement;
   private hintTimer = 0;
 
+  pauseSuppressed = (): boolean => false;
   private booted = false;
   private auto = false;
   /** Seconds left before an unlock is treated as a real pause. */
@@ -69,23 +71,23 @@ export class HUD {
     this.ctx = ctx;
     this.auto = isAutomated();
 
-    this.root = el('div', 'pt-ui');
+    this.root = el('div', 'dgy-ui');
 
     // --- crosshair -------------------------------------------------------
-    this.crosshair = el('div', 'pt-crosshair');
+    this.crosshair = el('div', 'dgy-crosshair');
     this.crosshair.appendChild(el('i'));
     this.root.appendChild(this.crosshair);
 
     // --- interaction prompt ---------------------------------------------
-    this.prompt = el('div', 'pt-prompt');
-    this.promptKey = el('span', 'pt-key', 'E');
-    this.promptLabel = el('span', 'pt-prompt__label', '');
+    this.prompt = el('div', 'dgy-prompt');
+    this.promptKey = el('span', 'dgy-key', 'E');
+    this.promptLabel = el('span', 'dgy-prompt__label', '');
     this.prompt.appendChild(this.promptKey);
     this.prompt.appendChild(this.promptLabel);
     this.root.appendChild(this.prompt);
 
     // --- transient hint (pointer-lock fallback notice) -------------------
-    this.hint = el('div', 'pt-hint');
+    this.hint = el('div', 'dgy-hint');
     this.root.appendChild(this.hint);
 
     // --- dialogue --------------------------------------------------------
@@ -160,7 +162,7 @@ export class HUD {
   }
 
   private pauseIfUnlocked(): void {
-    if (this.auto || !this.booted) return;
+    if (this.auto || !this.booted || this.pauseSuppressed()) return;
     if (document.pointerLockElement === this.ctx.engine.renderer.domElement) return;
     this.start.show('paused', this.relockWait());
     this.ctx.engine.input.suspended = true;
@@ -186,7 +188,7 @@ export class HUD {
    * the game switches to drag-to-look rather than leaving the camera dead.
    */
   private onLockDenied(): void {
-    if (this.auto || !this.booted) return;
+    if (this.auto || !this.booted || this.pauseSuppressed()) return;
     const input = this.ctx.engine.input;
 
     if (input.lockFailures >= 2 || !input.lockSupported) {
@@ -195,7 +197,7 @@ export class HUD {
       this.start.hide();
       this.crosshair.classList.add('is-on');
       this.setFocus(this.ctx.interaction.focused);
-      this.showHint('Hold the left mouse button to look around');
+      this.showHint('按住鼠标左键,拖动环顾');
       return;
     }
 
@@ -224,7 +226,7 @@ export class HUD {
     const key = item.key ?? 'E';
     const label = KEY_LABEL[key] ?? key;
     this.promptKey.textContent = label;
-    this.promptKey.className = label.length > 1 ? 'pt-key pt-key--wide' : 'pt-key';
+    this.promptKey.className = label.length > 1 ? 'dgy-key dgy-key--wide' : 'dgy-key';
     this.promptLabel.textContent = item.label;
     this.setPrompt(true);
   }
@@ -259,6 +261,9 @@ export class HUD {
       this.start.hide();
       this.crosshair.classList.add('is-on');
       this.setFocus(this.ctx.interaction.focused);
+    } else if (this.pauseSuppressed()) {
+      this.wasPointerLocked = false;
+      this.lockReturn = 0;
     } else if (this.wasPointerLocked && this.booted && !this.auto) {
       this.wasPointerLocked = false;
       // Small grace period so a relock inside the same gesture cannot flash

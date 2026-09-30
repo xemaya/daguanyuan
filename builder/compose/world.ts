@@ -5,19 +5,35 @@ import { CollisionWorld } from '@engine/player/Collision';
 import { InteractionSystem } from '@engine/player/Interaction';
 
 import { buildAtmosphere } from '@engine/render/Atmosphere';
-import { buildTerrain } from './terrain';
-import { buildWater } from '@engine/render/Water';
+import { buildTerrain, getPlan, builtRegions } from './terrain';
+import { buildOccupancy, setOccupancy } from './occupancy';
+import { resetRoster } from './roster';
+import { getScenes } from './scenes';
+import { buildWater, setWaterFlows } from '@engine/render/Water';
 import { buildVegetation } from '@builder/parts/zhiwu/vegetation';
 import { buildGarden } from './composer';
+import { prewarmTextures } from './prewarm-textures';
+import {SEED} from './config';
 
 /**
  * World — orchestrates the build order for the garden.
  *
  * Order matters: terrain publishes the heightfield that everything else
- * samples to sit on the ground, and buildings claim their footprints before
- * vegetation scatters so trees never grow through a porch.
+ * samples to sit on the ground.
+ *
+ * The actual order is still vegetation BEFORE buildings (植树 → 起屋叠石),
+ * and that is fine now: 单子 Z 在两者之前插了一步「圈地」(occupancy prepass,
+ * `occupancy.ts`)。占位不再来自建出来的几何，而是从 `plan.json` 的
+ * `construction.spec` 编译出檐口外包络、加上 `scenes/*.json` 的 `clearances[]`
+ * ——**一份真源，房子一挪占位跟着挪**。`vegetation.ts` 那份手抄的 `FOOTPRINTS`
+ * 副本已经删掉（missing 99-25 就此销账）。
+ *
+ * 原来那条警告仍然成立、也仍然重要：**不要靠调换建筑与植被的顺序来修**，
+ * 那会让手抄的那份变成唯一真源。正解是把占位从「建出来的几何」里解耦出来，
+ * 也就是现在这一步。
+ * P2 的墙/廊/桥路径本来就从 plan 供给种植净空，那部分不变。
  */
-export const SEED = 17910000; // 程高本刊行年(1791)——大观园第一次以印本示人。
+export {SEED} from './config';
 
 export class World {
   readonly name = 'world';
@@ -30,6 +46,8 @@ export class World {
 
   /** Per-step build durations in ms, populated by build(). */
   buildTimings: [string, number][] = [];
+  /** Includes asynchronous preparation and inter-step paint yields. */
+  buildDurationMs = 0;
 
   constructor(engine: Engine) {
     this.root.name = 'World';
@@ -64,9 +82,17 @@ export class World {
 
   async build(onProgress?: (label: string, pct: number) => void): Promise<void> {
     const steps: [string, (ctx: GameContext) => void | Promise<void>][] = [
+      ['调色', async () => { this.root.userData.textureWarmup = await prewarmTextures(); }],
       ['开天', buildAtmosphere],
-      ['理地', buildTerrain],
-      ['引水', buildWater],
+      // 清单每次重建清空一次,免得热重载时越攒越多(它是模块级的共享数组)。
+      ['理地', (ctx) => { resetRoster(); buildTerrain(ctx); }],
+      // 单子 Z · 接缝 ③:占位预计算。必须排在「植树」之前——植被读它来避让。
+      // 它从 plan 的 construction.spec 编译檐口外包络,加上 scenes 的 clearances,
+      // 是占位的**唯一真源**;vegetation.ts 那份手抄的 FOOTPRINTS 副本已经删掉
+      // (missing 99-25)。注意 world.ts 原来的警告仍然成立:修法**不是**调换
+      // 建筑与植被的顺序,而是把占位从「建出来的几何」里解耦成一次预计算。
+      ['圈地', () => setOccupancy(buildOccupancy(getPlan(), builtRegions(), getScenes()))],
+      ['引水', (ctx) => { setWaterFlows(getPlan().water); buildWater(ctx); }],
       ['植树', buildVegetation],
       ['起屋叠石', buildGarden],
     ];
@@ -98,6 +124,7 @@ export class World {
           .join(', '),
     );
     this.buildTimings = timings;
+    this.buildDurationMs = total;
 
     onProgress?.('请入园', 1);
     this.ctx.events.emit(EVENTS.WORLD_READY);

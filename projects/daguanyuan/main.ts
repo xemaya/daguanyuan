@@ -2,17 +2,46 @@ import * as THREE from 'three';
 import { Engine } from '@engine/core/Engine';
 import { EVENTS } from '@engine/core/Context';
 import { World } from '@builder/compose/world';
+import { setPlan, type GardenPlan } from '@builder/compose/terrain';
+import { setScenes, validateScenes } from '@builder/compose/scenes';
+import { SCENES, BUILT_REGIONS } from './scenes';
 import { PlayerController } from '@engine/player/PlayerController';
 import { HUD } from '@engine/ui/HUD';
 import { AudioDirector } from '@engine/audio/Audio';
+import { MapOverlay } from '@engine/ui/MapOverlay';
+import { buildMapPlaces } from './map-places';
+import planFile from '@project/plan.json' with { type: 'json' };
+import './construction';
 
-/** Player spawn: south end of the path, facing north. */
-const SPAWN = new THREE.Vector3(0, 0, 29.5);
+
+/**
+ * Player spawn: just outside the 正门 gate, facing north into the garden.
+ * P1 Task 6: coordinates are plan.json's now — the gate itself sits at
+ * (55,250) (`plan.gates`), zhengmen's own recorded entrance point is
+ * (55,244); spawn a couple of metres south of that, still inside the wall.
+ */
+const SPAWN = new THREE.Vector3(55, 0, 248);
 const SPAWN_YAW = 0;
 
 async function boot(): Promise<void> {
+  const bootStarted = performance.now();
+  const bootTimings: Record<string, number> = {};
+  // P1 Task 6: `builder/` may not import `@project/plan.json` itself
+  // (`check:layers`), so the project layer injects it once, before
+  // `world.build()` walks its steps and reaches `buildTerrain`/`buildGarden`.
+  setPlan(planFile as unknown as GardenPlan, BUILT_REGIONS);
+  // 契约错误要在建园之前当场炸,别等到构件静默丢失才发现(check:scenes 跑的是
+  // 同一个 validateScenes,所以命令行与运行时判据只有一份)。
+  const sceneFails = validateScenes(SCENES, planFile);
+  if (sceneFails.length) throw new Error(`[scenes] 落位清单不合契约:\n${sceneFails.join('\n')}`);
+  setScenes(SCENES);
+
   const container = document.getElementById('app')!;
   const engine = new Engine(container);
+  // Demand-built vegetation must warm the actual spawn before loading completes.
+  engine.camera.position.copy(SPAWN);
+  await engine.init();
+  bootTimings.rendererInitMs = performance.now() - bootStarted;
   engine.initPost();
 
   const world = new World(engine);
@@ -26,9 +55,55 @@ async function boot(): Promise<void> {
 
   // Update order: input -> player -> world -> hud.
   engine.add({ name: 'player-sys', update: (dt) => player.update(dt) });
-  engine.add({ name: 'world-sys', update: (dt, t) => world.update(dt, t) });
+  engine.add({ name: 'world-sys', update: (dt, t) => {
+    if (engine.fixedTime !== null) world.ctx.env.windTime.value = engine.fixedTime - dt;
+    world.update(dt, t);
+  } });
   engine.add({ name: 'hud-sys', update: (dt) => hud.update(dt) });
   engine.add({ name: 'audio-sys', update: (dt) => audio.update(dt) });
+
+  // ---- 游园图 --------------------------------------------------------
+  // 按 M 开,点任一处已建成的区直接过去(D-41)。
+  const planRegions = (planFile as unknown as GardenPlan).regions;
+  const mapPlaces = buildMapPlaces(planRegions as never);
+  const gardenMap = new MapOverlay(mapPlaces, (place) => {
+    const y = world.ctx.collision.terrainHeight(place.target.x, place.target.z);
+    player.teleport(new THREE.Vector3(place.target.x, y, place.target.z), place.yaw);
+    // 收图之后把控制权还回去:指针锁要玩家自己点一下才能再拿(浏览器的手势要求)。
+    engine.input.suspended = false;
+  });
+  hud.root.appendChild(gardenMap.el);
+  gardenMap.el.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (!gardenMap.visible) engine.input.suspended = false;
+  });
+  hud.pauseSuppressed = () => gardenMap.visible;
+
+  engine.add({
+    name: 'map-sys',
+    update: () => {
+      // 图开着时 input.suspended 为真,wasPressed 会一律返回 false,所以开与关
+      // 不能都走它——关图用 DOM 上的键盘监听(见下)。
+      if (!gardenMap.visible && engine.input.wasPressed('KeyM')) {
+        gardenMap.show();
+        engine.input.suspended = true;
+        if (document.pointerLockElement) document.exitPointerLock();
+      }
+      const feet = player.state.position;
+      if (gardenMap.visible) {
+        gardenMap.setHere(feet.x, feet.z);
+      }
+    },
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (!gardenMap.visible) return;
+    if (e.code === 'KeyM' || e.code === 'Escape') {
+      e.preventDefault();
+      gardenMap.close();
+      engine.input.suspended = false;
+    }
+  });
 
   // Interact key.
   engine.add({
@@ -52,11 +127,24 @@ async function boot(): Promise<void> {
     },
   });
 
+  // Cull before pipeline warmup using the backend-aligned projection. Future
+  // cells compile on demand instead of blocking initial readiness for the whole map.
+  if (engine.fixedTime !== null) world.ctx.env.windTime.value = engine.fixedTime;
+  world.update(0, engine.fixedTime ?? 0);
+  const compileStarted = performance.now();
+  await engine.postfx.compileAsync();
+  bootTimings.compileMs = performance.now() - compileStarted;
+  const firstFrameStarted = performance.now();
+  engine.postfx.render(0);
+  bootTimings.firstFrameMs = performance.now() - firstFrameStarted;
+  bootTimings.worldBuildMs = world.buildDurationMs;
+  bootTimings.readyMs = performance.now() - bootStarted;
+  console.info('[boot] timings', JSON.stringify(bootTimings));
   hud.hideLoading();
   engine.start();
 
   // Expose for the automated visual-QA harness.
-  Object.assign(window, { __GAME__: { engine, world, player, hud, THREE } });
+  Object.assign(window, { __GAME__: { engine, world, player, hud, THREE, bootTimings } });
   window.dispatchEvent(new CustomEvent('game:ready'));
   world.ctx.events.emit(EVENTS.WORLD_READY);
 
@@ -68,6 +156,7 @@ async function boot(): Promise<void> {
   // request made directly inside the gesture that triggered it, so nothing may
   // be awaited ahead of it — `audio.unlock()` follows for that reason.
   container.addEventListener('click', () => {
+    if (gardenMap.visible || !engine.running) return;
     engine.input.requestLock();
     audio.unlock();
   });

@@ -3,19 +3,119 @@ import type { GameContext } from '@engine/core/Context';
 import { buildPart, type PartBuild } from '@builder/parts/registry';
 import '@builder/parts/index';
 import type { BuildingResult } from '@builder/parts/damu/building';
+import type { WallPathResult } from '@builder/parts/qiangyuan/wall-path';
+import type {CorridorResult} from '@builder/parts/damu/corridor-path';
+import type {BridgePathResult} from '@builder/parts/shuigong/bridge-path';
+import {offsetStation} from '@builder/plan/polyline';
 import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
-import { POND } from './terrain';
-import { mergeByMaterial } from '@builder/parts/merge';
+import { assembleStatic } from '@builder/parts/static-batches';
+import { getPlan, builtRegions, TERRAIN } from './terrain';
+import { pickConnections, connectionPart } from './connections';
+import { sceneFor, getScenes, type SceneNamed } from './scenes';
+import { getRoster, registerObject } from './roster';
+import { rulesForRegion, type StyledRegion } from './scatter-rules';
+import { occupancyDistance, getOccupancy } from './occupancy';
+import { alongPathScatter } from './scatter-along-path';
+import { buildBambooRow } from '@builder/parts/zhiwu/bamboo';
+import { locatePoint } from '@builder/plan/geometry';
+import { makeRng } from '@engine/core/Noise';
+import { SEED } from './config';
+import { requirePlanAnchor, type NamedPlanAnchor } from '@builder/plan/objects';
+import { LANTERN_DROP } from '@builder/parts/xiaomu/lantern';
+import type { Frame } from '@builder/derive/index';
+import { BAOGUSHI_DRUM_T_M, BAOGUSHI_DRUM_R_M, BAOGUSHI_SEAT_HALF_Z_M } from '@builder/parts/shishan/baogushi';
+import { FORECOURT_TERRACE_SPEC } from '@builder/parts/qiangyuan/forecourt-terrace';
 
 /**
  * 装配器:把构件按 scene 表放进园子,并把每类构件的落脚(平台)与阻挡登记
  * 到碰撞层。构件自己不知道园子,园子也不读构件内部——只认 registry 的名字。
+ *
+ * P1 · Task 6:落位坐标系换成 plan.json 的(见 docs/superpowers/plans/
+ * 2026-09-10-p1-foundation.md Task 6 · 更正④)。plan 中按稳定 id 登记的构件(正门、
+ * 翠嶂白石群、沁芳亭、石桥三港、潇湘馆正房)按 `buildings[]`/`rocks[]` 的
+ * 绝对 x/z 落位——这是平面真源写下的锚点,不是我们算出来的区域质心派生量,
+ * 派生量不许盖过真源(`missing.rules.json` 99-24)。没点名的(墙段、竹丛、
+ * 驳石)用「区域 + 局部偏移」兜底,或者干脆是绝对世界坐标——旧 64×72m 园子
+ * 本就是按真实米制设计的,只是锚在了错的地方,所以这批直接按各自区域的
+ * 锚点位移量整体平移,不做旋转、不做缩放。
  */
+
+/** plan.json 里 composer 需要的字段——terrain-from-plan.ts 的 GardenPlan
+ *  没有 buildings/rocks/entrances(那个模块不消费它们),这里单独声明。 */
+interface PlanRegionFull {
+  id: string;
+  name?: string;
+  elevation_m: number;
+  polygon: [number, number][];
+  /** 单子 Y:plan 遍历要读 kind 与 construction 来推构件,所以这里不能只收
+   *  NamedPlanAnchor(它只有 id/name/x/z)。字段按需声明,不重复 plan 的全量类型。 */
+  buildings?: (NamedPlanAnchor & { kind?: string; construction?: { spec?: unknown; status?: string } })[];
+  rocks?: NamedPlanAnchor[];
+  /** 线性构件(墙/廊/桥)的施工折线。几何自带世界位置。 */
+  linears?: { id: string; kind: string }[];
+  entrances?: [number, number][];
+}
+interface PlanWaterFull {
+  name: string;
+  depth_m: number;
+  polygon: [number, number][];
+}
+interface PlanFull {
+  regions: PlanRegionFull[];
+  water: PlanWaterFull[];
+}
+
+/** `getPlan()` (from `./terrain`) is the injected instance — see terrain.ts's
+ *  doc comment on `setPlan`/`getPlan` for why: `builder/` may not import
+ *  `@project/plan.json` itself (`check:layers`), so `main.ts` injects it once
+ *  before `world.build()` runs and both terrain.ts and this module read the
+ *  same object back. Called lazily (inside functions, not at module top
+ *  level) since module-top-level code runs before `main.ts`'s inject call. */
+function plan(): PlanFull {
+  return getPlan() as unknown as PlanFull;
+}
+
+function findRegion(id: string): PlanRegionFull {
+  const r = plan().regions.find((x) => x.id === id);
+  if (!r) throw new Error(`[garden] plan.json 缺区域：${id}`);
+  return r;
+}
+
+/** 闭合环(首末点相同),末点不参与平均。 */
+function regionCentroid(region: PlanRegionFull): [number, number] {
+  const pts = region.polygon;
+  const n = pts.length - 1;
+  let x = 0;
+  let z = 0;
+  for (let i = 0; i < n; i++) {
+    x += pts[i][0];
+    z += pts[i][1];
+  }
+  return [x / n, z / n];
+}
+
+/** Stable ids prevent similarly named halls from stealing an existing anchor. */
+function findAnchor(region: PlanRegionFull, id: string): [number, number] {
+  const hit = requirePlanAnchor(region, id);
+  return [hit.x, hit.z];
+}
 
 interface Placement {
   part: string;
   variant?: string;
+  /** plan.json 的区域 id。给了 anchor 或把 x/z 当局部偏移时必填。 */
+  region?: string;
+  /** plan.json 里该区 buildings[].id 或 rocks[].id，按其 x/z 落位。 */
+  anchor?: string;
+  /** 由哪条选料规则生成。规则生成的件不是「野生件」——它有出处，出处是规则。 */
+  ruleId?: string;
+  /** 这个 placement **就是** plan 的哪个对象。
+   *  ⚠️ 不能从 `anchor` 推：竹丛相对正房摆，不等于竹丛就是正房。
+   *  只有 plan 遍历生成的点名件才有值；散置件一律没有，对账门把它们列为野生件。 */
+  planId?: string;
+  /** 有 region 无 anchor 时,x/z 是相对该区质心的局部偏移;都没有时是世界坐标。
+   *  有 anchor 时,x/z 是相对锚点的局部微调(通常是 0,0)。 */
   x: number;
   z: number;
   /** 绕 Y 的朝向(弧度),0 = 构件正面朝南(+Z)。 */
@@ -28,100 +128,643 @@ interface Placement {
   tag?: string;
 }
 
-/** 十七回游线:正门 → 翠嶂 → 沁芳亭桥 → 潇湘馆。 */
-const SCENE: Placement[] = [
-  // 正门与南墙。
-  { part: 'building', variant: 'men', x: 0, z: 24.4, yaw: 0, tag: '正门' },
-  { part: 'wall', variant: 'plain', x: 10.8, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'lattice', x: 16.8, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'cloud', x: 23.8, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'plain', x: -10.8, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'lattice', x: -16.8, z: 25.2, yaw: 0 },
-  { part: 'wall', variant: 'cloud', x: -23.8, z: 25.2, yaw: 0 },
-  // 东西墙(只做南段,北段由林岗围合)。
-  { part: 'wall', variant: 'cloud', x: 29.0, z: 21.0, yaw: Math.PI / 2 },
-  { part: 'wall', variant: 'plain', x: 29.0, z: 14.0, yaw: Math.PI / 2 },
-  { part: 'wall', variant: 'cloud', x: 29.0, z: 7.0, yaw: Math.PI / 2 },
-  { part: 'wall', variant: 'cloud', x: -29.0, z: 21.0, yaw: -Math.PI / 2 },
-  { part: 'wall', variant: 'plain', x: -29.0, z: 14.0, yaw: -Math.PI / 2 },
-  { part: 'wall', variant: 'cloud', x: -29.0, z: 7.0, yaw: -Math.PI / 2 },
+/** 解析落位世界坐标:anchor → region+局部偏移 → 绝对世界坐标。 */
+function resolvePosition(p: Placement): [number, number] {
+  if (p.anchor) {
+    if (!p.region) throw new Error(`[garden] ${p.tag ?? p.part} 给了 anchor 但没给 region`);
+    const [ax, az] = findAnchor(findRegion(p.region), p.anchor);
+    return [ax + p.x, az + p.z];
+  }
+  if (p.region) {
+    const [cx, cz] = regionCentroid(findRegion(p.region));
+    return [cx + p.x, cz + p.z];
+  }
+  return [p.x, p.z];
+}
 
-  // 翠嶂假山:进门迎面,缝从南入北出。
-  { part: 'taihu', variant: 'mound', x: 0, z: 13.0, yaw: 0, tag: '翠嶂' },
-  { part: 'taihu', variant: 'peak2', x: -6.2, z: 15.5, yaw: 0.6 },
-  { part: 'taihu', variant: 'edge3', x: 4.4, z: 10.2, yaw: 1.2 },
+/**
+ * 9m 一折的曲桥,沿折线首尾相接铺一串,过整段开阔水面。bridge.ts 的
+ * zigzag 局部几何三折错位,但两端(局部 x=-4.5 与 x=+4.5)都落在同一侧向
+ * 偏移(z=[0,DECK_W])上,所以同一 yaw 下按桥长间隔摆放,首尾能对上不露缝
+ * ——沿线转弯处分段处理,每段仍是直线链。见 Task 6 · Step 0 ③:68.6m 的
+ * 水面,现桥总长只有约 25m,这里用「加曲桥段」(而非改游线绕开)补足。
+ */
+function bridgeChain(via: [number, number][], step = 8.8): Placement[] {
+  const out: Placement[] = [];
+  for (let leg = 0; leg < via.length - 1; leg++) {
+    const [ax, az] = via[leg];
+    const [bx, bz] = via[leg + 1];
+    const dx = bx - ax;
+    const dz = bz - az;
+    const len = Math.hypot(dx, dz);
+    // toWorld() 的约定(见下方 toWorld 与既有南北墙的 yaw 用法交叉验证过):
+    // 局部 +X 的世界方向 = (cos(yaw), -sin(yaw))。
+    const yaw = Math.atan2(-dz, dx);
+    const n = Math.max(1, Math.round(len / step));
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n;
+      out.push({ part: 'bridge', variant: 'zigzag', x: ax + dx * t, z: az + dz * t, yaw, y: 0 });
+    }
+  }
+  return out;
+}
 
-  // 沁芳亭桥:两段曲桥夹一座亭,亭立在池中。
-  { part: 'bridge', variant: 'zigzag', x: -0.9, z: 1.9, yaw: Math.atan2(6.6, 2.4), y: 0, tag: '沁芳桥南' },
-  { part: 'building', variant: 'ting', x: 0.9, z: -2.4, yaw: -0.78, y: 0.0, pier: true, tag: '沁芳亭' },
-  { part: 'bridge', variant: 'zigzag', x: 5.05, z: -7.68, yaw: 0.79, y: 0, tag: '沁芳桥北' },
-  { part: 'taihu', variant: 'peak', x: 8.4, z: 1.6, yaw: 2.4 },
-  { part: 'taihu', variant: 'peak3', x: -8.2, z: -6.4, yaw: -1.1 },
-
-  // 潇湘馆:院墙 + 月洞门 + 漏窗 + 正房 + 廊 + 竹。
-  { part: 'wall', variant: 'plain', x: 2.6, z: -13.5, yaw: 0 },
-  { part: 'wall', variant: 'moon', x: 8.6, z: -13.5, yaw: 0, tag: '潇湘馆月洞门' },
-  { part: 'wall', variant: 'lattice:wan', x: 14.6, z: -13.5, yaw: 0 },
-  { part: 'wall', variant: 'plain', x: 17.6, z: -16.5, yaw: Math.PI / 2 },
-  { part: 'wall', variant: 'plain', x: 17.6, z: -22.5, yaw: Math.PI / 2 },
-  { part: 'wall', variant: 'cloud', x: -0.4, z: -17.5, yaw: -Math.PI / 2 },
-  { part: 'wall', variant: 'plain', x: -0.4, z: -23.5, yaw: -Math.PI / 2 },
-  { part: 'wall', variant: 'plain', x: 5.6, z: -26.5, yaw: 0 },
-  { part: 'wall', variant: 'plain', x: 11.6, z: -26.5, yaw: 0 },
-  { part: 'building', variant: 'tang', x: 9.4, z: -20.6, yaw: 0, tag: '潇湘馆' },
-  { part: 'building', variant: 'lang', x: 2.4, z: -20.0, yaw: Math.PI / 2, tag: '潇湘馆西廊' },
-  { part: 'bamboo', variant: 'grove', x: 14.2, z: -17.6 },
-  { part: 'bamboo', variant: 'clump', x: 4.6, z: -15.6 },
-  { part: 'bamboo', variant: 'clump', x: 12.6, z: -24.4 },
-  { part: 'bamboo', variant: 'grove', x: 20.5, z: -20.0 },
-  { part: 'bamboo', variant: 'clump', x: -3.4, z: -15.2 },
-  { part: 'bamboo', variant: 'clump', x: -6.0, z: -12.0 },
-  { part: 'bamboo', variant: 'clump', x: 11.8, z: -9.6 },
-  { part: 'taihu', variant: 'peak4', x: 5.0, z: -17.0, yaw: 0.4 },
+/** 十七回游线水下段(里程 156.5→225.1m,约 (-3,171) 到 (-40,128))的曲桥链。
+ *  南段接石桥三港南沿(0,156.5);北段起点 (0,146)。
+ *  亭子(railingSides:['e','w'])东西两侧是连续栏杆,z 范围 146.36–149.64,
+ *  只有中轴 n/s 是敞的——这段起点得先沿中轴直下、出了栏杆的 z 范围
+ *  (<146.36)才能折向西去接桥面,不能一出亭子就斜切向西:试过把起点本身
+ *  往北挪(147→151.5)想让桥面躲开亭栏转角柱,结果挪多了在亭台与桥面之间
+ *  露出真水面缺口——柱子挡的是"走位斜切",不是"桥离得不够远",航点顺序
+ *  的修法在 tools/playtest.mjs。 */
+const CAUSEWAY: Placement[] = [
+  ...bridgeChain([
+    [-2.7, 171.3],
+    [0, 156.5],
+  ]),
+  ...bridgeChain([
+    [0, 146],
+    [-14, 138],
+    [-27, 133],
+    [-40, 128],
+  ]),
 ];
 
+/**
+ * 池岸驳石:「白石为栏环抱池沿」——从南池水域轮廓的 bbox 近似一个椭圆,
+ * 沿等角度找"刚露出水"的地方摆小石。南池已经比旧 9m 半径的池子大得多,
+ * 搜索半径要跟着放大。
+ */
+function pondEllipse(): { cx: number; cz: number; rx: number; rz: number } {
+  const w = plan().water.find((x) => x.name.startsWith('南池'));
+  if (!w) throw new Error('[garden] plan.json 缺水体：南池');
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const [x, z] of w.polygon) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+  }
+  return { cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, rx: (maxX - minX) / 2, rz: (maxZ - minZ) / 2 };
+}
+
+/** 从池心朝给定方向径向走,直到刚露出水面——用来把「按旧簇平移」落进水里
+ *  的驳石重新钉回岸边(池子比旧世界大了近 5 倍,平移不会自动落在岸上)。 */
+function shoreTowards(
+  center: [number, number],
+  towards: [number, number],
+  ground: (x: number, z: number) => number,
+  maxR: number,
+): [number, number] {
+  const [cx, cz] = center;
+  const a = Math.atan2(towards[1] - cz, towards[0] - cx);
+  let x = cx;
+  let z = cz;
+  for (let r = 0.5; r < maxR; r += 0.25) {
+    x = cx + Math.cos(a) * r;
+    z = cz + Math.sin(a) * r;
+    if (ground(x, z) > 0.22) break;
+  }
+  return [x, z];
+}
+
 /** 池岸的驳石:沿池边等角度找"刚露出水"的地方摆小石。 */
-function shoreStones(ground: (x: number, z: number) => number): Placement[] {
+function shoreStones(
+  ground: (x: number, z: number) => number,
+  pond: { cx: number; cz: number; rx: number; rz: number },
+  exclude: [number, number][],
+): Placement[] {
   const out: Placement[] = [];
   const n = 18;
+  const maxR = Math.max(pond.rx, pond.rz) + 20;
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + 0.13;
-    // 沿径向从池心往外找第一个高于 0.22 的点。
     let r = 0.5;
-    let x = POND.cx;
-    let z = POND.cz;
-    for (; r < 16; r += 0.25) {
-      x = POND.cx + Math.cos(a) * r * (POND.rx / Math.max(POND.rx, POND.rz));
-      z = POND.cz + Math.sin(a) * r * (POND.rz / Math.max(POND.rx, POND.rz));
+    let x = pond.cx;
+    let z = pond.cz;
+    for (; r < maxR; r += 0.25) {
+      x = pond.cx + Math.cos(a) * r * (pond.rx / Math.max(pond.rx, pond.rz));
+      z = pond.cz + Math.sin(a) * r * (pond.rz / Math.max(pond.rx, pond.rz));
       if (ground(x, z) > 0.22) break;
     }
-    // 桥头两处不摆,留给路。
-    if (Math.hypot(x + 1.6, z - 5.2) < 2.6 || Math.hypot(x - 8.7, z + 10.4) < 3.0) continue;
+    // 桥头/causeway 端点附近不摆,留给路。
+    if (exclude.some(([ex, ez]) => Math.hypot(x - ex, z - ez) < 3.0)) continue;
     if (i % 3 === 0) continue;
     out.push({ part: 'taihu', variant: `edge${(i % 5) + 1}`, x, z, yaw: a + i * 0.7, dy: -0.08 });
   }
   return out;
 }
 
-export function buildGarden(ctx: GameContext): void {
-  const ground = ctx.collision.terrainHeight;
+/**
+ * 灯笼吊点(局部坐标)。第五十三回「大觀園正門上也挑著大明角燈,兩溜高照,
+ * 各處皆有路燈」(honglou 07-70):正门次间檐下两盏,沁芳亭与潇湘馆正房各取一处。
+ * 只给一两种灯、每处一两盏——那条"存疑"驳的是十种灯型并列,不是驳挂灯。
+ * **不配 PointLight**:纸面 emissive 已经够亮(见 xiaomu/lantern.ts)。
+ */
+function lanternSpotsFor(p: Placement, built: PartBuild): { lx: number; lz: number; hangY: number }[] | null {
+  if (built.kind !== 'building') return null;
+  // 单子 Z · 接缝 ②:挂不挂灯由规则按区的 style 决定,不再是写死的 variant
+  // 白名单。以前这里列着 'men' / 'qinfang_ting_qiao.pavilion' /
+  // 'xiaoxiangguan.main-house' 三个名字——**加一个区,灯就得回来改这一行**,
+  // 正是 spec §2 ② 要拆掉的那个东西。现在:53 回「各處皆有路燈」是全园口径,
+  // 规则「灯笼-檐下」按 ornament 挑区,新区不点名也吃得到。
+  if (!p.region) return null;
+  const region = plan().regions.find((r) => r.id === p.region) as unknown as StyledRegion | undefined;
+  if (!region) return null;
+  const rule = rulesForRegion(region).find((r) => r.part === 'lantern');
+  if (!rule) return null;
+
+  const b = built as BuildingResult;
+  const m = b.frame.m;
+  const front = m.depthHalf + 0.3; // 阑额外皮一线,吊在檐下
+  // 悬挂点贴在阑额下皮;灯底低于台面 2.05m 就不挂(通行净空)。
+  const hangY = b.platform.y + m.columnH + m.puzuoH - 0.03;
+  if (hangY - LANTERN_DROP < b.platform.y + 2.05) return null;
+
+  // 几盏、挂哪儿由开间数定,不由「这栋叫什么」定:
+  //   门屋(规则 `where.perBay` 点名的构件档) → **每间一盏**,挂在每间当心;
+  //   五间及以上 → 两盏,挂在两侧次间(门屋的老做法,07-70「两溜高照」);
+  //   三、四间   → 两盏,挂在当心间左右 1/4 处;
+  //   一、两间   → 一盏,当心。
+  const x = m.columnX;
+  const bays = x.length - 1;
+  // 单子 AU1:`perBay` 列的是**构件档**(`men` = 门屋预设),不是栋名——
+  // 换一座门屋进来照样吃到,与接缝 ② 同一口径。规则说"门屋每间一盏",
+  // 两盏挂在 13.76m 宽的五间门脸下读成"小气"(用户 2026-09-16)。
+  const perBay = (rule.where?.perBay as string[] | undefined) ?? [];
+  if (p.variant && perBay.includes(p.variant)) {
+    const out: { lx: number; lz: number; hangY: number }[] = [];
+    for (let i = 0; i < bays; i++) out.push({ lx: (x[i] + x[i + 1]) / 2, lz: front, hangY });
+    return out;
+  }
+  if (bays <= 2) return [{ lx: 0, lz: front, hangY }];
+  if (bays >= 5) {
+    return [
+      { lx: (x[1] + x[2]) / 2, lz: front, hangY },
+      { lx: (x[x.length - 3] + x[x.length - 2]) / 2, lz: front, hangY },
+    ];
+  }
+  const mid = (x[0] + x[x.length - 1]) / 2;
+  return [
+    { lx: mid - m.width / 4, lz: front, hangY },
+    { lx: mid + m.width / 4, lz: front, hangY },
+  ];
+}
+
+/**
+ * 抱鼓石的摆放(**世界坐标**)。
+ *
+ * ## 为什么从"门道里"挪到"台阶两侧"
+ *
+ * 用户 2026-09-15 说「抱鼓石躲到了门里面」,于是单子 AI3/AJ2 把它搬到门外
+ * 地面、跨门槛立成门当。用户 2026-09-16 再看,给了更准的一句:
+ * **「位置还是不对,不会放在门里面的,放到台阶两侧」**。
+ *
+ * 对应的形制是**垂带抱鼓**:清式踏跺的垂带石下端常设抱鼓石(砚窝石一带),
+ * 鼓面朝踏跺、左右相对,坐在踏跺脚的地面上。所以这一版:
+ *   - **构件换档** `baogushi:chuidai`——去掉跨门槛的门枕(踏跺脚没有门轴,
+ *     那截石舌头没有去处),局部原点即须弥座中心;
+ *   - **朝向不用动**。构件的鼓轴本来就沿 X(单子 AJ2 改的),两块石一左一右,
+ *     朝里的两面鼓面自然互相对着踏跺中线——两面都刻螺旋纹与鼓钉,所以
+ *     不需要镜像变体。
+ *
+ * ## 三个坐标怎么来的
+ *
+ * **x**:从踏跺净宽往外让三段——垂带石中线 `半宽 + 0.10`、垂带半宽 `0.12`
+ * (两个都是 `building.ts` 踏跺垂带那一段的艺术常量,那段本单不许改,所以
+ * 这里按值抄并留痕;它们改了这里要跟着改)、鼓面与垂带之间的净空 0.03,
+ * 再加鼓厚一半。鼓**贴着垂带外侧**站,不骑在踏跺上。
+ *
+ * **y = 台矶面层顶**,不是台基顶、也不是 `ground(x,z)`。⚠️ 这是本单最容易
+ * 踩的坑(单子 AI 踩过一次):门屋自己的台基顶在 +0.75,而踏跺脚落在**另一
+ * 个构件**——`forecourt-terrace`(白石台矶)——的面层上,面层顶比门屋台基底
+ * 还高 0.36m。用 `ground()` 会让石头沉进台矶里,用 `b.platform.y` 会让它浮在
+ * 半空。所以从台矶自己的锚点与 `platH` 反推。
+ *
+ * **z**:先算**踏跺脚**——垂带顶面是一条从台基边(平台高)到地面的斜线,它
+ * 降到台矶面层高度的那一点就是人眼看到的"台阶到头了"。再往外让一个须弥座
+ * 半深,石头就整个站在斜坡以外、不与还露着的垂带打架。
+ *
+ * 最后**对台矶的墁缝网格**(单子 AT2 要求「别骑缝」):面层 Z 向格距 0.80m
+ * (台矶 Z 向长 5.6m 均分 7 格,缝线从南北端头起排),而圭角 Z 向 0.84m —
+ * **比一格还长**,所以"整块内"在这套网格下无解,只能取唯一对称的那个解:
+ * **压在一行墁石的正中**,前后各出 0.02m。X 向则真的落在一格以内
+ * (0.56m 的圭角坐在 0.771m 的格里)。
+ *
+ * ⚠️ 0.80 这个格距是从 `forecourt-terrace.ts` 的 `gridPitch/BLOCK_L` 算出来的,
+ * 那张网格**没有导出**,所以这条耦合眼下是注释不是代码——台矶的格距改了,
+ * 这里不会报错,只会悄悄骑缝。建议见 `docs/reviews/2026-09-16-at-findings.md`。
+ */
+function baogushiSpotsFor(
+  p: Placement,
+  built: PartBuild,
+  wx: number,
+  wz: number,
+  yaw: number,
+  baseY: number,
+  ground: (x: number, z: number) => number,
+): { x: number; y: number; z: number }[] | null {
+  if (p.part !== 'building' || p.variant !== 'men' || built.kind !== 'building') return null;
+  const b = built as BuildingResult;
+  const steps = b.walkSurfaces.filter((s) => s.tag.startsWith('front-step-'));
+  if (!steps.length) return null;
+  // 正门在 scenes/zhengmen.json 里 yaw=0。台矶的墁缝网格是**世界轴对齐**的,
+  // 转了门就对不上——真要转门,得先把网格也一起转,那不是这里能糊弄过去的。
+  if (Math.abs(yaw) > 1e-6) throw new Error('[garden] 垂带抱鼓的落位与台矶墁缝对齐只在 yaw=0 下成立,正门转向了就要重推这一段');
+
+  /* ---- 台矶面层顶(世界 y)---- */
+  const [tx, tz] = findAnchor(findRegion('zhengmen'), 'zhengmen.forecourt-terrace');
+  const terraceTopY = ground(tx, tz) + FORECOURT_TERRACE_SPEC.platH;
+
+  /* ---- x:垂带外皮 + 净空 + 鼓厚一半 ---- */
+  const stepHalfW = steps[0].hx;
+  const CHUIDAI_OFFSET_M = 0.1; // 垂带中线离踏跺边(building.ts 踏跺垂带段)
+  const CHUIDAI_HALF_W_M = 0.12; // 垂带半宽(同上,带宽 0.24)
+  const DRUM_CLEAR_M = 0.03; // 鼓面与垂带外皮之间的净空(艺术选择)
+  const lx = stepHalfW + CHUIDAI_OFFSET_M + CHUIDAI_HALF_W_M + DRUM_CLEAR_M + BAOGUSHI_DRUM_T_M / 2;
+
+  /* ---- z:踏跺脚 + 须弥座半深,再对墁缝 ---- */
+  const platHZ = b.platform.hz;
+  const platH = b.platform.y;
+  const run = Math.max(...steps.map((s) => s.cz)) + steps[0].hz - platHZ;
+  // 垂带顶面 y(z) = platH·(1 − (z−platHZ)/run);解 y = 台矶面层顶(化到门的局部高度)。
+  const terraceTopLocal = Math.min(platH, Math.max(0, terraceTopY - baseY));
+  const emergeZ = platHZ + run * (1 - terraceTopLocal / platH);
+  const minZ = wz + emergeZ + BAOGUSHI_SEAT_HALF_Z_M;
+  // 墁缝网格:缝线在 tz + (−halfZ + k·pitch),一行石板的中线在两条缝的中间。
+  const PAVING_PITCH_Z_M = 0.8;
+  const grid0 = tz - FORECOURT_TERRACE_SPEC.halfZ;
+  const k = Math.ceil((minZ - grid0) / PAVING_PITCH_Z_M - 0.5);
+  const z = grid0 + (k + 0.5) * PAVING_PITCH_Z_M;
+
+  return [
+    { x: wx - lx, y: terraceTopY, z },
+    { x: wx + lx, y: terraceTopY, z },
+  ];
+}
+
+/**
+ * 单子 Y · 接缝 ①：落位不再来自一张手写的 `SCENE` 常量，而是两处——
+ *
+ *   ① **点名件由 plan 遍历生成**。plan 里带 `construction.spec` 的房子、
+ *      `linears[]` 里的墙/廊/桥，`variant` 就是对象的稳定 id，尺寸从 spec 读、
+ *      坐标从锚点读——这类条目**不携带任何 plan 里没有的信息**，本来就是
+ *      能生成的（spec §1.2）。19 区 75 个建筑条目里有 32 个带 spec，
+ *      一个都不需要人手写落位。
+ *   ② **plan 里没有锚点的东西**写在 `scenes/<region>.json`，坐标一律相对锚点。
+ *
+ * 推导顺序，先命中先算：
+ *   1. `scenes[region].named[]` 绑定了构件的 → 用它，位置读 plan 对象的 x/z；
+ *   2. `kind==='building'` 且有 `construction.spec` 且不是 `frame-ready`
+ *      → `garden-building`，variant = 对象 id；
+ *   3. `region.linears[]` 的 wall/corridor/bridge → `garden-wall`/`garden-corridor`
+ *      /`garden-bridge`，variant = linear id；
+ *   4. 其余不生成——对账门会把它报成缺项，**那是对的**，不是漏。
+ */
+function plannedPlacements(): Placement[] {
+  const out: Placement[] = [];
+  for (const regionId of builtRegions()) {
+    const region = findRegion(regionId);
+    const scene = sceneFor(regionId);
+    const bound = new Map<string, SceneNamed>();
+    for (const n of scene.named ?? []) bound.set(n.object, n);
+
+    const emit = (id: string, fallback: { part: string; variant?: string } | null): void => {
+      const n = bound.get(id);
+      if (n) {
+        out.push({ part: n.part, variant: n.variant, region: regionId, anchor: id, planId: id, x: 0, z: 0,
+          yaw: n.yaw, dy: n.dy, y: n.y, pier: n.pier, tag: n.tag });
+        bound.delete(id);
+        return;
+      }
+      if (fallback) out.push({ part: fallback.part, variant: fallback.variant, region: regionId, anchor: id, planId: id, x: 0, z: 0 });
+    };
+
+    for (const b of region.buildings ?? []) {
+      const c = b.construction;
+      const buildable = b.kind === 'building' && !!c?.spec && c.status !== 'frame-ready';
+      // 单子 BA4:乡野子档(C-r,茅屋)不走 damu 的法式/法原构件,放行到 xiangye 的 thatch-cottage;
+      // 仍标 frame-ready 的(如竹牖未做的芦雪庵)照旧不建。
+      const rustic = (c?.spec as { paramSet?: string } | undefined)?.paramSet === 'rustic';
+      emit(b.id, buildable ? { part: rustic ? 'thatch-cottage' : 'garden-building', variant: b.id } : null);
+    }
+    for (const r of region.rocks ?? []) emit(r.id, null);
+    for (const l of region.linears ?? []) {
+      const part = l.kind === 'wall' ? 'garden-wall' : l.kind === 'corridor' ? 'garden-corridor'
+        : l.kind === 'bridge' ? 'garden-bridge' : null;
+      // 线性构件的几何自带世界位置，不能再叠 Placement 变换(见主循环的断言)，
+      // 所以它不走 anchor，x/z 留 0 让 resolvePosition 走绝对分支。
+      if (part) out.push({ part, variant: l.id, planId: l.id, x: 0, z: 0, tag: l.id });
+    }
+    // named 里绑了、但 plan 遍历没走到的对象是契约错误，宁可当场炸，别静默丢件。
+    for (const id of bound.keys())
+      throw new Error(`[garden] scenes/${regionId}.json 的 named 绑定了 ${id}，但 plan 的该区对象里没有它`);
+  }
+  return out;
+}
+
+/**
+ * 单子 BE1:`plan.connections[]` 的连接(桥)走 plan 遍历这条正路(`P-37`)。
+ *
+ * 它们跨在区与区之间的公共地面上,不属任何区的 `linears[]`,所以上面的区遍历从来走不到——
+ * 四座桥从 P2 起一座没建。判定在 `connections.ts`(纯函数,对账门与测试读同一份):
+ * **全部折点都在当前地形窗口内才建**,否则构建日志记一行「未建:窗口外」,等随区入建成自动出现。
+ * 线性构件自带世界位置,落位与 `linears[]` 那一支同形:x/z 留 0 走零变换分支,planId = 连接 id。
+ */
+function connectionPlacements(): Placement[] {
+  const { build, skipped } = pickConnections(getPlan().connections ?? [], TERRAIN);
+  for (const s of skipped)
+    console.info(`[garden] 未建:窗口外 ${s.id}(出窗口的折点 ${s.outside.map(([x, z]) => `(${x.toFixed(1)},${z.toFixed(1)})`).join(' ')})`);
+  const out: Placement[] = [];
+  for (const c of build) {
+    const part = connectionPart(c.kind);
+    if (!part) throw new Error(`[garden] plan.connections 的 ${c.id} kind=${c.kind} 没有对应构件`);
+    out.push({ part, variant: c.id, planId: c.id, x: 0, z: 0, tag: c.id });
+  }
+  return out;
+}
+
+/** `scenes/<region>.json` 的 `placements[]`：plan 里没有锚点的散置件。 */
+function scenePlacements(): Placement[] {
+  const out: Placement[] = [];
+  for (const regionId of builtRegions()) {
+    for (const pl of sceneFor(regionId).placements ?? []) {
+      out.push({ part: pl.part, variant: pl.variant, region: regionId, anchor: pl.anchor,
+        x: pl.dx, z: pl.dz, yaw: pl.yaw, dy: pl.dy, tag: pl.tag });
+    }
+  }
+  return out;
+}
+
+/**
+ * 单子 Z · 接缝 ②:地面散置——规则挑区，散布器算位置，**没有人写坐标**。
+ *
+ * 这是「新做一个构件 = 加一条规则，所有匹配的区当场吃到」里「吃到」那一半。
+ * 灯笼那条规则挂在建筑上（`lanternSpotsFor`），这一条落在地上。
+ *
+ * 刻意做得很笨：区多边形的 bbox 里按格子撒点，每格抖动一次，逐点问三件事
+ * ——在不在区里、地表对不对、离占位多远。**不做通用约束求解器**
+ * （spec §4；`D-18`「别让 compiler 吞掉大观园」）。
+ * 种子只取自 SEED 与区 id，所以结果是确定的：同一份数据必然给出同一批石头。
+ */
+function scatterPlacements(ctx: GameContext, ground: (x: number, z: number) => number): Placement[] {
+  const out: Placement[] = [];
+  const surfaceAt = ctx.collision.surfaceAt;
+  for (const regionId of builtRegions()) {
+    const region = findRegion(regionId);
+    const rules = rulesForRegion(region as unknown as StyledRegion).filter((r) => r.where?.surface);
+    if (!rules.length) continue;
+    const xs = region.polygon.map((p) => p[0]);
+    const zs = region.polygon.map((p) => p[1]);
+    const [minX, maxX] = [Math.min(...xs), Math.max(...xs)];
+    const [minZ, maxZ] = [Math.min(...zs), Math.max(...zs)];
+    for (const rule of rules) {
+      // 固定细格 + 概率接受,不按 amount 反推步长。
+      // 第一版按 amount 反推(0.012/m² → 9.1m 格),而「墙根」这类条件的合格带
+      // 只有两三米宽,9 米的格子根本打不中——全区只落了 4 块石头。
+      // 细格保证条件带被采到,密度交给概率。
+      const STEP = 1.2;
+      const step = STEP;
+      const accept = (rule.amount ?? 0.01) * STEP * STEP;
+      const rng = makeRng(SEED ^ hashString(`${regionId}|${rule.id}`));
+      const near = rule.where?.nearOccupancy as [number, number] | undefined;
+      let i = 0;
+      for (let gx = minX; gx <= maxX; gx += step) for (let gz = minZ; gz <= maxZ; gz += step) {
+        const x = gx + (rng() - 0.5) * step;
+        const z = gz + (rng() - 0.5) * step;
+        const yaw = rng() * Math.PI * 2;
+        if (rng() > accept) continue;
+        if (locatePoint(region.polygon, [x, z]) === 'outside') continue;
+        if (surfaceAt(x, z) !== rule.where?.surface) continue;
+        const d = occupancyDistance(x, z);
+        if (near && (d < near[0] || d > near[1])) continue;
+        if (!near && d < 0.8) continue;
+        // variant 由位置轮换,规则不指定具体哪一块(edge1..edge5)。
+        const variant = rule.variant ?? `edge${(i % 5) + 1}`;
+        out.push({ part: rule.part, variant, x, z, yaw, dy: -0.06, ruleId: rule.id, tag: `${rule.id}#${i}` });
+        i++;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * 单子 AL3 · 接缝②的第一个消费者:`scenes/<region>.json` 的 `scatters[]`。
+ *
+ * 几何那一半在 `scatter-along-path.ts`(纯函数,`check:scenes` 读同一份,
+ * 那边的头注说了为什么要分开);这里只管**把算出来的点变成竹子**。
+ *
+ * ⚠️ **整条竹夹路必须是一个构件。** `bamboo` 的每个 part 是 4 个 InstancedMesh,
+ * 而 `assembleStatic` 不合并 InstancedMesh(竹子带 `update`,根本不进静态批)。
+ * 22 丛各自走一遍 `buildPart('bamboo','clump')` 就是 **88 个 draw call**,
+ * 潇湘馆那一镜的 251 会直接顶到 340。所以走 `buildBambooRow`:整列所有丛塞进
+ * 同一组四个 mesh,**整条路 4 个 draw call**(`grove` 早就是这么干的)。
+ *
+ * 名册与碰撞按**丛**登记,不按整件:
+ * - `AF` 门(`auditSolidVsWall`)是逐条名册记录去问墙的,整件登记一条就等于
+ *   只查了一个点,那道门会变成摆设——上一轮被用户抓到的正是竹子穿墙。
+ * - `variant` 写 `clump` 不是 `row`:`SOLID_RADIUS` 那张表在 `occupancy.ts`
+ *   (不在本单文件域),表里 `bamboo:clump` = 1.1m 正是「spread 0.55 + 竿在
+ *   4~6m 高上的倾斜横移 0.55」,而这一列的丛就是这个尺寸的丛——写 `clump`
+ *   是照实说,不是绕过门。
+ * - `ruleId` 一给,对账门就把它们记进「规则生成」而不是野生件(coverage 三分法)。
+ */
+function buildBambooRows(
+  ctx: GameContext,
+  ground: (x: number, z: number) => number,
+  group: THREE.Group,
+  updaters: ((dt: number, t: number) => void)[],
+): void {
+  const field = getOccupancy();
+  if (!field) return;
+  const runs = alongPathScatter(plan(), getScenes(), [...builtRegions()], {
+    occupancy: field,
+    surface: ctx.collision.surfaceAt,
+    // 与 `occupancy.ts` 的 SOLID_RADIUS['bamboo:clump'] 同一个数,同一个来处。
+    solidRadius: 1.1,
+    // 竿脚散布半径的上限(下面 seeds 里 spread ≤ 0.55),问铺装用。
+    footRadius: 0.55,
+    // 檐口外包络之外再让 0.25m:竹梢探到檐下是江南园林的常景(竹影上窗纱),
+    // 不该让开一整圈;真正不许的是竿脚顶着台明,那由 solidRadius 那 1.1m 管。
+    buildingPad: 0.25,
+  });
+  for (const run of runs) {
+    if (run.rule.part !== 'bamboo' || !run.seeds.length) continue;
+    // 8–14 竿、4–6m 高、spread 0.4–0.55:单子 AL3 定的形态区间。按里程与序号
+    // 取值而不是再开一条 rng 流——整列的高矮胖瘦跟着路走,不跟着遍历顺序走。
+    const seeds = run.seeds.map((s, i) => ({
+      x: s.x,
+      z: s.z,
+      y: ground(s.x, s.z),
+      culms: 8 + ((i * 5 + Math.round(s.s * 3)) % 7),
+      spread: 0.4 + ((i * 3 + 1) % 4) * 0.05,
+      hMin: 4.0 + ((i * 7) % 3) * 0.2,
+      hMax: 5.4 + ((i * 5) % 4) * 0.15,
+      leanAz: s.leanAz,
+    }));
+    const row = buildBambooRow(seeds);
+    // 种子已经是世界坐标(见 buildBambooRow 头注),整件零变换落位。
+    row.root.position.set(0, 0, 0);
+    row.root.name = `竹夹路:${run.rule.path}`;
+    group.add(row.root);
+    if (row.update) updaters.push(row.update);
+
+    /*
+     * 远距离收起来。**这一条是量出来的,不是顺手加的**:
+     * A/B 实测(shots/AL3-try1 vs shots/AL3-ab-noshadow),竹夹路让 gate_approach
+     * +315k 三角、mound_block +321k、grass_close +321k——三镜离潇湘馆 141~210m,
+     * 院墙与翠嶂挡得严严实实,一根竹子也看不见。关掉投影这三镜**一个三角都不降**,
+     * 所以不是影子 pass:是视锥真的把院子框进去了(gate_approach 在 250m 外,
+     * 1600×900 的水平视野半角 45.8°,横向能框到 ±256m,院子在 160m 处),
+     * 而 three 没有遮挡剔除。
+     *
+     * 120m 一刀切:四镜里最近的 grass_close 在 141m,全部剔得掉;院外真看得见竹的
+     * 地方(X-05 的视点在 12m、pond_reveal 在 112m)都在里面。这比园子里既有的
+     * 尺子宽得多——`VEG.drawDist` 给灌木杂草的是 21~42m(vegetation.ts),
+     * 硬切距离本来就是这个项目收前景植被的常规手段。
+     *
+     * ⚠️ 只收这一列新竹。**七丛点名竹照旧**——它们在基线里,这一单不动它们的
+     * 成本归属;同一条账等下一单一起算(回报里点名)。
+     */
+    const cx = seeds.reduce((a, s) => a + s.x, 0) / seeds.length;
+    const cz = seeds.reduce((a, s) => a + s.z, 0) / seeds.length;
+    const CULL_DIST = 120;
+    ctx.tick(() => {
+      const dx = ctx.camera.position.x - cx;
+      const dz = ctx.camera.position.z - cz;
+      row.root.visible = dx * dx + dz * dz < CULL_DIST * CULL_DIST;
+    });
+    const ruleId = `along-path:${run.rule.path}`;
+    for (const [i, s] of run.seeds.entries()) {
+      const y = ground(s.x, s.z);
+      registerObject({
+        id: `${ruleId}#${i}`,
+        name: '竹夹路一丛',
+        part: 'bamboo',
+        variant: 'clump',
+        position: [s.x, y, s.z],
+        yaw: 0,
+        planId: null,
+        ruleId,
+        size: null,
+        basis: run.rule.basis,
+      });
+      // 碰撞半径与 `registerColliders` 里 `bamboo:clump` 那一条一致。
+      ctx.collision.addCircle(s.x, s.z, 0.4, y, y + 2, '竹');
+    }
+    console.info(
+      `[garden] 竹夹路 ${run.rule.path}: 试 ${run.tried} 点,落 ${run.seeds.length} 丛` +
+        `(出界 ${run.rejected.outside} / 进墙 ${run.rejected.wall} / 进房 ${run.rejected.building} / 压路面 ${run.rejected.paving})`,
+    );
+  }
+}
+/** 稳定的字符串散列,给每条「区×规则」一个确定的种子。 */
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+export function buildGarden(ctx: GameContext): void {  const ground = ctx.collision.terrainHeight;
+  const pond = pondEllipse();
+
+  // 白石台矶(单子 AI)自己的落脚材质:地形层的 surfaceAt 只按 plan.paths
+  // 铺装,不知道有一块独立的台矶构件盖在它上面——台矶宽 13.76m 远宽于
+  // 4.4m 的近门大路,路只盖住台矶中段一条窄带,台矶自己压住的地面(尤其
+  // 两侧和拼接处)在脚下序列里仍会读成台矶下面原来的 dirt/grass。给
+  // surfaceAt 包一层:落在台矶足迹内就报 stone,不改 terrain-from-plan.ts
+  // (该文件本单不许碰)。
+  //
+  // 南、北各多留一截(zSouth/zNorth 比台矶几何本身宽):量过 playtest 脚下
+  // 序列,台矶边缘到"近门大路"路面之间、以及台矶边缘到正门自身台基之间
+  // 各有一圈约 1m 的沙化过渡带(A1 单子记的同一种路缘沙带处理,不是本单
+  // 引入的新缺陷)——这圈沙带本身留着(它是路缘的正常处理,不是黄土荒
+  // 地),只是把"脚下走感"接续上，不在两条真实铺装之间露一小截空当。
+  {
+    const [tx, tz] = findAnchor(findRegion('zhengmen'), 'zhengmen.forecourt-terrace');
+    const { halfX } = FORECOURT_TERRACE_SPEC;
+    const zNorth = tz - 4.1; // 接正门自身台基南缘
+    const zSouth = tz + 5.2; // 接"近门大路"路面(起点在 z=246)
+    const base = ctx.collision.surfaceAt;
+    ctx.collision.surfaceAt = (x, z) =>
+      Math.abs(x - tx) <= halfX && z >= zNorth && z <= zSouth ? 'stone' : base(x, z);
+  }
+
+  // 沁芳亭桥一带的驳石(taihu peak/peak3):沿「从池心朝某个方向」找刚露出水面
+  // 的岸边落位——这是算出来的，不是摆出来的，所以不进 scenes(那里只放人写的
+  // 落位)。单子 Y:三个参照点原来是旧世界平移常量 D_QINFANG 的派生量，现在
+  // 改挂 plan 的亭锚点，把最后一个 D_* 也清掉；数值与平移写法逐位相同。
+  const tingAnchor = findAnchor(findRegion('qinfang_ting_qiao'), 'qinfang_ting_qiao.pavilion');
+  const fromTing = ([dx, dz]: [number, number]): [number, number] => [tingAnchor[0] + dx, tingAnchor[1] + dz];
+  const qinfangCenter = fromTing([-0.3, 0.8]); // 旧 POND.cx/cz 的等价点
+  const peakRaw = fromTing([7.5, 4.0]);
+  const peak3Raw = fromTing([-9.1, -4.0]);
+  const [peakX, peakZ] = shoreTowards(qinfangCenter, peakRaw, ground, 60);
+  const [peak3X, peak3Z] = shoreTowards(qinfangCenter, peak3Raw, ground, 60);
+
+  const causewayEnds: [number, number][] = [
+    [-2.7, 171.3],
+    [0, 156.5],
+    [0, 146],
+    [-40, 128],
+  ];
+
+  const all: Placement[] = [
+    ...plannedPlacements(),
+    ...scenePlacements(),
+    // 单子 BE1:plan.connections 的桥。排在 scenes 之后——稻香村那座原先借 scenes 最后一条落位挂出来,
+    // 这样它在装配序列里的位置不变。
+    ...connectionPlacements(),
+    // 曲桥链与池岸驳石是**算出来的**(沿折线铺桥段、沿池边找刚露出水的位置)，
+    // 不是人摆的，所以不进 scenes——scenes 的 placements 只放人写的落位。
+    // 它们是接缝 ② 的活(写条件不写坐标)，归单子 Z。
+    ...CAUSEWAY,
+    ...scatterPlacements(ctx, ground),
+    { part: 'taihu', variant: 'peak', x: peakX, z: peakZ, yaw: 2.4 },
+    { part: 'taihu', variant: 'peak3', x: peak3X, z: peak3Z, yaw: -1.1 },
+    // 铺地收边:路牙沿 plan.paths 里带 paving 的路在 world 空间直接挤出
+    // (07-41 石子漫、17 回宽阔大路),几何自带世界坐标,必须零变换落位。
+    { part: 'luya', variant: 'default', x: 0, z: 0, y: 0, tag: '路牙' },
+    // 单子 AH:石压边沿 plan.water 里带 centerline 的窄沟(目前只有引泉沟)
+    // 在 world 空间直接挤出,同样零变换落位,与路牙同一路数。
+    { part: 'shiyabian', variant: 'default', x: 0, z: 0, y: 0, tag: '石压边' },
+    ...shoreStones(ground, pond, causewayEnds),
+  ];
+
   const cache = new Map<string, PartBuild>();
+  /** key → 构件本地包围盒 [sx, sy, sz]，见下面 fresh 分支里量它的理由。 */
+  const partSize = new Map<string, [number, number, number]>();
   const updaters: ((dt: number, t: number) => void)[] = [];
   const stone = stoneMaterial(1);
   const group = new THREE.Group();
   group.name = 'Garden';
+  // Static merging discards individual roots. Keep their construction identity
+  // and provenance separately so a batched scene is still reviewable.
+  // 单子 Z:清单搬进 roster.ts 共享——「植树」比这一步早,它也要能登记
+  // (按 plan 长出来的花池以前整步隐形,被对账门误报成缺项)。
+  const constructionRecords = getRoster();
+  group.userData.constructions = constructionRecords;
+  // 单子 AD · 第一档对账：世界要自报「我建了哪几个区」,工具不许再抄一份区名。
+  group.userData.builtRegions = [...builtRegions()];
+  const linearRecords:Record<string,unknown>[]=[];
+  group.userData.linears=linearRecords;
   ctx.scene.add(group);
   // 静态件(墙/石/桥/屋)先收进这里,最后按材质合并;会动的(竹)直接进 group。
   const staticGroup = new THREE.Group();
 
-  const all = [...SCENE, ...shoreStones(ground)];
   let calls = 0;
+  const lanternSpots: { x: number; y: number; z: number }[] = [];
+  const baogushiSpots: { x: number; y: number; z: number }[] = [];
   for (const p of all) {
     const key = `${p.part}:${p.variant ?? 'default'}`;
     let part = cache.get(key);
     let fresh = false;
     if (!part) {
-      part = buildPart(p.part, p.variant) ?? undefined;
+      part = buildPart(p.part, p.variant,{ground}) ?? undefined;
       if (!part) {
         console.warn(`[garden] 未登记构件 ${key}`);
         continue;
@@ -138,35 +781,131 @@ export function buildGarden(ctx: GameContext): void {
       });
       console.info(`[garden] ${key} ${(tris / 1000).toFixed(1)}k tris`);
       if (part.update) updaters.push(part.update);
+      // 单子 AD · 第三档：构件的本地包围盒尺寸,登记进世界清单。
+      // 接缝门要判「两段墙之间有没有缝」,光有落位没有尺寸算不出端点。
+      // 只在 fresh(原型第一次建出来)时量一次,之后从 cache 拿。
+      const box = new THREE.Box3().setFromObject(part.root);
+      partSize.set(key, box.isEmpty() ? [0, 0, 0] : [box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z]);
     }
     calls++;
+    const linear=part.kind==='wall-path'||part.kind==='corridor-path'||part.kind==='bridge-path'?part as WallPathResult|CorridorResult|BridgePathResult:null;
+    if(linear&&(p.x!==0||p.z!==0||p.y!==undefined||p.yaw))throw new Error('plan线性构件已含世界位置，不能再叠加Placement变换');
+    const [wx, wz] = linear ? linear.path.origin : resolvePosition(p);
     const yaw = p.yaw ?? 0;
-    const y = p.y ?? ground(p.x, p.z) + (p.dy ?? 0);
+    const y = linear ? linear.spec.elevation_m : p.y ?? ground(wx, wz) + (p.dy ?? 0);
     const obj = fresh ? part.root : part.root.clone();
-    obj.position.set(p.x, y, p.z);
+    obj.position.set(wx, y, wz);
     obj.rotation.y = yaw;
     obj.name = p.tag ?? key;
+    // 单子 AD · 第一档对账：**每个** placement 都要登记。
+    // 以前只有 kind==='building' 登记,所以六段墙、竹丛、太湖石、桥、游廊、院墙、
+    // 灯笼在世界的自报清单里一条都没有——「台矶没造」这类缺陷从定义上就在所有门
+    // 的视野之外(spec §1.5 ①②)。静态合并会丢掉 root,清单是合并后唯一的可审身份。
+    //
+    // planId 与 id 分开:planId 能对上 plan 对象才有值,对不上就是 null。
+    // 正门那六段墙正是 planId=null 的野生件(它们该是 zhengmen.flanking-wall),
+    // 对账门靠这个字段把「世界有、数据没有」单列出来,不与缺项混为一谈。
+    const planId =
+      p.planId ??
+      (linear ? linear.spec.id : undefined) ??
+      ((obj.userData.planObject as { id?: string } | undefined)?.id) ??
+      (p.variant && p.variant.includes('.') ? p.variant : undefined) ??
+      null;
+    registerObject({
+      id: planId ?? key,
+      name: obj.name,
+      part: p.part,
+      variant: p.variant ?? 'default',
+      position: [wx, y, wz],
+      yaw,
+      planId,
+      ruleId: p.ruleId ?? null,
+      size: partSize.get(key) ?? null,
+      ...(part.kind === 'building' ? obj.userData.construction : null),
+      ...(obj.userData.planObject ? { planObject: obj.userData.planObject } : null),
+      ...(part.root.userData.provenance ? { provenance: part.root.userData.provenance } : null),
+    });
+    if(linear)linearRecords.push({...linear.root.userData.linear,position:[wx,y,wz]});
     if (part.update) group.add(obj);
     else staticGroup.add(obj);
 
-    registerColliders(ctx, p.part, p.variant ?? 'default', part, p.x, y, p.z, yaw);
+    registerColliders(ctx, p.part, p.variant ?? 'default', part, wx, y, wz, yaw);
+
+    // 灯笼挂在檐下(07-70):跟着建筑走,不是独立摆件。
+    for (const s of lanternSpotsFor(p, part) ?? []) {
+      const [lx, lz] = toWorld(wx, wz, yaw, s.lx, s.lz);
+      lanternSpots.push({ x: lx, y: y + s.hangY, z: lz });
+    }
+
+    // 抱鼓石守在正门踏跺两侧(艺术选择,07-01 无此物):跟着正门走。
+    // 单子 AT2 起 `baogushiSpotsFor` 直接给世界坐标——落位要对台矶的墁缝
+    // 网格,而那张网格是世界轴对齐的,在局部算完再转就对不上了。
+    for (const s of baogushiSpotsFor(p, part, wx, wz, yaw, y, ground) ?? []) {
+      // 垂带抱鼓档的局部原点就是须弥座中心(门枕已去),碰撞圆心即落点,
+      // 不用再叠 BAOGUSHI_DRUM_Z_M 那个门当档的偏移。
+      baogushiSpots.push(s);
+    }
 
     if (p.pier) {
       // 从地面(池底)砌一块青石墩到构件底面。
       const b = part as BuildingResult;
       const hx = b.platform?.hx ?? 2;
       const hz = b.platform?.hz ?? 2;
-      const gy = ground(p.x, p.z);
+      const gy = ground(wx, wz);
       const h = Math.max(0.05, y - gy + 0.02);
       const pier = new THREE.Mesh(roundedBox(hx * 2 - 0.1, h, hz * 2 - 0.1, 0.03, 2), stone);
-      pier.position.set(p.x, gy + h / 2 - 0.01, p.z);
+      pier.position.set(wx, gy + h / 2 - 0.01, wz);
       pier.rotation.y = yaw;
       pier.receiveShadow = true;
       pier.castShadow = true;
       group.add(pier);
     }
   }
-  const merged = mergeByMaterial(staticGroup);
+  if (lanternSpots.length) {
+    const lantern = buildPart('lantern', 'gong', { ground });
+    if (lantern) {
+      for (const s of lanternSpots) {
+        const l = lantern.root.clone();
+        l.position.set(s.x, s.y, s.z);
+        l.name = '灯笼';
+        staticGroup.add(l);
+        registerObject({ id: 'lantern:gong', name: '灯笼',
+          part: 'lantern', variant: 'gong', position: [s.x, s.y, s.z], yaw: 0, planId: null,
+          ruleId: '灯笼-檐下',
+          provenance: lantern.root.userData.provenance });
+      }
+    }
+  }
+  if (baogushiSpots.length) {
+    // `chuidai` = 垂带抱鼓档(单子 AT2):去门枕、原点在须弥座中心。
+    const baogushi = buildPart('baogushi', 'chuidai', { ground });
+    if (baogushi) {
+      for (const s of baogushiSpots) {
+        const st = baogushi.root.clone();
+        st.position.set(s.x, s.y, s.z);
+        st.name = '抱鼓石';
+        staticGroup.add(st);
+        // 挡人不挡路:两颗石守在踏跺两侧的垂带外,踏跺净宽 3m 一路畅通
+        // (石心离中线 1.87m,碰撞半径 0.44m —— 最近也还在踏跺边以外 0.93m)。
+        ctx.collision.addCircle(s.x, s.z, BAOGUSHI_DRUM_R_M, s.y, s.y + 1.25, '抱鼓石');
+        registerObject({
+          id: 'zhengmen.baogushi',
+          name: '抱鼓石(垂带抱鼓)',
+          part: 'baogushi',
+          variant: 'chuidai',
+          position: [s.x, s.y, s.z],
+          yaw: 0,
+          planId: null,
+          provenance: baogushi.root.userData.provenance,
+        });
+      }
+    }
+  }
+  // 单子 AL3:竹夹路。放在静态合批之前,和灯笼/抱鼓石同一档「主循环之后再长出来
+  // 的东西」;它带 update(风),进 group 不进 staticGroup。
+  buildBambooRows(ctx, ground, group, updaters);
+
+  const merged = assembleStatic(staticGroup);
   merged.name = 'GardenStatic';
   group.add(merged);
   console.info(`[garden] ${calls} 件, ${cache.size} 种, 合并后 ${merged.children.length} 个 mesh`);
@@ -195,12 +934,38 @@ function registerColliders(
 ): void {
   const col = ctx.collision;
   const kind = variant.replace(/[:\d].*$/, '');
-  if (part === 'building') {
+  if(built.kind==='bridge-path') {
+    const bridge=built as BridgePathResult;
+    col.addPolygonPlatform(bridge.path.polygon.map(p=>[x+p[0],z+p[1]]),y,bridge.spec.id);
+    for(let i=1;i<bridge.path.stations.length;i++)for(const side of [-1,1]) {
+      const a=offsetStation(bridge.path.stations[i-1],side*(bridge.spec.width_m/2-.08)),b=offsetStation(bridge.path.stations[i],side*(bridge.spec.width_m/2-.08));
+      col.addBox(x+(a[0]+b[0])/2,z+(a[1]+b[1])/2,Math.hypot(b[0]-a[0],b[1]-a[1])/2,.1,y,y+bridge.spec.railingHeight_m,Math.atan2(-(b[1]-a[1]),b[0]-a[0]),bridge.spec.id);
+    }
+    return;
+  }
+  if(built.kind==='corridor-path') {
+    const corridor=built as CorridorResult;
+    col.addPolygonPlatform(corridor.path.deckPolygon.map(p=>[x+p[0],z+p[1]]),y+corridor.spec.platformH_m,corridor.spec.id);
+    for(const c of corridor.path.columns)col.addCircle(x+c.point[0],z+c.point[1],c.diameter/2,y+corridor.spec.platformH_m,y+corridor.spec.platformH_m+c.height,corridor.spec.id);
+    return;
+  }
+  if(built.kind==='wall-path') {
+    const wall=built as WallPathResult;
+    for(const b of wall.path.blockers)col.addBox(x+b.cx,z+b.cz,b.hx,b.hz,y+b.minY,y+b.maxY,b.rot,wall.spec.id);
+    for(const j of wall.path.joints)col.addCircle(x+j.center[0],z+j.center[1],j.radius,y+j.minY,y+j.maxY,wall.spec.id);
+    for(const p of wall.path.platforms)col.addPlatform(x+p.cx,z+p.cz,p.hx,p.hz,y+p.y,p.rot,'月洞门槛');
+    return;
+  }
+  if (built.kind === 'building') {
     const b = built as BuildingResult;
     col.addPlatform(x, z, b.platform.hx, b.platform.hz, y + b.platform.y, yaw, '台基');
+    for(const s of b.walkSurfaces) {
+      const [cx,cz]=toWorld(x,z,yaw,s.cx,s.cz);
+      col.addPlatform(cx,cz,s.hx,s.hz,y+s.y,yaw,s.tag);
+    }
     for (const bl of b.blockers) {
       const [cx, cz] = toWorld(x, z, yaw, bl.cx, bl.cz);
-      col.addBox(cx, cz, bl.hx, bl.hz, y, y + bl.h, yaw + (bl.rot ?? 0));
+      col.addBox(cx, cz, bl.hx, bl.hz, y+(bl.minY??0), y + bl.h, yaw + (bl.rot ?? 0));
     }
     return;
   }

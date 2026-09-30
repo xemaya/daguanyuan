@@ -17,6 +17,34 @@ export interface PoissonScatterOptions {
   rng: () => number;
   /** Dart-throwing attempts before giving up. Higher = denser fill near saturation. */
   tries?: number;
+  /**
+   * 「先撒后筛」档（P-28，单子 AV-b1）。真时：飞镖次数、落点抽样与间距
+   * 约束都不看 density——每次尝试恰好吃 2 发 rng（x、z），候选**飞镖流**
+   * 全园稳定；留不留由 `scatterHash01(候选点坐标) < density(x,z)` 决定，
+   * 不吃顺序 rng。老的「密度拒点走顺序 rng」路径下，density 任何局部改动
+   * 都会移动 rng 流，把全园重洗一遍（AV2 的 89 棵消失 / 92 棵新出现就是
+   * 这么来的）；新档里局部密度改动只影响局部的点。
+   */
+  filterByHash?: boolean;
+}
+
+/**
+ * 坐标哈希 → [0,1)。「先撒后筛」的筛子：一个候选点留不留只由它自己的
+ * 坐标决定，不吃顺序 rng——改任何一区的 density 不会重洗其他区。
+ * 坐标量化到 1/4096 m 再哈希，防浮点尾数抖动。
+ */
+export function scatterHash01(x: number, z: number): number {
+  let h = 2166136261 >>> 0;
+  for (const n of [Math.round(x * 4096), Math.round(z * 4096)]) {
+    h ^= n & 0xffff;
+    h = Math.imul(h, 16777619);
+    h ^= (n >> 16) & 0xffff;
+    h = Math.imul(h, 16777619);
+  }
+  h ^= h >>> 13;
+  h = Math.imul(h, 0x5bd1e995);
+  h ^= h >>> 15;
+  return (h >>> 0) / 4294967296;
 }
 
 /**
@@ -36,8 +64,10 @@ export function poissonScatter(o: PoissonScatterOptions): ScatterPoint[] {
   for (let a = 0; a < attempts; a++) {
     const x = rangeOf(o.rng, o.minX, o.maxX);
     const z = rangeOf(o.rng, o.minZ, o.maxZ);
+    // 先撒后筛档:飞镖流不看密度(每次恰好吃 2 发 rng);留不留用坐标哈希
+    // 代替顺序 rng 与密度比较——候选点位置与决定都只依赖坐标,全园稳定。
     const dens = o.density(x, z);
-    if (dens <= 0.001 || o.rng() > dens) continue;
+    if (o.filterByHash ? scatterHash01(x, z) >= dens : (dens <= 0.001 || o.rng() > dens)) continue;
 
     const gi = Math.floor((x - o.minX) / cell);
     const gj = Math.floor((z - o.minZ) / cell);

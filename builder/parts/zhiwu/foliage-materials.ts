@@ -1,11 +1,15 @@
+import type { IUniform } from 'three';
+import { Fn, texture, uniform, vec3, vec4, uv, varying, positionLocal, modelWorldMatrix, normalWorldGeometry, cameraViewMatrix, positionViewDirection, attribute, mix, varyingProperty, diffuseColor } from 'three/tsl';
+import { bindUniforms } from '@engine/render/nodes/bindings';
+import { FoliageNodeMaterial, foliagePosition } from '@engine/render/nodes/foliage';
 /**
  * 真新镇遗留的温带叶材质。卡片朝向与半透机制本应进 engine/scatter/（见 spec §7），
  * 但它与具体叶片贴图缠在一起，剥离要连着换中式树种一起做——P3 的活，不在 P0。
  */
-import * as THREE from 'three';
+import * as THREE from 'three/webgpu';
 import type { EnvironmentState } from '@engine/core/Context';
 import { Simplex, tileableFbm, worley, clamp, smoothstep, lerp, makeRng } from '@engine/core/Noise';
-import { bakeColorMap, bakeNormalMap, bakeScalarMap, cached, mixHex, hexToRgb } from '@engine/core/TextureLab';
+import { bakeColorMap, bakeNormalMap, bakeScalarMap, cached, recipeKey, mixHex, hexToRgb } from '@engine/core/TextureLab';
 
 /**
  * Foliage shading — the part of the vegetation system that decides whether the
@@ -54,179 +58,6 @@ const BARK = new Simplex(0xba2c01);
 /* Shader source                                                       */
 /* ------------------------------------------------------------------ */
 
-const WIND_GLSL = /* glsl */ `
-attribute vec2 aFlex;
-attribute vec2 aWind;
-uniform float uWindTime;
-uniform vec2  uWindDir;
-uniform float uWindStrength;
-uniform float uWindScale;
-varying float vFolThick;
-
-/**
- * World-space sway. Two incommensurate gust waves travelling along the wind
- * direction (so a gust visibly crosses the treeline instead of every tree
- * pulsing together), plus a fast lateral flutter for leaf chatter. The vertical
- * term is negative-biased: a swinging branch traces an arc, it does not stretch.
- */
-vec3 foliageWind( vec3 wp, float flex, float phase, float mul ) {
-  float t = uWindTime * 0.9 + phase;
-  float travel = dot( wp.xz, uWindDir ) * 0.24;
-  float g = sin( t * 1.00 - travel ) * 0.62 + sin( t * 1.73 - travel * 1.63 + 2.1 ) * 0.38;
-  float f = sin( t * 5.9 + phase * 2.7 + wp.y * 3.4 ) * 0.55
-          + sin( t * 9.3 + phase * 4.1 + wp.x * 2.2 ) * 0.45;
-  float amp = uWindStrength * uWindScale * mul * flex;
-  vec3 dir  = vec3( uWindDir.x, 0.0, uWindDir.y );
-  vec3 side = vec3( -uWindDir.y, 0.0, uWindDir.x );
-  vec3 off = dir * ( g * amp ) + side * ( f * amp * 0.26 );
-  off.y -= abs( g ) * amp * 0.17;
-  off.y += f * amp * 0.09;
-  return off;
-}
-`;
-
-const WIND_PROJECT = /* glsl */ `
-vec4 mvPosition = vec4( transformed, 1.0 );
-#ifdef USE_BATCHING
-  mvPosition = batchingMatrix * mvPosition;
-#endif
-#ifdef USE_INSTANCING
-  mvPosition = instanceMatrix * mvPosition;
-#endif
-vec4 folWorld = modelMatrix * mvPosition;
-// Texturing samples the *rest* position: if the triplanar lookup followed the
-// sway, the leaf pattern would swim across the canopy every gust.
-vFolWPos = folWorld.xyz;
-folWorld.xyz += foliageWind( folWorld.xyz, aFlex.x, aWind.x, 0.35 + aWind.y );
-mvPosition = viewMatrix * folWorld;
-gl_Position = projectionMatrix * mvPosition;
-`;
-
-/* ---- triplanar --------------------------------------------------- */
-
-/**
- * A metaball canopy has no sane UV unwrap. Box projection — the obvious cheap
- * answer — smears badly wherever the surface normal crosses between projection
- * axes, and on a lumpy sphere that boundary runs right through the middle of
- * every silhouette, printing a topographic-map swirl across the hero asset.
- *
- * Triplanar removes it entirely, and because the lookup is in *world* space
- * every instance of the same canopy geometry samples a different part of the
- * texture, so instancing stops being visible for free.
- */
-const TRIPLANAR_DECL = /* glsl */ `
-uniform float uTriScale;
-varying vec3 vFolWPos;
-varying vec3 vFolWNrm;
-
-vec3 triBlend( vec3 n ) {
-  vec3 b = pow( abs( n ), vec3( 4.0 ) );
-  return b / max( b.x + b.y + b.z, 1e-4 );
-}
-`;
-
-const TRIPLANAR_MAP = /* glsl */ `
-{
-  vec3 bl = triBlend( vFolWNrm );
-  vec2 uvX = vFolWPos.zy * uTriScale;
-  vec2 uvY = vFolWPos.xz * uTriScale;
-  vec2 uvZ = vFolWPos.xy * uTriScale;
-  vec4 tri = texture2D( map, uvX ) * bl.x + texture2D( map, uvY ) * bl.y + texture2D( map, uvZ ) * bl.z;
-  diffuseColor *= tri;
-}
-`;
-
-const TRIPLANAR_NORMAL = /* glsl */ `
-{
-  // Whiteout blend: each plane's tangent normal is added to the world normal's
-  // in-plane components before the three are mixed, which keeps detail on faces
-  // the projection is grazing instead of washing them flat.
-  vec3 bl = triBlend( vFolWNrm );
-  vec2 uvX = vFolWPos.zy * uTriScale;
-  vec2 uvY = vFolWPos.xz * uTriScale;
-  vec2 uvZ = vFolWPos.xy * uTriScale;
-  vec3 nX = texture2D( normalMap, uvX ).xyz * 2.0 - 1.0;
-  vec3 nY = texture2D( normalMap, uvY ).xyz * 2.0 - 1.0;
-  vec3 nZ = texture2D( normalMap, uvZ ).xyz * 2.0 - 1.0;
-  nX.xy *= normalScale;
-  nY.xy *= normalScale;
-  nZ.xy *= normalScale;
-  vec3 wn = normalize( vFolWNrm );
-  nX = vec3( nX.xy + wn.zy, abs( nX.z ) * wn.x );
-  nY = vec3( nY.xy + wn.xz, abs( nY.z ) * wn.y );
-  nZ = vec3( nZ.xy + wn.xy, abs( nZ.z ) * wn.z );
-  vec3 worldN = normalize( nX.zyx * bl.x + nY.xzy * bl.y + nZ.xyz * bl.z );
-  normal = normalize( ( viewMatrix * vec4( worldN, 0.0 ) ).xyz );
-}
-`;
-
-const FOLIAGE_FRAG_DECL = /* glsl */ `
-uniform float uWrap;
-uniform vec3  uWrapTint;
-uniform vec3  uTransColor;
-uniform float uTransPower;
-uniform float uTransStrength;
-uniform float uTransDistort;
-uniform vec3  uSunDir;
-uniform float uHaloStrength;
-uniform float uHaloPower;
-uniform float uMapContrast;
-varying float vFolThick;
-`;
-
-const FOLIAGE_RE_DIRECT = /* glsl */ `
-/**
- * Wrapped-diffuse + transmissive replacement for RE_Direct_Physical.
- * directLight.color is already shadow-attenuated at the call site, so both
- * added terms respect the shadow map for free.
- */
-void RE_Direct_Foliage( const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight ) {
-
-  float dotNL = dot( geometryNormal, directLight.direction );
-
-  // Wrap: light bleeds around the limb instead of stopping dead at 90 degrees.
-  float wrapped = saturate( ( dotNL + uWrap ) / ( 1.0 + uWrap ) );
-  // The wrapped tail is light that has been *through* a leaf, so it is warmer
-  // and greener than the light that bounced off one.
-  vec3 tint = mix( uWrapTint, vec3( 1.0 ), saturate( dotNL ) );
-  vec3 irradiance = wrapped * directLight.color * tint;
-
-  // Specular keeps the hard terminator — a waxy leaf highlight should not wrap.
-  reflectedLight.directSpecular += saturate( dotNL ) * directLight.color *
-    BRDF_GGX_Multiscatter( directLight.direction, geometryViewDir, geometryNormal, material );
-
-  reflectedLight.directDiffuse += irradiance * BRDF_Lambert( material.diffuseContribution );
-
-  // Back-lit transmission (DICE approximation): a lobe pointing away from the
-  // light, smeared by the surface normal, gated by how thin the canopy is here.
-  vec3 transLight = normalize( directLight.direction + geometryNormal * uTransDistort );
-  float back = pow( saturate( dot( geometryViewDir, -transLight ) ), uTransPower );
-  float thick = vFolThick * vFolThick;
-  reflectedLight.directDiffuse += directLight.color * uTransColor *
-    ( back * uTransStrength * thick ) * material.diffuseContribution;
-}
-#undef RE_Direct
-#define RE_Direct RE_Direct_Foliage
-`;
-
-const FOLIAGE_HALO = /* glsl */ `
-#include <emissivemap_fragment>
-{
-  // Ambient forward-scatter halo. Independent of the shadow map on purpose:
-  // the sky itself is a huge source behind the canopy, so the thin outer leaves
-  // keep a faint warm glow even where the sun disc is occluded.
-  vec3 sunView = normalize( ( viewMatrix * vec4( -uSunDir, 0.0 ) ).xyz );
-  vec3 viewDirV = normalize( vViewPosition );
-  float toward = saturate( dot( -viewDirV, sunView ) );
-  float halo = pow( toward, uHaloPower ) * uHaloStrength * vFolThick;
-  totalEmissiveRadiance += uTransColor * halo * diffuseColor.rgb;
-}
-`;
-
-/* ------------------------------------------------------------------ */
-/* Material factory                                                    */
-/* ------------------------------------------------------------------ */
-
 export interface FoliageMaterialOptions {
   color: number;
   map?: THREE.Texture;
@@ -261,14 +92,14 @@ export interface FoliageMaterialOptions {
 
 /** Materials that need their wind uniforms refreshed if the weather changes. */
 const registry: {
-  uniforms: Record<string, THREE.IUniform>;
+  uniforms: Record<string, IUniform>;
   env: EnvironmentState;
 }[] = [];
 
 export function createFoliageMaterial(
   env: EnvironmentState,
   o: FoliageMaterialOptions,
-): THREE.MeshStandardMaterial {
+): FoliageNodeMaterial {
   // Optional maps are attached only when present. Passing `undefined` for a
   // texture parameter is not ignored by Three — it warns once per material,
   // which buried the console in ~20 lines of noise on every load and made real
@@ -287,17 +118,18 @@ export function createFoliageMaterial(
   if (o.normalMap) params.normalMap = o.normalMap;
   if (o.roughnessMap) params.roughnessMap = o.roughnessMap;
 
-  const mat = new THREE.MeshStandardMaterial(params);
+  const mat = new FoliageNodeMaterial(params);
+  mat.userData.windScale = o.windScale ?? 1;
   if (o.normalMap && o.normalScale !== undefined) {
     mat.normalScale.set(o.normalScale, o.normalScale);
   }
   if (o.alphaToCoverage) mat.alphaToCoverage = true;
 
-  const uniforms: Record<string, THREE.IUniform> = {
+  const uniforms: Record<string, IUniform> = {
     uWindTime: env.windTime,
     uWindDir: { value: env.windDirection.clone().normalize() },
     uWindStrength: { value: env.windStrength },
-    uWindScale: { value: o.windScale },
+    uWindScale: { value: o.windScale ?? 1 },
     uWrap: { value: o.wrap ?? 0.42 },
     uWrapTint: { value: new THREE.Color(1.06, 1.0, 0.74) },
     uTransColor: { value: new THREE.Color(o.transColor ?? 0x9ad85a) },
@@ -315,57 +147,43 @@ export function createFoliageMaterial(
   const tri = (o.triplanar ?? 0) > 0;
   const lift = !!o.map && (o.mapContrast ?? 1) < 1;
 
-  mat.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
-
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\n' + WIND_GLSL + (tri ? TRIPLANAR_DECL : ''))
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFolThick = aFlex.y;')
-      .replace('#include <project_vertex>', tri ? WIND_PROJECT : WIND_PROJECT.replace('vFolWPos = folWorld.xyz;', ''));
-
+  const nodes = bindUniforms(uniforms);
+  mat.foliageBindings = nodes;
+  const restWorld = varyingProperty('vec3');
+  mat.positionNode = foliagePosition(nodes, restWorld);
+  const thick = varying(attribute<'vec2'>('aFlex', 'vec2').y);
+  const sunView = cameraViewMatrix.mul(vec4(nodes.uSunDir.negate(),0)).xyz.normalize();
+  const halo = positionViewDirection.negate().dot(sunView).saturate().pow(nodes.uHaloPower).mul(nodes.uHaloStrength).mul(thick);
+  // colorNode bypasses materialColor; vertex and instance colors remain automatic.
+  let albedo: import('three/src/nodes/core/Node.js').default<'vec3'> = uniform(mat.color).rgb;
+  if (o.map) {
     if (tri) {
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <beginnormal_vertex>',
-        `#include <beginnormal_vertex>
-{
-  vec3 folN = objectNormal;
-  #ifdef USE_INSTANCING
-    folN = mat3( instanceMatrix ) * folN;
-  #endif
-  vFolWNrm = normalize( mat3( modelMatrix ) * folN );
-}`,
-      );
+      const wp = restWorld;
+      const wn = normalWorldGeometry;
+      const weights = wn.abs().pow(4);
+      const blend = weights.div(weights.x.add(weights.y).add(weights.z).max(0.0001));
+      const p = wp.mul(nodes.uTriScale);
+      const sample = texture(o.map,p.zy).mul(blend.x).add(texture(o.map,p.xz).mul(blend.y)).add(texture(o.map,p.xy).mul(blend.z));
+      albedo = albedo.mul(sample.rgb);
+      if (o.normalMap) {
+        const scale = uniform(mat.normalScale);
+        const nx = texture(o.normalMap,p.zy).xyz.mul(2).sub(1);
+        const ny = texture(o.normalMap,p.xz).xyz.mul(2).sub(1);
+        const nz = texture(o.normalMap,p.xy).xyz.mul(2).sub(1);
+        const x = vec3(nx.xy.mul(scale).add(wn.zy),nx.z.abs().mul(wn.x));
+        const y = vec3(ny.xy.mul(scale).add(wn.xz),ny.z.abs().mul(wn.y));
+        const z = vec3(nz.xy.mul(scale).add(wn.xy),nz.z.abs().mul(wn.z));
+        const worldN = x.zyx.mul(blend.x).add(y.xzy.mul(blend.y)).add(z.mul(blend.z)).normalize();
+        mat.normalNode = cameraViewMatrix.mul(vec4(worldN,0)).xyz.normalize();
+      }
+    } else {
+      const sample = texture(o.map);
+      mat.opacityNode = sample.a;
+      albedo = albedo.mul(lift ? mix(vec3(1),sample.rgb,nodes.uMapContrast) : sample.rgb);
     }
-
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <common>',
-        '#include <common>\n' + FOLIAGE_FRAG_DECL + (tri ? TRIPLANAR_DECL : ''),
-      )
-      .replace(
-        '#include <lights_physical_pars_fragment>',
-        '#include <lights_physical_pars_fragment>\n' + FOLIAGE_RE_DIRECT,
-      )
-      .replace('#include <emissivemap_fragment>', FOLIAGE_HALO);
-
-    if (tri) {
-      shader.fragmentShader = shader.fragmentShader
-        .replace('#include <map_fragment>', TRIPLANAR_MAP)
-        .replace('#include <normal_fragment_maps>', o.normalMap ? TRIPLANAR_NORMAL : '');
-    } else if (lift) {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <map_fragment>',
-        /* glsl */ `
-        {
-          vec4 folTexel = texture2D( map, vMapUv );
-          folTexel.rgb = mix( vec3( 1.0 ), folTexel.rgb, uMapContrast );
-          diffuseColor *= folTexel;
-        }`,
-      );
-    }
-  };
-  mat.customProgramCacheKey = () =>
-    tri ? 'foliage-tri-v1' : lift ? 'foliage-lift-v1' : 'foliage-wrap-v2';
+  }
+  mat.colorNode = albedo;
+  mat.emissiveNode = nodes.uTransColor.mul(halo).mul(diffuseColor.rgb);
 
   return mat;
 }
@@ -508,7 +326,7 @@ export interface LeafMaps {
  */
 export function leafMaps(key: string, dark: number, light: number, size = 1024): LeafMaps {
   return {
-    map: cached(`leaf.${key}.albedo`, () =>
+    map: cached(recipeKey(`leaf.${key}.albedo`, size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -534,10 +352,10 @@ export function leafMaps(key: string, dark: number, light: number, size = 1024):
         },
       }),
     ),
-    normalMap: cached(`leaf.${key}.normal`, () =>
+    normalMap: cached(recipeKey(`leaf.${key}.normal`, Math.min(size, 512), 2.4), () =>
       bakeNormalMap({ size: Math.min(size, 512), height: leafHeight }, 2.4),
     ),
-    roughnessMap: cached('leaf.rough', () =>
+    roughnessMap: cached(recipeKey('leaf.rough', 256), () =>
       bakeScalarMap(256, (u, v) => clamp(0.90 - leafHeight(u, v) * 0.22, 0, 1)),
     ),
   };
@@ -574,7 +392,7 @@ export function leafMaps(key: string, dark: number, light: number, size = 1024):
  * smaller than ~20 cm is below the VSM blur radius and would smear back to grey.
  */
 export function canopyPerforationMap(size = 256): THREE.Texture {
-  return cached('canopy.perforation', () => {
+  return cached(recipeKey('canopy.perforation', size), () => {
     const tex = bakeScalarMap(size, (u, v) => {
       const big = worley(u, v, 5, 401);
       const mid = worley(u + 0.37, v + 0.19, 9, 613);
@@ -693,7 +511,7 @@ export function barkSet(
 ): BarkMaps {
   const h = (u: number, v: number) => barkHeight(u, v, roughShare);
   return {
-    map: cached(`bark2.${key}.albedo`, () =>
+    map: cached(recipeKey(`bark2.${key}.albedo`, size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -721,8 +539,8 @@ export function barkSet(
     // coarse, unequal plates with a per-plate height offset — and cranking the
     // normal on top of a fine field was the other half of the embossed-scales
     // read: every cell got a hard rim light of its own.
-    normalMap: cached(`bark2.${key}.normal`, () => bakeNormalMap({ size, height: h }, 3.2)),
-    roughnessMap: cached(`bark2.${key}.rough`, () =>
+    normalMap: cached(recipeKey(`bark2.${key}.normal`, size, 3.2), () => bakeNormalMap({ size, height: h }, 3.2)),
+    roughnessMap: cached(recipeKey(`bark2.${key}.rough`, 256), () =>
       bakeScalarMap(256, (u, v) => clamp(0.96 - h(u, v) * 0.20, 0, 1)),
     ),
   };
@@ -742,8 +560,8 @@ export function barkSet(
  * coloured from the dirt palette so it also breaks up the turf's hue.
  */
 export function litterTexture(key: string, seed: number, twigs = 2): THREE.Texture {
-  return cached(`litter.${key}`, () => {
-    const size = 256;
+  const size = 256;
+  return cached(recipeKey(`litter.${key}`, size), () => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -833,8 +651,8 @@ export function litterTexture(key: string, seed: number, twigs = 2): THREE.Textu
  * gives ragged edges that alpha-test turns into visible crawling fringe.
  */
 export function grassCardTexture(key: string, seed: number, blades = 11): THREE.Texture {
-  return cached(`grasscard.${key}`, () => {
-    const size = 512;
+  const size = 512;
+  return cached(recipeKey(`grasscard.${key}`, size), () => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -946,8 +764,8 @@ export function leafClusterTexture(
   leaves = 15,
   scale = 1,
 ): THREE.Texture {
-  return cached(`leafcluster.${key}`, () => {
-    const size = 512;
+  const size = 512;
+  return cached(recipeKey(`leafcluster.${key}`, size), () => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -1065,8 +883,8 @@ export function leafClusterTexture(
 
 /** A single broad leaf with a visible midrib, alpha-cut. */
 export function leafCardTexture(key: string, seed: number): THREE.Texture {
-  return cached(`leafcard.${key}`, () => {
-    const size = 256;
+  const size = 256;
+  return cached(recipeKey(`leafcard.${key}`, size), () => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -1142,7 +960,7 @@ export function petalMaps(size = 256): { map: THREE.Texture; normalMap: THREE.Te
     return clamp(1 - r * 0.7 + veins * (1 - r) + tileableFbm(BLADE, u, v, 12, 3) * 0.1, 0, 1);
   };
   return {
-    map: cached('petal.albedo', () =>
+    map: cached(recipeKey('petal.albedo', size), () =>
       bakeColorMap({
         size,
         color: (u, v) => {
@@ -1154,7 +972,7 @@ export function petalMaps(size = 256): { map: THREE.Texture; normalMap: THREE.Te
         },
       }),
     ),
-    normalMap: cached('petal.normal', () => bakeNormalMap({ size: 128, height: h }, 1.1)),
+    normalMap: cached(recipeKey('petal.normal', 128, 1.1), () => bakeNormalMap({ size: 128, height: h }, 1.1)),
   };
 }
 
@@ -1288,6 +1106,68 @@ export function curvedCard(
   return geo;
 }
 
+/**
+ * A tiny 3D twig: a thin tapered stem with a handful of leaf blades fanned
+ * around its tip at different yaws and outward tilts.
+ *
+ * C2(2026-09-14 backlog):「植物……质感还是假发片」. A `curvedCard` is one
+ * plane — from any angle off its own normal it reads as paper, no matter how
+ * much the vertex-colour occlusion or the shell placement is tuned, because a
+ * plane never has a self-shadowed far side. A twig's leaves point in several
+ * directions at once, so some of them are always oblique to the camera and
+ * some are always behind others — that is the one thing a flat card cannot
+ * fake. Reserved for the outer silhouette ring of a crown (see the `volumetric`
+ * option on `shellCards`), not the whole canopy: costs roughly 3-4x a single
+ * card, so blanketing the interior would blow the triangle budget for a
+ * silhouette improvement nobody sees past the outer leaves anyway.
+ *
+ * Shares `curvedCard`'s local convention (grows from the origin along +Y) so
+ * it drops into the same placement/transform code the caller already has for
+ * single cards, and its UVs run 0..1 along both the stem and every leaf, so
+ * the caller's existing "buried root dark, exposed tip lit" gradient (keyed
+ * off `uv.y`) still lands in the right place without any twig-specific case.
+ */
+export function twigCluster(
+  stemLen: number,
+  stemR: number,
+  leafW: number,
+  leafH: number,
+  leafCount: number,
+  narrow: number,
+  rng: () => number,
+): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const stem = new THREE.CylinderGeometry(stemR * 0.35, stemR, stemLen, 4, 1, true);
+  stem.translate(0, stemLen / 2, 0);
+  parts.push(stem);
+
+  const up = new THREE.Vector3(0, 1, 0);
+  const dir = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < leafCount; i++) {
+    const yaw = (i / leafCount) * Math.PI * 2 + lerp(-0.35, 0.35, rng());
+    // >1 lies the leaf flatter (more silhouette-breaking), <1 stands it up
+    // (more depth read from a face-on angle) — mixing both is the point.
+    const spread = lerp(0.55, 1.15, rng());
+    dir.set(Math.sin(yaw) * spread, 1, Math.cos(yaw) * spread).normalize();
+    q.setFromUnitVectors(up, dir);
+    const leaf = curvedCard(
+      leafW * lerp(0.8, 1.2, rng()) * narrow,
+      leafH * lerp(0.75, 1.2, rng()),
+      leafH * 0.16,
+      0,
+      1,
+    );
+    m.compose(new THREE.Vector3(0, stemLen * lerp(0.5, 0.9, rng()), 0), q, new THREE.Vector3(1, 1, 1));
+    leaf.applyMatrix4(m);
+    parts.push(leaf);
+  }
+  const geo = mergeGeos(parts);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 /* ------------------------------------------------------------------ */
 /* Vertex colour bake                                                  */
 /* ------------------------------------------------------------------ */
@@ -1353,4 +1233,14 @@ export function bakeCanopyShading(
 
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   return thick;
+}
+
+/** Opaque canopy beauty and perforated shadow are deliberately separate. */
+export function applyCanopyShadow(material: THREE.Material): void {
+  const mat = material as FoliageNodeMaterial;
+  mat.shadowSide = THREE.DoubleSide;
+  mat.castShadowNode = Fn(() => {
+    texture(canopyPerforationMap(),uv()).g.lessThan(0.5).discard();
+    return vec4(0,0,0,1);
+  })();
 }

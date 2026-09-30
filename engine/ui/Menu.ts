@@ -6,6 +6,8 @@
  * still baking) and expose a tiny imperative API to the HUD.
  */
 
+import { COMFORT_LABELS, COMFORT_LEVELS, getComfortLevel, setComfortLevel } from '@engine/core/Comfort';
+
 /** Small DOM helper — keeps the builders below readable. */
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -19,7 +21,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 }
 
 function keycap(label: string, wide = false): HTMLElement {
-  return el('span', wide ? 'pt-key pt-key--wide' : 'pt-key', label);
+  return el('span', wide ? 'dgy-key dgy-key--wide' : 'dgy-key', label);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -42,23 +44,23 @@ export class LoadingScreen {
   private onGone: (() => void) | null = null;
 
   constructor() {
-    this.el = el('div', 'pt-overlay pt-loading');
+    this.el = el('div', 'dgy-overlay dgy-loading');
 
-    const inner = el('div', 'pt-loading__inner');
-    inner.appendChild(el('div', 'pt-mark'));
+    const inner = el('div', 'dgy-loading__inner');
+    inner.appendChild(el('div', 'dgy-mark'));
 
-    const h1 = el('h1', 'pt-title', '大观园');
+    const h1 = el('h1', 'dgy-title', '大观园');
     inner.appendChild(h1);
-    inner.appendChild(el('p', 'pt-subtitle', '红楼梦 · 程序化重建'));
+    inner.appendChild(el('p', 'dgy-subtitle', '红楼梦 · 程序化重建'));
 
-    const bar = el('div', 'pt-bar');
-    this.fill = el('div', 'pt-bar__fill');
+    const bar = el('div', 'dgy-bar');
+    this.fill = el('div', 'dgy-bar__fill');
     bar.appendChild(this.fill);
     inner.appendChild(bar);
 
-    const row = el('div', 'pt-loading__row');
-    this.stepEl = el('div', 'pt-loading__step', '正在造园…');
-    this.pctEl = el('div', 'pt-loading__pct', '0%');
+    const row = el('div', 'dgy-loading__row');
+    this.stepEl = el('div', 'dgy-loading__step', '正在造园…');
+    this.pctEl = el('div', 'dgy-loading__pct', '0%');
     row.appendChild(this.stepEl);
     row.appendChild(this.pctEl);
     inner.appendChild(row);
@@ -104,7 +106,7 @@ export class LoadingScreen {
   hide(onGone?: () => void, instant = false): void {
     if (this.done || this.finishing) return;
     this.target = 1;
-    this.stepEl.textContent = 'Welcome home';
+    this.stepEl.textContent = '园成';
     this.onGone = onGone ?? null;
 
     if (instant) {
@@ -138,7 +140,7 @@ export class LoadingScreen {
 
 /** Turns "vegetation" / "Baking terrain" into sentence-cased prose. */
 function prettyStep(label: string): string {
-  if (!label) return 'Loading…';
+  if (!label) return '正在造园…';
   const s = label.trim();
   const cased = s.charAt(0).toUpperCase() + s.slice(1);
   return /[.…!?]$/.test(cased) ? cased : `${cased}…`;
@@ -153,12 +155,12 @@ export interface LegendEntry {
 }
 
 const LEGEND: LegendEntry[] = [
-  { keys: ['W', 'A', 'S', 'D'], text: 'Move' },
-  { keys: ['Shift'], text: 'Run', wide: true },
-  { keys: ['Space'], text: 'Jump', wide: true },
-  { keys: ['Mouse'], text: 'Look', wide: true },
-  { keys: ['E'], text: 'Interact' },
-  { keys: ['Esc'], text: 'Release cursor', wide: true },
+  { keys: ['W', 'A', 'S', 'D'], text: '移动' },
+  { keys: ['Shift'], text: '跑', wide: true },
+  { keys: ['Space'], text: '跳', wide: true },
+  { keys: ['鼠标'], text: '环顾', wide: true },
+  { keys: ['E'], text: '互动' },
+  { keys: ['Esc'], text: '放开光标', wide: true },
 ];
 
 /** Which face the start card is wearing. */
@@ -202,32 +204,33 @@ export class StartCard {
   private armed = false;
 
   constructor() {
-    this.el = el('div', 'pt-overlay pt-start is-hidden is-gone');
+    this.el = el('div', 'dgy-overlay dgy-start is-hidden is-gone');
 
-    const card = el('div', 'pt-card');
-    this.eyebrow = el('div', 'pt-card__eyebrow', '红楼梦 · 第十七回');
-    this.title = el('h2', 'pt-card__title', '大观园');
+    const card = el('div', 'dgy-card');
+    this.eyebrow = el('div', 'dgy-card__eyebrow', '红楼梦 · 第十七回');
+    this.title = el('h2', 'dgy-card__title', '大观园');
     card.appendChild(this.eyebrow);
     card.appendChild(this.title);
-    card.appendChild(el('div', 'pt-card__rule'));
+    card.appendChild(el('div', 'dgy-card__rule'));
 
-    const legend = el('div', 'pt-legend');
+    const legend = el('div', 'dgy-legend');
     for (const entry of LEGEND) {
-      const row = el('div', 'pt-legend__row');
-      const keys = el('div', 'pt-legend__keys');
+      const row = el('div', 'dgy-legend__row');
+      const keys = el('div', 'dgy-legend__keys');
       for (const k of entry.keys) keys.appendChild(keycap(k, entry.wide));
       row.appendChild(keys);
-      row.appendChild(el('div', 'pt-legend__text', entry.text));
+      row.appendChild(el('div', 'dgy-legend__text', entry.text));
       legend.appendChild(row);
     }
     card.appendChild(legend);
+    card.appendChild(this.buildComfortRow());
 
-    this.cta = el('button', 'pt-cta') as HTMLButtonElement;
+    this.cta = el('button', 'dgy-cta') as HTMLButtonElement;
     this.cta.type = 'button';
     this.cta.textContent = '点击入园';
     card.appendChild(this.cta);
 
-    this.foot = el('p', 'pt-card__foot', '鼠标会被锁定,按 Esc 放开。WASD 走,Shift 跑,空格跳。');
+    this.foot = el('p', 'dgy-card__foot', '鼠标会被锁定,按 Esc 放开。WASD 走,Shift 跑,空格跳。');
     card.appendChild(this.foot);
 
     this.el.appendChild(card);
@@ -244,6 +247,35 @@ export class StartCard {
     };
     this.cta.addEventListener('click', fire);
     this.el.addEventListener('click', fire);
+  }
+
+  /**
+   * B1: 视角摇晃是否让人晕是体感，量不出来，所以给三档让用户自己走一遍选，
+   * 不在代码里替他拍板默认值该多轻。选择立即生效且持久化（见 Comfort.ts）。
+   */
+  private buildComfortRow(): HTMLElement {
+    const row = el('div', 'dgy-comfort');
+    row.appendChild(el('div', 'dgy-comfort__label', '镜头晃动'));
+    const opts = el('div', 'dgy-comfort__options');
+    const buttons: HTMLButtonElement[] = [];
+    for (const lvl of COMFORT_LEVELS) {
+      const btn = el('button', 'dgy-comfort__opt', COMFORT_LABELS[lvl]) as HTMLButtonElement;
+      btn.type = 'button';
+      btn.classList.toggle('is-active', lvl === getComfortLevel());
+      btn.addEventListener('click', (e) => {
+        // Must not bubble to the card's own click handler, which would read
+        // this as "点击入园" and dismiss the pause screen the player just
+        // opened to change this setting.
+        e.stopPropagation();
+        e.preventDefault();
+        setComfortLevel(lvl);
+        for (const b of buttons) b.classList.toggle('is-active', b === btn);
+      });
+      buttons.push(btn);
+      opts.appendChild(btn);
+    }
+    row.appendChild(opts);
+    return row;
   }
 
   get visible(): boolean {

@@ -1,0 +1,108 @@
+{
+  "region": "xiaoxiangguan",
+  "$comment": "潇湘馆。正房、后房由规则 2 从 construction.spec 生成；院墙与西曲廊是 plan 线性构件，由规则 3 生成。这里只剩散石与竹丛——它们在 plan 里没有锚点。",
+  "named": [],
+  "placements": [
+    {
+      "part": "taihu",
+      "variant": "peak4",
+      "anchor": "xiaoxiangguan.main-house",
+      "dx": -4.4,
+      "dz": 3.6,
+      "yaw": 0.4,
+      "basis": "07-14「后院墙下忽开一隙」旁的散石。位置为艺术选择。"
+    },
+    {
+      "part": "bamboo",
+      "variant": "grove",
+      "anchor": "xiaoxiangguan.main-house",
+      "dx": 4.8,
+      "dz": -8.3,
+      "basis": "17 回「千百竿翠竹遮映」。这七丛是散置件，plan 的 xiaoxiangguan.plants 只写了「竹」不写坐标。⚠️ 现坐标是按当前正房几何短期重摆的：原坐标落进正房 footprint（99-25，竹子进屋），真修法是 occupancy prepass，归单子 Z。"
+    },
+    {
+      "part": "bamboo",
+      "variant": "clump",
+      "anchor": "xiaoxiangguan.main-house",
+      "dx": -9.8,
+      "dz": 5.0,
+      "basis": "同上，17 回「千百竿翠竹遮映」。"
+    },
+    {
+      "part": "bamboo",
+      "variant": "clump",
+      "anchor": "xiaoxiangguan.main-house",
+      "dx": 0.0,
+      "dz": -6.5,
+      "basis": "同上，17 回「千百竿翠竹遮映」。"
+    },
+    {
+      "part": "bamboo",
+      "variant": "grove",
+      "anchor": "xiaoxiangguan.main-house",
+      "dx": 10.7,
+      "dz": 0.6,
+      "basis": "17 回「千百竿翠竹遮映」。⚠️ dx 从 11.1 改成 10.7(往院内挪 0.4m)——用户 2026-09-14 报「竹子穿墙」,这一丛的竿插进了潇湘馆东院墙。算法:东院墙中线 x=-91、墙基半厚 0.23 → 近侧墙面 x=-91.23;grove 的竿展开半径 2.95m(五丛种子点 2.15 + 抖动 0.25 + 丛内 spread 0.55),所以丛心至少要退到 x=-94.18,即 dx≤10.82。取 10.7 留 0.12m 余量,总共只退 0.4m——**竹仍贴着墙**,叶照样越墙,那正是「遮映」要的;不往院子中间挪。判据与门见 builder/compose/occupancy.ts 的 auditSolidVsWall。"
+    },
+    {
+      "part": "bamboo",
+      "variant": "clump",
+      "anchor": "xiaoxiangguan.main-house",
+      "dx": -12.8,
+      "dz": 5.4,
+      "basis": "同上，17 回「千百竿翠竹遮映」。"
+    },
+    {
+      "part": "bamboo",
+      "variant": "clump",
+      "anchor": "xiaoxiangguan.main-house",
+      "dx": -15.4,
+      "dz": 8.6,
+      "basis": "同上，17 回「千百竿翠竹遮映」。"
+    },
+    {
+      "part": "bamboo",
+      "variant": "clump",
+      "anchor": "xiaoxiangguan.main-house",
+      "dx": 2.4,
+      "dz": 11.0,
+      "basis": "同上，17 回「千百竿翠竹遮映」。"
+    }
+  ],
+  "clearances": [
+    {
+      "anchor": "xiaoxiangguan.main-house",
+      "dx": -0.8,
+      "dz": 0.6,
+      "hx": 9.4,
+      "hz": 6.8,
+      "tag": "潇湘馆院内(留给点名竹)",
+      "basis": "17 回「千百竿翠竹遮映」——院内的竹是点名种的(见本文件 placements 的七丛),不许散布器再往里塞树。这块地不种是一次取舍,plan 说不出来。锚在正房上:房子一挪,这块地跟着挪。"
+    }
+  ],
+  "accountedFor": [
+    {
+      "object": "xiaoxiangguan.rock-01",
+      "by": "plan.paths 里潇湘馆甬路的铺装(石子漫)",
+      "basis": "plan 给它的名字是「石子漫成甬路(羊肠一条)」,是路面做法不是石头。复验:沿 x=-105 从 z=104 采到 z=118,地表逐点都是 stone(makeTerrainField 的 surface),铺装确实已经建出来了。"
+    }
+  ],
+  "scatters": [
+    {
+      "part": "bamboo",
+      "rule": "along-path",
+      "path": "xiaoxiangguan.court-path",
+      "within": "xiaoxiangguan.courtyard-wall",
+      "offset_m": 1.3,
+      "pitch_m": 1.8,
+      "sides": "both",
+      "jitter_m": 0.35,
+      "sightline": {
+        "from": "xiaoxiangguan.moon-gate",
+        "to": "xiaoxiangguan.main-house",
+        "clear_m": 1.0
+      },
+      "basis": "07-41「一進門,只見兩邊翠竹**夾路**」。夹路是原文定死的:竹要在路的两边,不是堆在房前。开工前实测院内 2518 竿里距路轴 1.5m 内只有 6 竿、z>110.3 的那 14m 路两侧一根都没有(knowledge/docs/scenes/xiaoxiangguan.md §5)——病在位置不在数量,所以这一条**不加总量**,只沿路补。 夹多近(offset 1.3m)、丛距多少(pitch 1.8m)、抖多少(0.35m)原文都没给,是艺术选择 provenance.art:1.3m 有个物理下限顶着:石子漫的净半宽 0.59m 加上丛的竿脚散布半径 0.55m = 1.14m 是理论下限,但路面边界带着 warp 噪声不是一条直线,1.2m 实测仍在西弯顶那一带被「不许压到路面」判掉(那里路是凸弯,探针够得回路面上);1.3m 留 0.16m 余量,一个都不判。另一头是人要走得过去——两侧丛心净距 2.6m,减去丛的碰撞半径 0.4 与人的半径 0.32 还剩 0.58m 余量,自动试玩实测走得通;再远就不叫夹。 within 挂院墙:路从 z=124 起,院墙在 z=120,门外那一截不种。 现有七丛点名竹(本文件 placements)一丛不动——各有各的 basis,X-05 的遮映比按它们算。"
+    }
+  ]
+}

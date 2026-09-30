@@ -127,8 +127,7 @@ class StoneBatch {
   build(): THREE.Mesh {
     const merged = mergeGeometries(this.geos, false)!;
     for (const g of this.geos) g.dispose();
-    const mat = stoneMaterial(1);
-    mat.vertexColors = true;
+    const mat = stoneMaterial(1,true);
     const mesh = new THREE.Mesh(merged, mat);
     mesh.castShadow = true;
     mesh.receiveShadow = true;

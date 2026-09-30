@@ -12,6 +12,12 @@ import { resolve, join } from 'node:path';
 const [dirA, dirB] = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const tolArg = process.argv.indexOf('--tolerance');
 const TOL = tolArg > -1 ? Number(process.argv[tolArg + 1]) : 0.001;
+/* 单子 AO 追加:`--mean <色阶>` 换一把尺子——不数"有多少像素不一样",
+ * 而是量"平均差几个色阶"。判据形如「几何版 vs 贴图版均值 < 2 色阶」时,
+ * 原来那把尺子答不了:两张图逐像素几乎处处差 1,像素比例 99%,均值却只有 1。
+ * 默认不开,原有调用与门的行为一字不变。 */
+const meanArg = process.argv.indexOf('--mean');
+const MEAN_TOL = meanArg > -1 ? Number(process.argv[meanArg + 1]) : null;
 if (!dirA || !dirB) {
   console.error('用法: node tools/pixel-diff.mjs <dirA> <dirB> [--tolerance 0.001]');
   process.exit(2);
@@ -27,6 +33,7 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
 
 let worst = 0;
+let worstMean = 0;
 let missing = 0;
 for (const name of names) {
   const b = join(resolve(dirB), name);
@@ -36,7 +43,7 @@ for (const name of names) {
     continue;
   }
   const toUri = (p) => `data:image/png;base64,${readFileSync(p).toString('base64')}`;
-  const ratio = await page.evaluate(
+  const stat = await page.evaluate(
     async ([ua, ub]) => {
       const load = (u) =>
         new Promise((res, rej) => {
@@ -57,18 +64,37 @@ for (const name of names) {
       g.drawImage(ib, 0, 0);
       const db = g.getImageData(0, 0, c.width, c.height).data;
       let diff = 0;
+      let sum = 0;
+      let worstStep = 0;
       for (let i = 0; i < da.length; i += 4) {
         if (da[i] !== db[i] || da[i + 1] !== db[i + 1] || da[i + 2] !== db[i + 2]) diff++;
+        for (let k = 0; k < 3; k++) {
+          const d = Math.abs(da[i + k] - db[i + k]);
+          sum += d;
+          if (d > worstStep) worstStep = d;
+        }
       }
-      return diff / (c.width * c.height);
+      const px = c.width * c.height;
+      return { ratio: diff / px, mean: sum / (px * 3), worstStep };
     },
     [toUri(join(resolve(dirA), name)), toUri(b)],
   );
+  const ratio = typeof stat === 'number' ? stat : stat.ratio;
   worst = Math.max(worst, ratio);
-  const mark = ratio <= TOL ? 'ok  ' : 'DIFF';
-  console.log(`${mark} ${name.padEnd(24)} ${(ratio * 100).toFixed(4)}%`);
+  if (MEAN_TOL !== null) {
+    worstMean = Math.max(worstMean, stat.mean);
+    const ok = stat.mean <= MEAN_TOL;
+    console.log(`${ok ? 'ok  ' : 'OVER'} ${name.padEnd(24)} 均值 ${stat.mean.toFixed(3)} 色阶  最大 ${stat.worstStep}  (逐像素不同 ${(ratio * 100).toFixed(2)}%)`);
+  } else {
+    const mark = ratio <= TOL ? 'ok  ' : 'DIFF';
+    console.log(`${mark} ${name.padEnd(24)} ${(ratio * 100).toFixed(4)}%`);
+  }
 }
 await browser.close();
 
+if (MEAN_TOL !== null) {
+  console.log(`\n最大均值差 ${worstMean.toFixed(3)} 色阶，容差 ${MEAN_TOL} 色阶，缺图 ${missing} 张`);
+  process.exit(worstMean <= MEAN_TOL && missing === 0 ? 0 : 1);
+}
 console.log(`\n最大差异 ${(worst * 100).toFixed(4)}%，容差 ${(TOL * 100).toFixed(4)}%，缺图 ${missing} 张`);
 process.exit(worst <= TOL && missing === 0 ? 0 : 1);

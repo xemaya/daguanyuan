@@ -485,6 +485,139 @@
       ],
       "paramSet": "none",
       "notes": "2026-09-10 由 P1 Task 5 地形生成器实测发现;与 99-20 的 4 个越界锚点是两回事。"
+    },
+    {
+      "id": "99-25",
+      "name": "建筑 footprint 有两份真源:装配顺序与植被散布器各记一份",
+      "status": "missing",
+      "statement": "builder/compose/world.ts 的实际构建顺序是 开天→理地→引水→植树→起屋叠石:植被先于建筑散布。树不长穿门廊,只靠 builder/parts/zhiwu/vegetation.ts 里一份手抄的 FOOTPRINTS 副本避让——与建筑真实 footprint 是两份真源,建筑布局一改就可能长穿。world.ts 头注释曾声称「建筑先于植被圈地」,与事实相反(2026-09-10 已改注释记账,未动顺序:现在调顺序会让手抄副本变成唯一真源,债更深)。修法:做一道 occupancy prepass,从 plan.json + scenes/*.json 生成一份 occupancy mask,地形、植被、建筑读同一份。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "builder/compose/occupancy.ts",
+          "builder/compose/world.ts",
+          "docs/superpowers/plans/2026-09-14-z-occupancy-and-scatter.md"
+        ],
+        "keywords": [
+          "occupancy mask prepass",
+          "footprint 单一真源",
+          "植被 避让 建筑 散布"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-10 仓库卫生 review 发现;落点 P4——occupancy prepass 要等 scenes/*.json 分区数据落地才有真源可读。【2026-09-14 已销账·单子 Z】scenes/*.json 由单子 Y 落地后,本条按 statement 里写的修法做了:builder/compose/occupancy.ts 是占位的唯一真源,从 plan 的 construction.spec 编译檐口外包络 + scenes 的 clearances[],world.ts 在「植树」之前插了一步「圈地」,vegetation.ts 的手抄 FOOTPRINTS 表已删除。顺带查实手抄的那份还漏算了出檐与铺作出跳:正门真实占地 h=(10.0,6.1),手抄写的是 (7.4,3.2),树本来能长进檐下。突变测试见 tests/occupancy.test.mjs:把房子挪 3m,占位跟着走,不改任何表。条目保留不删,因为 status 字段现在只有 missing 一个取值,改它会让 check:rules 的 md/json 交叉核对失配。"
+    },
+    {
+      "id": "99-26",
+      "name": "匾额文字有三份副本,几何只读写死在代码里的那份",
+      "status": "missing",
+      "statement": "匾额文字同时存在于三处:(1) plan.json 的 regions[].buildings[].plaque;(2) plan.json 的 ...construction.options.plaque;(3) builder/parts/damu/building.ts 各预设里的字面量(如 tangSpec 的 plaque)。实际渲染只用第三处——前两处目前无人消费(construction.options 只有 platformH 被 builder/derive/qing/building.ts 读走)。2026-09-11 修正潇湘馆与蘅芜苑的匾额时暴露:改了平面真源,屏幕上不变;改了代码,真源仍错。与 99-25 的 footprint 双真源同病。修法:匾额文字由 plan.json 单一真源出,建筑预设不再写字面量;院名匾挂院门(见 07-71),所以墙类构件也要能挂匾。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/qingshi/07-honglou.md 07-37、07-75",
+          "docs/ROADMAP.md §PQ-7"
+        ],
+        "keywords": [
+          "匾额 单一真源",
+          "plan.json plaque 字段",
+          "建筑预设字面量",
+          "院名匾 挂院门"
+        ]
+      },
+      "needs": [
+        "99-25"
+      ],
+      "paramSet": "none",
+      "notes": "2026-09-11 修匾额时发现;落点 PQ-7 与 P4(scenes/*.json 落地时一并收口)。"
+    },
+    {
+      "id": "99-28",
+      "name": "一座五间 Tier A 门屋该不该走江南参数集",
+      "status": "missing",
+      "statement": "正门是五间 Tier A 门屋,现走 `fashi`(清官式)参数集,其 `Frame` 没有 `ridgeStyle` 字段;卷棚/软脊只在 `fayuan`(江南)参数集里实现(`builder/derive/fayuan/building.ts:69`)。07-76 已指出原著用江南词描述这座门(「泥鳅脊」本身就是江南脊名),要给正门上软脊须二选一:给 fashi 加 ridgeStyle 自由度,或把正门改由 fayuan 推导——后者要先裁定这条。现状是 menSpec 继续走 fashi,是绕开,没有解决。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "knowledge/docs/qingshi/07-honglou.md 07-76",
+          "builder/parts/damu/building.ts",
+          "builder/derive/fayuan/building.ts"
+        ],
+        "keywords": [
+          "menSpec fashi ridgeStyle",
+          "泥鳅脊 江南参数集",
+          "Tier A 门屋 参数集裁定"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-13 backlog B3 补记;单子 P 当时守规矩没碰 missing.rules.json,那时划给了别人,留下这条没记。"
+    },
+    {
+      "id": "99-27",
+      "name": "清式昂/蚂蚱头/撑头木的长度",
+      "status": "missing",
+      "statement": "卷二十八平身科给昂「前高叁寸、中高贰寸、宽壹寸」、蚂蚱头与撑头木「高贰寸、宽壹寸」,均不给长度。长度方向由踩数/拽架决定(每拽架 3 斗口 [01-07]),但「自正心向外几拽架、后尾入哪里」的原文句未摘入规则表;01-18 表里头昂、蚂蚱头/撑头木的 length 只能留 null。建模按装配包络推导的长度是推导值,不是原文。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "清工部《工程做法》卷二十八·平身科全文(识典古籍 JZ001)",
+          "梁思成《清式营造则例》第三章斗拱分件图",
+          "《营造算例》斗科章"
+        ],
+        "keywords": [
+          "头昂 长 拽架 斗口",
+          "蚂蚱头 撑头木 长度 卷二十八",
+          "平身科 昂 后尾 挑斡"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-14 单子 V(P3 斗拱分件)V1 补记。"
+    },
+    {
+      "id": "99-29",
+      "name": "清式栱卷杀瓣数与瓣长",
+      "status": "missing",
+      "statement": "宋式栱卷杀有明文(02-07/02-08 等:四瓣/五瓣、每瓣 3~4 分),清式卷二十八摘句只给栱的长宽高,没有卷杀分段。唯一旁证是奉先殿精测论文转述「清式规定:万三、瓜四、厢五」(万栱三瓣、瓜栱四瓣、厢栱五瓣),属二手转述不是原书句子;瓣长与卷杀曲线全缺。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "清工部《工程做法》卷二十八(栱眼/卷杀句,识典古籍 JZ001)",
+          "梁思成《清式营造则例》斗拱分件大样图",
+          "马炳坚《中国古建筑木作营造技术》斗栱章"
+        ],
+        "keywords": [
+          "栱 卷杀 瓣 清式",
+          "万三瓜四厢五 出处",
+          "瓜栱 万栱 厢栱 卷杀"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-14 单子 V(P3 斗拱分件)V1 补记;几何端的分段插值是艺术选择,记 artChoice。"
+    },
+    {
+      "id": "99-30",
+      "name": "清式升斗(十八斗/三才升/槽升)耳腰底分段与斗底收分",
+      "status": "missing",
+      "statement": "卷二十八只给十八斗 1.8/1.48/1、三才升 1.3/1.48/1、槽升 1.3/1.72/1 的长宽高;大斗那种「斗口高捌分、底高捌分、腰高肆分、斗底宽贰寸贰分」的分段,小斗没有对应摘句。宋式有 02-16 小斗通则(高 10=耳 4+平 2+欹 4、底杀 2),清式对应句未摘。",
+      "formula": "missing",
+      "whereToLook": {
+        "books": [
+          "清工部《工程做法》卷二十八·平身科(升斗各条全文,识典古籍 JZ001)",
+          "梁思成《清式营造则例》斗拱分件图"
+        ],
+        "keywords": [
+          "十八斗 耳 平 欹",
+          "三才升 槽升 斗底 收分",
+          "升 斗口 高 清式"
+        ]
+      },
+      "needs": [],
+      "paramSet": "none",
+      "notes": "2026-09-14 单子 V(P3 斗拱分件)V1 补记;几何端若按大斗比例缩放小斗分段,是艺术选择,记 artChoice。"
     }
   ]
 }

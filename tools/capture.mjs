@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 /**
  * capture.mjs — deterministic screenshot harness for visual QA.
  *
@@ -16,47 +18,16 @@
  */
 
 import { chromium } from 'playwright';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
-/**
- * The shot list.
- *
- * `pos` is the player's feet position; the harness adds eye height. `yaw` is
- * radians, 0 = facing -Z. `pitch` positive looks up. These are chosen to cover
- * every surface a reviewer needs to judge: silhouettes, material response,
- * shadow contact, foliage density, and the two hero moments (town reveal and
- * the starter table).
- */
-/*
- * Coordinates are derived from the built world, not guessed:
- *   terrain    x[-32,32]  z[-36,36]
- *   buildings  x[-13,14]  z[-19,7]     lab north (z~-14), houses z~0..6
- *   shoreline  z ~ -26 and northward
- *   treeline   x ~ +/-30
- *   lab interior floor y=-60, starter table at z=-13.4
- * Yaw convention: forward = (-sin(yaw), 0, -cos(yaw)). yaw 0 faces -Z (north).
- */
-const SHOTS = [
-  { id: 'gate_approach', pos: [2.4, 0, 33.5],  yaw: 0.08,  pitch: -0.02, desc: '园外南望正门——入园前的建立镜头。' },
-  { id: 'mound_block',   pos: [0, 0, 19.5],  yaw: 0.0,   pitch: 0.04,  desc: '刚进门,翠嶂假山迎面挡住视线(曲径通幽)。' },
-  { id: 'mound_west',    pos: [-4.4, 0, 12], yaw: -0.9,  pitch: 0.02,  desc: '绕假山西侧,石壁近看。' },
-  { id: 'pond_reveal',   pos: [-2.6, 0, 7.0], yaw: 0.15, pitch: -0.04, desc: '绕出假山豁然开朗:沁芳池与桥,全园第一眼。' },
-  { id: 'bridge_mid',    pos: [0.6, 0, -1.6], yaw: -0.4, pitch: -0.08, desc: '桥中望池面、驳岸、亭。(桥未建时站在水上)' },
-  { id: 'pond_north',    pos: [8.9, 0, -11.2], yaw: 2.6, pitch: 0.0,   desc: '池北岸(桥尾)回望亭桥与假山——反向建立镜头。' },
-  { id: 'xiaoxiang',     pos: [3.2, 0, -14.6], yaw: -0.62, pitch: 0.05, desc: '潇湘馆:进了月洞门,竹院与小三间。' },
-  { id: 'moon_gate',     pos: [8.6, 0, -11.2], yaw: 0.0,  pitch: 0.02, desc: '桥尾望潇湘馆院墙与月洞门。' },
-  { id: 'gate_plaque',   pos: [0, 0, 31.0],   yaw: 0.0,  pitch: 0.12, desc: '门前人视高抬头看「大观园」匾与开着的门。' },
-  { id: 'ting_plaque',   pos: [-1.8, 0, 6.4], yaw: -0.30, pitch: 0.10, desc: '桥头人视高看沁芳亭正面匾。' },
-  { id: 'bridge_head',   pos: [-3.6, 0, 8.6], yaw: -0.15, pitch: -0.25, desc: '南桥头:桥阶与地面的接缝。' },
-  { id: 'grass_close',   pos: [-4.0, 0, 11.0], yaw: 0.35, pitch: -0.58, desc: '低头看地面材质与接地。' },
-  { id: 'treeline',      pos: [-18.0, 0, -2.0], yaw: 1.10, pitch: 0.14, desc: '园墙外的林带与天。' },
-  { id: 'backlit',       pos: [0, 0, 4.0],    yaw: -2.57, pitch: 0.20,  desc: '逆光——bloom 与轮廓光。' },
-];
+/* 机位表搬到 tools/shot-list.mjs：profile-passes.mjs 要量的必须是这里拍的同一个机位，
+ * 两个地方各存一份必然漂。改机位改那一份，注释也在那边。 */
+import { SHOTS } from './shot-list.mjs';
 
 /**
  * Named staging routines, evaluated inside the page.
@@ -86,7 +57,7 @@ const CLEAR_DIALOGUE = () => {
 };
 
 function parseArgs(argv) {
-  const args = { out: 'shots', width: 1600, height: 900, shots: null, url: 'http://127.0.0.1:5173/', settle: 1400 };
+  const args = { out: 'shots', width: 1600, height: 900, shots: null, group: null, url: 'http://127.0.0.1:5173/garden.html', settle: 1400, readyTimeout: 150000 };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--list') args.list = true;
@@ -96,6 +67,8 @@ function parseArgs(argv) {
     else if (a === '--shots') args.shots = argv[++i].split(',').map((s) => s.trim());
     else if (a === '--url') args.url = argv[++i];
     else if (a === '--settle') args.settle = Number(argv[++i]);
+    else if (a === '--ready-timeout') args.readyTimeout = Number(argv[++i]);
+    else if (a === '--group') args.group = argv[++i];
   }
   return args;
 }
@@ -110,7 +83,10 @@ if (args.list) {
 const outDir = resolve(ROOT, args.out);
 mkdirSync(outDir, { recursive: true });
 
-const selected = args.shots ? SHOTS.filter((s) => args.shots.includes(s.id)) : SHOTS;
+let selected = args.shots ? SHOTS.filter((s) => args.shots.includes(s.id)) : SHOTS;
+// 分组机位默认不进全景轮换：不带 --shots / --group 时，行为与单子 AD 之前完全一致。
+if (args.group) selected = selected.filter((s) => s.group === args.group);
+else if (!args.shots) selected = selected.filter((s) => !s.group);
 if (selected.length === 0) {
   console.error(`No shots matched: ${args.shots?.join(',')}`);
   process.exit(1);
@@ -140,7 +116,7 @@ const page = await browser.newPage({
 
 const consoleErrors = [];
 page.on('console', (msg) => {
-  if (msg.type() === 'error') consoleErrors.push(msg.text());
+  if (msg.type() === 'error') { consoleErrors.push(msg.text()); console.error(msg.text().slice(0,1200)); }
 });
 page.on('pageerror', (err) => consoleErrors.push(`pageerror: ${err.message}`));
 
@@ -155,7 +131,8 @@ const ready = await page
   .waitForFunction(
     () => window.__GAME__ !== undefined || document.querySelector('#app pre') !== null,
     null,
-    { timeout: 150000 },
+    // 5 区入建成后(单子 BA)开页到就绪常在 150 s 上下(着色器编译),验收连拍用 --ready-timeout 300000。
+    { timeout: args.readyTimeout },
   )
   .then(() => true)
   .catch(() => false);
@@ -180,11 +157,106 @@ if (bootError) {
 // Let texture bakes, shader compiles and the first shadow update finish.
 await page.waitForTimeout(args.settle);
 
+async function freezeGame() {
+await page.evaluate(() => {
+  const e = window.__GAME__.engine;
+  e.adaptiveResolution = false;
+  e.fixedTime = 10;
+  e.governResolution = () => {};
+  const world = window.__GAME__.world;
+  const update = world.update.bind(world);
+  world.update = (dt) => { world.ctx.env.windTime.value = 10 - dt; update(dt,10); };
+  e.renderer.setPixelRatio(1);
+  e.postfx.setSize(innerWidth, innerHeight);
+});
+}
+await freezeGame();
+
+/**
+ * Warms up every pipeline the selected shots will need.
+ *
+ * WebGPU compiles render pipelines lazily, on first use of a given
+ * material/geometry/blend-mode combination. `capture.mjs` used to teleport
+ * straight into each shot and read `engine.fps` a dozen frames later — if
+ * that shot was the first to bring a given material into view, the
+ * compile stall landed inside the fps window and the manifest recorded a
+ * one-off number (e.g. 8fps) that had nothing to do with sustained
+ * rendering — after warmup, shots that read wildly low now sit in the
+ * same steady-state band as their neighbours.
+ * Doing one dry, unmeasured pass over the exact same positions first pays
+ * that one-time compile cost before any fps number is read.
+ */
+
+/**
+ * Teleport and wait until the player has actually settled on whatever they are
+ * standing on. P-25: with only two manual updates the player on a cold server
+ * lands at the outdoor ground height *under* a platform (the 台基 walk surface
+ * has not claimed them yet), and a close-up framed at a 绦环板 comes back
+ * pointing at the 槛墙 0.75 m lower. Structure numbers cannot see this. So:
+ * step the controller until |Δy| < 1e-4 for 5 consecutive updates (cap 120).
+ */
+const SETTLE_SNIPPET = ({ pos, yaw, pitch }) => {
+  const g = window.__GAME__;
+  const T = g.THREE;
+  g.player.teleport(new T.Vector3(pos[0], pos[1], pos[2]), yaw);
+  g.player.state.pitch = pitch;
+  let stable = 0;
+  let last = g.player.state.position.y;
+  for (let i = 0; i < 120 && stable < 5; i++) {
+    g.player.update(1 / 60);
+    const y = g.player.state.position.y;
+    stable = Math.abs(y - last) < 1e-4 ? stable + 1 : 0;
+    last = y;
+  }
+  g.player.state.pitch = pitch;
+  return { settledY: last, cameraY: g.engine.camera.position.y };
+};
+
+const warmupStart = Date.now();
+for (const shot of selected) {
+  await page.evaluate(SETTLE_SNIPPET, shot);
+  await page.evaluate(
+    () => new Promise((res) => { let n = 0; const s = () => (++n >= 8 ? res() : requestAnimationFrame(s)); requestAnimationFrame(s); }),
+  );
+}
+/**
+ * 单子 AQ-b0：走一遍机位**还不够**，要等到编译真的停下来。
+ *
+ * WebGPU 的 render pipeline 是首次用到某个「材质 × 几何 × 混合模式」组合时才编译的，
+ * 一次编译在这台机上是 130~400 ms 的同步停顿。逐机位 8 帧的预热只有十几帧，
+ * 停顿会**溢出到第一个真正拍摄的机位**——而 `engine.fps` 是 0.5 s 的滑动平均，
+ * 于是 `gate_approach`（永远排第一）把别人的编译停顿读成了自己的帧率：
+ * 实测同一次运行里 `warm:` 段四次停顿 166 / 312 / 393 / 132 ms，
+ * `programs` 从 390 涨到 568，而四个 `shot:` 段每帧都是 18~19 ms，一次都没抖。
+ * 这就是「`gate_approach` 33~36 fps 而其余 45~48」的全部来源，不是那个机位贵。
+ *
+ * 所以这里空转到**连续 20 帧都没有超过 40 ms 的停顿**为止（上限 4 s，超时只警告
+ * 不失败——真有一台机每帧都超 40 ms，那是它自己的事，不该让截图门红）。
+ */
+const settled = await page.evaluate(async () => {
+  const e = window.__GAME__.engine;
+  const STALL_MS = 40, QUIET = 20, CAP = 4000;
+  const t0 = performance.now();
+  let quiet = 0, last = performance.now(), stalls = 0;
+  while (quiet < QUIET && performance.now() - t0 < CAP) {
+    await new Promise((res) => requestAnimationFrame(res));
+    const now = performance.now();
+    const gap = now - last;
+    last = now;
+    if (gap > STALL_MS) { quiet = 0; stalls++; } else quiet++;
+  }
+  return { ms: Math.round(performance.now() - t0), stalls, quiet, programs: e.renderer.info.memory.programs ?? -1 };
+});
+if (settled.quiet < 20) console.log(`    (warning: 预热 ${settled.ms}ms 仍未安静下来，最后还有停顿——fps 读数会偏低)`);
+const warmupMs = Date.now() - warmupStart;
+console.log(`> warmed up ${selected.length} shot(s) in ${warmupMs}ms（含等编译停下来 ${settled.ms}ms / ${settled.stalls} 次停顿 / programs ${settled.programs}）`);
+
 const manifest = [];
 
 /** Waits until the game handle exists again after a reload. */
 async function waitForGame(timeout = 90000) {
-  await page.waitForFunction(() => window.__GAME__ !== undefined, { timeout });
+  await page.waitForFunction(() => window.__GAME__ !== undefined, null, { timeout });
+  await freezeGame();
   await page.waitForTimeout(args.settle);
 }
 
@@ -198,19 +270,7 @@ async function waitForGame(timeout = 90000) {
  */
 async function captureShot(shot, attempt = 0) {
   try {
-    await page.evaluate(
-      ({ pos, yaw, pitch }) => {
-        const g = window.__GAME__;
-        const T = g.THREE;
-        g.player.teleport(new T.Vector3(pos[0], pos[1], pos[2]), yaw);
-        g.player.state.pitch = pitch;
-        // Two manual updates: one to apply the transform, one to let any
-        // per-frame smoothing settle onto the new pose.
-        g.player.update(1 / 60);
-        g.player.update(1 / 60);
-      },
-      shot,
-    );
+    await page.evaluate(SETTLE_SNIPPET, shot);
 
     if (shot.stage && STAGES[shot.stage]) {
       // Settle BEFORE staging. A teleport into the lab lands the player at the
@@ -250,22 +310,66 @@ async function captureShot(shot, attempt = 0) {
     const buf = await page.screenshot({ type: 'png' });
     writeFileSync(resolve(outDir, `${shot.id}.png`), buf);
 
+    /*
+     * 单子 AQ-b0：帧率在**干净窗口**里现量，不读 `engine.fps` 那个 0.5 s 滑动平均。
+     *
+     * 两个数，因为它们答的是两个问题：
+     *   - `frameCostMs`：把 `Engine.frameLimit` 临时抬开之后的真实帧成本中位数。
+     *     **只有它在四镜之间有分辨力**（实测 gate_approach 3.6 / mound_block 3.8 /
+     *     grass_close 5.7 / xiaoxiang 3.7 ms）。
+     *   - `fps`：限帧仍在位时量到的帧率——也就是这台机上「一个 60 帧上限的客户端」
+     *     看到的数。headless 下 `--disable-frame-rate-limit` 让 rAF 自由跑（约 3.7 ms
+     *     一次），`frame()` 里 `timestamp - lastFrame < interval - 0.5` 这道闸于是
+     *     把节奏量化到约 22 ms，**四镜一律 45~46**——它量的是闸，不是画面。
+     *     留着它是因为 `D-25` 的 `fpsTarget` 读的是这一栏；要换成 `frameCostMs`
+     *     是验收人的判断题，不是本单自己能改的。
+     * `fpsRolling` 是旧口径，原样留着，好让两套数字能对上账。
+     */
+    const timing = await page.evaluate(async () => {
+      const e = window.__GAME__.engine;
+      const median = (a) => { const v = [...a].sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : 0; };
+      const sample = async (limit, frames) => {
+        const prev = e.frameLimit;
+        e.frameLimit = limit;
+        const gaps = [];
+        const pr = e.postfx.render.bind(e.postfx);
+        let last = performance.now();
+        e.postfx.render = (dt) => { const t0 = performance.now(); pr(dt); const t1 = performance.now(); gaps.push(t1 - last); last = t1; };
+        await new Promise((res) => { let n = 0; const s = () => (++n >= frames ? res() : requestAnimationFrame(s)); requestAnimationFrame(s); });
+        e.postfx.render = pr;
+        e.frameLimit = prev;
+        return median(gaps);
+      };
+      const capped = await sample(e.frameLimit, 90);
+      const uncapped = await sample(10000, 90);
+      return {
+        fps: capped > 0 ? Math.round(1000 / capped) : 0,
+        frameCostMs: Number(uncapped.toFixed(2)),
+        fpsRolling: Math.round(e.fps),
+      };
+    });
+
     const stats = await page.evaluate(() => {
       const g = window.__GAME__;
       const info = g.engine.renderer.info;
       return {
-        fps: Math.round(g.engine.fps),
-        drawCalls: info.render.calls,
+        cameraY: Number(g.engine.camera.position.y.toFixed(3)),
+        drawCalls: info.render.drawCalls ?? info.render.calls,
+        renderer: g.engine.backend ?? 'webgl-legacy',
+        statisticsVersion: g.engine.statisticsVersion ?? 1,
+        statisticsScope: g.engine.statisticsVersion ? 'all-frame-submissions' : 'shadow-plus-main',
         triangles: info.render.triangles,
         textures: info.memory.textures,
         geometries: info.memory.geometries,
-        programs: info.programs ? info.programs.length : 0,
+        programs: info.memory.programs ?? info.programs?.length ?? null,
+        sceneSubmissions: g.engine.postfx.sceneStats,
+        frameSubmissions: g.engine.postfx.frameStats,
       };
     });
 
-    manifest.push({ ...shot, file: `${args.out}/${shot.id}.png`, stats });
+    manifest.push({ ...shot, file: `${args.out}/${shot.id}.png`, stats: { ...timing, ...stats } });
     console.log(
-      `  ${shot.id.padEnd(16)} ${stats.drawCalls} calls  ${(stats.triangles / 1000).toFixed(0)}k tris  ${stats.fps} fps`,
+      `  ${shot.id.padEnd(16)} ${stats.drawCalls} calls  ${(stats.triangles / 1000).toFixed(0)}k tris  ${timing.fps} fps  ${timing.frameCostMs}ms/帧(不限帧)`,
     );
   } catch (err) {
     const reloaded = /Execution context was destroyed|Target closed|detached/i.test(String(err));
@@ -282,7 +386,48 @@ for (const shot of selected) {
   await captureShot(shot);
 }
 
-writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ shots: manifest, consoleErrors }, null, 2));
+const constructions = await page.evaluate(() =>
+  window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.constructions ?? []);
+// 单子 AD · 第一档对账：世界自报建成了哪几个区，对账门拿它当分母，不另抄一份区名。
+const builtRegions = await page.evaluate(() =>
+  window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.builtRegions ?? []);
+// 单子 AA:地面精度(CELL / cm per texel / 窗口 / 顶点数)由世界自报,门拿它比。
+const terrain = await page.evaluate(() =>
+  window.__GAME__.engine.scene.getObjectByName('Terrain')?.userData.resolution ?? null);
+const rendering = await page.evaluate(() => {
+  const e = window.__GAME__.engine;
+  return { backend: e.backend ?? 'webgl-legacy', statisticsVersion: e.statisticsVersion ?? 1,
+    viewport: [innerWidth,innerHeight], pixelRatio: e.renderer.getPixelRatio(), quality: e.quality.name,
+    fixedTime: e.fixedTime, adaptiveResolution: e.adaptiveResolution, bootTimings: window.__GAME__.bootTimings };
+});
+rendering.warmupMs = warmupMs;
+rendering.fpsMethodology = 'measured after a dry warmup pass over the same shots, so lazy pipeline-compile stalls (WebGPU) land before any fps read, not inside it';
+const buildMs = await page.evaluate(() => window.__GAME__.world.buildDurationMs);
+const linears = await page.evaluate(() => window.__GAME__.engine.scene.getObjectByName('Garden')?.userData.linears ?? []);
+const entry=resolve(ROOT,'artifacts/wg-current/dist/garden.html');
+const source={gitHead:execFileSync('git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim(),
+  buildEntrySha256:existsSync(entry)?createHash('sha256').update(readFileSync(entry)).digest('hex'):null,
+  buildMtime:existsSync(entry)?statSync(entry).mtime.toISOString():null};
+const geometry=await page.evaluate(async()=>{
+ const hash=async array=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array(array.buffer,array.byteOffset,array.byteLength)))).map(x=>x.toString(16).padStart(2,'0')).join('');
+ const seen=new Set(), geometries=[],transforms=[];let meshes=0,instances=0;
+ window.__GAME__.engine.scene.updateMatrixWorld(true);
+ const pending=[];
+ window.__GAME__.engine.scene.traverse(o=>{
+  if(!o.isMesh)return;meshes++;
+  const g=o.geometry;
+  if(!seen.has(g)){seen.add(g);pending.push((async()=>{const pos=g.attributes.position.array;geometries.push({vertices:g.attributes.position.count,indices:g.index?.count??0,position:await hash(pos),index:g.index?await hash(g.index.array):null})})())}
+  const matrices=[];
+  if(o.isInstancedMesh){const a=o.instanceMatrix.array;instances+=a.length/16;for(let i=0;i<a.length;i+=16)matrices.push(Array.from(a.slice(i,i+16)).join(','));matrices.sort()}
+  transforms.push(JSON.stringify({name:o.name,world:o.matrixWorld.elements,matrices}));
+ });
+ await Promise.all(pending);geometries.sort((a,b)=>a.position.localeCompare(b.position));transforms.sort();
+ const encoded=new TextEncoder().encode(JSON.stringify({geometries,transforms}));
+ return{meshes,uniqueGeometries:geometries.length,instanceCapacity:instances,geometryAndTransformsSha256:await hash(encoded)};
+});
+writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify({ source, shots: manifest, consoleErrors, constructions, builtRegions, terrain, linears, buildMs, rendering, geometry }, null, 2));
+if(rendering.statisticsVersion>=2){const expected=new URL(args.url).searchParams.get('backend')==='webgl2'?'webgl2':'webgpu';if(rendering.backend!==expected){console.error(`Expected ${expected}, received ${rendering.backend}`);process.exitCode=1}}
+
 
 if (consoleErrors.length) {
   console.log(`\n${consoleErrors.length} console error(s):`);
@@ -291,3 +436,5 @@ if (consoleErrors.length) {
 
 await browser.close();
 console.log(`\nWrote ${manifest.length} shot(s) to ${args.out}/`);
+
+if (consoleErrors.length) process.exitCode = 1;

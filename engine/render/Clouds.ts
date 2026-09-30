@@ -1,4 +1,6 @@
-import * as THREE from 'three';
+import { Fn, attribute, positionGeometry, positionLocal, modelWorldMatrix, modelWorldMatrixInverse, cameraPosition, vec2, vec3, vec4, uv, varying, uniform, texture, sin, mix, smoothstep as nodeSmoothstep, max, varyingProperty } from 'three/tsl';
+import { mrt, float } from 'three/tsl';
+import * as THREE from 'three/webgpu';
 import { makeRng, rangeOf, fbm2, smoothstep, clamp, lerp } from '@engine/core/Noise';
 import { NOISE, hexToRgb } from '@engine/core/TextureLab';
 
@@ -29,6 +31,13 @@ import { NOISE, hexToRgb } from '@engine/core/TextureLab';
 
 const TILE = 512;
 const ATLAS = TILE * 2;
+
+/**
+ * Angular drift of the whole cloud shell (rad/s of yaw). The ground shadow
+ * map counter-rotates by the same angle, so shade patches track the clouds
+ * exactly — the one thing a scrolling noise texture can never do.
+ */
+export const CLOUD_DRIFT_RATE = 0.0016;
 
 interface Blob {
   x: number;
@@ -153,8 +162,12 @@ function fitToBox(blobs: Blob[], box: [number, number, number, number]): number 
 /**
  * Bakes the 2x2 cloud atlas. Returns an sRGB RGBA texture; alpha carries the
  * silhouette, rgb carries pre-shaded volume.
+ *
+ * `volume` (单子 W3 档 2 的对照开关,默认 0 = 现状逐像素不变)deepens the
+ * baked-in self-shadowing and pushes the translucent rim, giving the puffs
+ * more internal depth without touching the silhouette or the runtime shader.
  */
-export function bakeCloudAtlas(seed: number): THREE.Texture {
+export function bakeCloudAtlas(seed: number, volume = 0): THREE.Texture {
   const canvas = document.createElement('canvas');
   canvas.width = ATLAS;
   canvas.height = ATLAS;
@@ -269,7 +282,9 @@ export function bakeCloudAtlas(seed: number): THREE.Texture {
         // Wrapped diffuse — clouds scatter light around the terminator rather
         // than falling to black, which is exactly the soft look we want.
         const wrapped = clamp((ndl + 0.38) / 1.38, 0, 1);
-        const shaped = smoothstep(0.10, 0.93, wrapped);
+        // 档 2: a tighter ramp leaves more of each puff in shade, so the domes
+        // read as overlapping volumes rather than one fused mound.
+        const shaped = smoothstep(0.10 + volume * 0.05, 0.93 - volume * 0.07, wrapped);
 
         let r = lerp(SHADE[0], LIT[0], shaped);
         let g = lerp(SHADE[1], LIT[1], shaped);
@@ -278,7 +293,9 @@ export function bakeCloudAtlas(seed: number): THREE.Texture {
         // Self-shadowing from the puffs above, confined to the lower third so
         // the body of the cloud stays bright, then sky bounce back into the
         // base so the underside is blue rather than dirty.
-        const hRel = smoothstep(base - 0.01, base + (rec.box[3] - rec.box[2]) * 0.42, w0);
+        // 档 2: pow < 1 widens the shadowed band upward, so stacked puffs cast
+        // onto their neighbours instead of only darkening the base chord.
+        const hRel = Math.pow(smoothstep(base - 0.01, base + (rec.box[3] - rec.box[2]) * 0.42, w0), 1 - volume * 0.40);
         r = lerp(DEEP[0], r, hRel);
         g = lerp(DEEP[1], g, hRel);
         b = lerp(DEEP[2], b, hRel);
@@ -299,7 +316,8 @@ export function bakeCloudAtlas(seed: number): THREE.Texture {
         const rimBand = smoothstep(0.03, 0.22, dC) * (1 - smoothstep(0.24, 0.85, dC));
         // Weighted by coverage so the warm tint never paints into the
         // near-transparent fringe, where it would read as a pink outline.
-        const rimAmt = rimBand * (0.16 + (1 - shaped) * 0.42) * smoothstep(0.02, 0.30, dC);
+        // 档 2: a stronger rim sells light travelling *through* the shell.
+        const rimAmt = rimBand * (0.16 + (1 - shaped) * 0.42) * smoothstep(0.02, 0.30, dC) * (1 + volume * 0.55);
         r = lerp(r, RIM[0], rimAmt);
         g = lerp(g, RIM[1], rimAmt);
         b = lerp(b, RIM[2], rimAmt);
@@ -335,6 +353,126 @@ export function bakeCloudAtlas(seed: number): THREE.Texture {
 }
 
 /* ------------------------------------------------------------------ */
+/* Cloud shadows (W1)                                                  */
+/* ------------------------------------------------------------------ */
+
+interface PlacedCloud {
+  pos: THREE.Vector3;
+  size: number;
+  variant: number;
+  bright: number;
+  phase: number;
+  flip: number;
+  squash: number;
+  d: number;
+}
+
+export interface CloudShadowMap {
+  texture: THREE.Texture;
+  /** Half-size (m) of the world XZ square the texture covers, centred on the origin. */
+  extent: number;
+}
+
+/**
+ * Bakes a low-frequency occlusion map of the cloud layer projected onto the
+ * ground plane. Clouds ride a shell 70–370 m up, far beyond the shadow
+ * camera's useful range, so a real shadow map would shatter; a baked blob per
+ * cloud, displaced along the sun ray and softened to two tiers (a dense core
+ * inside a wide faint skirt), is all the eye can verify from the ground.
+ *
+ * The map is baked for shell yaw 0; the consumer counter-rotates world XZ by
+ * `windTime * CLOUD_DRIFT_RATE` before sampling, which keeps every patch
+ * glued to its cloud. Texel = ~3.4 m at 384² over ±660 m — deliberately
+ * coarse: this is a light-level modulation, not an occluder.
+ */
+export function bakeCloudShadow(placed: readonly PlacedCloud[], toSun: THREE.Vector3): CloudShadowMap {
+  const SIZE = 384;
+  const EXTENT = 660;
+  const acc = new Float32Array(SIZE * SIZE);
+
+  const worldFromPixel = (px: number) => ((px + 0.5) / SIZE) * 2 * EXTENT - EXTENT;
+
+  for (const p of placed) {
+    // Slide the cloud centre down the sun ray to y = 0.
+    const t = p.pos.y / toSun.y;
+    const gx = p.pos.x - toSun.x * t;
+    const gz = p.pos.z - toSun.z * t;
+
+    // Two tiers: a tight core that carries most of the darkening, inside a
+    // wide faint skirt that reads as the soft outer penumbra. Higher clouds
+    // get a slightly broader skirt (longer light path, more scatter).
+    const coreR = p.size * 0.40;
+    const skirtR = p.size * 0.50 + p.pos.y * 0.04;
+    // Bigger, taller masses block more light; small scatter puffs barely shade.
+    const peak = clamp(0.42 + p.size / 420, 0.42, 0.85);
+
+    const x0 = Math.max(0, Math.floor(((gx - skirtR) + EXTENT) / (2 * EXTENT) * SIZE));
+    const x1 = Math.min(SIZE - 1, Math.ceil(((gx + skirtR) + EXTENT) / (2 * EXTENT) * SIZE));
+    const z0 = Math.max(0, Math.floor(((gz - skirtR) + EXTENT) / (2 * EXTENT) * SIZE));
+    const z1 = Math.min(SIZE - 1, Math.ceil(((gz + skirtR) + EXTENT) / (2 * EXTENT) * SIZE));
+    for (let pz = z0; pz <= z1; pz++) {
+      const wz = worldFromPixel(pz);
+      for (let px = x0; px <= x1; px++) {
+        const wx = worldFromPixel(px);
+        const dd = Math.hypot(wx - gx, wz - gz);
+        const skirt = smoothstep(skirtR, skirtR * 0.45, dd) * 0.25;
+        const core = smoothstep(coreR, coreR * 0.30, dd) * 0.75;
+        const a = peak * (skirt + core);
+        const idx = pz * SIZE + px;
+        if (a > acc[idx]) acc[idx] = Math.min(a, 1); // max-composite: overlaps never double-darken
+      }
+    }
+  }
+
+  // Two box-blur passes kill texel quantisation; the map is meant to be felt
+  // as a slow change in daylight, never as a shape with an edge.
+  const blur = new Float32Array(acc.length);
+  for (let passN = 0; passN < 2; passN++) {
+    const src = passN === 0 ? acc : blur;
+    const dst = passN === 0 ? blur : acc;
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        let sum = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = clamp(y + dy, 0, SIZE - 1);
+          for (let dx = -1; dx <= 1; dx++) sum += src[yy * SIZE + clamp(x + dx, 0, SIZE - 1)];
+        }
+        dst[y * SIZE + x] = sum / 9;
+      }
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx2d = canvas.getContext('2d')!;
+  const img = ctx2d.createImageData(SIZE, SIZE);
+  for (let py = 0; py < SIZE; py++) {
+    // Canvas row 0 is the top of the image; with flipY that is v = 1, which
+    // the shader maps to z = +extent — so row 0 bakes the +Z edge.
+    const pz = SIZE - 1 - py;
+    for (let px = 0; px < SIZE; px++) {
+      const v = acc[pz * SIZE + px] * 255;
+      const i = (py * SIZE + px) * 4;
+      img.data[i] = v;
+      img.data[i + 1] = v;
+      img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx2d.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.NoColorSpace; // data map, not imagery
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.needsUpdate = true;
+  return { texture: tex, extent: EXTENT };
+}
+
+/* ------------------------------------------------------------------ */
 /* Cloud layer                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -344,135 +482,65 @@ export interface CloudLayerOptions {
   hazeColor: THREE.Color;
   /** Linear-space multiplier; clouds sit slightly hot so they bloom at the rim. */
   exposure: number;
+  /** Direction from the world origin *toward* the sun; used to project the shadow map. */
+  sunDir: THREE.Vector3;
+  /** 单子 W3 档 2 对照开关:0 = 现状(默认),1 = 球团加体积感(自阴影加深、透光边加强)。 */
+  volume?: number;
 }
 
 export interface CloudLayer {
   group: THREE.Group;
   mesh: THREE.InstancedMesh;
-  material: THREE.ShaderMaterial;
+  material: THREE.MeshBasicNodeMaterial;
+  /** Baked ground occlusion for this exact arrangement (W1). */
+  shadow: CloudShadowMap;
   update: (windTime: number) => void;
 }
 
-const CLOUD_VERT = /* glsl */ `
-  attribute vec2 aScale;
-  attribute vec2 aUvOff;
-  attribute vec3 aMisc;   // x brightness, y phase, z flipX
-
-  uniform float uTime;
-  uniform vec2  uUvInset;   // x = margin, y = usable span
-
-  varying vec2  vUv;
-  varying float vBright;
-  varying float vFade;
-
-  void main() {
-    vec3 center = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-    vec3 toCam = cameraPosition - center;
-    float dist = max(length(toCam), 1e-4);
-    vec3 f = toCam / dist;
-
-    // Y-locked billboard: the quad yaws to face the camera but never rolls,
-    // so cloud bases stay horizontal however the player turns.
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), f));
-    vec3 up = normalize(cross(f, right));
-
-    // Very slow convective breathing keeps a static sky from feeling like a
-    // matte painting.
-    float breathe = 1.0 + sin(uTime * 0.11 + aMisc.y) * 0.024;
-    float squash = 1.0 - sin(uTime * 0.09 + aMisc.y * 1.7) * 0.018;
-
-    vec2 p = position.xy * aScale * breathe;
-    p.y *= squash;
-    p.x *= aMisc.z;
-
-    vec3 world = center + right * p.x + up * p.y;
-
-    // Inset by a texel so bilinear taps can never reach the neighbouring
-    // atlas tile, which otherwise streaks a hairline across the sprite.
-    vUv = aUvOff + uUvInset.x + uv * uUvInset.y;
-    vBright = aMisc.x;
-
-    // Elevation above the viewer, used to sink low clouds into the haze band.
-    float el = (center.y - cameraPosition.y) / dist;
-    vFade = smoothstep(0.004, 0.085, el);
-
-    gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
-  }
-`;
-
-const CLOUD_FRAG = /* glsl */ `
-  precision highp float;
-
-  uniform sampler2D uMap;
-  uniform vec3  uHaze;
-  uniform vec3  uSunTint;
-  uniform float uExposure;
-  uniform float uOpacity;
-
-  varying vec2  vUv;
-  varying float vBright;
-  varying float vFade;
-
-  void main() {
-    vec4 t = texture2D(uMap, vUv);
-    if (t.a < 0.003) discard;
-
-    vec3 col = t.rgb * vBright * uExposure;
-    // Warm the sunlit highlights a touch; the bake stays neutral so a single
-    // atlas can serve any time of day.
-    col *= mix(vec3(1.0), uSunTint, smoothstep(0.62, 1.0, max(t.r, max(t.g, t.b))));
-    // Aerial perspective: clouds low on the horizon dissolve into the haze.
-    col = mix(uHaze, col, 0.34 + 0.66 * vFade);
-
-    float a = t.a * uOpacity * (0.58 + 0.42 * vFade);
-    gl_FragColor = vec4(col, a);
-  }
-`;
-
 export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
-  const { seed, count, hazeColor, exposure } = opts;
+  const { seed, count, hazeColor, exposure, sunDir } = opts;
   const rng = makeRng(seed ^ 0x5c10d);
 
-  const atlas = bakeCloudAtlas(seed);
+  const atlas = bakeCloudAtlas(seed, opts.volume ?? 0);
 
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      uMap: { value: atlas },
-      uHaze: { value: hazeColor.clone() },
-      uSunTint: { value: new THREE.Color(1.07, 1.02, 0.93) },
-      uExposure: { value: exposure },
-      uOpacity: { value: 1.0 },
-      uTime: { value: 0 },
-      uUvInset: { value: new THREE.Vector2(1.5 / (TILE * 2), 0.5 - 3.0 / (TILE * 2)) },
-    },
-    vertexShader: CLOUD_VERT,
-    fragmentShader: CLOUD_FRAG,
-    transparent: true,
-    depthWrite: false,
-    // Depth *test* stays on so terrain and trees correctly occlude the sky
-    // layer; depth write stays off so clouds never fight each other.
-    depthTest: true,
-    side: THREE.DoubleSide,
-    fog: false,
-    toneMapped: false,
-    blending: THREE.NormalBlending,
+  const clock = uniform(0);
+  const material = new THREE.MeshBasicNodeMaterial({
+    transparent: true, depthWrite: false, depthTest: true, side: THREE.DoubleSide, fog: false,
   });
+  const miscNode = attribute<'vec3'>('aMisc', 'vec3');
+  // positionLocal has already received instanceMatrix in NodeMaterial.setupPosition.
+  // The instance translation is recovered by subtracting the unit quad position.
+  const centre = modelWorldMatrix.mul(vec4(positionLocal.sub(positionGeometry), 1)).xyz;
+  const toCam = cameraPosition.sub(centre);
+  const distance = toCam.length().max(0.0001);
+  const forward = toCam.div(distance);
+  const right = vec3(0, 1, 0).cross(forward).normalize();
+  const up = forward.cross(right).normalize();
+  const breathe = sin(clock.mul(0.11).add(miscNode.y)).mul(0.024).add(1);
+  const squash = sin(clock.mul(0.09).add(miscNode.y.mul(1.7))).mul(-0.018).add(1);
+  const quad = positionGeometry.xy.mul(attribute<'vec2'>('aScale', 'vec2')).mul(breathe).mul(vec2(miscNode.z,squash));
+  const fade = varyingProperty('float');
+  material.positionNode = Fn(() => {
+    fade.assign(nodeSmoothstep(0.004,0.085,centre.y.sub(cameraPosition.y).div(distance)));
+    return modelWorldMatrixInverse.mul(vec4(centre.add(right.mul(quad.x)).add(up.mul(quad.y)),1)).xyz;
+  })();
+  const bright = varying(miscNode.x);
+  const tileUV = varying(attribute<'vec2'>('aUvOff', 'vec2').add(1.5/(TILE*2)).add(uv().mul(0.5-3/(TILE*2))));
+  const texel = texture(atlas,tileUV);
+  material.colorNode = Fn(() => {
+    texel.a.lessThan(0.003).discard();
+    const warm = mix(vec3(1),vec3(1.07,1.02,0.93),nodeSmoothstep(0.62,1,max(texel.r,max(texel.g,texel.b))));
+    return mix(uniform(hazeColor.clone()),texel.rgb.mul(bright).mul(exposure).mul(warm),fade.mul(0.66).add(0.34));
+  })();
+  material.opacityNode = texel.a.mul(fade.mul(0.42).add(0.58));
+  // Transparent color blends normally; preserve opaque MRT normals underneath.
+  // AO belongs to opaque radiance: transparent coverage attenuates AO without writing depth.
+  material.mrtNode = mrt({ normal: vec4(0,0,0,0), aoMask: vec4(0,0,0,float(material.opacityNode as import('three/src/nodes/core/Node.js').default<'float'>)) });
   material.name = 'CloudBillboard';
 
   const geo = new THREE.PlaneGeometry(1, 1, 1, 1);
 
-  interface Placed {
-    pos: THREE.Vector3;
-    size: number;
-    variant: number;
-    bright: number;
-    phase: number;
-    flip: number;
-    squash: number;
-    d: number;
-  }
-
-  const placed: Placed[] = [];
+  const placed: PlacedCloud[] = [];
 
   /** Azimuth is measured from due north (-Z), turning east. */
   const push = (az: number, el: number, r: number, size: number, variant: number) => {
@@ -579,11 +647,12 @@ export function buildCloudLayer(opts: CloudLayerOptions): CloudLayer {
     group,
     mesh,
     material,
+    shadow: bakeCloudShadow(placed, sunDir),
     update: (windTime: number) => {
-      material.uniforms.uTime.value = windTime;
+      clock.value = windTime;
       // Whole-shell yaw. At 200-400 m this reads as slow lateral drift with no
       // wrap-around pop, and costs one matrix update per frame.
-      group.rotation.y = windTime * 0.0016;
+      group.rotation.y = windTime * CLOUD_DRIFT_RATE;
     },
   };
 }

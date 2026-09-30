@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="data:," />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>大观园</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <style>
+      /* 匾额用字(单子 AW2,2026-09-17)。AR PL UKai(文鼎 PL 中楷),Arphic Public
+         License,子集 31KB——授权、来源与「plan 加了新匾怎么重做子集」写在
+         public/fonts/README.md。
+         URL 必须是相对的:BASE=/daguanyuan/ 构建时 garden.html 在 /daguanyuan/ 下,
+         写成 /fonts/... 就会去站点根目录找,404 后静默回落系统楷体。 */
+      @font-face {
+        font-family: "AR PL UKai";
+        src: url(fonts/ARPLUKai-plaque-subset.woff2) format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+      :root { color-scheme: dark; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0d10; }
+      body { font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif; }
+      #app { position: fixed; inset: 0; }
+      canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/projects/daguanyuan/main.ts"></script>
+  </body>
+</html>

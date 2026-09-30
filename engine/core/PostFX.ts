@@ -1,150 +1,13 @@
-import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
-import { Pass } from 'three/addons/postprocessing/Pass.js';
+import * as THREE from 'three/webgpu';
+import { pass, mrt, output, normalViewGeometry, frontFacing, negateOnBackSide, vec4, vec3, vec2, mix, convertToTexture, uniform, Fn, float, If, uv, smoothstep, screenSize, exp, cos, sin, pow, clamp, dot, normalize, max, texture } from 'three/tsl';
+import { ao } from 'three/addons/tsl/display/GTAONode.js';
+import { denoise } from 'three/addons/tsl/display/DenoiseNode.js';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { smaa } from 'three/addons/tsl/display/SMAANode.js';
+import type NodeBuilder from 'three/src/nodes/core/NodeBuilder.js';
+import type Node from 'three/src/nodes/core/Node.js';
+import { gradeNode, encodeOutputNode } from '../render/nodes/grade';
 import type { Engine, QualityTier } from './Engine';
-
-export interface RenderStats {
-  calls: number;
-  triangles: number;
-}
-
-/**
- * A zero-cost pass that exists only to bracket the scene render so we can read
- * `renderer.info` for it alone.
- *
- * `renderer.info` auto-resets at the start of every `render()` call, and a
- * composer frame ends with a fullscreen quad — so anything sampling the info
- * object after the frame sees "1 draw call, 0 triangles" no matter how heavy
- * the world is. Bracketing gives the number everyone actually means by
- * "draw calls": the shadow map plus the main scene pass.
- */
-class StatsProbe extends Pass {
-  constructor(private readonly fn: () => void) {
-    super();
-    this.needsSwap = false;
-  }
-  render(): void {
-    this.fn();
-  }
-}
-
-/**
- * Renders the scene once into a view-space normal + depth G-buffer.
- *
- * This exists so the frame contains exactly *one* geometry prepass instead of
- * two. GTAO needs normals+depth; the grade pass's DOF needs depth. Both used to
- * pay for their own full scene traversal, and the DOF one was the expensive
- * kind — it ran with the real materials, which also dragged three's
- * transmission pass along behind it and rendered the whole town a *fourth*
- * time. Rendering once with an override material and handing the result to both
- * consumers costs one cheap traversal and is bit-identical to what GTAOPass
- * produced for itself (same MeshNormalMaterial, same target format, same clear).
- *
- * The override material is also what makes this cheap: `renderTransmissionPass`
- * returns early when `scene.overrideMaterial` is set, so this pass cannot
- * trigger the duplicate opaque render that a normal `render()` does.
- */
-class GBufferPass extends Pass {
-  readonly target: THREE.WebGLRenderTarget;
-  readonly depthTexture: THREE.DepthTexture;
-
-  /** Matches GTAOPass's own G-buffer material exactly. */
-  private readonly overrideMaterial = new THREE.MeshNormalMaterial();
-  private readonly clearColor = new THREE.Color(0x7777ff);
-  private readonly prevClear = new THREE.Color();
-  private readonly hidden: THREE.Object3D[] = [];
-
-  /** Set false when neither AO nor DOF needs the buffer this frame. */
-  wanted = true;
-
-  constructor(
-    private readonly scene: THREE.Scene,
-    private readonly camera: THREE.Camera,
-    width: number,
-    height: number,
-  ) {
-    super();
-    this.needsSwap = false;
-
-    // Format copied from GTAOPass.setGBuffer()'s internal branch so that
-    // handing this to the pass changes nothing about how it samples.
-    this.depthTexture = new THREE.DepthTexture(width, height);
-    this.depthTexture.format = THREE.DepthStencilFormat;
-    this.depthTexture.type = THREE.UnsignedInt248Type;
-
-    this.target = new THREE.WebGLRenderTarget(width, height, {
-      minFilter: THREE.NearestFilter,
-      magFilter: THREE.NearestFilter,
-      type: THREE.HalfFloatType,
-      depthTexture: this.depthTexture,
-    });
-  }
-
-  setSize(width: number, height: number): void {
-    this.target.setSize(width, height);
-  }
-
-  render(renderer: THREE.WebGLRenderer): void {
-    if (!this.wanted) return;
-
-    const prevTarget = renderer.getRenderTarget();
-    const prevAutoClear = renderer.autoClear;
-    renderer.getClearColor(this.prevClear);
-    const prevAlpha = renderer.getClearAlpha();
-
-    // Points and lines have no meaningful surface normal; GTAOPass hides them
-    // for its own prepass and the AO result depends on that.
-    this.scene.traverse((o) => {
-      const any = o as THREE.Object3D & { isPoints?: boolean; isLine?: boolean };
-      if ((any.isPoints || any.isLine) && o.visible) {
-        o.visible = false;
-        this.hidden.push(o);
-      }
-    });
-
-    renderer.setRenderTarget(this.target);
-    renderer.autoClear = false;
-    renderer.setClearColor(this.clearColor, 1.0);
-    renderer.clear();
-
-    this.scene.overrideMaterial = this.overrideMaterial;
-    renderer.render(this.scene, this.camera);
-    this.scene.overrideMaterial = null;
-
-    for (const o of this.hidden) o.visible = true;
-    this.hidden.length = 0;
-
-    renderer.autoClear = prevAutoClear;
-    renderer.setClearColor(this.prevClear, prevAlpha);
-    renderer.setRenderTarget(prevTarget);
-  }
-
-  dispose(): void {
-    this.target.dispose();
-    this.overrideMaterial.dispose();
-  }
-}
-
-/**
- * PostFX — the look.
- *
- * The chain runs entirely in HDR (half-float targets) so bloom sees real
- * over-range values, and only the final GradePass converts to display sRGB.
- * That ordering is what gives the sunlight its soft bloom falloff instead of
- * the muddy grey halo you get bloom-after-tonemap.
- *
- *   Render (HDR, MSAA)
- *     -> GTAO          contact shadows in creases and under foliage
- *     -> Bloom         HDR highlight bleed
- *     -> Grade         DOF-lite + ACES + film curve + vignette + grain + CA
- *     -> SMAA          edge antialias on the final LDR image
- */
-
 export interface GradeSettings {
   exposure: number;
   contrast: number;
@@ -160,219 +23,81 @@ export interface GradeSettings {
   dofStrength: number;
 }
 
-const GradeShader = {
-  name: 'GradeShader',
-  uniforms: {
-    tDiffuse: { value: null as THREE.Texture | null },
-    tDepth: { value: null as THREE.Texture | null },
-    uResolution: { value: new THREE.Vector2(1, 1) },
-    uExposure: { value: 1.0 },
-    uContrast: { value: 1.06 },
-    uSaturation: { value: 1.12 },
-    uLift: { value: new THREE.Color(0.02, 0.035, 0.07) },
-    uGain: { value: new THREE.Color(1.03, 1.005, 0.96) },
-    uVignette: { value: 0.34 },
-    uGrain: { value: 0.018 },
-    uChromatic: { value: 0.0016 },
-    uTime: { value: 0 },
-    uDofFar: { value: 55.0 },
-    uDofStrength: { value: 1.0 },
-    uCameraNear: { value: 0.06 },
-    uCameraFar: { value: 600.0 },
-    uEnableDof: { value: 1.0 },
-  },
-  vertexShader: /* glsl */ `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: /* glsl */ `
-    precision highp float;
-
-    uniform sampler2D tDiffuse;
-    uniform sampler2D tDepth;
-    uniform vec2  uResolution;
-    uniform float uExposure;
-    uniform float uContrast;
-    uniform float uSaturation;
-    uniform vec3  uLift;
-    uniform vec3  uGain;
-    uniform float uVignette;
-    uniform float uGrain;
-    uniform float uChromatic;
-    uniform float uTime;
-    uniform float uDofFar;
-    uniform float uDofStrength;
-    uniform float uCameraNear;
-    uniform float uCameraFar;
-    uniform float uEnableDof;
-
-    varying vec2 vUv;
-
-    // ---- ACES filmic (Stephen Hill's fit) -------------------------------
-    const mat3 ACESInputMat = mat3(
-      0.59719, 0.07600, 0.02840,
-      0.35458, 0.90834, 0.13383,
-      0.04823, 0.01566, 0.83777
-    );
-    const mat3 ACESOutputMat = mat3(
-       1.60475, -0.10208, -0.00327,
-      -0.53108,  1.10813, -0.07276,
-      -0.07367, -0.00605,  1.07602
-    );
-
-    vec3 acesRRTAndODTFit(vec3 v) {
-      vec3 a = v * (v + 0.0245786) - 0.000090537;
-      vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
-      return a / b;
-    }
-
-    vec3 ACESFitted(vec3 color) {
-      color = ACESInputMat * color;
-      color = acesRRTAndODTFit(color);
-      color = ACESOutputMat * color;
-      return clamp(color, 0.0, 1.0);
-    }
-
-    float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-
-    float linearDepth(vec2 uv) {
-      float z = texture2D(tDepth, uv).x;
-      // Perspective depth -> view-space distance in metres.
-      float ndc = z * 2.0 - 1.0;
-      return (2.0 * uCameraNear * uCameraFar) /
-             (uCameraFar + uCameraNear - ndc * (uCameraFar - uCameraNear));
-    }
-
-    // Golden-angle spiral: 12 taps read as a smooth circular bokeh without
-    // the ring artefacts a fixed-ring kernel produces at this tap count.
-    const int DOF_TAPS = 12;
-    vec3 depthOfField(vec2 uv, float coc) {
-      vec3 sum = vec3(0.0);
-      float total = 0.0;
-      float radius = coc * 0.012;
-      for (int i = 0; i < DOF_TAPS; i++) {
-        float fi = float(i);
-        float ang = fi * 2.39996323;
-        float r = sqrt(fi / float(DOF_TAPS)) * radius;
-        vec2 off = vec2(cos(ang), sin(ang)) * r;
-        off.x *= uResolution.y / uResolution.x;
-        vec3 s = texture2D(tDiffuse, uv + off).rgb;
-        // Weight by luminance so bright background points bloom into discs.
-        float w = 1.0 + luma(s) * 0.6;
-        sum += s * w;
-        total += w;
-      }
-      return sum / max(total, 0.0001);
-    }
-
-    // Hash-based blue-ish noise for grain and dither.
-    float hash12(vec2 p) {
-      vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-      p3 += dot(p3, p3.yzx + 33.33);
-      return fract((p3.x + p3.y) * p3.z);
-    }
-
-    void main() {
-      vec2 uv = vUv;
-      vec2 centered = uv - 0.5;
-      float r2 = dot(centered, centered);
-
-      // ---- Depth of field ---------------------------------------------
-      vec3 color;
-      float coc = 0.0;
-      if (uEnableDof > 0.5) {
-        float d = linearDepth(uv);
-        // Only the far field defocuses. Near-field blur on a first-person
-        // camera reads as an eye problem, not a lens.
-        coc = smoothstep(uDofFar * 0.45, uDofFar, d) * uDofStrength;
-        color = coc > 0.01 ? depthOfField(uv, coc) : texture2D(tDiffuse, uv).rgb;
-      } else {
-        color = texture2D(tDiffuse, uv).rgb;
-      }
-
-      // ---- Chromatic aberration ---------------------------------------
-      // Scaled by r^2 so the centre of frame stays perfectly clean.
-      if (uChromatic > 0.0) {
-        float amt = uChromatic * r2 * 4.0;
-        vec2 dir = normalize(centered + 1e-6);
-        float rr = texture2D(tDiffuse, uv - dir * amt).r;
-        float bb = texture2D(tDiffuse, uv + dir * amt).b;
-        color.r = mix(color.r, rr, 0.85);
-        color.b = mix(color.b, bb, 0.85);
-      }
-
-      // ---- Exposure and tone map --------------------------------------
-      color *= uExposure;
-      color = ACESFitted(color);
-
-      // ---- Lift / gain split tone -------------------------------------
-      // Cool shadows + warm highlights is the single strongest cue that a
-      // stylised scene was lit by a real sun rather than a flat ambient.
-      float l = luma(color);
-      color += uLift * (1.0 - smoothstep(0.0, 0.55, l));
-      color *= mix(vec3(1.0), uGain, smoothstep(0.25, 1.0, l));
-
-      // ---- Contrast and saturation ------------------------------------
-      color = (color - 0.5) * uContrast + 0.5;
-      float g = luma(color);
-      color = mix(vec3(g), color, uSaturation);
-
-      // Gentle highlight rolloff keeps saturated greens from clipping to
-      // neon after the saturation push.
-      color = color / (1.0 + max(vec3(0.0), color - 1.0) * 0.6);
-
-      // ---- Vignette ----------------------------------------------------
-      float vig = 1.0 - uVignette * smoothstep(0.15, 0.78, r2);
-      color *= vig;
-
-      // ---- Grain -------------------------------------------------------
-      float n = hash12(gl_FragCoord.xy + uTime * 137.0);
-      color += (n - 0.5) * uGrain;
-
-      color = clamp(color, 0.0, 1.0);
-
-      // ---- Output transfer ---------------------------------------------
-      // The whole composer chain is linear-light in half-float targets, and
-      // neither ShaderPass nor SMAAPass emits a colorspace_fragment include, so
-      // the renderer applies no output conversion for us. Without this encode the
-      // linear buffer is handed to an sRGB display verbatim and the entire
-      // frame reads two stops dark and blue-crushed. This is the single
-      // conversion for the whole pipeline (ART_DIRECTION §8).
-      color = mix(
-        color * 12.92,
-        1.055 * pow(max(color, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055,
-        step(vec3(0.0031308), color)
-      );
-
-      // 8-bit dither, applied after the transfer so it lands on the value
-      // that actually gets quantised. Removes banding in the sky gradient.
-      color += (hash12(gl_FragCoord.xy * 1.7) - 0.5) / 255.0;
-
-      gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
-    }
-  `,
-};
+/**
+ * SkyHook — the atmosphere system's slot in the post chain (单子 W).
+ *
+ * Two effects share one world-position reconstruction:
+ *
+ *  W1 cloud shadows — a baked low-frequency occlusion map (Clouds.ts) sampled
+ *    in world XZ, counter-rotated by the cloud shell's yaw so shade patches
+ *    stay glued to their clouds. Multiplicative, capped low: a slow change in
+ *    daylight, never a cast shadow.
+ *  W2 aerial perspective — FogExp2 already mixed flat `fog.color` into the
+ *    scene per material. Adding `(directionalSky - fogColor) * fogFactor`
+ *    *replaces* that flat colour with the sky gradient evaluated along the
+ *    view ray, exactly: mix(scene, fog, f) + (dir − fog)·f ≡ mix(scene, dir, f).
+ *    The P-17 fog numbers (density, fog.color) stay untouched; only the
+ *    colour the fog fades *toward* becomes direction-aware.
+ *
+ * Both gate on real geometry depth so the sky dome and the clouds themselves
+ * (no depth write) are never tinted by their own shadow.
+ */
+export interface SkyHook {
+  /** R = occlusion 0..1 over a world XZ square centred on the origin. */
+  shadowTex: THREE.Texture;
+  /** Half-size (m) of that square. */
+  shadowExtent: number;
+  /** Peak darkening under a cloud core. */
+  shadowStrength: number;
+  /** Cloud shell yaw rate (rad/s); must equal Clouds.CLOUD_DRIFT_RATE. */
+  shadowRate: number;
+  /** Shared environment clock; drives the shadow map's counter-rotation. */
+  windTime: { value: number };
+  /** 0 keeps the flat P-17 fog colour; 1 fades fully toward the directional sky. */
+  aerialStrength: number;
+  zenith: THREE.Color;
+  horizon: THREE.Color;
+  haze: THREE.Color;
+  sunColor: THREE.Color;
+  /** Direction from the origin *toward* the sun. */
+  sunDir: THREE.Vector3;
+  skyIntensity: number;
+}
 
 export class PostFX {
-  readonly composer: EffectComposer;
-  readonly renderPass: RenderPass;
-  readonly gtao: GTAOPass;
-  readonly bloom: UnrealBloomPass;
-  readonly grade: ShaderPass;
-  readonly smaa: SMAAPass;
-
+  readonly composer: THREE.RenderPipeline;
+  readonly sceneStats = { calls: 0, triangles: 0 };
+  readonly frameStats = { calls: 0, triangles: 0 };
+  activeEffects: string[] = [];
+  private views: Record<string, Node<'vec4'>> = {};
+  private beauty!: Node<'vec4'>;
+  private scenePass!: ReturnType<typeof pass>;
   private engine: Engine;
-  private gbuffer: GBufferPass;
-  private time = 0;
-
-  /** Shadow map + main scene pass only. This is the art-budget number. */
-  readonly sceneStats: RenderStats = { calls: 0, triangles: 0 };
-  /** Everything the frame cost, post chain and prepasses included. */
-  readonly frameStats: RenderStats = { calls: 0, triangles: 0 };
-
+  private time = uniform(0);
+  private resources: {dispose(): void}[] = [];
+  private skyHook: SkyHook | null = null;
+  /** ?skyfx=off builds the pre-W graph exactly, for same-server A/B captures. */
+  private skyFxOn = new URLSearchParams(location.search).get('skyfx') !== 'off';
+  // 单子 AN1 — read-only review switches, same style as ?dof=. Each is `null`
+  // unless the URL explicitly asks for it, so the compiled default (q.ssao /
+  // gtao.scale.value 1.15 / settings.grain 0.016) never moves on its own.
+  /** ?ao=off|on forces GTAO regardless of the quality tier's `ssao` flag. */
+  private aoOverride = ((v: string | null) => v === 'off' ? false : v === 'on' ? true : null)(new URLSearchParams(location.search).get('ao'));
+  /** ?aoscale=<x> replaces the GTAO node's fixed `scale.value` (default 1.15). */
+  private aoScaleOverride = ((v: string | null) => { const n = v !== null ? Number(v) : NaN; return Number.isFinite(n) ? n : null; })(new URLSearchParams(location.search).get('aoscale'));
+  /** ?aoradius=<m> replaces the GTAO node's sample radius (default 2.4 m). 验收 AN1 定档时加,同 aoscale 一样只读。 */
+  private aoRadiusOverride = ((v: string | null) => { const n = v !== null ? Number(v) : NaN; return Number.isFinite(n) && n > 0 ? n : null; })(new URLSearchParams(location.search).get('aoradius'));
+  private fogCells = { density: { value: 0 }, color: { value: new THREE.Vector3(1, 1, 1) } };
+  // Camera state frozen into cells every frame: live camera accessor nodes
+  // (cameraWorldMatrix & co.) follow whichever camera the renderer is
+  // currently drawing with — inside a composer quad pass that is the quad's
+  // own camera, not the scene camera, so the world-ray reconstruction must
+  // not read them.
+  private camCells = {
+    pos: { value: new THREE.Vector3() },
+    world: { value: new THREE.Matrix4() },
+    projInv: { value: new THREE.Matrix4() },
+  };
   settings: GradeSettings = {
     exposure: 1.0,
     contrast: 1.06,
@@ -380,175 +105,208 @@ export class PostFX {
     liftShadow: new THREE.Color(0.018, 0.032, 0.066),
     gainHighlight: new THREE.Color(1.035, 1.005, 0.955),
     vignette: 0.32,
-    grain: 0.016,
+    // 2026-09-15 D-26:0.016 → 0.008。颗粒加在线性域、sRGB 之前,gamma 把暗部放大;
+    // 实测三镜暗部高频 σ 降约 1.1~1.3 色阶,肉眼几乎不觉。全关不取——它是 look 的一部分(D-02)。
+    grain: 0.008,
     // Cut from 0.0014. At the old strength the fringing was plainly visible as
     // magenta and cyan doubled edges on high-contrast boundaries — roof eaves
     // against sky, leaves against sky — which reads as a rendering fault rather
     // than as a lens. Aberration should be findable only if you look for it.
     chromatic: 0.0005,
-    dofFar: 58,
-    dofStrength: 1.0,
-  };
-
-  constructor(engine: Engine) {
-    this.engine = engine;
-    const { renderer, scene, camera, quality } = engine;
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-
-    // Bloom must see HDR, so the whole chain is half-float.
-    const target = new THREE.WebGLRenderTarget(w, h, {
-      type: THREE.HalfFloatType,
-      samples: quality.msaaSamples,
-      colorSpace: THREE.LinearSRGBColorSpace,
-    });
-
-    this.composer = new EffectComposer(renderer, target);
-    this.composer.setPixelRatio(renderer.getPixelRatio());
-
-    renderer.info.autoReset = false;
-    this.composer.addPass(new StatsProbe(() => renderer.info.reset()));
-
-    this.renderPass = new RenderPass(scene, camera);
-    this.composer.addPass(this.renderPass);
-
-    this.composer.addPass(
-      new StatsProbe(() => {
-        this.sceneStats.calls = renderer.info.render.calls;
-        this.sceneStats.triangles = renderer.info.render.triangles;
-      }),
-    );
-
-    // One geometry prepass, two consumers: GTAO's AO and the grade pass's DOF.
-    // Reusing the composer's own depth is not possible once MSAA resolve is in
-    // play, so a dedicated buffer is unavoidable — but only one of them is.
-    this.gbuffer = new GBufferPass(scene, camera, w, h);
-    this.composer.addPass(this.gbuffer);
-
-    this.gtao = new GTAOPass(scene, camera, w, h);
-    // Hand GTAO the shared buffer. This flips its internal `_renderGBuffer`
-    // flag off, so it stops rendering the scene for itself.
-    this.gtao.setGBuffer(this.gbuffer.depthTexture, this.gbuffer.target.texture);
-    this.gtao.output = GTAOPass.OUTPUT.Default;
-    this.gtao.blendIntensity = 0.9;
-    this.gtao.updateGtaoMaterial({
-      radius: 0.42,
-      distanceExponent: 1.2,
-      thickness: 0.65,
-      scale: 1.15,
-      samples: 16,
-      distanceFallOff: 1.0,
-      screenSpaceRadius: false,
-    });
-    this.composer.addPass(this.gtao);
-
-    // Threshold well above 1.0 so only genuinely over-range pixels (sky, sun
-    // glints, emissive signage) bloom — never mid-tone albedo.
-    //
-    // The first tuning (0.42 strength at a 1.02 threshold) was far too eager: a
-    // warmly-lit interior sits above 1.0 across most of the frame, so the whole
-    // image bled into an orange-cream mush and every character lost its identity
-    // colour. It also amplified single-pixel specular aliasing on the wood
-    // normal maps into visible firefly speckle. A higher threshold with a wider
-    // soft knee keeps the glow for actual highlights and nothing else.
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.24, 0.85, 1.35);
-    // NaN guard on the bloom input. A single NaN/Inf fragment anywhere in the
-    // HDR buffer — a degenerate particle, a mid-animation zero-scale mesh —
-    // poisons the high-pass, then every downsampled mip, and the composite
-    // wipes the ENTIRE frame to black (observed repeatedly during battle FX
-    // bursts on the ANGLE/Metal path). Zeroing non-finite texels here confines
-    // the damage to the one source pixel instead of the whole image.
-    {
-      const hp = this.bloom.materialHighPassFilter as THREE.ShaderMaterial;
-      hp.fragmentShader = hp.fragmentShader.replace(
-        'vec4 texel = texture2D( tDiffuse, vUv );',
-        /* glsl */ `vec4 texel = texture2D( tDiffuse, vUv );
-        // NaN != NaN, so this selects exactly the poisoned channels.
-        texel = mix( texel, vec4( 0.0 ), vec4( notEqual( texel, texel ) ) );
-        texel = clamp( texel, vec4( 0.0 ), vec4( 5.0e3 ) );`,
-      );
-      hp.needsUpdate = true;
-    }
-    this.composer.addPass(this.bloom);
-
-    this.grade = new ShaderPass(GradeShader);
-    this.grade.uniforms.tDepth.value = this.gbuffer.depthTexture;
-    this.grade.uniforms.uCameraNear.value = camera.near;
-    this.grade.uniforms.uCameraFar.value = camera.far;
-    this.composer.addPass(this.grade);
-
-    this.smaa = new SMAAPass();
-    this.composer.addPass(this.smaa);
-
-    this.applyQuality(quality);
-    this.setSize(w, h);
+    // First-person comfort: far-only blur begins at 180 m instead of 99 m.
+    // ?dof=legacy restores 220/1 for review; ?dof=off removes DOF from graph;
+    // ?dof=<far>[,<strength>] pins explicit values (comparison captures).
+    dofFar: 400,
+    dofStrength: 0.35,
+  };  constructor(engine: Engine) {
+    this.engine=engine;
+    this.composer=new THREE.RenderPipeline(engine.renderer);
+    // The grade node owns the original fitted ACES and sRGB transfer, exactly once.
+    engine.renderer.toneMapping=THREE.NoToneMapping;
+    this.composer.outputColorTransform=false;
+    const dofMode=new URLSearchParams(location.search).get('dof');
+    if(dofMode==='legacy'){this.settings.dofFar=220;this.settings.dofStrength=1;}
+    else if(dofMode==='off')this.settings.dofStrength=0;
+    // ?dof=<far>[,<strength>] pins explicit values for comparison captures.
+    else if(dofMode){const[far,strength]=dofMode.split(',').map(Number);if(far>0)this.settings.dofFar=far;if(strength>0)this.settings.dofStrength=strength;}
+    // ?grain=<0..0.03> pins the grade node's grain uniform for comparison captures (单子 AN1).
+    const grainMode=new URLSearchParams(location.search).get('grain');
+    if(grainMode!==null){const g=Number(grainMode);if(Number.isFinite(g))this.settings.grain=Math.min(0.03,Math.max(0,g));}
+    this.applyQuality(engine.quality);
   }
-
   applyQuality(q: QualityTier): void {
-    this.gtao.enabled = q.ssao;
-    this.bloom.enabled = q.bloom;
-    this.grade.uniforms.uEnableDof.value = q.dof ? 1 : 0;
-    this.smaa.enabled = q.msaaSamples < 4;
-    // Nobody is reading the G-buffer if both consumers are off, so skip the
-    // prepass entirely on the tiers that disable them.
-    this.gbuffer.wanted = q.ssao || q.dof;
+    for(const node of this.resources)node.dispose();
+    this.resources=[];
+    const scenePass=this.scenePass=pass(this.engine.scene,this.engine.camera,{samples:q.msaaSamples>0?4:0});
+    this.resources.push(scenePass);
+    // ?ao=off|on overrides the tier's ssao flag; null (no param) leaves q.ssao untouched.
+    const ssaoOn=this.aoOverride??q.ssao;
+    const aoNormal=Fn((builder: NodeBuilder)=>(builder as NodeBuilder & {isFlatShading(): boolean}).isFlatShading()?normalViewGeometry:negateOnBackSide(normalViewGeometry))();
+    // The old FrontSide normal override did not shade DoubleSide back faces.
+    // Keep their actual depth for DOF/occlusion, but do not turn thin leaf backs black.
+    const opaqueCoverage=Fn((builder: NodeBuilder)=>builder.material.side===THREE.DoubleSide?float(frontFacing):float(1))();
+    const targets=mrt(ssaoOn||q.dof ? {output,normal:vec4(aoNormal,1),aoMask:vec4(vec3(opaqueCoverage),1)} : {output});
+    if(ssaoOn||q.dof){
+      targets.setBlendMode('normal',new THREE.BlendMode(THREE.MaterialBlending));
+      targets.setBlendMode('aoMask',new THREE.BlendMode(THREE.MaterialBlending));
+    }
+    scenePass.setMRT(targets);
+    const original=scenePass.updateBefore.bind(scenePass);
+    scenePass.updateBefore=(frame)=>{
+      const info=this.engine.renderer.info.render;
+      const calls=info.drawCalls,tris=info.triangles;
+      const result=original(frame);
+      this.sceneStats.calls=info.drawCalls-calls;
+      this.sceneStats.triangles=info.triangles-tris;
+      return result;
+    };
+    const color=scenePass.getTextureNode('output');
+    const viewDistance=scenePass.getViewZNode().negate();
+    this.views={color,depth:vec4(vec3(viewDistance.div(600)),1)};
+    if(ssaoOn||q.dof){
+      this.views.normal=vec4(scenePass.getTextureNode('normal').xyz.mul(0.5).add(0.5),1);
+      this.views.aoMask=vec4(vec3(scenePass.getTextureNode('aoMask').r),1);
+    }
+    let hdr: Node<'vec4'>=color;
+    this.activeEffects=['scene'];
+    if(ssaoOn){
+      const gtao=ao(scenePass.getTextureNode('depth'),scenePass.getTextureNode('normal'),this.engine.camera);
+      // 2026-09-15 D-26:radius 2.4 → 1.0、scale 1.15 → 0.7。2.4 m 对檐下 5 cm 级的分件太粗,整片檐下压成一团;
+      // 实测(HEAD 同机位)cu_gate_eave 均亮 68.9 → 72.0、暗部占比 59% → 57%;r0.6 与 r1.0 无可测差别,取 1.0。
+      gtao.resolutionScale=0.5;gtao.radius.value=this.aoRadiusOverride??1.0;gtao.thickness.value=1.4;
+      gtao.distanceExponent.value=1.2;gtao.distanceFallOff.value=1;gtao.scale.value=this.aoScaleOverride??0.7;
+      this.resources.push(gtao);this.activeEffects.push('ao');
+      const smoothAO=denoise(gtao.getTextureNode(),scenePass.getTextureNode('depth'),scenePass.getTextureNode('normal'),this.engine.camera);
+      smoothAO.lumaPhi.value=10;smoothAO.depthPhi.value=2;smoothAO.normalPhi.value=3;
+      // Old PD radius 8 ran at half resolution; this node resolves at full resolution.
+      smoothAO.radius.value=16;
+      this.resources.push(smoothAO);
+      hdr=hdr.mul(vec4(vec3(mix(1,(smoothAO as unknown as Node<'vec4'>).r,scenePass.getTextureNode('aoMask').r.mul(0.9))),1));
+    }
+    const hook=this.skyHook;
+    if(hook&&this.skyFxOn){
+      // Live cells: fog is owned by Atmosphere and set after this graph is built.
+      const fogDensity=uniform(0).onFrameUpdate(()=>this.fogCells.density.value);
+      const fogColor=uniform(this.fogCells.color.value).onFrameUpdate(()=>this.fogCells.color.value);
+      const wind=uniform(0).onFrameUpdate(()=>hook.windTime.value);
+      // Static palette, bound once as vec3 uniforms so TSL nodes (not THREE
+      // objects) carry the math.
+      const asVec3=(c: THREE.Color)=>uniform(new THREE.Vector3(c.r,c.g,c.b));
+      const zenithU=asVec3(hook.zenith);
+      const horizonU=asVec3(hook.horizon);
+      const hazeU=asVec3(hook.haze);
+      const sunColorU=asVec3(hook.sunColor);
+      const sunDirU=uniform(hook.sunDir);
+      const camPosU=uniform(this.camCells.pos.value).onFrameUpdate(()=>this.camCells.pos.value);
+      const camWorldU=uniform(this.camCells.world.value).onFrameUpdate(()=>this.camCells.world.value);
+      const projInvU=uniform(this.camCells.projInv.value).onFrameUpdate(()=>this.camCells.projInv.value);
+      const adjust=Fn(([colIn]:[Node<'vec3'>])=>{
+        // World position from depth: unproject a far-plane ray, scale by radial distance.
+        const clip=vec4(uv().mul(2).sub(1),1,1);
+        const v4=projInvU.mul(clip);
+        const vDir=v4.xyz.div(v4.w).normalize();
+        const radial=viewDistance.div(vDir.z.negate().max(0.0001));
+        const worldDir=camWorldU.mul(vec4(vDir,0)).xyz;
+        const worldPos=camPosU.add(worldDir.mul(radial));
+        // Sky dome and cloud billboards write no depth; only shade real geometry.
+        const sceneGate=smoothstep(585,598,viewDistance).oneMinus();
+
+        // ---- W2 aerial perspective ----------------------------------------
+        // Same FogExp2 factor the materials used; see SkyHook for why adding
+        // (dir − fogColor)·f is an exact swap of the flat fog colour.
+        const fogF=exp(fogDensity.mul(fogDensity).mul(radial).mul(radial).negate()).oneMinus();
+        const up=clamp(worldDir.y,0,1);
+        const aer=mix(zenithU,horizonU,pow(up.oneMinus(),3.9)).toVar();
+        aer.assign(mix(aer,hazeU,pow(up.oneMinus(),19).mul(0.28)));
+        // Sun-azimuth warming, same term as nodes/sky.ts.
+        const az=max(dot(normalize(worldDir.xz.add(1e-5)),normalize(sunDirU.xz.add(1e-5))),0);
+        aer.addAssign(sunColorU.mul(pow(az,2.6).mul(0.085).mul(pow(up.oneMinus(),1.6))));
+        aer.mulAssign(hook.skyIntensity*0.68);
+        const delta=aer.sub(fogColor).mul(fogF).mul(hook.aerialStrength).mul(sceneGate);
+
+        // ---- W1 cloud shadow ----------------------------------------------
+        // Counter-rotate world XZ by the shell yaw so patches track the clouds.
+        const th=wind.mul(hook.shadowRate);
+        const cth=cos(th),sth=sin(th);
+        const rx=worldPos.x.mul(cth).sub(worldPos.z.mul(sth));
+        const rz=worldPos.x.mul(sth).add(worldPos.z.mul(cth));
+        const occ=texture(hook.shadowTex,vec2(rx,rz).div(hook.shadowExtent*2).add(0.5)).r;
+        // Fogged distance already carries the light loss; taper the shadow
+        // there instead of darkening the haze twice.
+        const occEff=occ.mul(fogF.oneMinus().mul(0.75).add(0.25));
+        const shadowMul=occEff.mul(hook.shadowStrength).mul(sceneGate).oneMinus();
+
+        return colIn.mul(shadowMul).add(delta);
+      })(hdr.rgb);
+      hdr=vec4(adjust,hdr.a);
+      this.activeEffects.push('skyfx');
+    }
+    if(q.bloom){
+      const lit=convertToTexture(hdr);if(lit!==color)this.resources.push(lit);hdr=lit;
+      const glow=bloom(lit,0.24,0.85,1.35);this.resources.push(glow);
+      hdr=hdr.add(glow);this.activeEffects.push('bloom');
+    }
+    this.views.hdr=hdr;
+    const source=convertToTexture(hdr);
+    if(source!==color)this.resources.push(source);
+    const far=uniform(this.settings.dofFar).onFrameUpdate(()=>this.settings.dofFar);
+    const strength=uniform(this.settings.dofStrength).onFrameUpdate(()=>this.settings.dofStrength);
+    const chromatic=uniform(this.settings.chromatic).onFrameUpdate(()=>this.settings.chromatic);
+    if(q.dof&&this.settings.dofStrength>0)this.activeEffects.push('dof');
+    const useDof=q.dof&&this.settings.dofStrength>0;
+    const lens=Fn(()=>{
+      const coord=uv();
+      const col=source.sample(coord).rgb.toVar();
+      if(useDof){
+        const coc=smoothstep(far.mul(0.45),far,viewDistance).mul(strength);
+        If(coc.greaterThan(0.01),()=>{
+          const sum=vec3(0).toVar(), total=float(0).toVar();
+          for(let i=0;i<12;i++){
+            const angle=i*2.39996323;
+            const offset=vec2(Math.cos(angle),Math.sin(angle)).mul(Math.sqrt(i/12)).mul(coc).mul(0.012).mul(vec2(screenSize.y.div(screenSize.x),1));
+            const sample=source.sample(coord.add(offset)).rgb;
+            const weight=sample.dot(vec3(0.2126,0.7152,0.0722)).mul(0.6).add(1);
+            sum.addAssign(sample.mul(weight));total.addAssign(weight);
+          }
+          col.assign(sum.div(total.max(0.0001)));
+        });
+      }
+      const centered=coord.sub(0.5);
+      const shift=centered.add(0.000001).normalize().mul(chromatic).mul(centered.dot(centered)).mul(4);
+      col.r.assign(mix(col.r,source.sample(coord.sub(shift)).r,0.85));
+      col.b.assign(mix(col.b,source.sample(coord.add(shift)).b,0.85));
+      return col;
+    })();
+    this.views.lens=vec4(lens,1);
+    const graded=gradeNode(lens,this.settings,this.time);
+    this.views.grade=graded;
+    if(q.msaaSamples<4){const aa=smaa(graded);this.resources.push(aa);this.composer.outputNode=encodeOutputNode(aa as unknown as Node<'vec4'>);this.activeEffects.push('smaa');}
+    else this.composer.outputNode=encodeOutputNode(graded);
+    this.beauty=this.composer.outputNode as Node<'vec4'>;
+    this.activeEffects.push('grade');
+    this.composer.needsUpdate=true;
   }
-
-  /** Live-tweak hook used by the debug grade panel. */
-  syncSettings(): void {
-    const u = this.grade.uniforms;
-    const s = this.settings;
-    u.uExposure.value = s.exposure;
-    u.uContrast.value = s.contrast;
-    u.uSaturation.value = s.saturation;
-    u.uLift.value.copy(s.liftShadow);
-    u.uGain.value.copy(s.gainHighlight);
-    u.uVignette.value = s.vignette;
-    u.uGrain.value = s.grain;
-    u.uChromatic.value = s.chromatic;
-    u.uDofFar.value = s.dofFar;
-    u.uDofStrength.value = s.dofStrength;
+  async compileAsync(): Promise<void> { await this.scenePass.compileAsync(this.engine.renderer); }
+  /** Installs the atmosphere hook and rebuilds the graph once (pre-first-render). */
+  setSkyHook(hook: SkyHook): void { this.skyHook=hook; this.applyQuality(this.engine.quality); }
+  inspectBuffer(name: string | null): void {
+    this.composer.outputNode=name ? this.views[name]??this.beauty : this.beauty;
+    this.composer.needsUpdate=true;
   }
-
-  setSize(w: number, h: number): void {
-    const pr = this.engine.renderer.getPixelRatio();
-    this.composer.setPixelRatio(pr);
-    this.composer.setSize(w, h);
-    const bw = Math.floor(w * pr);
-    const bh = Math.floor(h * pr);
-    this.gbuffer.setSize(bw, bh);
-    this.gtao.setSize(bw, bh);
-    // GTAOPass.setSize() resizes the internal G-buffer target it no longer
-    // renders to. Shrink it back so it does not sit on a full-res colour +
-    // depth attachment for nothing. (Not in the published typings.)
-    (this.gtao as unknown as { normalRenderTarget?: THREE.WebGLRenderTarget })
-      .normalRenderTarget?.setSize(1, 1);
-    this.bloom.setSize(w, h);
-    this.grade.uniforms.uResolution.value.set(w * pr, h * pr);
+  syncSettings(): void {}
+  setSize(_w:number,_h:number): void {} // Pass nodes derive physical size from renderer on every frame.
+  render(dt:number): void {
+    this.time.value=this.engine.fixedTime??(this.time.value+dt);
+    const fog=this.engine.scene.fog as THREE.FogExp2 | null;
+    if(fog){this.fogCells.density.value=fog.density;this.fogCells.color.value.set(fog.color.r,fog.color.g,fog.color.b);}
+    const cam=this.engine.camera;
+    cam.updateMatrixWorld();
+    this.camCells.pos.value.setFromMatrixPosition(cam.matrixWorld);
+    this.camCells.world.value.copy(cam.matrixWorld);
+    this.camCells.projInv.value.copy(cam.projectionMatrixInverse);
+    const info=this.engine.renderer.info;info.autoReset=false;info.reset();
+    this.composer.render();
+    this.frameStats.calls=info.render.drawCalls;this.frameStats.triangles=info.render.triangles;
   }
-
-  render(dt: number): void {
-    this.time += dt;
-    this.grade.uniforms.uTime.value = this.time;
-    this.syncSettings();
-
-    // The DOF depth prepass used to live here, as a second full-material render
-    // of the whole scene. It is now the GBufferPass inside the composer chain,
-    // shared with GTAO — see the class comment.
-    this.composer.render(dt);
-
-    // Publish both numbers, then leave `info.render` holding the scene-only
-    // figures: that is what the capture harness samples and what the draw-call
-    // budget in ART_DIRECTION §7 refers to.
-    const info = this.engine.renderer.info;
-    this.frameStats.calls = info.render.calls;
-    this.frameStats.triangles = info.render.triangles;
-    info.render.calls = this.sceneStats.calls;
-    info.render.triangles = this.sceneStats.triangles;
-  }
-
-  dispose(): void {
-    this.composer.dispose();
-    this.gbuffer.dispose();
-  }
+  dispose(): void {this.composer.dispose();for(const node of this.resources)node.dispose();}
 }
