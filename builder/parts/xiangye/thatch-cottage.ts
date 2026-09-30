@@ -6,11 +6,11 @@ import { mergeByMaterial } from '../merge';
 import { roundedBox, boxProjectedUV, noiseDisplace } from '../sculpt';
 import { stoneMaterial, paperMaterial } from '../materials';
 import { Simplex, makeRng, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
-import { XY, EARTH_TILE_M, thatchUnderMaterial, earthWallMaterial, roughWoodMaterial, tampedEarthMaterial, freshThatchMaterial, freshStubbleMaterial } from './materials';
+import { thatchUnderMaterial, freshThatchMaterial, freshStubbleMaterial, refinedPlasterMaterial, blueBrickMaterial, planedWoodMaterial } from './materials';
+import { compileExteriorSteps } from '@builder/plan/building-access';
 import { planItem } from './plan-data';
 import { plaqueFromPlan } from '@builder/plan/objects';
 import { makePlainPlaque } from '../xiaomu/plaque';
-import { liftSequence, rowsUpTo } from './earth';
 import { markFarLod, farBox } from './far-proxy';
 
 /**
@@ -241,102 +241,63 @@ function ridgeRoll(X: number, y0: number, hw: number, hh: number, tiePitch: numb
 }
 
 /* ------------------------------------------------------------------ */
-/* 土壁                                                                 */
+/* 雅村屋身的小木作(D-42,单子 BF2)                                    */
 /* ------------------------------------------------------------------ */
 
-interface Opening { a0: number; a1: number; r0: number; r1: number }
-
-/** 一段土壁:截面矩形(厚 × 高)沿墙长挤出,沿长度每 0.2 m、外皮沿高每 0.15 m 加密(微起伏与返潮顶点色要顶点)。
- *  局部系 x=沿墙 a、y=高、z=外法线(外皮 z=0)。BD1:行与行之间不再倒圆——几何不出层线。 */
-function liftSlab(a0: number, a1: number, y0: number, y1: number, wt: number, out: number): THREE.BufferGeometry {
-  const sh = new THREE.Shape();
-  const n = Math.max(1, Math.ceil((y1 - y0) / 0.15));
-  sh.moveTo(0, y0); sh.lineTo(wt, y0); sh.lineTo(wt, y1); sh.lineTo(0, y1); // 形状 X = 入墙深 n
-  for (let k = n - 1; k >= 0; k--) sh.lineTo(0, y0 + ((y1 - y0) * k) / n); // 外皮(X=0)一侧加密
-  const len = a1 - a0;
-  const g = new THREE.ExtrudeGeometry(sh, { depth: len, steps: Math.max(1, Math.ceil(len / 0.2)), bevelEnabled: false, curveSegments: 1 });
-  // 形状 (X=n, Y=y, Z=a) → rotateY(π/2):x=Z=a、z=-X=-n。
-  g.rotateY(Math.PI / 2);
-  g.translate(a0, 0, out);
+/** 一根方料(x 宽、y 高、z 厚),中心 (cx,cy,cz)。刨光料:小倒角,不扰动。 */
+function bar(w: number, h: number, t: number, cx: number, cy: number, cz: number, r = 0.006): THREE.BufferGeometry {
+  const g = roundedBox(w, h, t, Math.min(r, Math.min(w, h, t) / 2 - 1e-4), 1);
+  g.translate(cx, cy, cz);
   return g;
 }
-/** 山尖行:版带与山墙五边形的交,沿墙厚挤出并倒圆(倒圆就是层线槽)。 */
-function gableSlab(poly: [number, number][], wt: number, out: number): THREE.BufferGeometry {
-  const sh = new THREE.Shape(poly.map(([a, y]) => new THREE.Vector2(a, y)));
-  // BD1:不倒圆——版与版之间的圆角就是几何层线槽,层线改归贴图。
-  const g = new THREE.ExtrudeGeometry(sh, { depth: wt, bevelEnabled: false, curveSegments: 2 });
-  g.translate(0, 0, out - wt);
-  return g;
-}
-
 /**
- * 一面土壁(局部系)。仍按全栋共用的版线 `seq` 分行——只为门窗洞上下口对齐、墙端与门窗边的版头随机缩进(塌角);
- * 各行外皮齐平、行间不倒圆,外皮只有连续的微起伏。**层线、夯窝、泥抹、裂缝全在贴图里**(单子 BD1,D-36 推翻条件)。
+ * 格心(简化步步锦):外一圈边条;横棂按 `pitch` 满跨,两横棂之间的竖棂在 1/4·3/4 与 1/2 两种位置间交替——
+ * 一步一错,读成细密的格子而不是直棂。局部系:原点在格心中心,面朝 +Z。
  */
-function earthWall(opts: { a0: number; a1: number; height: number; topAt?: (a: number) => number; ridgeA?: number;
-  wt: number; seq: number[]; openings: Opening[]; seed: number }): THREE.BufferGeometry[] {
-  const { a0, a1, wt, seq, openings } = opts;
-  const rng = makeRng(opts.seed), bump = new Simplex(opts.seed + 1);
-  const out: THREE.BufferGeometry[] = [];
-  const flatTop = opts.height;
-  const rows = rowsUpTo(seq, flatTop);
-  // BD1:相邻各行开洞情况相同就并成一段——行间接缝在园中光下也是一道线。
-  const bands: [number, number, number][] = [];
-  const cutKey = (k: number) => openings.filter((o) => k >= o.r0 && k < o.r1).map((o) => o.a0).join(',');
-  for (const [y0, y1, k] of rows) {
-    const last = bands[bands.length - 1];
-    if (last && cutKey(last[2]) === cutKey(k)) last[1] = y1; else bands.push([y0, y1, k]);
-  }
-  bands.forEach(([y0, y1, k]) => {
-    const jitter = 0;
-    const cuts = openings.filter((o) => k >= o.r0 && k < o.r1).sort((p, q) => p.a0 - q.a0);
-    let at = a0;
-    for (const o of [...cuts, { a0: a1, a1: a1, r0: 0, r1: 0 }]) {
-      // 塌角:墙端缩进 0–6 cm,门窗边 0–2.5 cm。
-      const s0 = at + (at === a0 ? rng() * rng() * 0.06 : rng() * 0.025);
-      const s1 = o.a0 - (o.a0 === a1 ? rng() * rng() * 0.06 : rng() * 0.025);
-      if (s1 - s0 > 0.05) {
-        const g = liftSlab(s0, s1, y0, y1, wt, jitter);
-        const p = g.attributes.position;
-        for (let i = 0; i < p.count; i++) {
-          const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-          const outer = z > jitter - wt / 2;
-          const dz = outer ? 0.007 * bump.noise2D(x * 1.7, y * 2.3) + 0.004 * bump.noise2D(x * 6.1, y * 5.3) : 0;
-          p.setXYZ(i, x, y, z + dz);
-        }
-        g.computeVertexNormals();
-        out.push(g);
-      }
-      at = Math.max(at, o.a1);
-    }
-  });
-  // 山尖:平顶以上一整块三角(BD1:不再逐版切,免得出接缝)。
-  if (opts.topAt && opts.ridgeA !== undefined) {
-    const ridgeY = opts.topAt(opts.ridgeA), half = (a1 - a0) / 2, mid = (a0 + a1) / 2;
-    if (ridgeY > flatTop + 0.02) out.push(gableSlab([[mid - half, flatTop], [mid + half, flatTop], [mid, ridgeY]], wt, 0));
+function lattice(w: number, h: number, b: number, pitch: number): THREE.BufferGeometry[] {
+  const out: THREE.BufferGeometry[] = [], t = 0.022;
+  out.push(bar(w, b, t, 0, h / 2 - b / 2, 0), bar(w, b, t, 0, -h / 2 + b / 2, 0), bar(b, h, t, -w / 2 + b / 2, 0, 0), bar(b, h, t, w / 2 - b / 2, 0, 0));
+  const n = Math.max(2, Math.round(h / pitch)), m = Math.max(2, Math.round(w / pitch));
+  for (let k = 1; k < n; k++) out.push(bar(w - b, b, t, 0, -h / 2 + (h * k) / n, 0));
+  for (let k = 0; k < n; k++) {
+    const y0 = -h / 2 + (h * k) / n, y1 = -h / 2 + (h * (k + 1)) / n;
+    const xs = k % 2 ? [0.5] : m >= 4 ? [0.25, 0.75] : [0.5];
+    for (const f of xs) out.push(bar(b, y1 - y0 - b, t, -w / 2 + w * f, (y0 + y1) / 2, 0));
   }
   return out;
 }
-
-/* ------------------------------------------------------------------ */
-/* 门窗                                                                 */
-/* ------------------------------------------------------------------ */
-
-function doorLeaves(w: number, h: number, seed: number): THREE.BufferGeometry[] {
-  const rng = makeRng(seed), out: THREE.BufferGeometry[] = [];
-  const planks = 8, pw = (w - 0.02) / planks;
-  for (let i = 0; i < planks; i++) {
-    const g = roundedBox(pw - 0.008, h - 0.02 - rng() * 0.015, 0.045, 0.008, 1);
-    g.translate(-w / 2 + 0.01 + pw * (i + 0.5), h / 2, (rng() - 0.5) * 0.006);
-    out.push(g);
+/**
+ * 一扇格扇(`door`)或槛窗扇:边梃抹头框;格扇自下而上 裙板 · 绦环板 · 格心,槛窗只有格心。
+ * 格心后贴窗纸(`paperMaterial`,emissive 假透光,`P-05`)。局部系:原点在扇底中心,面朝 +Z。
+ */
+function leaf(w: number, h: number, door: boolean, stile: number, latBar: number, pitch: number) {
+  const wood: THREE.BufferGeometry[] = [], paper: THREE.BufferGeometry[] = [], t = 0.045;
+  wood.push(bar(stile, h, t, -w / 2 + stile / 2, h / 2, 0), bar(stile, h, t, w / 2 - stile / 2, h / 2, 0));
+  const rails = door ? [0, 0.24, 0.33, 1] : [0, 1]; // 抹头(相对高),格扇四抹、槛窗两抹
+  for (const f of rails) wood.push(bar(w - 2 * stile, stile, t, 0, stile / 2 + (h - stile) * f, 0));
+  const inner = w - 2 * stile;
+  if (door) {
+    const y0 = stile, y1 = stile + (h - stile) * 0.24 - stile, y2 = stile + (h - stile) * 0.33 - stile;
+    wood.push(bar(inner, y1 - y0 + 0.01, 0.02, 0, (y0 + y1) / 2, -0.008)); // 裙板
+    wood.push(bar(inner, y2 - (y1 + stile) + 0.01, 0.02, 0, (y1 + stile + y2) / 2, -0.008)); // 绦环板
   }
-  // 门钉般的两道横带(外面看得见的穿带)。
-  for (const y of [h * 0.22, h * 0.78]) {
-    const g = roundedBox(w - 0.06, 0.07, 0.03, 0.01, 1);
-    g.translate(0, y, 0.035);
-    out.push(g);
-  }
-  return out;
+  const g0 = door ? stile + (h - stile) * 0.33 : stile, g1 = h - stile, gh = g1 - g0;
+  for (const g of lattice(inner, gh, latBar, pitch)) { g.translate(0, (g0 + g1) / 2, 0.004); wood.push(g); }
+  const pane = new THREE.PlaneGeometry(inner, gh); pane.translate(0, (g0 + g1) / 2, -0.01); paper.push(pane);
+  return { wood, paper };
+}
+/** 鼓形柱础:车削轮廓,腰鼓出。 */
+function drumBase(r: number, h: number): THREE.BufferGeometry {
+  const prof = [[0, 0], [r * 1.05, 0], [r * 1.12, h * 0.25], [r * 1.18, h * 0.55], [r * 1.08, h * 0.85], [r * 0.95, h], [0, h]].map(([x, y]) => new THREE.Vector2(x, y));
+  return new THREE.LatheGeometry(prof, 20);
+}
+/** 刨光圆料(柱、檩、椽):直、微收分,不弯不扰动。 */
+function pole(a: V3, b: V3, ra: number, rb: number, seg = 12): THREE.BufferGeometry {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), len = A.distanceTo(B);
+  const g = new THREE.CylinderGeometry(rb, ra, len, seg, 1, false);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize()));
+  g.translate((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+  return g;
 }
 
 /* ------------------------------------------------------------------ */
@@ -348,7 +309,8 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   if (o.spec.window !== 'paper') throw new Error('竹牖(芦雪庵)尚无近景几何，不得替换成纸窗');
   if (!(o.platformH > 0)) throw new Error('茅屋须显式给台基高');
   const seed = o.seed ?? 1717;
-  const fl = o.platformH, slope = o.spec.roofSlope, t = o.spec.thatchThicknessM;
+  // D-42 雅村:台基按条石台基高(provenance.art),不再是 plan platformH 0.18 的土台。
+  const fl = d.refined.stoneBaseM, slope = o.spec.roofSlope, t = o.spec.thatchThicknessM;
   const W = m.width, dh = m.depthHalf, zTip = dh + m.yanchu, X = W / 2 + d.gableOverhangM;
   const top = (z: number) => fl + m.ridgeY - Math.abs(z) * slope;
   const under = (z: number) => top(z) - t;
@@ -357,7 +319,7 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   const wt = d.wallThicknessM, ow = d.wallOutsetM;
 
   const thatch = freshThatchMaterial(), stubble = freshStubbleMaterial(), reed = thatchUnderMaterial();
-  const earth = earthWallMaterial(), wood = roughWoodMaterial(), stone = stoneMaterial(1), paper = paperMaterial();
+  const plaster = refinedPlasterMaterial(), brick = blueBrickMaterial(), wood = planedWoodMaterial(), stone = stoneMaterial(1), paper = paperMaterial();
   const group = new THREE.Group();
   const add = (g: THREE.BufferGeometry, mat: THREE.Material) => group.add(shadowed(new THREE.Mesh(g, mat)));
 
@@ -372,164 +334,135 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   for (const c of ridge.caps) add(c, stubble);
   for (const r of ridge.ropes) add(r, reed);
 
-  /* --- 椽:外露段(檐下自墙外皮起;两山出际下全长)--- */
-  const rng = makeRng(seed + 11);
+  /* ================= 屋身(D-42 雅村,单子 BF2) ================= */
+  const R = d.refined;
+  const porch = m.columnX.length >= 4 ? R.porchDepthM : 0; // 三间以上出一步廊;两间厢舍不出廊(体量次一级)
+  const zf = porch ? dh - porch : dh; // 前檐装修所在的缝:出廊则退到金柱缝
+  const mg = d.platformMarginM;
+  const PW = W + 2 * (ow + mg), PD = 2 * (dh + ow + mg);
+
+  /* --- 椽(刨光、等距):出廊则廊内整段外露 --- */
   const xr0 = -X + 0.18, count = Math.max(2, Math.round((2 * -xr0) / d.rafterPitchM));
   const tipS = zTip - d.rafterTipSetbackM;
   for (let i = 0; i <= count; i++) {
-    const x = xr0 + (-2 * xr0 * i) / count + (rng() - 0.5) * 0.04;
-    const r = (rd / 2) * (0.9 + rng() * 0.2);
+    const x = xr0 + (-2 * xr0 * i) / count, r = rd / 2;
     const inGable = Math.abs(x) > W / 2 - 0.05;
     for (const sign of [1, -1]) {
-      const s0 = inGable ? 0.12 : dh - 0.05, s1 = tipS - rng() * 0.02;
+      const s0 = inGable ? 0.12 : (sign > 0 ? zf : dh) - 0.05;
       const y = (s: number) => under(s) - r;
-      add(log([x, y(s0), sign * s0], [x, y(s1), sign * s1], r, r * 0.94, seed + i * 7 + (sign > 0 ? 0 : 3), 7, 0.006), wood);
+      add(pole([x, y(s0), sign * s0], [x, y(tipS), sign * tipS], r, r * 0.95, 8), wood);
     }
   }
-  /* --- 檩:脊檩、前后金檩(两山悬出到草卷下)--- */
+  /* --- 檩:脊檩、前后金檩(两山悬出)--- */
   for (const z of [0, dh / 2, -dh / 2]) {
     const y = under(z) - rd - pd / 2;
-    add(log([-X + 0.18, y, z], [X - 0.18, y, z], pd / 2, pd / 2 * 0.95, seed + 31 + Math.round(z * 10), 10, 0.01), wood);
+    add(pole([-X + 0.18, y, z], [X - 0.18, y, z], pd / 2, pd / 2, 14), wood);
   }
-  /* --- 额枋兼檐檩(前后),两端出头到出际下 --- */
-  for (const z of [dh, -dh]) {
-    const g = roundedBox(2 * (X - 0.2), m.lan.w, m.lan.t, 0.035, 3);
-    noiseDisplace(g, 0.006, 4, seed + (z > 0 ? 41 : 43), 2);
-    g.translate(0, (beamTop + beamBot) / 2, z);
-    add(g, wood);
+  /* --- 额枋兼檐檩(前后,两端出头)、出廊时的金枋与穿插枋 --- */
+  for (const z of [dh, -dh]) add(bar(2 * (X - 0.2), m.lan.w, m.lan.t, 0, (beamTop + beamBot) / 2, z, 0.012), wood);
+  if (porch) {
+    add(bar(W, m.lan.w, m.lan.t, 0, (beamTop + beamBot) / 2, zf, 0.012), wood);
+    for (const x of m.columnX) add(bar(m.lan.t * 0.85, 0.16, porch + 0.1, x, beamBot - 0.2, (dh + zf) / 2, 0.01), wood);
   }
-  /* --- 柱与柱础 --- */
-  const colTop = beamTop - 0.03;
-  const baseH = 0.1;
-  const columnAt = (x: number, z: number, h1: number, r: number, k: number) => {
-    const b = roundedBox(m.base, baseH, m.base, 0.03, 2);
-    noiseDisplace(b, 0.01, 6, seed + k, 2);
-    b.translate(x, fl + baseH / 2 - 0.01, z);
-    add(b, stone);
-    add(log([x, fl + baseH - 0.01, z], [x, h1, z], r, r * 0.9, seed + 100 + k, 10, 0.018), wood);
+  /* --- 柱与鼓形柱础 --- */
+  const colR = m.columnD / 2, colTop = beamTop - 0.03;
+  const columnAt = (x: number, z: number, h1: number) => {
+    const b = drumBase(colR * 1.25, R.drumH); b.translate(x, fl, z); add(b, stone);
+    add(pole([x, fl + R.drumH - 0.01, z], [x, h1, z], colR, colR * 0.93), wood);
   };
-  let k = 0;
-  for (const x of m.columnX) for (const z of [dh, -dh]) columnAt(x, z, colTop, m.columnD / 2, k++);
-  /* --- 山面穿斗:穿枋、中柱落地通脊、瓜柱 --- */
+  for (const x of m.columnX) {
+    columnAt(x, dh, colTop); columnAt(x, -dh, colTop);
+    if (porch) columnAt(x, zf, colTop);
+  }
+  /* --- 山面:穿枋、中柱、瓜柱(刨光,半露于山墙)--- */
   for (const sx of [-1, 1]) {
     const x = sx * (W / 2);
-    const tie = roundedBox(m.lan.t, m.lan.w, 2 * dh + 0.3, 0.03, 3);
-    noiseDisplace(tie, 0.006, 4, seed + 51 + sx, 2);
-    tie.translate(x, (beamTop + beamBot) / 2, 0);
-    add(tie, wood);
-    columnAt(x, 0, under(0) - rd - pd + 0.02, m.columnD / 2, k++);
-    for (const z of [dh / 2, -dh / 2]) add(log([x, beamTop - 0.02, z], [x, under(z) - rd - pd + 0.02, z], 0.07, 0.065, seed + 60 + k++, 9, 0.006), wood);
+    add(bar(m.lan.t, m.lan.w, 2 * dh + 0.3, x, (beamTop + beamBot) / 2, 0, 0.012), wood);
+    columnAt(x, 0, under(0) - rd - pd + 0.02);
+    for (const z of [dh / 2, -dh / 2]) add(pole([x, beamTop - 0.02, z], [x, under(z) - rd - pd + 0.02, z], 0.07, 0.066), wood);
   }
 
-  /* --- 土壁 --- */
-  // 全栋一套版线(四面同高),版高不等(D-36 ②)。门窗洞上下口仍对齐版线。
-  const seq = liftSequence(seed + 191, fl + m.ridgeY + 1);
-  const bays = m.columnX.slice(1).map((x1, i) => ({ c: (x1 + m.columnX[i]) / 2 }));
-  const doorBay = Math.floor(bays.length / 2);
-  const front: Opening[] = bays.map((b, i) => i === doorBay
-    ? { a0: b.c - d.doorWidthM / 2, a1: b.c + d.doorWidthM / 2, r0: 0, r1: d.doorLifts }
-    : { a0: b.c - d.windowWidthM / 2, a1: b.c + d.windowWidthM / 2, r0: d.windowSillLifts, r1: d.windowSillLifts + d.windowLifts });
-  const doorH = seq[d.doorLifts], winY0 = seq[d.windowSillLifts], winH = seq[d.windowSillLifts + d.windowLifts] - winY0;
-  const flatH = beamBot - fl;
-  if (doorH > flatH - 0.13 || winY0 + winH > flatH - 0.13) throw new Error('乡野门窗洞按版线取高后顶到额枋');
-  const dampN = new Simplex(seed + 77);
-  const damp = new THREE.Color(XY.earthDamp), base = new THREE.Color(XY.earth);
-  const dampTint = [damp.r / base.r, damp.g / base.g, damp.b / base.b];
-  const wallColor = (a: number, y: number, tone: number): [number, number, number] => {
-    const fade = Math.max(0.15, 0.55 + 0.18 * fbm2(dampN, a * 0.7, 2.3, 3));
-    const kd = Math.pow(1 - clamp(y / fade, 0, 1), 0.7);
-    // 大块泥色斑驳(雨淋、补泥):0.5–2 m 尺度,±12%;再乘一版一色的 tone。
-    const patch = (1 + 0.12 * fbm2(dampN, a * 0.55 + 9, y * 0.9, 4)) * tone;
-    return [lerp(1, dampTint[0], kd) * patch, lerp(1, dampTint[1], kd) * patch, lerp(1, dampTint[2], kd) * patch];
-  };
-  const placeWall = (geos: THREE.BufferGeometry[], rotY: number, tx: number, tz: number) => {
-    for (const g of geos) {
-      g.deleteAttribute('uv');
-      g.setAttribute('uv', boxProjectedUV(g, 1 / EARTH_TILE_M));
-      const own = g.getAttribute('color');
-      const tone = (g.userData.tone as number | undefined) ?? 1;
-      const pre = own ? Array.from(own.array as Float32Array) : null;
-      addColor(g, (a, y) => wallColor(a + tx * 3 + tz * 5, y, tone));
-      if (pre) { const c = g.getAttribute('color'); for (let i = 0; i < c.count * 3; i++) (c.array as Float32Array)[i] *= pre[i]; }
-      g.rotateY(rotY);
-      g.translate(tx, fl, tz);
-      add(g, earth);
-    }
-  };
+  /* --- 墙:细抹浅黄壁 + 青砖下碱(后檐墙、两山;出廊时两山直抵檐柱,成廊心墙)--- */
+  const uvWall = (g: THREE.BufferGeometry) => { g.deleteAttribute('uv'); g.setAttribute('uv', boxProjectedUV(g, 1 / 1.5)); return g; };
+  const uvBrick = (g: THREE.BufferGeometry) => { g.deleteAttribute('uv'); g.setAttribute('uv', boxProjectedUV(g, 1 / 0.96)); return g; };
   const aF = W / 2 + ow;
-  placeWall(earthWall({ a0: -aF, a1: aF, height: flatH, wt, seq, openings: front, seed: seed + 201 }), 0, 0, dh + ow);
-  placeWall(earthWall({ a0: -aF, a1: aF, height: flatH, wt, seq, openings: [], seed: seed + 202 }), Math.PI, 0, -(dh + ow));
-  const aS = dh + ow - wt;
-  const gableTop = (a: number) => under(a) - rd - fl;
+  {
+    const zb = -(dh + ow) + wt / 2;
+    add(uvWall(bar(2 * aF, beamBot - fl, wt, 0, (fl + beamBot) / 2, zb, 0.01)), plaster);
+    add(uvBrick(bar(2 * aF + 0.02, R.dadoM, wt + 0.03, 0, fl + R.dadoM / 2, zb, 0.008)), brick);
+    // 后檐额枋上、椽空当:封护檐(细抹)。
+    add(uvWall(bar(W + 2 * ow - 0.04, under(dh) - beamTop + 0.02, wt * 0.6, 0, (under(dh) + beamTop) / 2, -dh + wt * 0.3 + 0.03, 0.01)), plaster);
+  }
+  const gableTop = (a: number) => under(a) - rd;
   for (const sx of [-1, 1]) {
-    placeWall(earthWall({ a0: -aS, a1: aS, height: gableTop(aS), topAt: gableTop, ridgeA: 0, wt, seq, openings: [], seed: seed + 210 + sx }),
-      sx * Math.PI / 2, sx * (W / 2 + ow), 0);
+    const A = dh + ow, yEdge = gableTop(A), yRidge = gableTop(0);
+    const sh = new THREE.Shape([new THREE.Vector2(-A, fl), new THREE.Vector2(A, fl), new THREE.Vector2(A, yEdge), new THREE.Vector2(0, yRidge), new THREE.Vector2(-A, yEdge)]);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: wt, bevelEnabled: false });
+    g.translate(0, 0, -wt / 2); // 形状 X = 沿进深 z,Y = 高;挤出方向 = 墙厚
+    g.rotateY(Math.PI / 2);
+    g.translate(sx * (W / 2 + ow - wt / 2), 0, 0);
+    add(uvWall(g), plaster);
+    add(uvBrick(bar(wt + 0.03, R.dadoM, 2 * A + 0.02, sx * (W / 2 + ow - wt / 2), fl + R.dadoM / 2, 0, 0.008)), brick);
   }
-  // 额枋上、椽空当:封檐泥(不让檐下露出屋里的黑洞)。
-  for (const z of [dh, -dh]) {
-    const g = roundedBox(W + 2 * ow - 0.04, under(dh) - beamTop + 0.02, wt * 0.6, 0.02, 2);
-    g.deleteAttribute('uv'); g.setAttribute('uv', boxProjectedUV(g, 1 / EARTH_TILE_M));
-    addColor(g, () => [0.9, 0.9, 0.9]);
-    g.translate(0, (under(dh) + beamTop) / 2, z - Math.sign(z) * (wt * 0.3 + 0.03));
-    add(g, earth);
-  }
-  /* --- 台基(夯土台)--- */
+  if (!porch) add(uvWall(bar(W + 2 * ow - 0.04, under(dh) - beamTop + 0.02, wt * 0.6, 0, (under(dh) + beamTop) / 2, dh - wt * 0.3 - 0.03, 0.01)), plaster);
+  else add(uvWall(bar(W - 0.04, under(zf) - rd - beamTop + 0.02, 0.12, 0, (under(zf) - rd + beamTop) / 2, zf - 0.02, 0.01)), plaster); // 金枋上走马板
+
+  /* --- 台基:条石(阶条石压面,缝 6 mm)+ 明间前踏跺 --- */
+  add(bar(PW - 0.02, fl - 0.1, PD - 0.02, 0, (fl - 0.1) / 2, 0, 0.01), stone);
+  add(bar(PW - 0.72, 0.1, PD - 0.72, 0, fl - 0.05, 0, 0.004), stone);
   {
-    const mg = d.platformMarginM;
-    const g = roundedBox(W + 2 * (ow + mg), fl, 2 * (dh + ow + mg), 0.05, 5);
-    noiseDisplace(g, 0.008, 3, seed + 301, 2);
-    g.deleteAttribute('uv'); g.setAttribute('uv', boxProjectedUV(g, 1 / 2.5));
-    g.translate(0, fl / 2, 0);
-    add(g, tampedEarthMaterial());
+    const band = 0.36, seg = 1.3;
+    const lay = (len: number, along: 'x' | 'z', off: number) => {
+      const n = Math.max(1, Math.round(len / seg));
+      for (let k = 0; k < n; k++) {
+        const c = -len / 2 + (len * (k + 0.5)) / n, L = len / n - 0.006;
+        add(along === 'x' ? bar(L, 0.1, band, c, fl - 0.05, off, 0.006) : bar(band, 0.1, L, off, fl - 0.05, c, 0.006), stone);
+      }
+    };
+    lay(PW, 'x', PD / 2 - band / 2); lay(PW, 'x', -PD / 2 + band / 2);
+    lay(PD - 2 * band, 'z', PW / 2 - band / 2); lay(PD - 2 * band, 'z', -PW / 2 + band / 2);
   }
-  /* --- 门:门框、门槛、过木、板门(关) --- */
-  {
-    const b = bays[doorBay], w = d.doorWidthM, h = doorH, zf = dh + ow;
-    const lintel = roundedBox(w + 0.36, 0.13, wt * 0.8, 0.02, 2);
-    lintel.translate(b.c, fl + h + 0.065, zf - wt * 0.4 + 0.02);
-    add(lintel, wood);
-    for (const sx of [-1, 1]) {
-      const post = roundedBox(0.1, h, 0.14, 0.015, 2);
-      post.translate(b.c + sx * (w / 2 - 0.05), fl + h / 2, zf - 0.1);
-      add(post, wood);
-    }
-    const sill = roundedBox(w + 0.04, 0.12, 0.14, 0.02, 2);
-    sill.translate(b.c, fl + 0.06, zf - 0.12);
-    add(sill, wood);
-    for (const [sx, gap] of [[-1, 0], [1, 0]] as const) {
-      for (const g of doorLeaves((w - 0.2) / 2, h - 0.14, seed + 400 + sx)) {
-        g.translate(b.c + sx * (w - 0.2) / 4 + gap, fl + 0.12, zf - 0.16);
-        add(g, wood);
+  const bays = m.columnX.slice(1).map((x1, i) => ({ c: (x1 + m.columnX[i]) / 2, w: x1 - m.columnX[i] }));
+  const doorBay = Math.floor(bays.length / 2);
+  const steps = compileExteriorSteps(fl, PW / 2, PD / 2, 'front', { widthM: bays[doorBay].w - 0.3, treadM: R.stepTreadM, maxRiserM: R.stepMaxRiserM }, bays[doorBay].c);
+  for (const st of steps) add(bar(st.hx * 2, st.y, st.hz * 2, st.cx, st.y / 2, st.cz, 0.008), stone);
+
+  /* --- 前檐装修:抱框、门槛、中槛、横披;明间格扇、次间槛墙 + 槛窗 --- */
+  const woodG: THREE.BufferGeometry[] = [], paperG: THREE.BufferGeometry[] = [];
+  const topY = beamBot, midY = beamBot - R.transomM, sill = 0.12;
+  bays.forEach((b, i) => {
+    const x0 = b.c - b.w / 2 + colR, x1 = b.c + b.w / 2 - colR, frame = 0.09, cw = x1 - x0 - 2 * frame;
+    woodG.push(bar(frame, topY - fl, 0.12, x0 + frame / 2, (fl + topY) / 2, zf), bar(frame, topY - fl, 0.12, x1 - frame / 2, (fl + topY) / 2, zf));
+    woodG.push(bar(cw, 0.1, 0.12, b.c, midY - 0.05, zf)); // 中槛
+    // 横披:一整块格心。
+    const th = topY - midY - 0.02;
+    for (const g of lattice(cw, th, R.latticeBarM, R.latticePitchM)) { g.translate(b.c, midY + th / 2, zf + 0.02); woodG.push(g); }
+    const tp = new THREE.PlaneGeometry(cw, th); tp.translate(b.c, midY + th / 2, zf); paperG.push(tp);
+    const n = R.leavesPerBay, lw = cw / n;
+    if (i === doorBay) {
+      woodG.push(bar(cw + 2 * frame, sill, 0.14, b.c, fl + sill / 2, zf)); // 门槛
+      const lh = midY - 0.1 - (fl + sill) - 0.01;
+      for (let k = 0; k < n; k++) {
+        const L = leaf(lw - 0.006, lh, true, R.stileM, R.latticeBarM, R.latticePitchM);
+        const dx = b.c - cw / 2 + lw * (k + 0.5);
+        for (const g of L.wood) { g.translate(dx, fl + sill, zf + 0.02); woodG.push(g); }
+        for (const g of L.paper) { g.translate(dx, fl + sill, zf + 0.02); paperG.push(g); }
+      }
+    } else {
+      const kh = R.kanWallM;
+      add(uvBrick(bar(cw, kh, 0.26, b.c, fl + kh / 2, zf - 0.04, 0.006)), brick); // 槛墙
+      woodG.push(bar(cw + 0.06, 0.06, 0.34, b.c, fl + kh + 0.03, zf, 0.008)); // 榻板
+      const lh = midY - 0.1 - (fl + kh + 0.06) - 0.01;
+      for (let k = 0; k < n; k++) {
+        const L = leaf(lw - 0.006, lh, false, R.stileM, R.latticeBarM, R.latticePitchM);
+        const dx = b.c - cw / 2 + lw * (k + 0.5);
+        for (const g of L.wood) { g.translate(dx, fl + kh + 0.06, zf + 0.02); woodG.push(g); }
+        for (const g of L.paper) { g.translate(dx, fl + kh + 0.06, zf + 0.02); paperG.push(g); }
       }
     }
-  }
-  /* --- 纸窗:窗框、直棂、窗纸(emissive,`P-05`)、窗台、过木 --- */
-  bays.forEach((b, i) => {
-    if (i === doorBay) return;
-    const w = d.windowWidthM, y0 = fl + winY0, h = winH, zf = dh + ow;
-    const fr = 0.06;
-    for (const [cx, cy, sw, sh] of [[b.c - w / 2 + fr / 2, y0 + h / 2, fr, h], [b.c + w / 2 - fr / 2, y0 + h / 2, fr, h],
-      [b.c, y0 + fr / 2, w, fr], [b.c, y0 + h - fr / 2, w, fr]] as const) {
-      const g = roundedBox(sw, sh, 0.09, 0.012, 2);
-      g.translate(cx, cy, zf - 0.07);
-      add(g, wood);
-    }
-    const inner = w - 2 * fr, bars = Math.max(3, Math.round(inner / d.mullionPitchM) - 1);
-    for (let j = 1; j <= bars; j++) {
-      const g = roundedBox(d.mullionM, h - 2 * fr + 0.02, 0.04, 0.008, 1);
-      g.translate(b.c - inner / 2 + (inner * j) / (bars + 1), y0 + h / 2, zf - 0.075);
-      add(g, wood);
-    }
-    const pane = new THREE.PlaneGeometry(inner, h - 2 * fr);
-    pane.translate(b.c, y0 + h / 2, zf - 0.1);
-    add(pane, paper);
-    const sillB = roundedBox(w + 0.16, 0.06, 0.12, 0.015, 2);
-    sillB.translate(b.c, y0 - 0.03, zf - 0.03);
-    add(sillB, wood);
-    const lintel = roundedBox(w + 0.3, 0.1, wt * 0.8, 0.02, 2);
-    lintel.translate(b.c, y0 + h + 0.05, zf - wt * 0.4 + 0.02);
-    add(lintel, wood);
   });
+  for (const g of woodG) add(g, wood);
+  for (const g of paperG) add(g, paper);
 
   /* --- 匾:素木板墨字,挂明间檐下(D-36 ④)。字从 plan 读,读不到就不挂 --- */
   const plaqueText = o.id ? plaqueFromPlan(o.id) : undefined;
@@ -548,9 +481,9 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   // 单子 BC2:远景档——台基一块、屋身一块、茅顶一道两坡(厚 t,前后挑出到檐口、两山挑出到出际)。
   // 120 m 外一个像素约 0.16 m:檐口乱茬、椽头、窗棂全在一个像素以下,体块与茅顶的色块才是那一眼读到的东西。
   {
-    const mgF = d.platformMarginM, bodyTop = beamTop;
-    const plat = farBox(W + 2 * (ow + mgF), fl, 2 * (dh + ow + mgF), 0, 0, 0, stone, 1);
-    const body = farBox(W + 2 * ow, bodyTop - fl, 2 * (dh + ow), 0, fl, 0, earth, EARTH_TILE_M);
+    const bodyTop = beamTop;
+    const plat = farBox(PW, fl, PD, 0, 0, 0, stone, 1);
+    const body = farBox(W + 2 * ow, bodyTop - fl, (zf + dh + ow), 0, fl, (zf - dh - ow) / 2, plaster, 1.5);
     const prof = new THREE.Shape([
       new THREE.Vector2(-zTip, top(zTip) - t), new THREE.Vector2(0, top(0) - t), new THREE.Vector2(zTip, top(zTip) - t),
       new THREE.Vector2(zTip, top(zTip)), new THREE.Vector2(0, top(0)), new THREE.Vector2(-zTip, top(zTip)),
@@ -566,13 +499,12 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   root.userData.construction = { paramSet: 'rustic', tier: 'C-r', roofType: frame.roofType,
     provenance: { evidence: frame.provenance.evidence, inference: [], art: [...frame.provenance.art, ...d.provenance.art] } };
   if (o.id) root.userData.planObject = { id: o.id };
-  // 入世界(单子 BA4):装配器按 BuildingResult 登记台基平台与阻挡。门是关着的板门,
-  // 屋身整块挡人;台基可站(踏上去看檐口)。frame 给灯笼规则用(稻香村不挂灯,仍按接口给全)。
-  const mg = d.platformMarginM;
+  // 入世界:装配器按 BuildingResult 登记台基平台、踏跺与阻挡。屋身(到前檐装修那一缝)整块挡人;
+  // 出廊时廊子可站(从踏跺上去),檐柱各挡一小块。
+  const blockers = [{ cx: 0, cz: (zf - dh - ow) / 2, hx: W / 2 + ow, hz: (zf + dh + ow) / 2 + 0.03, h: fl + m.columnH + m.lan.w }];
+  if (porch) for (const x of m.columnX) blockers.push({ cx: x, cz: dh, hx: colR, hz: colR, h: fl + m.columnH });
   return { kind: 'building', root, groundRadius: Math.max(W, 2 * dh) * 1.1, frame,
-    platform: { hx: W / 2 + ow + mg, hz: dh + ow + mg, y: fl },
-    walkSurfaces: [],
-    blockers: [{ cx: 0, cz: 0, hx: W / 2 + ow, hz: dh + ow, h: fl + m.columnH + m.lan.w }] } as PartBuild;
+    platform: { hx: PW / 2, hz: PD / 2, y: fl }, walkSurfaces: steps, blockers } as PartBuild;
 }
 
 /** 棚拍/落位:variant = plan 里的茅屋 id;default = 茆堂。 */

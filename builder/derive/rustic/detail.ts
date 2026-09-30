@@ -29,6 +29,9 @@ export interface RusticDetail {
   vergeRollM:number;eaveUndercutM:number;
   /** BF1 雅村:檐口厚边(新苫近檐加厚到此)、苫面顺坡鼓起、两山切齐的顶角倒圆。 */
   eaveEdgeM:number;roofBellyM:number;vergeChamferM:number;
+  /** BF2 雅村屋身:条石台基高、青砖下碱高、前廊进深(三间以上出廊)、槛墙高、横披高、格扇 / 槛窗扇数与边梃抹头宽、格心棂条宽与棂距、踏跺。 */
+  refined:{stoneBaseM:number;dadoM:number;porchDepthM:number;kanWallM:number;transomM:number;leavesPerBay:number;
+    stileM:number;latticeBarM:number;latticePitchM:number;stepTreadM:number;stepMaxRiserM:number;drumH:number};
   /** 草脊(压脊草把)半宽、半高、捆扎间距。 */
   ridgeRollHalfWidthM:number;ridgeRollHalfHeightM:number;ridgeTiePitchM:number;
   /** 台基四面出边。 */
@@ -53,6 +56,8 @@ export function deriveRusticDetail(frame:Frame):RusticDetail {
     gableOverhangM:m.yanchu,
     vergeRollM:.13,eaveUndercutM:.04,
     eaveEdgeM:.28,roofBellyM:.05,vergeChamferM:.04,
+    refined:{stoneBaseM:.39,dadoM:.72,porchDepthM:1.1,kanWallM:.86,transomM:.42,leavesPerBay:4,
+      stileM:.055,latticeBarM:.015,latticePitchM:.075,stepTreadM:.3,stepMaxRiserM:.14,drumH:.14},
     ridgeRollHalfWidthM:.19,ridgeRollHalfHeightM:.17,ridgeTiePitchM:.72,
     platformMarginM:.45,
     doorWidthM:1.28,doorLifts:6,
@@ -71,6 +76,7 @@ export function deriveRusticDetail(frame:Frame):RusticDetail {
     art('gable-overhang','悬山出际',`两山出际取与出檐同(${m.yanchu} m，推导器 yanchu)；书无茅屋出际条文。`),
     art('thatch-edge','茅苫草边与檐口草茬','出际草边卷作半径 0.13 m 的草卷(下垂出苫底 0.02 m、上鼓出苫面)；檐口一刀齐的草茬面自顶向下内收 0.04 m，使厚边迎光。'),
     art('fresh-thatch','新苫精修(D-42 雅村,BF1)','檐口一刀切平直、近檐 0.8 m 苫面上皮加厚到 0.28 m;两山竖直切齐、顶角倒圆 0.04 m;苫面顺坡鼓起 0.05 m;不挂垂草。书无茅屋出际与檐口条文,取园林匠作精修读法。'),
+    art('refined-body','雅村屋身(D-42,BF2)','屋身不再是夯土:细抹浅黄壁、青砖下碱 0.72 m、条石台基 0.39 m(高于 plan platformH 0.18——plan 那一项是落脚整地口径,台基按 D-42「规整石台基」取艺术值)+ 明间前踏跺(级高 ≤ 0.14、踏面 0.3);三间以上前出一步廊 1.1 m(廊柱即檐柱,前檐墙退到金柱缝,足迹不变);明间四扇格扇、次间槛墙 0.86 m 上四扇槛窗、上加横披 0.42 m;边梃抹头 0.055、格心棂条 0.015 / 棂距 0.075(简化步步锦);柱下鼓形柱础高 0.14。书无定数。'),
     art('ridge-roll','草脊','屋脊压一道规整草脊筒(半宽 0.19 m、半高 0.17 m,近圆、各处同粗),约每 0.72 m 一道竹篾箍,两端平切收头;C-r 无脊件(R-03),草脊不是瓦作脊件。'),
     art('platform','土台出边','台基四面出边 0.45 m；台高沿用规格 platformH。'),
     art('plaque','素木匾','D-36 ④:匾「稻香村」取素木板墨字挂明间檐下,板宽取明间面阔的 0.42、下沿压额枋、前倾约 6°;不上漆、不描金(C-r 不施彩画)。字从 plan 读。'),

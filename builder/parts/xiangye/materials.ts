@@ -563,7 +563,7 @@ export function freshStubbleMaterial(): THREE.MeshStandardMaterial {
 export function refinedPlasterMaterial(): THREE.MeshStandardMaterial {
   return memo('xiangye.plaster-yellow', () => {
     const m = plasterMaps();
-    const mat = new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap, roughness: 1, metalness: 0, color: 0xe2c58e });
+    const mat = new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap, roughness: 1, metalness: 0, color: 0xdcbc82 });
     mat.normalScale.set(0.35, 0.35);
     return mat;
   });
@@ -598,7 +598,7 @@ export function blueBrickMaterial(): THREE.MeshStandardMaterial {
 /** 刨光本色木(柱、枋、格扇):暖褐,不施彩画、不描金、不上漆,木纹细。 */
 export function planedWoodMaterial(): THREE.MeshStandardMaterial {
   return memo('xiangye.planed-wood', () => {
-    const m = woodMaps('xiangye-planed', 0xa87850);
+    const m = woodMaps('xiangye-planed2', 0x8c5d3a);
     const mat = new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughness: 0.62, metalness: 0 });
     mat.normalScale.set(0.4, 0.4);
     return mat;
