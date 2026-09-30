@@ -7,13 +7,12 @@
  * 质心不在陆地上（潇湘馆的引泉沟就从质心旁 0.1 m 过），拿质心当落点会把人放进水里。
  * 所以取数顺序是 **入口 → 建筑锚点 → 质心兜底**，且落点一律回采地形高程。
  *
- * **`reachable` 只答"建没建成"。** 地形网格只覆盖 MVP 四区的窗口（`TERRAIN`），
- * 窗口外没有地形网格，走过去会掉进空的地方——没建成的区在图上灰着并注明原因。
- * 建成了但**还没走到过**的区由 `MapOverlay.setUnlocked` 解锁（99-27 收口：
- * 去过才上图，首次抵达只能靠腿），锁定时的说明写在 `lockedNote`。
+ * **`reachable` 只答"建没建成"**：区在建成名单里（`builtRegions()`，即有 `scenes/<区>.json`）且落点在地形窗口内。
+ * 没建成的区在图上灰着并注明原因。
+ * 建成了的区一律可点（`D-41` 撤掉了 99-27 的「走到过才解锁」）。
  */
 import type { MapPlace } from '@engine/ui/MapOverlay';
-import { TERRAIN } from '@builder/compose/terrain';
+import { TERRAIN, builtRegions } from '@builder/compose/terrain';
 
 interface PlanRegionLike {
   id: string;
@@ -62,10 +61,13 @@ export function buildMapPlaces(regions: readonly PlanRegionLike[]): MapPlace[] {
   const inWindow = (x: number, z: number): boolean =>
     x >= TERRAIN.playMinX && x <= TERRAIN.playMaxX && z >= TERRAIN.playMinZ && z <= TERRAIN.playMaxZ;
 
+  const built = new Set(builtRegions());
   return regions.map((r) => {
     const { at, from } = landing(r);
     const mid = centroid(r.polygon);
-    const reachable = inWindow(at[0], at[1]);
+    // 建成 = 有落位清单（scenes/<区>.json）。只看地形窗口会把窗口里的空地当成能去：
+    // 稻香村入建成把窗口扩到 357×376 m，藕香榭、紫菱洲等五个未建区的落点也进了窗口（D-41）。
+    const reachable = built.has(r.id) && inWindow(at[0], at[1]);
     const short = (r.name ?? r.id).split(/[(（]/)[0];
     return {
       id: r.id,
@@ -76,10 +78,7 @@ export function buildMapPlaces(regions: readonly PlanRegionLike[]): MapPlace[] {
       reachable,
       note: reachable
         ? `${r.name ?? r.id} · 落点取${from} (${at[0].toFixed(0)}, ${at[1].toFixed(0)})`
-        : `${r.name ?? r.id} · 尚未建成——地形网格只覆盖 MVP 四区，此处没有可站的地面`,
-      lockedNote: reachable
-        ? `${r.name ?? r.id} · 尚未走到——图只记足迹，首次抵达要靠腿走过去`
-        : undefined,
+        : `${r.name ?? r.id} · 尚未建成——还没有落位清单`,
     };
   });
 }
