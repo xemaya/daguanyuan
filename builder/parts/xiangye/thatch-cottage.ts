@@ -4,9 +4,9 @@ import { deriveRusticBuilding, type RusticSpec } from '@builder/derive/rustic/bu
 import { deriveRusticDetail, type RusticDetail } from '@builder/derive/rustic/detail';
 import { mergeByMaterial } from '../merge';
 import { roundedBox, boxProjectedUV, noiseDisplace } from '../sculpt';
-import { stoneMaterial, paperMaterial } from '../materials';
+import { paperMaterial } from '../materials';
 import { Simplex, makeRng, fbm2, clamp, smoothstep, lerp } from '@engine/core/Noise';
-import { thatchUnderMaterial, freshThatchMaterial, freshStubbleMaterial, refinedPlasterMaterial, blueBrickMaterial, planedWoodMaterial } from './materials';
+import { thatchUnderMaterial, freshThatchMaterial, freshStubbleMaterial, refinedPlasterMaterial, blueBrickMaterial, planedWoodMaterial, dressedStoneMaterial } from './materials';
 import { compileExteriorSteps } from '@builder/plan/building-access';
 import { planItem } from './plan-data';
 import { plaqueFromPlan } from '@builder/plan/objects';
@@ -156,7 +156,7 @@ function thatchSlope(g: RoofGeom, sign: 1 | -1, seed: number) {
       const y = yAt(s, dy), z = sign * s;
       pos.push(x, y, z);
       uv.push(us[i], s * slopeLen);
-      const k = (1.02 - 0.05 * smoothstep(0.5 * zTip, zTip, s)) * (1 + 0.025 * tint.noise2D(x * 0.4, s * 0.5));
+      const k = (1.02 - 0.05 * smoothstep(0.5 * zTip, zTip, s)) * (1 + 0.05 * tint.noise2D(x * 0.6, s * 0.7) + 0.03 * tint.noise2D(x * 2.5 + 11, s * 1.5)); // BF 收口:苫面大块深浅,不像一张塑料皮
       col.push(k, k, k);
       if (last) ends.push([x, y, z]);
     }
@@ -167,7 +167,12 @@ function thatchSlope(g: RoofGeom, sign: 1 | -1, seed: number) {
   // 檐口切面:檐口站那一圈点(左山底 → 苫面 → 右山底)沿底边闭合,三角化。
   const tris = THREE.ShapeUtils.triangulateShape(ends.map(([x, y]) => new THREE.Vector2(x, y)), []);
   const fp: number[] = [], fu: number[] = [], fi: number[] = [], fc: number[] = [];
-  for (const [x, y, z] of ends) { fp.push(x, y, z + sign * 0.001); fu.push(x * 4, y * 4); fc.push(1, 1, 1); }
+  // 秆口端面明暗:上沿受光亮,往下渐暗(下层秆口压在上层底下,背光);BF 收口。
+  const eyMin = Math.min(...ends.map((e) => e[1])), eyMax = Math.max(...ends.map((e) => e[1]));
+  for (const [x, y, z] of ends) {
+    const k = 0.7 + 0.36 * smoothstep(eyMin, eyMax, y);
+    fp.push(x, y, z + sign * 0.001); fu.push(x * 4, y * 4); fc.push(k, k, k);
+  }
   for (const [a, b, c] of tris) fi.push(a, b, c);
   const face = meshGeo(fp, fu, fi);
   face.setAttribute('color', new THREE.Float32BufferAttribute(fc, 3));
@@ -185,7 +190,7 @@ function thatchSlope(g: RoofGeom, sign: 1 | -1, seed: number) {
 }
 
 /**
- * 草脊(BF1 规整):一道圆润压实的脊筒——截面近圆、各处同粗;每 `tiePitch` 一道竹篾箍(微勒进 3%、箍本身是细管);
+ * 草脊(BF1 规整):一道圆润压实的脊筒——截面近圆;每 `tiePitch` 一道竹篾箍,箍处勒进 13% 成收腰(BF 收口),表面带拧草斜纹;
  * 两端平切收头(倒一道小圆),端面是整齐秆口。
  */
 function ridgeRoll(X: number, y0: number, hw: number, hh: number, tiePitch: number) {
@@ -197,7 +202,7 @@ function ridgeRoll(X: number, y0: number, hw: number, hh: number, tiePitch: numb
   for (let i = 0; i <= nT; i++) ties.push(x0 + 0.25 + ((x1 - x0 - 0.5) * i) / nT);
   const radiusAt = (x: number) => {
     let k = 1;
-    for (const tx of ties) k -= 0.03 * Math.exp(-(((x - tx) / 0.03) ** 2));
+    for (const tx of ties) k -= 0.13 * Math.exp(-(((x - tx) / 0.07) ** 2)); // BF 收口:箍处勒出收腰,两箍之间鼓成一节节草把
     const end = Math.min(x - x0, x1 - x);
     return k * (0.9 + 0.1 * smoothstep(0, 0.05, end));
   };
@@ -208,7 +213,10 @@ function ridgeRoll(X: number, y0: number, hw: number, hh: number, tiePitch: numb
       const a = (Math.PI * 2 * i) / SEG, p = ringPt(x, a);
       pos.push(...p);
       uv.push((a / (Math.PI * 2)) * Math.PI * (hw + hh), x);
-      const k = 0.94 + 0.08 * Math.sin(a);
+      // 表面草纹:顺脊拧的草把——一道道斜向的深浅纹;勒紧的箍边草压得更密、更深。
+      let tie = 0;
+      for (const tx of ties) tie = Math.max(tie, Math.exp(-(((x - tx) / 0.08) ** 2)));
+      const k = (0.94 + 0.08 * Math.sin(a)) * (1 + 0.08 * Math.sin(a * 5 + x * 40)) * (1 - 0.16 * tie);
       col.push(k, k, k);
     }
   }
@@ -251,28 +259,40 @@ function bar(w: number, h: number, t: number, cx: number, cy: number, cz: number
   return g;
 }
 /**
- * 格心(简化步步锦):外一圈边条;横棂按 `pitch` 满跨,两横棂之间的竖棂在 1/4·3/4 与 1/2 两种位置间交替——
- * 一步一错,读成细密的格子而不是直棂。局部系:原点在格心中心,面朝 +Z。
+ * 格心:步步锦(见函数内注)。局部系:原点在格心中心,面朝 +Z。
  */
 function lattice(w: number, h: number, b: number, pitch: number): THREE.BufferGeometry[] {
   const out: THREE.BufferGeometry[] = [], t = 0.022;
   out.push(bar(w, b, t, 0, h / 2 - b / 2, 0), bar(w, b, t, 0, -h / 2 + b / 2, 0), bar(b, h, t, -w / 2 + b / 2, 0, 0), bar(b, h, t, w / 2 - b / 2, 0, 0));
-  // 步步锦:沿长向切成近方的“锦”块,每块由外向内套几圈棂框,圈与圈之间用短棂(工字)相连,
-  // 奇数圈连在各边正中、偶数圈错到四分点——一步一错,即“步步”。
+  // 步步锦(BF 收口,用户要真的步步锦):沿长向切成近方的锦块;每块由外向内一层层棂条,
+  // **不封闭**——每层四根棂各自一头顶在上一层、一头顶在本层的邻棂上,四角成 T 接、层层旋错(风车式),
+  // 这正是「步步」;层与层之间每边一根工字短棂,奇偶层错位。最里留一方空心。
   const vert = h >= w, L = vert ? h : w, S = vert ? w : h;
   const k = Math.max(1, Math.round(L / (S * 1.1))), ml = L / k;
   for (let j = 0; j < k; j++) {
     const c = -L / 2 + ml * (j + 0.5), cx = vert ? 0 : c, cy = vert ? c : 0;
     const mw = vert ? w : ml, mh = vert ? ml : h;
     if (j > 0) out.push(vert ? bar(w - b, b, t, 0, c - ml / 2, 0) : bar(b, h - b, t, c - ml / 2, 0, 0));
-    const d = Math.min(pitch, Math.min(mw, mh) * 0.22);
-    for (let r = 1; Math.min(mw, mh) - 2 * r * d > 1.8 * d; r++) {
-      const rw = mw - 2 * r * d, rh = mh - 2 * r * d;
-      out.push(bar(rw, b, t, cx, cy + rh / 2 - b / 2, 0), bar(rw, b, t, cx, cy - rh / 2 + b / 2, 0));
-      out.push(bar(b, rh - 2 * b, t, cx - rw / 2 + b / 2, cy, 0), bar(b, rh - 2 * b, t, cx + rw / 2 - b / 2, cy, 0));
-      const s = d - b, fx = r % 2 ? [0] : [-0.25, 0.25], fy = r % 2 ? [0] : [-0.25, 0.25];
-      for (const f of fx) for (const sg of [1, -1]) out.push(bar(b, s, t, cx + f * rw, cy + sg * (rh / 2 + s / 2), 0));
-      for (const f of fy) for (const sg of [1, -1]) out.push(bar(s, b, t, cx + sg * (rw / 2 + s / 2), cy + f * rh, 0));
+    const d = Math.min(pitch, Math.min(mw, mh) * 0.2);
+    // 第 i 层四条棂的中线:T(上)、B(下)、Lx(左)、Rx(右);第 0 层 = 块边(外框 / 分块棂)。
+    const T = (i: number) => cy + mh / 2 - b / 2 - i * d, Bt = (i: number) => cy - mh / 2 + b / 2 + i * d;
+    const Lx = (i: number) => cx - mw / 2 + b / 2 + i * d, Rx = (i: number) => cx + mw / 2 - b / 2 - i * d;
+    const hBar = (y: number, x0: number, x1: number) => out.push(bar(Math.abs(x1 - x0) + b, b, t, (x0 + x1) / 2, y, 0));
+    const vBar = (x: number, y0: number, y1: number) => out.push(bar(b, Math.abs(y1 - y0) + b, t, x, (y0 + y1) / 2, 0));
+    let i = 1;
+    for (; Rx(i) - Lx(i) > 1.6 * d && T(i) - Bt(i) > 1.6 * d; i++) {
+      const flip = i % 2 === 0; // 奇偶层反向旋,错得更明显
+      if (!flip) {
+        hBar(T(i), Lx(i - 1), Rx(i)); vBar(Rx(i), T(i - 1), Bt(i)); hBar(Bt(i), Rx(i - 1), Lx(i)); vBar(Lx(i), Bt(i - 1), T(i));
+      } else {
+        hBar(T(i), Rx(i - 1), Lx(i)); vBar(Lx(i), T(i - 1), Bt(i)); hBar(Bt(i), Lx(i - 1), Rx(i)); vBar(Rx(i), Bt(i - 1), T(i));
+      }
+      // 工字短棂:每边一根,落在 1/3(奇层)或 2/3(偶层)——一层一错。
+      for (const f of [flip ? 2 / 3 : 1 / 3]) {
+        const xs = Lx(i) + (Rx(i) - Lx(i)) * f, ys = Bt(i) + (T(i) - Bt(i)) * f;
+        vBar(xs, T(i - 1), T(i)); vBar(xs, Bt(i - 1), Bt(i));
+        hBar(ys, Lx(i - 1), Lx(i)); hBar(ys, Rx(i - 1), Rx(i));
+      }
     }
   }
   return out;
@@ -330,7 +350,7 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   const wt = d.wallThicknessM, ow = d.wallOutsetM;
 
   const thatch = freshThatchMaterial(), stubble = freshStubbleMaterial(), reed = thatchUnderMaterial();
-  const plaster = refinedPlasterMaterial(), brick = blueBrickMaterial(), wood = planedWoodMaterial(), stone = stoneMaterial(1), paper = paperMaterial();
+  const plaster = refinedPlasterMaterial(), brick = blueBrickMaterial(), wood = planedWoodMaterial(), stone = dressedStoneMaterial(), paper = paperMaterial();
   const group = new THREE.Group();
   const add = (g: THREE.BufferGeometry, mat: THREE.Material) => group.add(shadowed(new THREE.Mesh(g, mat)));
 
@@ -418,25 +438,53 @@ export function buildThatchCottage(o: ThatchCottageOptions): PartBuild {
   if (!porch) add(uvWall(bar(W + 2 * ow - 0.04, under(dh) - beamTop + 0.02, wt * 0.6, 0, (under(dh) + beamTop) / 2, dh - wt * 0.3 - 0.03, 0.01)), plaster);
   else add(uvWall(bar(W - 0.04, under(zf) - rd - beamTop + 0.02, 0.12, 0, (under(zf) - rd + beamTop) / 2, zf - 0.02, 0.01)), plaster); // 金枋上走马板
 
-  /* --- 台基:条石(阶条石压面,缝 6 mm)+ 明间前踏跺 --- */
-  add(bar(PW - 0.02, fl - 0.1, PD - 0.02, 0, (fl - 0.1) / 2, 0, 0.01), stone);
-  add(bar(PW - 0.72, 0.1, PD - 0.72, 0, fl - 0.05, 0, 0.004), stone);
+  /* --- 台基:条石——土衬 · 陡板 · 阶条石压面(缝 12 mm,缝里是压暗的灰浆衬底),廊内铺方石;明间前踏跺 ---
+   * BF 收口:暖灰麻石(`dressedStoneMaterial`),每块石头贴图随机错位——块与块深浅不一,读成一块块石头而不是一整块白水泥。 */
+  const srng = makeRng(0x5a7e);
+  const uvStone = (g: THREE.BufferGeometry) => {
+    g.deleteAttribute('uv');
+    const uv = boxProjectedUV(g, 1), du = srng() * 7, dv = srng() * 7;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) + du, uv.getY(i) + dv);
+    g.setAttribute('uv', uv);
+    return g;
+  };
+  const mortar = dressedStoneMaterial('mortar'), J = 0.012;
+  add(bar(PW - 0.06, fl - 0.012, PD - 0.06, 0, (fl - 0.012) / 2, 0, 0.004), mortar);
+  // 沿一条边铺一行石头:len 长、按 seg 分块、每块留缝 J;`mk(c, L)` 给出块的几何。
+  const lay = (len: number, seg: number, mk: (c: number, L: number) => THREE.BufferGeometry) => {
+    const n = Math.max(1, Math.round(len / seg));
+    for (let k = 0; k < n; k++) add(uvStone(mk(-len / 2 + (len * (k + 0.5)) / n, len / n - J)), stone);
+  };
+  const plinthH = 0.06, capH = 0.1, band = 0.36, faceT = 0.12, faceH = fl - plinthH - capH;
+  for (const sz of [1, -1]) {
+    lay(PW + 0.06, 1.1, (c, L) => bar(L, plinthH, 0.2, c, plinthH / 2, sz * (PD / 2 - 0.07), 0.006)); // 土衬:外出 3 cm
+    lay(PW - 0.02, 0.9, (c, L) => bar(L, faceH, faceT, c, plinthH + faceH / 2, sz * (PD / 2 - 0.01 - faceT / 2), 0.008)); // 陡板
+    lay(PW + 0.03, 1.3, (c, L) => bar(L, capH, band, c, fl - capH / 2, sz * (PD / 2 + 0.015 - band / 2), 0.02)); // 阶条石,外出 1.5 cm、倒棱
+  }
+  for (const sx of [1, -1]) {
+    lay(PD - 0.12, 1.1, (c, L) => bar(0.2, plinthH, L, sx * (PW / 2 - 0.07), plinthH / 2, c, 0.006));
+    lay(PD - 0.02 - 2 * faceT, 0.9, (c, L) => bar(faceT, faceH, L, sx * (PW / 2 - 0.01 - faceT / 2), plinthH + faceH / 2, c, 0.008));
+    lay(PD + 0.03 - 2 * band, 1.3, (c, L) => bar(band, capH, L, sx * (PW / 2 + 0.015 - band / 2), fl - capH / 2, c, 0.02));
+  }
   {
-    const band = 0.36, seg = 1.3;
-    const lay = (len: number, along: 'x' | 'z', off: number) => {
-      const n = Math.max(1, Math.round(len / seg));
-      for (let k = 0; k < n; k++) {
-        const c = -len / 2 + (len * (k + 0.5)) / n, L = len / n - 0.006;
-        add(along === 'x' ? bar(L, 0.1, band, c, fl - 0.05, off, 0.006) : bar(band, 0.1, L, off, fl - 0.05, c, 0.006), stone);
+    // 台心:屋内一整块(看不见);廊下 / 檐下露出的一条铺方石 0.55 m 见方,错缝。
+    const iw = PW + 0.03 - 2 * band, zOut = PD / 2 + 0.015 - band, zIn = zf - 0.15;
+    add(bar(iw, 0.06, zIn + PD / 2 - band, 0, fl - 0.03, (zIn - PD / 2 + band) / 2, 0.002), stone);
+    const depth = zOut - zIn, rows = Math.max(1, Math.round(depth / 0.55));
+    for (let r = 0; r < rows; r++) {
+      const zc = zIn + (depth * (r + 0.5)) / rows, dz = depth / rows - J, n = Math.max(1, Math.round(iw / 0.55)), off = r % 2 ? 0.5 : 0;
+      for (let k = -1; k <= n; k++) {
+        const xa = Math.max(-iw / 2, -iw / 2 + (iw * (k + off)) / n), xb = Math.min(iw / 2, -iw / 2 + (iw * (k + 1 + off)) / n);
+        if (xb - xa < 0.05) continue;
+        add(uvStone(bar(xb - xa - J, 0.06, dz, (xa + xb) / 2, fl - 0.03, zc, 0.004)), stone);
       }
-    };
-    lay(PW, 'x', PD / 2 - band / 2); lay(PW, 'x', -PD / 2 + band / 2);
-    lay(PD - 2 * band, 'z', PW / 2 - band / 2); lay(PD - 2 * band, 'z', -PW / 2 + band / 2);
+    }
   }
   const bays = m.columnX.slice(1).map((x1, i) => ({ c: (x1 + m.columnX[i]) / 2, w: x1 - m.columnX[i] }));
   const doorBay = Math.floor(bays.length / 2);
   const steps = compileExteriorSteps(fl, PW / 2, PD / 2, 'front', { widthM: bays[doorBay].w - 0.3, treadM: R.stepTreadM, maxRiserM: R.stepMaxRiserM }, bays[doorBay].c);
-  for (const st of steps) add(bar(st.hx * 2, st.y, st.hz * 2, st.cx, st.y / 2, st.cz, 0.008), stone);
+  // 踏跺:每级一块整石,前沿倒棱;级与级之间同样留缝。
+  for (const st of steps) add(uvStone(bar(st.hx * 2 - J, st.y, st.hz * 2 - J, st.cx, st.y / 2, st.cz, 0.02)), stone);
 
   /* --- 前檐装修:抱框、门槛、中槛、横披;明间格扇、次间槛墙 + 槛窗 --- */
   const woodG: THREE.BufferGeometry[] = [], paperG: THREE.BufferGeometry[] = [];
