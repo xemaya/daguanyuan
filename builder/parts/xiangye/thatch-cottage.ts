@@ -257,12 +257,23 @@ function bar(w: number, h: number, t: number, cx: number, cy: number, cz: number
 function lattice(w: number, h: number, b: number, pitch: number): THREE.BufferGeometry[] {
   const out: THREE.BufferGeometry[] = [], t = 0.022;
   out.push(bar(w, b, t, 0, h / 2 - b / 2, 0), bar(w, b, t, 0, -h / 2 + b / 2, 0), bar(b, h, t, -w / 2 + b / 2, 0, 0), bar(b, h, t, w / 2 - b / 2, 0, 0));
-  const n = Math.max(2, Math.round(h / pitch)), m = Math.max(2, Math.round(w / pitch));
-  for (let k = 1; k < n; k++) out.push(bar(w - b, b, t, 0, -h / 2 + (h * k) / n, 0));
-  for (let k = 0; k < n; k++) {
-    const y0 = -h / 2 + (h * k) / n, y1 = -h / 2 + (h * (k + 1)) / n;
-    const xs = k % 2 ? [0.5] : m >= 4 ? [0.25, 0.75] : [0.5];
-    for (const f of xs) out.push(bar(b, y1 - y0 - b, t, -w / 2 + w * f, (y0 + y1) / 2, 0));
+  // 步步锦:沿长向切成近方的“锦”块,每块由外向内套几圈棂框,圈与圈之间用短棂(工字)相连,
+  // 奇数圈连在各边正中、偶数圈错到四分点——一步一错,即“步步”。
+  const vert = h >= w, L = vert ? h : w, S = vert ? w : h;
+  const k = Math.max(1, Math.round(L / (S * 1.1))), ml = L / k;
+  for (let j = 0; j < k; j++) {
+    const c = -L / 2 + ml * (j + 0.5), cx = vert ? 0 : c, cy = vert ? c : 0;
+    const mw = vert ? w : ml, mh = vert ? ml : h;
+    if (j > 0) out.push(vert ? bar(w - b, b, t, 0, c - ml / 2, 0) : bar(b, h - b, t, c - ml / 2, 0, 0));
+    const d = Math.min(pitch, Math.min(mw, mh) * 0.22);
+    for (let r = 1; Math.min(mw, mh) - 2 * r * d > 1.8 * d; r++) {
+      const rw = mw - 2 * r * d, rh = mh - 2 * r * d;
+      out.push(bar(rw, b, t, cx, cy + rh / 2 - b / 2, 0), bar(rw, b, t, cx, cy - rh / 2 + b / 2, 0));
+      out.push(bar(b, rh - 2 * b, t, cx - rw / 2 + b / 2, cy, 0), bar(b, rh - 2 * b, t, cx + rw / 2 - b / 2, cy, 0));
+      const s = d - b, fx = r % 2 ? [0] : [-0.25, 0.25], fy = r % 2 ? [0] : [-0.25, 0.25];
+      for (const f of fx) for (const sg of [1, -1]) out.push(bar(b, s, t, cx + f * rw, cy + sg * (rh / 2 + s / 2), 0));
+      for (const f of fy) for (const sg of [1, -1]) out.push(bar(s, b, t, cx + sg * (rw / 2 + s / 2), cy + f * rh, 0));
+    }
   }
   return out;
 }

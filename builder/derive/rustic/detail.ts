@@ -57,7 +57,7 @@ export function deriveRusticDetail(frame:Frame):RusticDetail {
     vergeRollM:.13,eaveUndercutM:.04,
     eaveEdgeM:.28,roofBellyM:.05,vergeChamferM:.04,
     refined:{stoneBaseM:.39,dadoM:.72,porchDepthM:1.1,kanWallM:.86,transomM:.42,leavesPerBay:4,
-      stileM:.055,latticeBarM:.015,latticePitchM:.075,stepTreadM:.3,stepMaxRiserM:.14,drumH:.14},
+      stileM:.055,latticeBarM:.015,latticePitchM:.055,stepTreadM:.3,stepMaxRiserM:.14,drumH:.14},
     ridgeRollHalfWidthM:.19,ridgeRollHalfHeightM:.17,ridgeTiePitchM:.72,
     platformMarginM:.45,
     doorWidthM:1.28,doorLifts:6,
