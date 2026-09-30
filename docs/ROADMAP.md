@@ -59,8 +59,8 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | 4i | **稻香村茅屋改「雅村」**：精茅顶 + 细抹黄壁 + 石台基 + 前廊格扇纸窗（贵族园里搭的假村，不是真农舍） | **BF** `docs/superpowers/plans/2026-09-30-bf-daoxiangcun-refined-cottage.md`（`D-42`） | 中 | ✅ 合回并验收（§27，2026-09-30）|
 | 4j | **风扇狂转**：帧率上限 30 + 闲着少画（静止 15 / 暂停停画 / 失焦 2），工具不受影响 | **BG** `docs/superpowers/plans/2026-10-01-bg-idle-throttle-30fps.md`（`D-43`） | 小 | ✅ 合回并验收（§28，2026-10-01）|
 | 4k | **分区加载**（区级流式，接缝 ④）：先剖析 + 设计稿，停下定方案 | **BH** `docs/superpowers/plans/2026-10-01-bh-region-streaming.md`（`D-43`） | 大 | BH0 ✅ 设计稿合回（D-44）|
-| 4l | **BH1 全局减负**：白石几何缓存、调色不干等、植被材质进 worker（画面零变化） | **BH1** `docs/superpowers/plans/2026-10-01-bh1-global-trim.md` | 中 | 已派 |
-| 4m | **BH2 两段就绪 + 后台建完**：出生两区先可玩，其余进园后排队建完 | **BH2** `docs/superpowers/plans/2026-10-01-bh2-two-stage-background.md` | 大 | 等 BG、BH1 合回 |
+| 4l | **BH1 全局减负**：白石几何缓存、调色不干等、植被材质进 worker（画面零变化） | **BH1** `docs/superpowers/plans/2026-10-01-bh1-global-trim.md` | 中 | ✅ 合回并验收（§29，2026-10-01）|
+| 4m | **BH2 两段就绪 + 后台建完**：出生两区先可玩，其余进园后排队建完 | **BH2** `docs/superpowers/plans/2026-10-01-bh2-two-stage-background.md` | 大 | 已派 |
 | 5d | **AV-b2 补**：土台南脚露土阈值一行（`terrain-from-plan.ts:946` `smoothstep(0.15,0.4,hillMoss)` → `(0.03,0.12)` 或按 `hillMask` 开关），判据 `gate_face` 无红棕斑 | 并进 **AL** 当第 0 件 | 微 | ✅ 随 AL 合回，**部分通过**（§22：`gate_face` 基本干净，`patch_close` 右下余一块，进 AL-b） |
 | 6 | 沁芳 D3/D4（桥亭、收窄水面）；E4 门前古松 | 未写 | 大 / 小 | AL 之后（D5 高照杆已并进 AU） |
 | 7 | 判断题 E3 / E5 / E6；**AE 形制断言门：正门冻结后可焊**；接缝⑤ AB、AC | — | — | AU 之后 |
