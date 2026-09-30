@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { bakeColorMap, bakeNormalMap, cached, recipeKey, mixHex, hexToRgb, NOISE } from '@engine/core/TextureLab';
 import { Simplex, makeRng, clamp, smoothstep, lerp, worley } from '@engine/core/Noise';
-import { woodMaps } from '../materials';
+import { woodMaps, plasterMaps } from '../materials';
 import { dirtPathMaps } from '@engine/core/TextureLab';
 
 /**
@@ -466,5 +466,207 @@ export function hedgeLeafMaterial(): THREE.MeshStandardMaterial {
       return texFrom(cv, true, false);
     });
     return new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.78, metalness: 0, vertexColors: true });
+  });
+}
+
+/* ================================================================== */
+/* 雅村(D-42,单子 BF):茆堂 / 东厢改「贵族园里搭的假村」——茅顶精修,屋身细抹、   */
+/* 青砖下碱、刨光本色木。**只新增**:黄泥矮墙仍用上面的 earthWall / thatch / 垂茬, */
+/* 那几个函数一个字节不动(矮墙像素不许变)。                                       */
+/* ================================================================== */
+
+/** 新苫的茅:金黄偏暖、不灰败;草把宽匀、秆笔直、没有雨沟。一张 = 1 m × 1 m,v 顺坡。 */
+let freshHeights: Float32Array | undefined;
+function freshThatchMaps(): { map: THREE.Texture; normalMap: THREE.Texture } {
+  const size = 1024;
+  const map = cached(recipeKey('xiangye.thatch-fresh.albedo', size, 6), () => {
+    const rng = makeRng(0xf7e5);
+    const col = canvas(size), hgt = canvas(size);
+    const c = col.ctx, h = hgt.ctx;
+    const light = 0xd9ad5c, mid = 0xb58a44, dark = 0x7b5829, gap = 0x4a3419;
+    c.fillStyle = rgb(hexToRgb(mid)); c.fillRect(0, 0, size, size);
+    h.fillStyle = 'rgb(110,110,110)'; h.fillRect(0, 0, size, size);
+    // 草把:一层层苫上去——顺坡每 25 cm 一层(苫层),每层里是宽 ~8.5 cm 的草把,上下层错半把。
+    // BF 收口:把与把之间看得出色差(同一批新草,但每把晒的火候、偏青偏红不一),成一块块短把拼的
+    // 苫面,不是一整张塑料草皮;也不排成通长竖条(通长条在远处读成遮阳篷 / 木纹)。四方连续。
+    const bundleHues = [0xc39a4e, 0xb58a44, 0xd0a656, 0xa87d3c, 0xbd9249, 0xc8a15c];
+    const nB = 12, nC = 4, bw0 = size / nB, ch0 = size / nC;
+    const bHue: number[] = [], bTone: number[] = [];
+    const bAt = (px: number, py: number) => {
+      const ci = Math.floor((((py % size) + size) % size) / ch0) % nC, sh = (ci % 2) * 0.5;
+      return ci * nB + (Math.floor((((px % size) + size) % size) / bw0 - sh + nB) % nB);
+    };
+    for (let ci = 0; ci < nC; ci++) for (let b = 0; b < nB; b++) {
+      const hue = bundleHues[(rng() * bundleHues.length) | 0], tone = 0.88 + rng() * 0.2;
+      bHue.push(hue); bTone.push(tone);
+      const x = (b + (ci % 2) * 0.5) * bw0, y = ci * ch0;
+      for (const ox of [0, -size]) {
+        c.fillStyle = rgb(hexToRgb(hue), tone, 0.85); c.fillRect(x + ox, y, bw0, ch0);
+        const g = h.createLinearGradient(x + ox, 0, x + ox + bw0, 0);
+        g.addColorStop(0, 'rgba(70,70,70,0.8)'); g.addColorStop(0.5, 'rgba(175,175,175,0.8)'); g.addColorStop(1, 'rgba(70,70,70,0.8)');
+        h.fillStyle = g; h.fillRect(x + ox, y, bw0, ch0);
+      }
+    }
+    const palette = [light, light, mid, mid, dark];
+    const stroke = (n: number, wMin: number, wMax: number, isGap: boolean) => {
+      for (let i = 0; i < n; i++) {
+        const x0 = rng() * size, y0 = rng() * size, len = 120 + rng() * 300, ang = (rng() - 0.5) * 0.03;
+        const x1 = x0 + Math.sin(ang) * len, y1 = y0 + Math.cos(ang) * len, w = wMin + rng() * (wMax - wMin);
+        const bi = bAt(x0, y0);
+        const cc = isGap ? hexToRgb(gap) : (mixHex(palette[(rng() * palette.length) | 0], bHue[bi], 0.5).map((v) => v * bTone[bi]) as [number, number, number]);
+        const a = isGap ? 0.35 + rng() * 0.25 : 0.5 + rng() * 0.45, hv = isGap ? 25 + rng() * 20 : 160 + rng() * 90;
+        wrapped(size, x0, y0, x1, y1, (dx, dy) => {
+          for (const [ctx, style] of [[c, rgb(cc, 1, a)], [h, `rgba(${hv | 0},${hv | 0},${hv | 0},${a})`]] as const) {
+            ctx.strokeStyle = style; ctx.lineWidth = w;
+            ctx.beginPath(); ctx.moveTo(x0 + dx, y0 + dy); ctx.lineTo(x1 + dx, y1 + dy); ctx.stroke();
+          }
+        });
+      }
+    };
+    stroke(9000, 1.0, 2.2, false);
+    stroke(1600, 0.7, 1.2, true);
+    stroke(3000, 1.0, 2.0, false);
+    // (不另画把缝暗线:1–2 px 的细线在 5 m 外 mip 下化成波纹,整坡读成木纹;把缝交给高度图的凹。)
+    freshHeights = heightsOf(h, size);
+    return texFrom(col.cv, true);
+  });
+  const normalMap = normalFrom('xiangye.thatch-fresh.normal5', size, freshHeights ?? new Float32Array(size * size).fill(0.5), 2.6);
+  return { map, normalMap };
+}
+export function freshThatchMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.thatch-fresh', () => {
+    const m = freshThatchMaps();
+    return new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughness: 0.92, metalness: 0, vertexColors: true });
+  });
+}
+
+/** 修齐的檐口切面:秆口整齐密排(平刀切,正看是圆口),金黄,缝浅。一张 = 0.25 m。 */
+let freshStubbleHeights: Float32Array | undefined;
+export function freshStubbleMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.thatch-fresh-end', () => {
+    const size = 512;
+    const map = cached(recipeKey('xiangye.stubble-fresh.albedo', size, 5), () => {
+      const rng = makeRng(0x5ea1);
+      // BF 收口:秆口按把成团,团与团明暗不一(压得紧的一把深、松的一把亮),6 × 8 团四方连续。
+      const trng = makeRng(0x5ea2), clump: number[] = [];
+      for (let i = 0; i < 48; i++) clump.push(0.84 + trng() * 0.24);
+      const col = canvas(size), hgt = canvas(size);
+      const c = col.ctx, h = hgt.ctx;
+      c.fillStyle = rgb(hexToRgb(0x4e3618)); c.fillRect(0, 0, size, size);
+      h.fillStyle = 'rgb(40,40,40)'; h.fillRect(0, 0, size, size);
+      // 近乎六方密排的秆口,位置微抖。秆口够大(约 3.5 mm)、秆缝够深,贴脸与 5 m 外都读成「一根根草茎的断面」,不读成一块浅色板。
+      // 列数、行数取整除贴图边长(行数取偶数),四方连续不出接缝格。
+      const dx = size / 36, dy = size / 32, r = dx / 2.05;
+      for (let row = 0; row < 32; row++) for (let col = 0; col < 36; col++) {
+        const x = col * dx + (row % 2) * dx * 0.5, y = row * dy;
+        const px = x + (rng() - 0.5) * 1.6, py = y + (rng() - 0.5) * 1.6, rr = r * (0.85 + rng() * 0.25);
+        const cc = mixHex(0xb88a44, 0xdcb468, rng()), k = (0.88 + rng() * 0.16) * clump[(((row / 4) | 0) % 8) * 6 + (((col / 6) | 0) % 6)];
+        wrapped(size, px - rr, py - rr, px + rr, py + rr, (ox, oy) => {
+          c.fillStyle = rgb(cc, k); c.beginPath(); c.arc(px + ox, py + oy, rr, 0, Math.PI * 2); c.fill();
+          c.fillStyle = rgb(hexToRgb(0x6e4c20), 0.9); c.beginPath(); c.arc(px + ox, py + oy, rr * 0.42, 0, Math.PI * 2); c.fill();
+          h.fillStyle = 'rgb(200,200,200)'; h.beginPath(); h.arc(px + ox, py + oy, rr, 0, Math.PI * 2); h.fill();
+          h.fillStyle = 'rgb(120,120,120)'; h.beginPath(); h.arc(px + ox, py + oy, rr * 0.38, 0, Math.PI * 2); h.fill();
+        });
+      }
+      freshStubbleHeights = heightsOf(h, size);
+      return texFrom(col.cv, true);
+    });
+    const normalMap = normalFrom('xiangye.stubble-fresh.normal3', size, freshStubbleHeights ?? new Float32Array(size * size).fill(0.5), 1.8);
+    return new THREE.MeshStandardMaterial({ map, normalMap, roughness: 0.9, metalness: 0, vertexColors: true });
+  });
+}
+
+/** 细抹浅黄壁:借粉墙的细砂灰面贴图(均匀、只带极轻抹纹),换浅黄泥色,微哑光。 */
+export function refinedPlasterMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.plaster-yellow', () => {
+    const m = plasterMaps();
+    const mat = new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap, roughness: 1, metalness: 0, color: 0xdcbc82 });
+    mat.normalScale.set(0.35, 0.35);
+    return mat;
+  });
+}
+
+/** 青砖(下碱、槛墙):顺砖错缝,砖 0.24 × 0.053 m,灰缝浅。一张 = 0.96 m 见方。 */
+let brickHeights: Float32Array | undefined;
+export function blueBrickMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.blue-brick', () => {
+    const size = 512;
+    const map = cached(recipeKey('xiangye.brick.albedo', size), () => {
+      const rng = makeRng(0xb71c);
+      const col = canvas(size), hgt = canvas(size);
+      const c = col.ctx, h = hgt.ctx;
+      c.fillStyle = rgb(hexToRgb(0x9a9c98)); c.fillRect(0, 0, size, size);
+      h.fillStyle = 'rgb(60,60,60)'; h.fillRect(0, 0, size, size);
+      const bw = size / 4, bh = size / 18, joint = 3;
+      for (let row = 0; row < 18; row++) for (let k = -1; k < 5; k++) {
+        const x = k * bw + (row % 2) * bw / 2, y = row * bh;
+        const tone = mixHex(0x5f6468, 0x747a7e, rng());
+        c.fillStyle = rgb(tone, 0.95 + rng() * 0.1); c.fillRect(x + joint / 2, y + joint / 2, bw - joint, bh - joint);
+        h.fillStyle = `rgb(${(180 + rng() * 40) | 0},180,180)`; h.fillRect(x + joint / 2, y + joint / 2, bw - joint, bh - joint);
+      }
+      brickHeights = heightsOf(h, size);
+      return texFrom(col.cv, true);
+    });
+    const normalMap = normalFrom('xiangye.brick.normal', size, brickHeights ?? new Float32Array(size * size).fill(0.5), 2.0);
+    return new THREE.MeshStandardMaterial({ map, normalMap, roughness: 0.88, metalness: 0 });
+  });
+}
+
+/** 刨光本色木(柱、枋、格扇):暖褐,不施彩画、不描金、不上漆,木纹细。 */
+export function planedWoodMaterial(): THREE.MeshStandardMaterial {
+  return memo('xiangye.planed-wood', () => {
+    const m = woodMaps('xiangye-planed2', 0x8c5d3a);
+    const mat = new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughness: 0.62, metalness: 0 });
+    mat.normalScale.set(0.4, 0.4);
+    return mat;
+  });
+}
+
+/**
+ * 条石(台基、阶条石、踏跺):暖灰麻石——青灰底里带暖,满布黑白云母粒,块面有大块的深浅斑;
+ * 不是近白的水泥面(BF 收口,用户 2026-09-30)。一张 = 1 m 见方,各向同性(剁斧后细磨,不留方向刀痕)。
+ * `mortar` 档:同一张图压暗,给条石之间的灰缝 / 台心衬底用——缝读出来,条石才读成一块块石头。
+ */
+let graniteHeights: Float32Array | undefined;
+function graniteMaps(): { map: THREE.Texture; normalMap: THREE.Texture } {
+  const size = 512;
+  const map = cached(recipeKey('xiangye.granite.albedo', size, 2), () => {
+    const rng = makeRng(0x9a17), s = new Simplex(0x9a18);
+    const col = canvas(size), c = col.ctx;
+    const img = c.createImageData(size, size), hs = new Float32Array(size * size);
+    const base = hexToRgb(0x6a6863), cool = hexToRgb(0x5f666c), warm = hexToRgb(0x756c5f);
+    const TAU = Math.PI * 2;
+    // 四方连续的噪声:在环面上采样。
+    const tor = (u: number, v: number, f: number) => {
+      const a = u * TAU, b = v * TAU, r = f / TAU;
+      return s.noise3D(Math.cos(a) * r, Math.sin(a) * r, Math.cos(b) * r + Math.sin(b) * r * 0.7);
+    };
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      const u = x / size, v = y / size, i = y * size + x;
+      const blot = tor(u, v, 3) * 0.6 + tor(u, v, 7) * 0.4, hueT = tor(u + 0.3, v, 2) * 0.5 + 0.5;
+      const grain = rng();
+      let k = 1 + blot * 0.07 + (grain - 0.5) * 0.1;
+      let cc: [number, number, number] = [lerp(cool[0], warm[0], hueT), lerp(cool[1], warm[1], hueT), lerp(cool[2], warm[2], hueT)];
+      cc = [lerp(base[0], cc[0], 0.7), lerp(base[1], cc[1], 0.7), lerp(base[2], cc[2], 0.7)];
+      let hgt = 0.5 + (grain - 0.5) * 0.25 + blot * 0.05;
+      if (grain > 0.965) { k *= 0.5; hgt -= 0.2; } // 黑云母粒
+      else if (grain < 0.03) { k *= 1.22; hgt += 0.05; } // 长石白粒
+      img.data[i * 4] = clamp(cc[0] * k, 0, 1) * 255; img.data[i * 4 + 1] = clamp(cc[1] * k, 0, 1) * 255;
+      img.data[i * 4 + 2] = clamp(cc[2] * k, 0, 1) * 255; img.data[i * 4 + 3] = 255;
+      hs[i] = hgt;
+    }
+    c.putImageData(img, 0, 0);
+    graniteHeights = hs;
+    return texFrom(col.cv, true);
+  });
+  const normalMap = normalFrom('xiangye.granite.normal', size, graniteHeights ?? new Float32Array(size * size).fill(0.5), 1.2);
+  return { map, normalMap };
+}
+export function dressedStoneMaterial(tier: 'block' | 'mortar' = 'block'): THREE.MeshStandardMaterial {
+  return memo(`xiangye.granite:${tier}`, () => {
+    const m = graniteMaps();
+    const mat = new THREE.MeshStandardMaterial({ map: m.map, normalMap: m.normalMap, roughness: tier === 'block' ? 0.86 : 0.97, metalness: 0, color: tier === 'block' ? 0xffffff : 0x5c5a56 });
+    mat.normalScale.set(0.6, 0.6);
+    return mat;
   });
 }
