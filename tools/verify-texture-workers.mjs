@@ -21,8 +21,9 @@ try {
         warmup = await prewarmTextures();
         if (!warmup.workers) throw new Error(`Worker preparation fell back: ${warmup.fallback}`);
       } else {
-        const { TEXTURE_JOBS, bakeTextureJob } = await import('/builder/compose/texture-jobs.ts');
-        for (const job of TEXTURE_JOBS) bakeTextureJob(job);
+        // 单子 BI2:A 批 + B 批(DEFERRED_TEXTURE_JOBS)全部比——workers 档的 prewarmTextures() 等的也是两批。
+        const { ALL_TEXTURE_JOBS, bakeTextureJob } = await import('/builder/compose/texture-jobs.ts');
+        for (const job of ALL_TEXTURE_JOBS) bakeTextureJob(job);
       }
       const ms = performance.now() - start;
       const textures = [];

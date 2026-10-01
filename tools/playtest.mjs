@@ -208,7 +208,8 @@ const browser = await chromium.launch({ headless: true, args: ['--use-gl=angle',
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
 await page.goto(args.url, { waitUntil: 'domcontentloaded' });
-await page.waitForFunction(() => window.__GAME__ !== undefined, null, { timeout: 150000 });
+// 单子 BH2:自动化下 `__GAME__` 要等后台把其余区建完才发(不读半成品),比以前多等 B 段;超时放宽到 540 s(同 P-38 的思路)。
+await page.waitForFunction(() => window.__GAME__ !== undefined, null, { timeout: 540000 });
 await page.waitForTimeout(800);
 // 起始:关掉开始卡,拿到指针锁的等价状态(输入系统按 suspended 判定)。
 await page.evaluate(() => {
@@ -300,6 +301,38 @@ await page.evaluate(() => { const g = window.__GAME__; g.player.teleport(new g.T
   const wet = y < -0.3;
   console.log(`${wet ? 'FAIL' : 'ok  '} 落水禁行 停在 (${x.toFixed(1)}, ${y.toFixed(2)}, ${z.toFixed(1)})`);
   if (wet) ok = false;
+}
+/* 单子 BH2:游园图点到还没在后台建好的区——插队首、挡幕、建好再落地,落地不许掉(碰撞随区一起挂上)。
+ * 另开一页 `?phaseA&streamHold`:A 段就接手,B 段不自己出队,只建点名的区,于是这几个区在点之前一定没建。
+ * 走的是与游园图点地点同一条路(`__GAME__.gotoRegion`)。 */
+{
+  const holdUrl = args.url + (args.url.includes('?') ? '&' : '?') + 'phaseA&streamHold';
+  const p2 = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  p2.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+  await p2.goto(holdUrl, { waitUntil: 'domcontentloaded' });
+  await p2.waitForFunction(() => window.__GAME__ !== undefined, null, { timeout: 540000 });
+  const targets = await p2.evaluate(() => Object.entries(window.__GAME__.world.streaming.units).filter(([, s]) => s !== 'built').map(([u]) => u));
+  if (!targets.length) console.log('ok   传送到未建区 (流式关着或全部已建,跳过)');
+  for (const id of targets) {
+    const r = await p2.evaluate(async (id) => {
+      const g = window.__GAME__, col = g.world.ctx.collision;
+      const before = { state: g.world.streaming.units[id], colliders: col.colliders.length, platforms: col.platforms.length };
+      const p = g.gotoRegion(id);
+      const veilUp = g.hud.veil.visible;
+      await p;
+      const after = { state: g.world.streaming.units[id], colliders: col.colliders.length, platforms: col.platforms.length, veil: g.hud.veil.visible };
+      for (let i = 0; i < 90; i++) g.player.update(1 / 60);
+      const q = g.player.state.position;
+      return { before, veilUp, after, x: q.x, y: q.y, z: q.z, ground: col.groundHeight(q.x, q.z), terrain: col.terrainHeight(q.x, q.z) };
+    }, id);
+    const fell = !(r.y > -0.3) || Math.abs(r.y - r.ground) > 0.3;
+    const good = r.before.state === 'queued' && r.veilUp && r.after.state === 'built' && !r.after.veil && !fell && r.after.colliders > r.before.colliders;
+    if (!good) ok = false;
+    console.log(`${good ? 'ok  ' : 'FAIL'} 传送到未建区 ${id.padEnd(18)} 点前 ${r.before.state}/幕 ${r.veilUp ? '起' : '没起'} → ${r.after.state}` +
+      `  碰撞体 ${r.before.colliders}→${r.after.colliders} 平台 ${r.before.platforms}→${r.after.platforms}` +
+      `  落在 (${r.x.toFixed(1)}, ${r.y.toFixed(2)}, ${r.z.toFixed(1)}) 地面 ${r.ground.toFixed(2)}`);
+  }
+  await p2.close();
 }
 if (args.surfaces) {
   console.log('\n脚下序列（里程 / 材质）');

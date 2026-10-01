@@ -10,6 +10,7 @@ import {offsetStation} from '@builder/plan/polyline';
 import { stoneMaterial } from '@builder/parts/materials';
 import { roundedBox } from '@builder/parts/sculpt';
 import { assembleStatic } from '@builder/parts/static-batches';
+import { CollisionWorld } from '@engine/player/Collision';
 import { getPlan, builtRegions, TERRAIN } from './terrain';
 import { pickConnections, connectionPart } from './connections';
 import { sceneFor, getScenes, type SceneNamed } from './scenes';
@@ -126,6 +127,8 @@ interface Placement {
   /** 建筑离水面时垫一块青石墩到地。 */
   pier?: boolean;
   tag?: string;
+  /** 单子 BH2:流式归属(哪个单位建它)。只决定「什么时候建」,不参与落位。没给就按落点归最近的建成区。 */
+  unit?: string;
 }
 
 /** 解析落位世界坐标:anchor → region+局部偏移 → 绝对世界坐标。 */
@@ -436,11 +439,11 @@ function plannedPlacements(): Placement[] {
       const n = bound.get(id);
       if (n) {
         out.push({ part: n.part, variant: n.variant, region: regionId, anchor: id, planId: id, x: 0, z: 0,
-          yaw: n.yaw, dy: n.dy, y: n.y, pier: n.pier, tag: n.tag });
+          yaw: n.yaw, dy: n.dy, y: n.y, pier: n.pier, tag: n.tag, unit: regionId });
         bound.delete(id);
         return;
       }
-      if (fallback) out.push({ part: fallback.part, variant: fallback.variant, region: regionId, anchor: id, planId: id, x: 0, z: 0 });
+      if (fallback) out.push({ part: fallback.part, variant: fallback.variant, region: regionId, anchor: id, planId: id, x: 0, z: 0, unit: regionId });
     };
 
     for (const b of region.buildings ?? []) {
@@ -457,7 +460,7 @@ function plannedPlacements(): Placement[] {
         : l.kind === 'bridge' ? 'garden-bridge' : null;
       // 线性构件的几何自带世界位置，不能再叠 Placement 变换(见主循环的断言)，
       // 所以它不走 anchor，x/z 留 0 让 resolvePosition 走绝对分支。
-      if (part) out.push({ part, variant: l.id, planId: l.id, x: 0, z: 0, tag: l.id });
+      if (part) out.push({ part, variant: l.id, planId: l.id, x: 0, z: 0, tag: l.id, unit: regionId });
     }
     // named 里绑了、但 plan 遍历没走到的对象是契约错误，宁可当场炸，别静默丢件。
     for (const id of bound.keys())
@@ -482,7 +485,9 @@ function connectionPlacements(): Placement[] {
   for (const c of build) {
     const part = connectionPart(c.kind);
     if (!part) throw new Error(`[garden] plan.connections 的 ${c.id} kind=${c.kind} 没有对应构件`);
-    out.push({ part, variant: c.id, planId: c.id, x: 0, z: 0, tag: c.id });
+    // 单子 BH2:桥跨两区,按折点形心归最近的建成区。
+    const mx = c.points.reduce((a, q) => a + q[0], 0) / c.points.length, mz = c.points.reduce((a, q) => a + q[1], 0) / c.points.length;
+    out.push({ part, variant: c.id, planId: c.id, x: 0, z: 0, tag: c.id, unit: nearestBuiltRegion(mx, mz) });
   }
   return out;
 }
@@ -493,7 +498,7 @@ function scenePlacements(): Placement[] {
   for (const regionId of builtRegions()) {
     for (const pl of sceneFor(regionId).placements ?? []) {
       out.push({ part: pl.part, variant: pl.variant, region: regionId, anchor: pl.anchor,
-        x: pl.dx, z: pl.dz, yaw: pl.yaw, dy: pl.dy, tag: pl.tag });
+        x: pl.dx, z: pl.dz, yaw: pl.yaw, dy: pl.dy, tag: pl.tag, unit: regionId });
     }
   }
   return out;
@@ -544,7 +549,7 @@ function scatterPlacements(ctx: GameContext, ground: (x: number, z: number) => n
         if (!near && d < 0.8) continue;
         // variant 由位置轮换,规则不指定具体哪一块(edge1..edge5)。
         const variant = rule.variant ?? `edge${(i % 5) + 1}`;
-        out.push({ part: rule.part, variant, x, z, yaw, dy: -0.06, ruleId: rule.id, tag: `${rule.id}#${i}` });
+        out.push({ part: rule.part, variant, x, z, yaw, dy: -0.06, ruleId: rule.id, tag: `${rule.id}#${i}`, unit: regionId });
         i++;
       }
     }
@@ -576,12 +581,13 @@ function scatterPlacements(ctx: GameContext, ground: (x: number, z: number) => n
 function buildBambooRows(
   ctx: GameContext,
   ground: (x: number, z: number) => number,
-  group: THREE.Group,
+  sink: THREE.Object3D[],
   updaters: ((dt: number, t: number) => void)[],
+  regions: readonly string[],
 ): void {
   const field = getOccupancy();
   if (!field) return;
-  const runs = alongPathScatter(plan(), getScenes(), [...builtRegions()], {
+  const runs = alongPathScatter(plan(), getScenes(), regions, {
     occupancy: field,
     surface: ctx.collision.surfaceAt,
     // 与 `occupancy.ts` 的 SOLID_RADIUS['bamboo:clump'] 同一个数,同一个来处。
@@ -610,7 +616,7 @@ function buildBambooRows(
     // 种子已经是世界坐标(见 buildBambooRow 头注),整件零变换落位。
     row.root.position.set(0, 0, 0);
     row.root.name = `竹夹路:${run.rule.path}`;
-    group.add(row.root);
+    sink.push(row.root);
     if (row.update) updaters.push(row.update);
 
     /*
@@ -669,253 +675,406 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
-export function buildGarden(ctx: GameContext): void {  const ground = ctx.collision.terrainHeight;
-  const pond = pondEllipse();
+/**
+ * 单子 BH2:跨区、不归任何一个建成区的落位(路牙、石压边——沿全园 plan.paths / plan.water 在世界空间挤出)
+ * 的流式单位名。它和出生区一起在 A 段建。
+ */
+export const GARDEN_GLOBAL_UNIT = '全局';
 
-  // 白石台矶(单子 AI)自己的落脚材质:地形层的 surfaceAt 只按 plan.paths
-  // 铺装,不知道有一块独立的台矶构件盖在它上面——台矶宽 13.76m 远宽于
-  // 4.4m 的近门大路,路只盖住台矶中段一条窄带,台矶自己压住的地面(尤其
-  // 两侧和拼接处)在脚下序列里仍会读成台矶下面原来的 dirt/grass。给
-  // surfaceAt 包一层:落在台矶足迹内就报 stone,不改 terrain-from-plan.ts
-  // (该文件本单不许碰)。
-  //
-  // 南、北各多留一截(zSouth/zNorth 比台矶几何本身宽):量过 playtest 脚下
-  // 序列,台矶边缘到"近门大路"路面之间、以及台矶边缘到正门自身台基之间
-  // 各有一圈约 1m 的沙化过渡带(A1 单子记的同一种路缘沙带处理,不是本单
-  // 引入的新缺陷)——这圈沙带本身留着(它是路缘的正常处理,不是黄土荒
-  // 地),只是把"脚下走感"接续上，不在两条真实铺装之间露一小截空当。
-  {
-    const [tx, tz] = findAnchor(findRegion('zhengmen'), 'zhengmen.forecourt-terrace');
-    const { halfX } = FORECOURT_TERRACE_SPEC;
-    const zNorth = tz - 4.1; // 接正门自身台基南缘
-    const zSouth = tz + 5.2; // 接"近门大路"路面(起点在 z=246)
-    const base = ctx.collision.surfaceAt;
-    ctx.collision.surfaceAt = (x, z) =>
-      Math.abs(x - tx) <= halfX && z >= zNorth && z <= zSouth ? 'stone' : base(x, z);
-  }
-
-  // 沁芳亭桥一带的驳石(taihu peak/peak3):沿「从池心朝某个方向」找刚露出水面
-  // 的岸边落位——这是算出来的，不是摆出来的，所以不进 scenes(那里只放人写的
-  // 落位)。单子 Y:三个参照点原来是旧世界平移常量 D_QINFANG 的派生量，现在
-  // 改挂 plan 的亭锚点，把最后一个 D_* 也清掉；数值与平移写法逐位相同。
-  const tingAnchor = findAnchor(findRegion('qinfang_ting_qiao'), 'qinfang_ting_qiao.pavilion');
-  const fromTing = ([dx, dz]: [number, number]): [number, number] => [tingAnchor[0] + dx, tingAnchor[1] + dz];
-  const qinfangCenter = fromTing([-0.3, 0.8]); // 旧 POND.cx/cz 的等价点
-  const peakRaw = fromTing([7.5, 4.0]);
-  const peak3Raw = fromTing([-9.1, -4.0]);
-  const [peakX, peakZ] = shoreTowards(qinfangCenter, peakRaw, ground, 60);
-  const [peak3X, peak3Z] = shoreTowards(qinfangCenter, peak3Raw, ground, 60);
-
-  const causewayEnds: [number, number][] = [
-    [-2.7, 171.3],
-    [0, 156.5],
-    [0, 146],
-    [-40, 128],
-  ];
-
-  const all: Placement[] = [
-    ...plannedPlacements(),
-    ...scenePlacements(),
-    // 单子 BE1:plan.connections 的桥。排在 scenes 之后——稻香村那座原先借 scenes 最后一条落位挂出来,
-    // 这样它在装配序列里的位置不变。
-    ...connectionPlacements(),
-    // 曲桥链与池岸驳石是**算出来的**(沿折线铺桥段、沿池边找刚露出水的位置)，
-    // 不是人摆的，所以不进 scenes——scenes 的 placements 只放人写的落位。
-    // 它们是接缝 ② 的活(写条件不写坐标)，归单子 Z。
-    ...CAUSEWAY,
-    ...scatterPlacements(ctx, ground),
-    { part: 'taihu', variant: 'peak', x: peakX, z: peakZ, yaw: 2.4 },
-    { part: 'taihu', variant: 'peak3', x: peak3X, z: peak3Z, yaw: -1.1 },
-    // 铺地收边:路牙沿 plan.paths 里带 paving 的路在 world 空间直接挤出
-    // (07-41 石子漫、17 回宽阔大路),几何自带世界坐标,必须零变换落位。
-    { part: 'luya', variant: 'default', x: 0, z: 0, y: 0, tag: '路牙' },
-    // 单子 AH:石压边沿 plan.water 里带 centerline 的窄沟(目前只有引泉沟)
-    // 在 world 空间直接挤出,同样零变换落位,与路牙同一路数。
-    { part: 'shiyabian', variant: 'default', x: 0, z: 0, y: 0, tag: '石压边' },
-    ...shoreStones(ground, pond, causewayEnds),
-  ];
-
-  const cache = new Map<string, PartBuild>();
-  /** key → 构件本地包围盒 [sx, sy, sz]，见下面 fresh 分支里量它的理由。 */
-  const partSize = new Map<string, [number, number, number]>();
-  const updaters: ((dt: number, t: number) => void)[] = [];
-  const stone = stoneMaterial(1);
-  const group = new THREE.Group();
-  group.name = 'Garden';
-  // Static merging discards individual roots. Keep their construction identity
-  // and provenance separately so a batched scene is still reviewable.
-  // 单子 Z:清单搬进 roster.ts 共享——「植树」比这一步早,它也要能登记
-  // (按 plan 长出来的花池以前整步隐形,被对账门误报成缺项)。
-  const constructionRecords = getRoster();
-  group.userData.constructions = constructionRecords;
-  // 单子 AD · 第一档对账：世界要自报「我建了哪几个区」,工具不许再抄一份区名。
-  group.userData.builtRegions = [...builtRegions()];
-  const linearRecords:Record<string,unknown>[]=[];
-  group.userData.linears=linearRecords;
-  ctx.scene.add(group);
-  // 静态件(墙/石/桥/屋)先收进这里,最后按材质合并;会动的(竹)直接进 group。
-  const staticGroup = new THREE.Group();
-
-  let calls = 0;
-  const lanternSpots: { x: number; y: number; z: number }[] = [];
-  const baogushiSpots: { x: number; y: number; z: number }[] = [];
-  for (const p of all) {
-    const key = `${p.part}:${p.variant ?? 'default'}`;
-    let part = cache.get(key);
-    let fresh = false;
-    if (!part) {
-      part = buildPart(p.part, p.variant,{ground}) ?? undefined;
-      if (!part) {
-        console.warn(`[garden] 未登记构件 ${key}`);
-        continue;
-      }
-      cache.set(key, part);
-      fresh = true;
-      let tris = 0;
-      part.root.traverse((o) => {
-        const mm = o as THREE.Mesh;
-        if (!mm.isMesh) return;
-        const g = mm.geometry;
-        const n = g.index ? g.index.count / 3 : g.attributes.position.count / 3;
-        tris += n * ((mm as THREE.InstancedMesh).isInstancedMesh ? (mm as THREE.InstancedMesh).count : 1);
-      });
-      console.info(`[garden] ${key} ${(tris / 1000).toFixed(1)}k tris`);
-      if (part.update) updaters.push(part.update);
-      // 单子 AD · 第三档：构件的本地包围盒尺寸,登记进世界清单。
-      // 接缝门要判「两段墙之间有没有缝」,光有落位没有尺寸算不出端点。
-      // 只在 fresh(原型第一次建出来)时量一次,之后从 cache 拿。
-      const box = new THREE.Box3().setFromObject(part.root);
-      partSize.set(key, box.isEmpty() ? [0, 0, 0] : [box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z]);
-    }
-    calls++;
-    const linear=part.kind==='wall-path'||part.kind==='corridor-path'||part.kind==='bridge-path'?part as WallPathResult|CorridorResult|BridgePathResult:null;
-    if(linear&&(p.x!==0||p.z!==0||p.y!==undefined||p.yaw))throw new Error('plan线性构件已含世界位置，不能再叠加Placement变换');
-    const [wx, wz] = linear ? linear.path.origin : resolvePosition(p);
-    const yaw = p.yaw ?? 0;
-    const y = linear ? linear.spec.elevation_m : p.y ?? ground(wx, wz) + (p.dy ?? 0);
-    const obj = fresh ? part.root : part.root.clone();
-    obj.position.set(wx, y, wz);
-    obj.rotation.y = yaw;
-    obj.name = p.tag ?? key;
-    // 单子 AD · 第一档对账：**每个** placement 都要登记。
-    // 以前只有 kind==='building' 登记,所以六段墙、竹丛、太湖石、桥、游廊、院墙、
-    // 灯笼在世界的自报清单里一条都没有——「台矶没造」这类缺陷从定义上就在所有门
-    // 的视野之外(spec §1.5 ①②)。静态合并会丢掉 root,清单是合并后唯一的可审身份。
-    //
-    // planId 与 id 分开:planId 能对上 plan 对象才有值,对不上就是 null。
-    // 正门那六段墙正是 planId=null 的野生件(它们该是 zhengmen.flanking-wall),
-    // 对账门靠这个字段把「世界有、数据没有」单列出来,不与缺项混为一谈。
-    const planId =
-      p.planId ??
-      (linear ? linear.spec.id : undefined) ??
-      ((obj.userData.planObject as { id?: string } | undefined)?.id) ??
-      (p.variant && p.variant.includes('.') ? p.variant : undefined) ??
-      null;
-    registerObject({
-      id: planId ?? key,
-      name: obj.name,
-      part: p.part,
-      variant: p.variant ?? 'default',
-      position: [wx, y, wz],
-      yaw,
-      planId,
-      ruleId: p.ruleId ?? null,
-      size: partSize.get(key) ?? null,
-      ...(part.kind === 'building' ? obj.userData.construction : null),
-      ...(obj.userData.planObject ? { planObject: obj.userData.planObject } : null),
-      ...(part.root.userData.provenance ? { provenance: part.root.userData.provenance } : null),
-    });
-    if(linear)linearRecords.push({...linear.root.userData.linear,position:[wx,y,wz]});
-    if (part.update) group.add(obj);
-    else staticGroup.add(obj);
-
-    registerColliders(ctx, p.part, p.variant ?? 'default', part, wx, y, wz, yaw);
-
-    // 灯笼挂在檐下(07-70):跟着建筑走,不是独立摆件。
-    for (const s of lanternSpotsFor(p, part) ?? []) {
-      const [lx, lz] = toWorld(wx, wz, yaw, s.lx, s.lz);
-      lanternSpots.push({ x: lx, y: y + s.hangY, z: lz });
-    }
-
-    // 抱鼓石守在正门踏跺两侧(艺术选择,07-01 无此物):跟着正门走。
-    // 单子 AT2 起 `baogushiSpotsFor` 直接给世界坐标——落位要对台矶的墁缝
-    // 网格,而那张网格是世界轴对齐的,在局部算完再转就对不上了。
-    for (const s of baogushiSpotsFor(p, part, wx, wz, yaw, y, ground) ?? []) {
-      // 垂带抱鼓档的局部原点就是须弥座中心(门枕已去),碰撞圆心即落点,
-      // 不用再叠 BAOGUSHI_DRUM_Z_M 那个门当档的偏移。
-      baogushiSpots.push(s);
-    }
-
-    if (p.pier) {
-      // 从地面(池底)砌一块青石墩到构件底面。
-      const b = part as BuildingResult;
-      const hx = b.platform?.hx ?? 2;
-      const hz = b.platform?.hz ?? 2;
-      const gy = ground(wx, wz);
-      const h = Math.max(0.05, y - gy + 0.02);
-      const pier = new THREE.Mesh(roundedBox(hx * 2 - 0.1, h, hz * 2 - 0.1, 0.03, 2), stone);
-      pier.position.set(wx, gy + h / 2 - 0.01, wz);
-      pier.rotation.y = yaw;
-      pier.receiveShadow = true;
-      pier.castShadow = true;
-      group.add(pier);
-    }
-  }
-  if (lanternSpots.length) {
-    const lantern = buildPart('lantern', 'gong', { ground });
-    if (lantern) {
-      for (const s of lanternSpots) {
-        const l = lantern.root.clone();
-        l.position.set(s.x, s.y, s.z);
-        l.name = '灯笼';
-        staticGroup.add(l);
-        registerObject({ id: 'lantern:gong', name: '灯笼',
-          part: 'lantern', variant: 'gong', position: [s.x, s.y, s.z], yaw: 0, planId: null,
-          ruleId: '灯笼-檐下',
-          provenance: lantern.root.userData.provenance });
-      }
-    }
-  }
-  if (baogushiSpots.length) {
-    // `chuidai` = 垂带抱鼓档(单子 AT2):去门枕、原点在须弥座中心。
-    const baogushi = buildPart('baogushi', 'chuidai', { ground });
-    if (baogushi) {
-      for (const s of baogushiSpots) {
-        const st = baogushi.root.clone();
-        st.position.set(s.x, s.y, s.z);
-        st.name = '抱鼓石';
-        staticGroup.add(st);
-        // 挡人不挡路:两颗石守在踏跺两侧的垂带外,踏跺净宽 3m 一路畅通
-        // (石心离中线 1.87m,碰撞半径 0.44m —— 最近也还在踏跺边以外 0.93m)。
-        ctx.collision.addCircle(s.x, s.z, BAOGUSHI_DRUM_R_M, s.y, s.y + 1.25, '抱鼓石');
-        registerObject({
-          id: 'zhengmen.baogushi',
-          name: '抱鼓石(垂带抱鼓)',
-          part: 'baogushi',
-          variant: 'chuidai',
-          position: [s.x, s.y, s.z],
-          yaw: 0,
-          planId: null,
-          provenance: baogushi.root.userData.provenance,
-        });
-      }
-    }
-  }
-  // 单子 AL3:竹夹路。放在静态合批之前,和灯笼/抱鼓石同一档「主循环之后再长出来
-  // 的东西」;它带 update(风),进 group 不进 staticGroup。
-  buildBambooRows(ctx, ground, group, updaters);
-
-  const merged = assembleStatic(staticGroup);
-  merged.name = 'GardenStatic';
-  group.add(merged);
-  console.info(`[garden] ${calls} 件, ${cache.size} 种, 合并后 ${merged.children.length} 个 mesh`);
-
-  ctx.tick((dt, t) => {
-    for (const u of updaters) u(dt, t);
-  });
+/** 一个单位建到一半的中间状态:还没挂进场景、碰撞还在暂存层里。 */
+interface UnitWork {
+  unit: string;
+  /** 会动的件(竹、带 update 的构件)与青石墩:提交时按建出来的顺序挂到 `Garden` 下。 */
+  dyn: THREE.Object3D[];
+  /** 静态件:提交前按材质合批。 */
+  staticGroup: THREE.Group;
+  lanternSpots: { x: number; y: number; z: number }[];
+  baogushiSpots: { x: number; y: number; z: number }[];
+  calls: number;
+  /** 这个单位的碰撞体先登记在这里,提交时一次并进真碰撞层(直建模式下就是真碰撞层本身)。 */
+  collision: CollisionWorld;
+  ctx: GameContext;
 }
 
-/** 把局部 (lx, lz) 按 yaw 转到世界。 */
+/** 建好、没提交的单位。`root` 是合批后的静态件组,提交前可以拿去编译管线。 */
+export interface StagedGardenUnit {
+  readonly unit: string;
+  readonly root: THREE.Group;
+  readonly dyn: readonly THREE.Object3D[];
+  readonly calls: number;
+  /** @internal */ readonly work: UnitWork;
+}
+
+/**
+ * 装配器(单子 BH2 起按单位可重入)。
+ *
+ * **两种用法,结果要逐位对得上**:
+ *   - `buildAllAtOnce()`:BH2 之前的 `buildGarden` 原样——全部落位按原顺序一遍建完、全园一次合批、碰撞直接进真碰撞层。
+ *     `?stream=off` 走它;它也是流式那条路的对照(名册、census、四镜)。
+ *   - `unitSteps(unit)` + `commit(staged)`:一个单位(一个建成区,或 `GARDEN_GLOBAL_UNIT`)单独建。
+ *     生成器每 `yield` 一次就是做完了一件落位(原型第一次建是整件做、不切半,`D-44` 甲),调度方可以在两次之间让出主线程;
+ *     建好的单位先不挂进场景、碰撞先登记在暂存层,`commit` 时才一次挂上——**半个区不会出现在画面里,也不会有看不见的墙**。
+ *
+ * 落位清单、原型缓存、名册、线性构件记录、updaters 全园共用一份(构造时一次算好):
+ * 规则散置的种子只取区 id + 规则 id、占位与地表是全局的,所以一个区里落什么与哪个区先建无关。
+ * 按区合批会把原来跨区界的 64 m 簇切开,draw call 可能多几次(三角不变)——这是流式模式唯一预期的结构差别。
+ */
+export class GardenComposer {
+  /** 场景里的 `Garden` 组:名册、建成区、线性构件记录挂在它的 userData 上(工具读它)。 */
+  readonly group = new THREE.Group();
+  /** 流式单位,按建造的默认顺序:`GARDEN_GLOBAL_UNIT` 在前,然后是建成区(builtRegions 的顺序)。 */
+  readonly units: readonly string[];
+  private readonly ctx: GameContext;
+  private readonly ground: (x: number, z: number) => number;
+  private readonly all: { p: Placement; unit: string }[];
+  private readonly cache = new Map<string, PartBuild>();
+  /** 灯笼 / 抱鼓石的原型:每个用到它的单位只 clone,原型本身只建一次。 */
+  private readonly extraProto = new Map<string, PartBuild | null>();
+  /** key → 构件本地包围盒 [sx, sy, sz],见主循环 fresh 分支里量它的理由。 */
+  private readonly partSize = new Map<string, [number, number, number]>();
+  private readonly updaters: ((dt: number, t: number) => void)[] = [];
+  private readonly stone = stoneMaterial(1);
+  private readonly linearRecords: Record<string, unknown>[] = [];
+  /** 流式模式下所有单位的合批组挂在这一个 `GardenStatic` 下(工具按名字找它);直建模式下它就是那一个合批组。 */
+  private staticParent: THREE.Group | null = null;
+
+  constructor(ctx: GameContext) {
+    this.ctx = ctx;
+    const ground = (this.ground = ctx.collision.terrainHeight);
+    const pond = pondEllipse();
+
+    // 白石台矶(单子 AI)自己的落脚材质:地形层的 surfaceAt 只按 plan.paths
+    // 铺装,不知道有一块独立的台矶构件盖在它上面——台矶宽 13.76m 远宽于
+    // 4.4m 的近门大路,路只盖住台矶中段一条窄带,台矶自己压住的地面(尤其
+    // 两侧和拼接处)在脚下序列里仍会读成台矶下面原来的 dirt/grass。给
+    // surfaceAt 包一层:落在台矶足迹内就报 stone,不改 terrain-from-plan.ts
+    // (该文件本单不许碰)。
+    //
+    // 南、北各多留一截(zSouth/zNorth 比台矶几何本身宽):量过 playtest 脚下
+    // 序列,台矶边缘到"近门大路"路面之间、以及台矶边缘到正门自身台基之间
+    // 各有一圈约 1m 的沙化过渡带(A1 单子记的同一种路缘沙带处理,不是本单
+    // 引入的新缺陷)——这圈沙带本身留着(它是路缘的正常处理,不是黄土荒
+    // 地),只是把"脚下走感"接续上，不在两条真实铺装之间露一小截空当。
+    {
+      const [tx, tz] = findAnchor(findRegion('zhengmen'), 'zhengmen.forecourt-terrace');
+      const { halfX } = FORECOURT_TERRACE_SPEC;
+      const zNorth = tz - 4.1; // 接正门自身台基南缘
+      const zSouth = tz + 5.2; // 接"近门大路"路面(起点在 z=246)
+      const base = ctx.collision.surfaceAt;
+      ctx.collision.surfaceAt = (x, z) =>
+        Math.abs(x - tx) <= halfX && z >= zNorth && z <= zSouth ? 'stone' : base(x, z);
+    }
+
+    // 沁芳亭桥一带的驳石(taihu peak/peak3):沿「从池心朝某个方向」找刚露出水面
+    // 的岸边落位——这是算出来的，不是摆出来的，所以不进 scenes(那里只放人写的
+    // 落位)。单子 Y:三个参照点原来是旧世界平移常量 D_QINFANG 的派生量，现在
+    // 改挂 plan 的亭锚点，把最后一个 D_* 也清掉；数值与平移写法逐位相同。
+    const tingAnchor = findAnchor(findRegion('qinfang_ting_qiao'), 'qinfang_ting_qiao.pavilion');
+    const fromTing = ([dx, dz]: [number, number]): [number, number] => [tingAnchor[0] + dx, tingAnchor[1] + dz];
+    const qinfangCenter = fromTing([-0.3, 0.8]); // 旧 POND.cx/cz 的等价点
+    const peakRaw = fromTing([7.5, 4.0]);
+    const peak3Raw = fromTing([-9.1, -4.0]);
+    const [peakX, peakZ] = shoreTowards(qinfangCenter, peakRaw, ground, 60);
+    const [peak3X, peak3Z] = shoreTowards(qinfangCenter, peak3Raw, ground, 60);
+
+    const causewayEnds: [number, number][] = [
+      [-2.7, 171.3],
+      [0, 156.5],
+      [0, 146],
+      [-40, 128],
+    ];
+
+    const all: Placement[] = [
+      ...plannedPlacements(),
+      ...scenePlacements(),
+      // 单子 BE1:plan.connections 的桥。排在 scenes 之后——稻香村那座原先借 scenes 最后一条落位挂出来,
+      // 这样它在装配序列里的位置不变。
+      ...connectionPlacements(),
+      // 曲桥链与池岸驳石是**算出来的**(沿折线铺桥段、沿池边找刚露出水的位置)，
+      // 不是人摆的，所以不进 scenes——scenes 的 placements 只放人写的落位。
+      // 它们是接缝 ② 的活(写条件不写坐标)，归单子 Z。
+      ...CAUSEWAY,
+      ...scatterPlacements(ctx, ground),
+      { part: 'taihu', variant: 'peak', x: peakX, z: peakZ, yaw: 2.4 },
+      { part: 'taihu', variant: 'peak3', x: peak3X, z: peak3Z, yaw: -1.1 },
+      // 铺地收边:路牙沿 plan.paths 里带 paving 的路在 world 空间直接挤出
+      // (07-41 石子漫、17 回宽阔大路),几何自带世界坐标,必须零变换落位。
+      { part: 'luya', variant: 'default', x: 0, z: 0, y: 0, tag: '路牙', unit: GARDEN_GLOBAL_UNIT },
+      // 单子 AH:石压边沿 plan.water 里带 centerline 的窄沟(目前只有引泉沟)
+      // 在 world 空间直接挤出,同样零变换落位,与路牙同一路数。
+      { part: 'shiyabian', variant: 'default', x: 0, z: 0, y: 0, tag: '石压边', unit: GARDEN_GLOBAL_UNIT },
+      ...shoreStones(ground, pond, causewayEnds),
+    ];
+
+
+    // 单子 BH2:每件落位归一个流式单位。生成它的那一路知道是哪个区的(plan 遍历、scenes、规则散置、连接)就用那个;
+    // 算出来的沁芳件(曲桥链、池岸驳石、两座峰)没写区,按落点归最近的建成区。
+    this.all = all.map((p) => ({ p, unit: p.unit ?? nearestBuiltRegion(...resolvePosition(p)) }));
+    this.units = [GARDEN_GLOBAL_UNIT, ...builtRegions()];
+
+    const group = this.group;
+    group.name = 'Garden';
+    // Static merging discards individual roots. Keep their construction identity
+    // and provenance separately so a batched scene is still reviewable.
+    // 单子 Z:清单搬进 roster.ts 共享——「植树」比这一步早,它也要能登记
+    // (按 plan 长出来的花池以前整步隐形,被对账门误报成缺项)。
+    group.userData.constructions = getRoster();
+    // 单子 AD · 第一档对账：世界要自报「我建了哪几个区」,工具不许再抄一份区名。
+    group.userData.builtRegions = [...builtRegions()];
+    group.userData.linears = this.linearRecords;
+    ctx.scene.add(group);
+    const updaters = this.updaters;
+    ctx.tick((dt, t) => {
+      for (const u of updaters) u(dt, t);
+    });
+  }
+
+  /** 一个单位里有几件落位(调度方估进度用)。 */
+  placementsIn(unit: string): number {
+    return this.all.filter((e) => e.unit === unit).length;
+  }
+
+  /**
+   * BH2 之前的 `buildGarden` 原样(`?stream=off`):全部落位按原顺序、全园一次合批、碰撞直接进真碰撞层。
+   */
+  buildAllAtOnce(): void {
+    const w = this.newWork('*', this.ctx.collision, this.ctx);
+    runToEnd(this.steps(w, this.all.map((e) => e.p), [...builtRegions()]));
+    const merged = assembleStatic(w.staticGroup);
+    merged.name = 'GardenStatic';
+    for (const o of w.dyn) this.group.add(o);
+    this.group.add(merged);
+    console.info(`[garden] ${w.calls} 件, ${this.cache.size} 种, 合并后 ${merged.children.length} 个 mesh`);
+  }
+
+  /**
+   * 建一个单位(不挂进场景)。每 `yield` 一次是做完一件落位;跑完返回可提交的单位。
+   * 碰撞体登记在暂存层,`commit` 时并进真碰撞层。
+   */
+  *unitSteps(unit: string): Generator<void, StagedGardenUnit> {
+    const real = this.ctx.collision;
+    const staging = new CollisionWorld();
+    staging.terrainHeight = real.terrainHeight;
+    staging.surfaceAt = real.surfaceAt;
+    const w = this.newWork(unit, staging, { ...this.ctx, collision: staging });
+    const regions = unit === GARDEN_GLOBAL_UNIT ? [] : [unit];
+    yield* this.steps(w, this.all.filter((e) => e.unit === unit).map((e) => e.p), regions);
+    const root = assembleStatic(w.staticGroup);
+    root.name = `GardenStatic:${unit}`;
+    return { unit, root, dyn: w.dyn, calls: w.calls, work: w };
+  }
+
+  /** 把建好的单位挂进场景、碰撞并进真碰撞层。 */
+  commit(staged: StagedGardenUnit): void {
+    const real = this.ctx.collision, s = staged.work.collision;
+    real.colliders.push(...s.colliders);
+    real.platforms.push(...s.platforms);
+    for (const o of staged.dyn) this.group.add(o);
+    if (!this.staticParent) {
+      this.staticParent = new THREE.Group();
+      this.staticParent.name = 'GardenStatic';
+      this.staticParent.userData.staticBatches = { instances: 0, prototypes: 0 };
+      this.group.add(this.staticParent);
+    }
+    this.staticParent.add(staged.root);
+    const agg = this.staticParent.userData.staticBatches as { instances: number; prototypes: number };
+    const mine = staged.root.userData.staticBatches as { instances: number; prototypes: number } | undefined;
+    if (mine) { agg.instances += mine.instances; agg.prototypes += mine.prototypes; }
+    console.info(`[garden] 单位 ${staged.unit}: ${staged.calls} 件, 合并后 ${staged.root.children.length} 个 mesh(原型累计 ${this.cache.size} 种)`);
+  }
+
+  private newWork(unit: string, collision: CollisionWorld, ctx: GameContext): UnitWork {
+    return { unit, dyn: [], staticGroup: new THREE.Group(), lanternSpots: [], baogushiSpots: [], calls: 0, collision, ctx };
+  }
+
+  /** 灯笼 / 抱鼓石原型:与 BH2 之前一样每处都 clone,原型本身各建一次(以前每次 buildGarden 各建一次)。 */
+  private extra(part: string, variant: string): PartBuild | null {
+    const key = `${part}:${variant}`;
+    if (!this.extraProto.has(key)) this.extraProto.set(key, buildPart(part, variant, { ground: this.ground }) ?? null);
+    return this.extraProto.get(key) ?? null;
+  }
+
+  /** 装配主循环(BH2 之前 buildGarden 的循环体原样,只把「挂到哪」换成 w 里的暂存)。每件落位之后 yield 一次。 */
+  private *steps(w: UnitWork, placements: readonly Placement[], bambooRegions: readonly string[]): Generator<void, void> {
+    const ground = this.ground;
+    for (const p of placements) {
+      const key = `${p.part}:${p.variant ?? 'default'}`;
+      let part = this.cache.get(key);
+      let fresh = false;
+      if (!part) {
+        part = buildPart(p.part, p.variant,{ground}) ?? undefined;
+        if (!part) {
+          console.warn(`[garden] 未登记构件 ${key}`);
+          continue;
+        }
+        this.cache.set(key, part);
+        fresh = true;
+        let tris = 0;
+        part.root.traverse((o) => {
+          const mm = o as THREE.Mesh;
+          if (!mm.isMesh) return;
+          const g = mm.geometry;
+          const n = g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+          tris += n * ((mm as THREE.InstancedMesh).isInstancedMesh ? (mm as THREE.InstancedMesh).count : 1);
+        });
+        console.info(`[garden] ${key} ${(tris / 1000).toFixed(1)}k tris`);
+        if (part.update) this.updaters.push(part.update);
+        // 单子 AD · 第三档：构件的本地包围盒尺寸,登记进世界清单。
+        // 接缝门要判「两段墙之间有没有缝」,光有落位没有尺寸算不出端点。
+        // 只在 fresh(原型第一次建出来)时量一次,之后从 cache 拿。
+        const box = new THREE.Box3().setFromObject(part.root);
+        this.partSize.set(key, box.isEmpty() ? [0, 0, 0] : [box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z]);
+      }
+      w.calls++;
+      const linear=part.kind==='wall-path'||part.kind==='corridor-path'||part.kind==='bridge-path'?part as WallPathResult|CorridorResult|BridgePathResult:null;
+      if(linear&&(p.x!==0||p.z!==0||p.y!==undefined||p.yaw))throw new Error('plan线性构件已含世界位置，不能再叠加Placement变换');
+      const [wx, wz] = linear ? linear.path.origin : resolvePosition(p);
+      const yaw = p.yaw ?? 0;
+      const y = linear ? linear.spec.elevation_m : p.y ?? ground(wx, wz) + (p.dy ?? 0);
+      const obj = fresh ? part.root : part.root.clone();
+      obj.position.set(wx, y, wz);
+      obj.rotation.y = yaw;
+      obj.name = p.tag ?? key;
+      // 单子 AD · 第一档对账：**每个** placement 都要登记。
+      // 以前只有 kind==='building' 登记,所以六段墙、竹丛、太湖石、桥、游廊、院墙、
+      // 灯笼在世界的自报清单里一条都没有——「台矶没造」这类缺陷从定义上就在所有门
+      // 的视野之外(spec §1.5 ①②)。静态合并会丢掉 root,清单是合并后唯一的可审身份。
+      //
+      // planId 与 id 分开:planId 能对上 plan 对象才有值,对不上就是 null。
+      // 正门那六段墙正是 planId=null 的野生件(它们该是 zhengmen.flanking-wall),
+      // 对账门靠这个字段把「世界有、数据没有」单列出来,不与缺项混为一谈。
+      const planId =
+        p.planId ??
+        (linear ? linear.spec.id : undefined) ??
+        ((obj.userData.planObject as { id?: string } | undefined)?.id) ??
+        (p.variant && p.variant.includes('.') ? p.variant : undefined) ??
+        null;
+      registerObject({
+        id: planId ?? key,
+        name: obj.name,
+        part: p.part,
+        variant: p.variant ?? 'default',
+        position: [wx, y, wz],
+        yaw,
+        planId,
+        ruleId: p.ruleId ?? null,
+        size: this.partSize.get(key) ?? null,
+        ...(part.kind === 'building' ? obj.userData.construction : null),
+        ...(obj.userData.planObject ? { planObject: obj.userData.planObject } : null),
+        ...(part.root.userData.provenance ? { provenance: part.root.userData.provenance } : null),
+      });
+      if(linear)this.linearRecords.push({...linear.root.userData.linear,position:[wx,y,wz]});
+      if (part.update) w.dyn.push(obj);
+      else w.staticGroup.add(obj);
+
+      registerColliders(w.ctx, p.part, p.variant ?? 'default', part, wx, y, wz, yaw);
+
+      // 灯笼挂在檐下(07-70):跟着建筑走,不是独立摆件。
+      for (const s of lanternSpotsFor(p, part) ?? []) {
+        const [lx, lz] = toWorld(wx, wz, yaw, s.lx, s.lz);
+        w.lanternSpots.push({ x: lx, y: y + s.hangY, z: lz });
+      }
+
+      // 抱鼓石守在正门踏跺两侧(艺术选择,07-01 无此物):跟着正门走。
+      // 单子 AT2 起 `baogushiSpotsFor` 直接给世界坐标——落位要对台矶的墁缝
+      // 网格,而那张网格是世界轴对齐的,在局部算完再转就对不上了。
+      for (const s of baogushiSpotsFor(p, part, wx, wz, yaw, y, ground) ?? []) {
+        // 垂带抱鼓档的局部原点就是须弥座中心(门枕已去),碰撞圆心即落点,
+        // 不用再叠 BAOGUSHI_DRUM_Z_M 那个门当档的偏移。
+        w.baogushiSpots.push(s);
+      }
+
+      if (p.pier) {
+        // 从地面(池底)砌一块青石墩到构件底面。
+        const b = part as BuildingResult;
+        const hx = b.platform?.hx ?? 2;
+        const hz = b.platform?.hz ?? 2;
+        const gy = ground(wx, wz);
+        const h = Math.max(0.05, y - gy + 0.02);
+        const pier = new THREE.Mesh(roundedBox(hx * 2 - 0.1, h, hz * 2 - 0.1, 0.03, 2), this.stone);
+        pier.position.set(wx, gy + h / 2 - 0.01, wz);
+        pier.rotation.y = yaw;
+        pier.receiveShadow = true;
+        pier.castShadow = true;
+        w.dyn.push(pier);
+      }
+      yield;
+    }
+    if (w.lanternSpots.length) {
+      const lantern = this.extra('lantern', 'gong');
+      if (lantern) {
+        for (const s of w.lanternSpots) {
+          const l = lantern.root.clone();
+          l.position.set(s.x, s.y, s.z);
+          l.name = '灯笼';
+          w.staticGroup.add(l);
+          registerObject({ id: 'lantern:gong', name: '灯笼',
+            part: 'lantern', variant: 'gong', position: [s.x, s.y, s.z], yaw: 0, planId: null,
+            ruleId: '灯笼-檐下',
+            provenance: lantern.root.userData.provenance });
+        }
+      }
+    }
+    if (w.baogushiSpots.length) {
+      // `chuidai` = 垂带抱鼓档(单子 AT2):去门枕、原点在须弥座中心。
+      const baogushi = this.extra('baogushi', 'chuidai');
+      if (baogushi) {
+        for (const s of w.baogushiSpots) {
+          const st = baogushi.root.clone();
+          st.position.set(s.x, s.y, s.z);
+          st.name = '抱鼓石';
+          w.staticGroup.add(st);
+          // 挡人不挡路:两颗石守在踏跺两侧的垂带外,踏跺净宽 3m 一路畅通
+          // (石心离中线 1.87m,碰撞半径 0.44m —— 最近也还在踏跺边以外 0.93m)。
+          w.collision.addCircle(s.x, s.z, BAOGUSHI_DRUM_R_M, s.y, s.y + 1.25, '抱鼓石');
+          registerObject({
+            id: 'zhengmen.baogushi',
+            name: '抱鼓石(垂带抱鼓)',
+            part: 'baogushi',
+            variant: 'chuidai',
+            position: [s.x, s.y, s.z],
+            yaw: 0,
+            planId: null,
+            provenance: baogushi.root.userData.provenance,
+          });
+        }
+      }
+    }
+    // 单子 AL3:竹夹路。放在静态合批之前,和灯笼/抱鼓石同一档「主循环之后再长出来
+    // 的东西」;它带 update(风),进 dyn 不进 staticGroup。只长 bambooRegions 这几个区的(BH2:按单位)。
+    buildBambooRows(w.ctx, ground, w.dyn, this.updaters, bambooRegions);
+  }
+}
+
+/** 同步跑完一个装配生成器(A 段与 `?stream=off` 用)。 */
+export function runToEnd<T>(gen: Generator<void, T>): T {
+  for (;;) {
+    const r = gen.next();
+    if (r.done) return r.value;
+  }
+}
+
+/** BH2 之前的入口:全园一次建完(= `?stream=off`)。 */
+export function buildGarden(ctx: GameContext): void {
+  new GardenComposer(ctx).buildAllAtOnce();
+}
+
+/** 落点归哪个建成区:在区里就是那个区,不在任何建成区里就归到多边形边最近的那个(确定性:同距取 builtRegions 靠前的)。 */
+function nearestBuiltRegion(x: number, z: number): string {
+  let best = '', bd = Infinity;
+  for (const id of builtRegions()) {
+    const P = findRegion(id).polygon;
+    if (locatePoint(P, [x, z]) !== 'outside') return id;
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+      const [xi, zi] = P[i], [xj, zj] = P[j];
+      const dx = xj - xi, dz = zj - zi, L = dx * dx + dz * dz;
+      const t = L ? Math.max(0, Math.min(1, ((x - xi) * dx + (z - zi) * dz) / L)) : 0;
+      const d = Math.hypot(x - xi - t * dx, z - zi - t * dz);
+      if (d < bd) { bd = d; best = id; }
+    }
+  }
+  return best;
+}/** 把局部 (lx, lz) 按 yaw 转到世界。 */
 function toWorld(x: number, z: number, yaw: number, lx: number, lz: number): [number, number] {
   const c = Math.cos(yaw);
   const s = Math.sin(yaw);

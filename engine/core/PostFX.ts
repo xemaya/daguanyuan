@@ -287,6 +287,19 @@ export class PostFX {
     this.composer.needsUpdate=true;
   }
   async compileAsync(): Promise<void> { await this.scenePass.compileAsync(this.engine.renderer); }
+  /**
+   * 单子 BH2:给一个**还没挂进场景**的对象预编管线(后台建好的区,显示之前)。与 `PassNode.compileAsync` 同一个做法——
+   * 渲染目标与 MRT 设成主场景 pass 的,灯光取自主场景。节点是边等边建的(`getForRenderAsync`),建的时候读渲染器当前的 MRT,
+   * 所以整段编译期间渲染器都得停在场景 pass 的目标与 MRT 上;这期间照常出帧,`render()` 自己先切回画布、画完再切回来。
+   */
+  async compileObjectAsync(object: THREE.Object3D, camera: THREE.Camera): Promise<void> {
+    const r = this.engine.renderer;
+    const target = r.getRenderTarget(), mrt = r.getMRT();
+    r.setRenderTarget(this.scenePass.renderTarget);
+    r.setMRT(this.scenePass.getMRT());
+    try { await r.compileAsync(object, camera, this.engine.scene); }
+    finally { r.setRenderTarget(target); r.setMRT(mrt); }
+  }
   /** Installs the atmosphere hook and rebuilds the graph once (pre-first-render). */
   setSkyHook(hook: SkyHook): void { this.skyHook=hook; this.applyQuality(this.engine.quality); }
   inspectBuffer(name: string | null): void {
@@ -305,7 +318,11 @@ export class PostFX {
     this.camCells.world.value.copy(cam.matrixWorld);
     this.camCells.projInv.value.copy(cam.projectionMatrixInverse);
     const info=this.engine.renderer.info;info.autoReset=false;info.reset();
+    // 单子 BH2:后台编管线(compileObjectAsync)期间渲染器停在场景 pass 的目标 / MRT 上;这一帧先切回画布,画完还给它。
+    const r=this.engine.renderer,heldTarget=r.getRenderTarget(),heldMRT=r.getMRT();
+    if(heldTarget||heldMRT){r.setRenderTarget(null);r.setMRT(null);}
     this.composer.render();
+    if(heldTarget||heldMRT){r.setRenderTarget(heldTarget);r.setMRT(heldMRT);}
     this.frameStats.calls=info.render.drawCalls;this.frameStats.triangles=info.render.triangles;
   }
   dispose(): void {this.composer.dispose();for(const node of this.resources)node.dispose();}
