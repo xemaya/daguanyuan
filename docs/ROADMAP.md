@@ -17,7 +17,7 @@ MVP(2026-09-10)验证了三件事:程序化的表现力、《营造法式》推�
 | 知道还欠什么 | `docs/reviews/2026-09-14-mvp-four-regions.md` ← **四区待修总台账，开单从这里取** |
 | 知道架构往哪走 | `docs/superpowers/specs/2026-09-14-scale-architecture-design.md` ← 六条接缝、三条目标的可验判据 |
 | 改翠嶂 / 沁芳 / 潇湘馆 | `knowledge/docs/qingshi/{cuizhang,qinfang,xiaoxiangguan}.md` ← 三份考据，含反算与落地思路 |
-| 踩过的坑 | `docs/PITFALLS.md`（`P-1` … `P-38`） |
+| 踩过的坑 | `docs/PITFALLS.md`（`P-1` … `P-39`） |
 | 拍过的板 | `docs/DECISIONS.md`（`D-01` … `D-45`） |
 
 **下一步**（2026-09-15 晚更新）：用户交来 codex 的《程序化细节深化评审》并定调**优先于 AL / AM**。
@@ -61,7 +61,7 @@ AJ 合回后做材质配方（AN2）与两个样件（AO 西番草浮雕、AP �
 | 4k | **分区加载**（区级流式，接缝 ④）：先剖析 + 设计稿，停下定方案 | **BH** `docs/superpowers/plans/2026-10-01-bh-region-streaming.md`（`D-43`） | 大 | BH0 ✅ 设计稿合回（D-44）|
 | 4l | **BH1 全局减负**：白石几何缓存、调色不干等、植被材质进 worker（画面零变化） | **BH1** `docs/superpowers/plans/2026-10-01-bh1-global-trim.md` | 中 | ✅ 合回并验收（§29，2026-10-01）|
 | 4m | **BH2 两段就绪 + 后台建完**：出生两区先可玩，其余进园后排队建完 | **BH2** `docs/superpowers/plans/2026-10-01-bh2-two-stage-background.md` | 大 | ✅ 合回并验收（§30，2026-10-01）|
-| 4n | **最重的几件构件**：泥墙 2.5 s 等首建 > 0.5 s 的原型只改算法不改输出，B 段最坏一帧 ≤ 0.5 s | **BI** `docs/superpowers/plans/2026-10-01-bi-heavy-parts.md`（`D-45`） | 小中 | 已派 |
+| 4n | **最重的几件构件**：泥墙 2.5 s 等首建 > 0.5 s 的原型只改算法不改输出，B 段最坏一帧 ≤ 0.5 s | **BI** `docs/superpowers/plans/2026-10-01-bi-heavy-parts.md`（`D-45`） | 小中 | ✅ 合回并验收（§31，2026-10-01）|
 | 5d | **AV-b2 补**：土台南脚露土阈值一行（`terrain-from-plan.ts:946` `smoothstep(0.15,0.4,hillMoss)` → `(0.03,0.12)` 或按 `hillMask` 开关），判据 `gate_face` 无红棕斑 | 并进 **AL** 当第 0 件 | 微 | ✅ 随 AL 合回，**部分通过**（§22：`gate_face` 基本干净，`patch_close` 右下余一块，进 AL-b） |
 | 6 | 沁芳 D3/D4（桥亭、收窄水面）；E4 门前古松 | 未写 | 大 / 小 | AL 之后（D5 高照杆已并进 AU） |
 | 7 | 判断题 E3 / E5 / E6；**AE 形制断言门：正门冻结后可焊**；接缝⑤ AB、AC | — | — | AU 之后 |
