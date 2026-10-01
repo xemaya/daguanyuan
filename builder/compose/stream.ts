@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GameContext } from '@engine/core/Context';
 import type { GardenComposer, StagedGardenUnit } from './composer';
+import { unitTexturesReady } from './prewarm-textures';
 
 /**
  * 单子 BH2:进园之后在后台把其余建成区建完(`D-44`:两段就绪,不设「走近才建」的半径)。
@@ -153,7 +154,10 @@ export class BackgroundBuilder {
   }
 
   private async buildOne(unit: string): Promise<StreamJob> {
+    // 单子 BI3:先等这个区要的 B 批贴图(`UNIT_TEXTURE_JOBS`)在 worker 里烤完并 adopt——没赶上就在这里等,
+    // 而不是开建后在主线程同步烤(那是 BI 之前 2.5 s 的长帧)。等的时间算进这个区的墙钟(t0 在等之前)。
     const t0 = performance.now();
+    await unitTexturesReady(unit);
     const gen = this.garden.unitSteps(unit);
     let staged: StagedGardenUnit | undefined;
     let slices = 0, buildMs = 0, longest = 0;
