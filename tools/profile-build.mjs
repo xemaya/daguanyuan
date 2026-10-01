@@ -17,6 +17,10 @@
  *     （BH1 之前只有一步「调色」；BH1 起拆成「调色·地面」与「调色」，中间夹着不要预热贴图的理地 / 圈地 / 引水）。
  *   - `开页→就绪`：从 `page.goto` 到 `window.__GAME__` 出现（含着色器编译，headless 下失真，见 `P-38`）。
  *   - 每次跑前记 `uptime` 的 load average（`D-40`：比较时记负载）。
+ *   - 单子 BH2 起有两段：`开页→就绪(墙钟)` 是工具拿到 `__GAME__` 的时刻——自动化下默认**全部建完**才发，
+ *     所以它就是「开页到 all-loaded」；`boot.readyMs` 是 A 段就绪（从 boot 开始算），`boot.allLoadedMs` 是全部建完（同一起点）。
+ *     `B/<区>` 是后台建每个区的墙钟（`world.streaming.jobs`：建造片 + 让出 + 编管线 + 挂上），`B/<区>·最长一片` 是其中最长的一片建造。
+ *     原型首建只数 A 段（`[world] built` 之前）的；B 段的原型分散在各区的片里，看 `B/…`。
  *
  * 用法：
  *   node tools/profile-build.mjs --url http://127.0.0.1:5195/garden.html [--runs 3] [--out shots/BH1/build-before.json] [--top 12]
@@ -50,11 +54,12 @@ async function once() {
     if (await page.locator('#app pre').count()) throw new Error(await page.locator('#app pre').textContent());
     const r = await page.evaluate(() => {
       const g = window.__GAME__, root = g.world.root, by = (n) => root.getObjectByName(n);
-      return { boot: g.bootTimings, steps: g.world.buildTimings, total: g.world.buildDurationMs,
+      return { boot: g.bootTimings, steps: g.world.buildTimings, total: g.world.buildDurationMs, jobs: g.world.streaming?.jobs ?? [],
         terrain: by('Terrain')?.userData.buildTimings ?? [], vegetation: by('Vegetation')?.userData.buildTimings ?? [],
         warmup: root.userData.textureWarmup, marks: window.__BUILD_MARKS__ };
     });
-    const rows = [['开页→就绪(墙钟)', wallReadyMs], ['boot.compileMs', r.boot?.compileMs], ['world 建时合计', r.total]];
+    const rows = [['开页→就绪(墙钟)', wallReadyMs], ['boot.readyMs(A 段)', r.boot?.readyMs], ['boot.allLoadedMs', r.boot?.allLoadedMs], ['boot.compileMs', r.boot?.compileMs], ['world 建时合计', r.total]];
+    for (const j of r.jobs) { rows.push([`B/${j.unit}`, j.wallMs]); rows.push([`B/${j.unit}·最长一片`, j.longestSliceMs]); rows.push([`B/${j.unit}·编管线`, j.compileMs]); }
     for (const [k, ms] of r.steps) rows.push([`步 ${k}`, ms]);
     rows.push(['主线程等 worker(合计)', r.steps.filter(([k]) => k.startsWith('调色')).reduce((a, [, ms]) => a + ms, 0)]);
     for (const [k, ms] of r.terrain) rows.push([`  理地/${k}`, ms]);
@@ -66,6 +71,7 @@ async function once() {
     if (worldAt != null && gardenMs != null) {
       let prev = worldAt - gardenMs;
       for (const [t, s] of r.marks) {
+        if (t > worldAt) break;
         const m = /^\[garden\] (\S+) [\d.]+k tris$/.exec(s);
         if (m) { protos.push([m[1], t - prev]); prev = t; }
       }
