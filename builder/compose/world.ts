@@ -11,7 +11,8 @@ import { resetRoster } from './roster';
 import { getScenes } from './scenes';
 import { buildWater, setWaterFlows } from '@engine/render/Water';
 import { buildVegetation } from '@builder/parts/zhiwu/vegetation';
-import { buildGarden } from './composer';
+import { GardenComposer, GARDEN_GLOBAL_UNIT, runToEnd } from './composer';
+import { BackgroundBuilder, type StreamStatus } from './stream';
 import { startTextureWarmup } from './prewarm-textures';
 import { TERRAIN_TEXTURE_JOBS } from './texture-jobs';
 import {SEED} from './config';
@@ -49,6 +50,17 @@ export class World {
   buildTimings: [string, number][] = [];
   /** Includes asynchronous preparation and inter-step paint yields. */
   buildDurationMs = 0;
+  /** 装配器(单子 BH2:按区可重入)。 */
+  garden: GardenComposer | null = null;
+  /** 单子 BH2:后台建造(`?stream=off` 时为 null)。 */
+  background: BackgroundBuilder | null = null;
+  /** A 段就建了哪些构件单位;流式模式下其余的交给 `startBackground`。 */
+  private deferred: string[] = [];
+  /** 单子 BH2 的工具钩子:流式状态(见 stream.ts `StreamStatus`);`?stream=off` 时 mode = 'off'。 */
+  get streaming(): StreamStatus {
+    const t = this.buildDurationMs ? 0 : null;
+    return this.background?.status ?? { mode: 'off', units: {}, order: [], pending: 0, held: false, jobs: [], allLoadedAt: t, allCommittedAt: t };
+  }
 
   constructor(engine: Engine) {
     this.root.name = 'World';
@@ -81,7 +93,12 @@ export class World {
     };
   }
 
-  async build(onProgress?: (label: string, pct: number) => void): Promise<void> {
+  /**
+   * @param stream 单子 BH2:给了就是两段就绪——「起屋叠石」只建全局件与 `stream.first` 这几个区(出生集合),
+   *   其余建成区留给 `startBackground`;不给(`?stream=off`)就是 BH2 之前的行为,全园一次建完。
+   *   地面、水、植被两种模式一样,都是整窗口建(BH3 才拆)。
+   */
+  async build(onProgress?: (label: string, pct: number) => void, stream?: { first: readonly string[] }): Promise<void> {
     // 单子 BH1:贴图预热开页就发起,不再是第一步整段 await(以前主线程在「调色」里干等 5–8 s)。
     // 只在真要用预热贴图之前等:「理地」要四张地面图(排在队列最前),「植树」「起屋叠石」要其余全部。
     // 夹在中间的开天、圈地、引水,以及理地里的 splat 与网格,都不读预热贴图,于是和 worker 同时跑。
@@ -102,7 +119,15 @@ export class World {
       ['引水', (ctx) => { setWaterFlows(getPlan().water); buildWater(ctx); }],
       ['调色', async () => { this.root.userData.textureWarmup = await warmup.done; }],
       ['植树', buildVegetation],
-      ['起屋叠石', buildGarden],
+      ['起屋叠石', (ctx) => {
+        const garden = (this.garden = new GardenComposer(ctx));
+        if (!stream) { garden.buildAllAtOnce(); return; }
+        const first = new Set([GARDEN_GLOBAL_UNIT, ...stream.first]);
+        for (const unit of garden.units) {
+          if (first.has(unit)) garden.commit(runToEnd(garden.unitSteps(unit)));
+          else this.deferred.push(unit);
+        }
+      }],
     ];
 
     // Per-step timings. Load time is on the player's critical path and every
@@ -136,6 +161,20 @@ export class World {
 
     onProgress?.('请入园', 1);
     this.ctx.events.emit(EVENTS.WORLD_READY);
+  }
+
+  /**
+   * 单子 BH2:A 段就绪之后,把其余建成区在后台建完(`D-44`)。`order` 是出队顺序(只含 A 段没建的;漏的按原序补在后面)。
+   * `held` 为真时不自己出队,只建被 `prioritize` 点名的(测「传送到未建区」)。
+   */
+  startBackground(order: readonly string[], held = false): BackgroundBuilder {
+    if (!this.garden) throw new Error('[world] startBackground 要在 build 之后');
+    const rest = new Set(this.deferred);
+    const queue = [...order.filter((u) => rest.has(u)), ...this.deferred.filter((u) => !order.includes(u))];
+    const built = this.garden.units.filter((u) => !rest.has(u));
+    this.background = new BackgroundBuilder(this.ctx, this.garden, built, queue, held);
+    this.background.start();
+    return this.background;
   }
 
   update(dt: number, elapsed: number): void {

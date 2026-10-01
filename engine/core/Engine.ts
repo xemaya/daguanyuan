@@ -75,6 +75,12 @@ export class Engine {
    */
   renderState: () => RenderState = () => 'active';
   /**
+   * 单子 BH2:后台还在建(进园后建其余区)时为真。这段时间主线程时不时整块被建造占住,帧间隔长是建造不是画得慢——
+   * governor 不许把它读成「卡」去降像素比(与降频档同一个理由)。项目层接线。
+   */
+  governHold: () => boolean = () => false;
+  private wasHeld = false;
+  /**
    * 静止档帧率。BG2 定 15;BG3(验收人裁定)改 20——dt 正好 0.05,不被 `min(raw, 1/20)` 钳住,
    * 站着时风 / 水 / 云按真实速度走(15 帧时每帧 0.067 s 被钳到 0.05,只走 75%)。
    */
@@ -238,7 +244,12 @@ export class Engine {
       this.fpsWindow = 0;
       skipSample = true;
     }
-    this.governable = !this.throttle || (state === 'active' && this.focused && limit === this.frameLimit);
+    // BH2:后台建造期间的帧不进 fps 窗口——否则建完那一刻,窗口里攒着的长帧会让 governor 当场降一档(实测 1 → 0.85)。
+    // 放开后的第一帧也不计(它的间隔可能还含着最后一片建造)。
+    const held = this.governHold();
+    if (held || this.wasHeld) { this.frames = 0; this.fpsWindow = 0; skipSample = true; }
+    this.wasHeld = held;
+    this.governable = (!this.throttle || (state === 'active' && this.focused && limit === this.frameLimit)) && !held;
     const frameMs = this.lastFrame ? timestamp - this.lastFrame : interval;
     if (this.throttle && this.governable && !skipSample) this.activeMs += Math.min(frameMs, 100);
     this.lastFrame = timestamp;

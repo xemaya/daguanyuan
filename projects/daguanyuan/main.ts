@@ -23,6 +23,57 @@ import './construction';
 const SPAWN = new THREE.Vector3(55, 0, 248);
 const SPAWN_YAW = 0;
 
+/**
+ * 单子 BH2(`D-44`):两段就绪。A 段只建出生集合 + 全局件,就绪即可玩;其余建成区进园后在后台建完。
+ *
+ * **出生集合 S0 = 正门 + 翠嶂**:BH0 设计稿表 2——出生点北 / 东 / 西三个朝向,把 S0 以外的区整区藏掉,
+ * 变化 > 16 色阶的像素最多 0.10%;藏翠嶂 1.0–21.5%、藏正门 53–57%。
+ * **B 段出队**:可见关系优先(`STREAM_FIRST_SEEN`:表 2 里从 S0 看得见的区——`mound_block` 藏沁芳变 5.5%),
+ * 其余按出生点到区多边形的距离。
+ *
+ * URL 开关(都是给工具与对照用的):
+ *   `?stream=off`   BH2 之前的行为,全园一次建完(对照、回退);
+ *   `?phaseA`       自动化下也在 A 段就发 `__GAME__`(默认自动化要等全部建完——工具不读半成品,设计稿 §5);
+ *   `?streamHold`   B 段不自己出队,只建 `world.background.prioritize` 点名的区;
+ *   `?streamOrder=forward|reverse|shuffle:<种子>`  改 B 段出队顺序(确定性对照:顺序不同,结果必须逐位相同)。
+ */
+const SPAWN_SET = ['zhengmen', 'cuizhang'];
+const STREAM_FIRST_SEEN = ['qinfang_ting_qiao'];
+const PARAMS = new URLSearchParams(location.search);
+const STREAM = PARAMS.get('stream') !== 'off';
+
+/** 点到多边形的最短距离(在里面为 0)。 */
+function polygonDistance(poly: readonly (readonly [number, number])[], x: number, z: number): number {
+  let inside = false, best = Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, zi] = poly[i], [xj, zj] = poly[j];
+    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+    const dx = xj - xi, dz = zj - zi, L = dx * dx + dz * dz;
+    const t = L ? Math.max(0, Math.min(1, ((x - xi) * dx + (z - zi) * dz) / L)) : 0;
+    best = Math.min(best, Math.hypot(x - xi - t * dx, z - zi - t * dz));
+  }
+  return inside ? 0 : best;
+}
+
+/** B 段出队顺序(只排区;哪些已在 A 段建了由 world 过滤)。 */
+function streamOrder(regions: readonly { id: string; polygon: [number, number][] }[]): string[] {
+  const built = regions.filter((r) => BUILT_REGIONS.includes(r.id));
+  const ids = built.map((r) => r.id);
+  const mode = PARAMS.get('streamOrder');
+  if (mode === 'forward') return [...BUILT_REGIONS];
+  if (mode === 'reverse') return [...BUILT_REGIONS].reverse();
+  if (mode?.startsWith('shuffle:')) {
+    let h = Number(mode.slice(8)) >>> 0 || 1;
+    const rnd = () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+    const a = [...BUILT_REGIONS];
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+  const dist = new Map(built.map((r) => [r.id, polygonDistance(r.polygon, SPAWN.x, SPAWN.z)]));
+  const seen = STREAM_FIRST_SEEN.filter((id) => ids.includes(id));
+  return [...seen, ...ids.filter((id) => !seen.includes(id)).sort((a, b) => dist.get(a)! - dist.get(b)!)];
+}
+
 async function boot(): Promise<void> {
   const bootStarted = performance.now();
   const bootTimings: Record<string, number> = {};
@@ -48,7 +99,8 @@ async function boot(): Promise<void> {
   const hud = new HUD(world.ctx);
   const audio = new AudioDirector(world.ctx);
 
-  await world.build((label, pct) => hud.setLoading(label, pct));
+  await world.build((label, pct) => hud.setLoading(label, pct),
+    STREAM ? { first: SPAWN_SET.filter((id) => BUILT_REGIONS.includes(id)) } : undefined);
 
   const player = new PlayerController(world.ctx, SPAWN, SPAWN_YAW);
   player.teleport(SPAWN, SPAWN_YAW);
@@ -160,9 +212,34 @@ async function boot(): Promise<void> {
   hud.hideLoading();
   engine.start();
 
+  // ---- 单子 BH2:B 段——其余建成区进园后后台建完 ------------------------
+  // 调度自己排宏任务,不挂在渲染上:开场卡 / 暂停卡挂着(BG 停画)时照样在建。建造期间 governor 不许降像素比。
+  const allLoaded = new Promise<void>((resolve) => {
+    if (!STREAM) { resolve(); return; }
+    world.ctx.events.on('world:all-loaded', () => resolve());
+    const bg = world.startBackground(streamOrder(planRegions as never), PARAMS.has('streamHold'));
+    engine.governHold = () => bg.busy;
+    if (bg.status.allLoadedAt !== null) resolve();
+  });
+  void allLoaded.then(() => {
+    bootTimings.allLoadedMs = performance.now() - bootStarted;
+    console.info('[boot] all-loaded', JSON.stringify({ allLoadedMs: bootTimings.allLoadedMs, jobs: world.streaming.jobs.map((j) => [j.unit, Math.round(j.wallMs)]) }));
+    window.dispatchEvent(new CustomEvent('world:all-loaded'));
+  });
+
   // Expose for the automated visual-QA harness.
-  Object.assign(window, { __GAME__: { engine, world, player, hud, THREE, bootTimings } });
-  window.dispatchEvent(new CustomEvent('game:ready'));
+  // 单子 BH2:自动化(navigator.webdriver,与 BG 的工具开关同一个判据)下默认**全部建完**才发——capture / playtest /
+  // census 这些工具一个不用改就不会读到半成品;要量 A 段就加 `?phaseA`。真浏览器里 A 段就绪即发。
+  const handle = { engine, world, player, hud, THREE, bootTimings,
+    /** 全部建完 resolve(`?streamHold` 下会先放开队列)。 */
+    loadAll: () => world.background?.loadAll() ?? Promise.resolve(),
+  };
+  const publish = () => {
+    Object.assign(window, { __GAME__: handle });
+    window.dispatchEvent(new CustomEvent('game:ready'));
+  };
+  if (navigator.webdriver === true && !PARAMS.has('phaseA')) void allLoaded.then(publish);
+  else publish();
   world.ctx.events.emit(EVENTS.WORLD_READY);
 
   // Pointer lock on every click that reaches the container, not just the first:
