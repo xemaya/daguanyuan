@@ -285,55 +285,164 @@ function aniso(s: Simplex, u: number, v: number, fu: number, fv: number): number
  * v 向上(uv.v = 离墙脚高 / 1.28);bakeColorMap 的 v 是画布行号(向下),下面统一换成 up = 1 − v。
  */
 const LIFTS = [0, 0.3 / 1.28, 0.66 / 1.28, 0.94 / 1.28, 1];
+/**
+ * 单子 BI(D-45,只改怎么算):每条层线的位置摆动 `b`、断续 `show`、流痕列 `col` 与长 `len` 只依赖 u——
+ * 烘一张 1024² 图时同一列 1024 行原来每行重算一遍(每像素 20 次 aniso / 40 次 noise3D,泥墙首建 2.5 s 的大头)。
+ * 按 (Simplex, u) 缓存这 4×5 个数;表达式与求值顺序与原式一字不差,所以存下的 double 与逐行重算的逐位相同。
+ */
+/** `aniso` 的前半截:x 一周期的 cos / sin(x·π·2,与 aniso 内同一算式),写进 out[o], out[o+1]。 */
+function cs(x: number, out: Float64Array, o: number): void {
+  const a = x * Math.PI * 2;
+  out[o] = Math.cos(a); out[o + 1] = Math.sin(a);
+}
+/** `aniso` 的后半截:三角函数已算好(按列 / 按行缓存),余下与 aniso 一字不差。 */
+function anisoCS(s: Simplex, ca: number, sa: number, cb: number, sb: number, fu: number, fv: number): number {
+  const ru = fu / (Math.PI * 2), rv = fv / (Math.PI * 2);
+  const nx = ca * ru, ny = sa * ru, nz = cb * rv, nw = sb * rv;
+  return 0.5 * (s.noise3D(nx, ny, nz) + s.noise3D(ny + 7.1, nz, nw));
+}
+/** 按行(v)的三角函数:up = 1−v、up+0.2、v 三种相位。烘焙逐行扫,单项缓存一行只算一次。 */
+let earthRowV = NaN;
+const earthRowT = new Float64Array(6);
+function earthRow(v: number): Float64Array {
+  if (v !== earthRowV) { const up = 1 - v; cs(up, earthRowT, 0); cs(up + 0.2, earthRowT, 2); cs(v, earthRowT, 4); earthRowV = v; }
+  return earthRowT;
+}
+/**
+ * `worley`(engine/core/Noise.ts)的本地逐位复刻,只回 f1 / id,不分配对象;每个 (cells, seed) 的特征点
+ * 偏移按格子预先查表(原式每次 hash2)。算术顺序与原式相同:px = (xi+ox) + 偏移、d = √(dx²+dy²)、先比 f1 后比 f2。
+ */
+const worleyTables = new Map<string, { fx: Float64Array; fy: Float64Array; id: Uint32Array }>();
+let wF1 = 0, wId = 0;
+function worleyTable(cells: number, seed: number) {
+  const key = `${cells}:${seed}`;
+  let t = worleyTables.get(key);
+  if (!t) {
+    t = { fx: new Float64Array(cells * cells), fy: new Float64Array(cells * cells), id: new Uint32Array(cells * cells) };
+    for (let cy = 0; cy < cells; cy++) for (let cx = 0; cx < cells; cx++) {
+      let h = (cx * 374761393 + cy * 668265263 + seed * 2147483647) | 0;
+      h = Math.imul(h ^ (h >>> 13), 1274126177);
+      h = (h ^ (h >>> 16)) >>> 0;
+      t.fx[cy * cells + cx] = (h & 0xffff) / 65535; t.fy[cy * cells + cx] = ((h >>> 16) & 0xffff) / 65535; t.id[cy * cells + cx] = h;
+    }
+    worleyTables.set(key, t);
+  }
+  return t;
+}
+type WorleyTable = ReturnType<typeof worleyTable>;
+const WT: { pit?: WorleyTable; grit?: WorleyTable; speck?: WorleyTable } = {};
+/** 周期取格:与原式 ((i % n) + n) % n 在 i ∈ [−n, 2n) 上相同,超出才走原式。 */
+function wrapCell(i: number, n: number): number {
+  return i < 0 ? (i >= -n ? i + n : ((i % n) + n) % n) : i < n ? i : i < 2 * n ? i - n : ((i % n) + n) % n;
+}
+function worleyF1(t: WorleyTable, u: number, v: number, cells: number): void {
+  const x = u * cells, y = v * cells, xi = Math.floor(x), yi = Math.floor(y);
+  let f1 = 1e9, id = 0;
+  for (let oy = -1; oy <= 1; oy++) {
+    const cy = wrapCell(yi + oy, cells);
+    for (let ox = -1; ox <= 1; ox++) {
+      const cx = wrapCell(xi + ox, cells), j = cy * cells + cx;
+      const dx = xi + ox + t.fx[j] - x, dy = yi + oy + t.fy[j] - y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < f1) { f1 = d; id = t.id[j]; } // 原式的 f2 只影响 f2,这里不要
+    }
+  }
+  wF1 = Math.min(1, f1); wId = id;
+}
+const earthColCache = new WeakMap<Simplex, Map<number, Float64Array>>();
+// 单项快取:烘一个像素要连查三次同一列(层线、高度、色),只有第一次进 Map。
+let lastColS: Simplex | null = null, lastColU = NaN, lastCol: Float64Array | null = null;
+function earthColumn(s: Simplex, u: number): Float64Array {
+  if (u === lastColU && s === lastColS && lastCol) return lastCol;
+  const c0 = earthColumnLookup(s, u);
+  lastColS = s; lastColU = u; lastCol = c0;
+  return c0;
+}
+function earthColumnLookup(s: Simplex, u: number): Float64Array {
+  let m = earthColCache.get(s);
+  if (!m) { m = new Map(); earthColCache.set(s, m); }
+  let c = m.get(u);
+  if (!c) {
+    if (m.size >= 8192) m.clear();
+    c = new Float64Array(LIFTS.length * 4 + 8);
+    // 逐像素 aniso 里只依赖 u 的三角函数(u、u+0.3、u+0.7、u+0.5 四种相位),同样按列存;算式与 aniso 内一字不差。
+    const T = LIFTS.length * 4;
+    cs(u, c, T); cs(u + 0.3, c, T + 2); cs(u * 1 + 0.7, c, T + 4); cs(u + 0.5, c, T + 6);
+    for (let k = 0; k < LIFTS.length; k++) {
+      c[k * 4] = LIFTS[k] + 0.008 * aniso(s, u, k * 0.21, 7, 3);
+      c[k * 4 + 1] = smoothstep(-0.25, 0.05, aniso(s, u, 0.13 + k * 0.17, 9, 2));
+      c[k * 4 + 2] = 0.5 + 0.5 * aniso(s, u * 1 + k * 0.37, 0.5, 80, 1);
+      c[k * 4 + 3] = 0.015 + 0.045 * (0.5 + 0.5 * aniso(s, u + 0.11, k * 0.29, 40, 2));
+    }
+    m.set(u, c);
+  }
+  return c;
+}
 function earthFeatures(s: Simplex, u: number, v: number) {
   const up = 1 - v;
+  const cc = earthColumn(s, u);
   // 层线:找最近一条(含周期接缝 0/1)。
   let line = 0, lip = 0, drip = 0;
   for (let k = 0; k < LIFTS.length; k++) {
-    const b = LIFTS[k] + 0.008 * aniso(s, u, k * 0.21, 7, 3);
+    const b = cc[k * 4];
     const d = up - b; // >0 在线上方
-    const show = smoothstep(-0.25, 0.05, aniso(s, u, 0.13 + k * 0.17, 9, 2)); // 断续
+    const show = cc[k * 4 + 1]; // 断续
     line = Math.max(line, show * (1 - smoothstep(0.0, 0.006, Math.abs(d))));
     lip = Math.max(lip, show * smoothstep(0.004, 0.009, d) * (1 - smoothstep(0.011, 0.022, d)));
     // 流痕:线下方 0–7 cm,竖向细条,各条长短不一。
     if (d < 0 && d > -0.06) {
-      const col = 0.5 + 0.5 * aniso(s, u * 1 + k * 0.37, 0.5, 80, 1);
-      const len = 0.015 + 0.045 * (0.5 + 0.5 * aniso(s, u + 0.11, k * 0.29, 40, 2));
+      const col = cc[k * 4 + 2];
+      const len = cc[k * 4 + 3];
       drip = Math.max(drip, show * smoothstep(0.86, 0.96, col) * (1 - smoothstep(len * 0.6, len, -d)) * 0.7);
     }
   }
+  const T = LIFTS.length * 4, r = earthRow(v);
   // 夯窝:worley 细胞,只有约三成细胞留窝,窝心浅凹。
-  const w = worley(u, up, 18, 13), pit = (w.id % 100 < 30 ? 1 : 0) * smoothstep(0.34, 0.14, w.f1) * (0.4 + 0.6 * (((w.id >>> 8) & 255) / 255));
+  worleyF1((WT.pit ??= worleyTable(18, 13)), u, up, 18);
+  const pit = (wId % 100 < 30 ? 1 : 0) * smoothstep(0.34, 0.14, wF1) * (0.4 + 0.6 * (((wId >>> 8) & 255) / 255));
   // 补丁:低频大块,抹平处盖掉层线与夯窝。
-  const patch = smoothstep(0.35, 0.55, 0.5 + 0.5 * aniso(s, u + 0.3, up, 3, 3));
+  const patch = smoothstep(0.35, 0.55, 0.5 + 0.5 * anisoCS(s, cc[T + 2], cc[T + 3], r[0], r[1], 3, 3));
   // 裂缝:竖向为主的细线,稀疏。
   // 裂缝:高频在 u、低频在 v 的噪声等值线 → 竖向细缝;只在稀疏的低频斑里出现。
-  const cr = Math.abs(aniso(s, u * 1 + 0.7, up, 34, 3)), crackMask = smoothstep(0.72, 0.86, 0.5 + 0.5 * aniso(s, u + 0.5, up + 0.2, 3, 3));
+  const cr = Math.abs(anisoCS(s, cc[T + 4], cc[T + 5], r[0], r[1], 34, 3)), crackMask = smoothstep(0.72, 0.86, 0.5 + 0.5 * anisoCS(s, cc[T + 6], cc[T + 7], r[2], r[3], 3, 3));
   const crack = (1 - smoothstep(0.0, 0.015, cr)) * crackMask;
-  const grit = worley(u, up, 90, 31).f1;
+  worleyF1((WT.grit ??= worleyTable(90, 31)), u, up, 90);
+  const grit = wF1;
   const keep = 1 - patch * 0.85;
   return { line: line * keep, lip: lip * keep, drip: drip * keep, pit: pit * keep, patch, crack: crack * (1 - patch * 0.6), grit };
 }
-function earthHeight(s: Simplex, u: number, v: number): number {
-  const f = earthFeatures(s, u, v);
-  return clamp(0.55 + 0.04 * smoothstep(0.35, 0.0, f.grit) + 0.06 * aniso(s, u, v, 3, 3) + 0.05 * aniso(s, u, v, 12, 5)
+function earthHeight(s: Simplex, u: number, v: number, f = earthFeatures(s, u, v)): number {
+  const c = earthColumn(s, u), r = earthRow(v), T = LIFTS.length * 4;
+  return clamp(0.55 + 0.04 * smoothstep(0.35, 0.0, f.grit) + 0.06 * anisoCS(s, c[T], c[T + 1], r[4], r[5], 3, 3) + 0.05 * anisoCS(s, c[T], c[T + 1], r[4], r[5], 12, 5)
     - 0.1 * f.line + 0.12 * f.lip + 0.04 * f.drip - 0.16 * f.pit - 0.35 * f.crack + 0.05 * f.patch, 0, 1);
 }
 export function earthWallMaterial(): THREE.MeshStandardMaterial {
   return memo('xiangye.earth', () => {
     const size = 1024;
     const s = new Simplex(0xea27);
-    const map = cached(recipeKey('xiangye.earth.albedo', size, 4), () =>
-      bakeColorMap({ size, color: (u, v) => {
+    // 单子 BI:色图与法线图在同一组 (u, v) = (x/size, y/size) 上各算一遍 earthFeatures——烘色图时顺手把高度记下,
+    // 法线图直接读(bakeNormalMap 本来就把高度存成 Float32,这里存的就是同一个值)。色图若已在缓存里(没烘),照旧现算。
+    const memoH: { h: Float32Array | null } = { h: null };
+    const map = cached(recipeKey('xiangye.earth.albedo', size, 4), () => {
+      const hs = (memoH.h = new Float32Array(size * size));
+      return bakeColorMap({ size, color: (u, v) => {
         const f = earthFeatures(s, u, v);
-        const rain = smoothstep(0.2, 0.8, aniso(s, u, v, 14, 3) * 0.5 + 0.5) * 0.18;
-        const blot = 0.5 + 0.5 * aniso(s, u, v, 5, 6);
+        hs[Math.round(v * size) * size + Math.round(u * size)] = earthHeight(s, u, v, f);
+        const c0 = earthColumn(s, u), r0 = earthRow(v), T = LIFTS.length * 4;
+        const rain = smoothstep(0.2, 0.8, anisoCS(s, c0[T], c0[T + 1], r0[4], r0[5], 14, 3) * 0.5 + 0.5) * 0.18;
+        const blot = 0.5 + 0.5 * anisoCS(s, c0[T], c0[T + 1], r0[4], r0[5], 5, 6);
         const c = mixHex(XY.earthDark, XY.earth, clamp(0.25 + blot * 0.45 + f.patch * 0.2 - rain, 0, 1));
-        const speck = smoothstep(0.2, 0.05, worley(u, v, 150, 7).f1);
+        worleyF1((WT.speck ??= worleyTable(150, 7)), u, v, 150);
+        const speck = smoothstep(0.2, 0.05, wF1);
         const k = (1 - speck * 0.18) * (1 - 0.22 * f.line) * (1 + 0.14 * f.lip) * (1 + 0.08 * f.drip) * (1 - 0.14 * f.pit) * (1 - 0.45 * f.crack);
         return [c[0] * k, c[1] * k, c[2] * k];
-      } }));
-    const normalMap = cached(recipeKey('xiangye.earth.normal', size, 2.4, 4), () => bakeNormalMap({ size, height: (u, v) => earthHeight(s, u, v) }, 2.4));
+      } });
+    });
+    const normalMap = cached(recipeKey('xiangye.earth.normal', size, 2.4, 4), () => {
+      const hs = memoH.h;
+      return bakeNormalMap({ size, height: hs ? (u, v) => hs[Math.round(v * size) * size + Math.round(u * size)] : (u, v) => earthHeight(s, u, v) }, 2.4);
+    });
+    memoH.h = null;
     return new THREE.MeshStandardMaterial({ map, normalMap, roughness: 0.97, metalness: 0, vertexColors: true });
   });
 }
