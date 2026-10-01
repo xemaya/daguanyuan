@@ -5,32 +5,32 @@
   "fpsTarget": 45,
   "shots": {
     "gate_approach": {
-      "drawCalls": 337,
-      "triangles": 4285465,
-      "fps": 43,
-      "frameCostMs": 4.6
-    },
-    "mound_block": {
-      "drawCalls": 332,
-      "triangles": 4499915,
+      "drawCalls": 349,
+      "triangles": 4183725,
       "fps": 43,
       "frameCostMs": 4.5
     },
+    "mound_block": {
+      "drawCalls": 346,
+      "triangles": 4296947,
+      "fps": 43,
+      "frameCostMs": 4.4
+    },
     "grass_close": {
-      "drawCalls": 347,
-      "triangles": 4638419,
+      "drawCalls": 361,
+      "triangles": 4435451,
       "fps": 43,
       "frameCostMs": 4.9
     },
     "xiaoxiang": {
-      "drawCalls": 305,
-      "triangles": 3758682,
-      "fps": 40,
-      "frameCostMs": 5.3
+      "drawCalls": 301,
+      "triangles": 3462130,
+      "fps": 41,
+      "frameCostMs": 5.2
     }
   },
-  "measuredAt": "2026-09-29",
-  "commit": "1c560893d8c1831036500007fe7ded1a7082cc95",
+  "measuredAt": "2026-10-01",
+  "commit": "4aafa07e7ee5c6755fac15a710c9d04f03d5f044",
   "history": [
     {
       "date": "2026-09-15",
@@ -151,6 +151,14 @@
       "bought": "降线:BC1/BC1b 120 m 外树换远景档(gate_approach 植被 2192k→781k,120 m 外 1859k→448k)、BC2 乡野构件远景档(园林构件 120 m 外 1266k→1089k);BD1 土壁几何层线换贴图(-1.2%);BE 红栏桥 +4.7k/镜。frameCostMs 4.6/4.5/4.9/5.3(BC 前 5.4/4.8/5.2/5.5,09-25 稻香村前 4.2/3.9/5.3/4.7)",
       "by": "验收人(Claude)",
       "note": "§26 三次连拍 shots/ACC2-r{1,2,3}(冻结 worktree /private/tmp/dgy-acc2 @ 1c560893),三角与 calls 三次逐位相同;load avg 2.9–5.2。fps 43/43/43/40 未到 45:capture.mjs 注释已写明 fps 栏量的是限帧闸(约 22 ms 量化),负载下被调度抖动压低;D-40 验收人裁定性能判据改看 frameCostMs"
+    },
+    {
+      "date": "2026-10-01",
+      "order": "BF + BH2(两段就绪,合批按区切)",
+      "shots": "gate_approach 337/4285465→349/4183725;mound_block 332/4499915→346/4296947;grass_close 347/4638419→361/4435451;xiaoxiang 305/3758682→301/3462130",
+      "bought": "BH2 合批按区切:Garden 总三角/实例与 ?stream=off 完全相同(2,599,352 / 71,620),只是 mesh 148→161,视锥剔得更细——calls +3~4%、三角 −2~−8%;BF 雅村 calls +2。帧成本 stream 4.5/4.4/4.9/5.2 vs off 4.5/4.3/4.7/5.2 ms(同机同时段单次),持平",
+      "by": "验收人(Claude)",
+      "note": "§30 三次连拍(5177 主检出 @ 4aafa07e,stream 默认),三次逐位相同;load avg 5–6.6"
     }
   ]
 }
