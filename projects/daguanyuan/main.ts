@@ -34,7 +34,7 @@ const SPAWN_YAW = 0;
  * URL 开关(都是给工具与对照用的):
  *   `?stream=off`   BH2 之前的行为,全园一次建完(对照、回退);
  *   `?phaseA`       自动化下也在 A 段就发 `__GAME__`(默认自动化要等全部建完——工具不读半成品,设计稿 §5);
- *   `?streamHold`   B 段不自己出队,只建 `world.background.prioritize` 点名的区;
+ *   `?streamHold`   B 段不自己出队,只建游园图 / `__GAME__.gotoRegion` 点名的区(测「传送到未建区」);
  *   `?streamOrder=forward|reverse|shuffle:<种子>`  改 B 段出队顺序(确定性对照:顺序不同,结果必须逐位相同)。
  */
 const SPAWN_SET = ['zhengmen', 'cuizhang'];
@@ -118,11 +118,25 @@ async function boot(): Promise<void> {
   // 按 M 开,点任一处已建成的区直接过去(D-41)。
   const planRegions = (planFile as unknown as GardenPlan).regions;
   const mapPlaces = buildMapPlaces(planRegions as never);
-  const gardenMap = new MapOverlay(mapPlaces, (place) => {
+  /**
+   * 单子 BH2(设计稿 §2.6):目标区已建好就直接过去;还在后台队列里就插到队首、挡上「正在造」的幕,建好再落地——
+   * 碰撞是随区一起挂上的,没建好就落地会掉进没有碰撞的地方。
+   */
+  const gotoRegion = async (place: (typeof mapPlaces)[number]): Promise<void> => {
+    const bg = world.background;
+    if (bg && !bg.isBuilt(place.id)) {
+      const name = place.name ?? place.id;
+      hud.veil.show(`正在造 ${name}…`);
+      try { await bg.prioritize(place.id); } finally { hud.veil.hide(); }
+    }
     const y = world.ctx.collision.terrainHeight(place.target.x, place.target.z);
     player.teleport(new THREE.Vector3(place.target.x, y, place.target.z), place.yaw);
-    // 收图之后把控制权还回去:指针锁要玩家自己点一下才能再拿(浏览器的手势要求)。
-    engine.input.suspended = false;
+  };
+  const gardenMap = new MapOverlay(mapPlaces, (place) => {
+    void gotoRegion(place).then(() => {
+      // 收图之后把控制权还回去:指针锁要玩家自己点一下才能再拿(浏览器的手势要求)。
+      engine.input.suspended = false;
+    });
   });
   hud.root.appendChild(gardenMap.el);
   gardenMap.el.addEventListener('click', (event) => {
@@ -138,7 +152,7 @@ async function boot(): Promise<void> {
     const last = { x: NaN, y: NaN, z: NaN, yaw: NaN, pitch: NaN };
     let movedAt = performance.now();
     engine.renderState = () => {
-      if (hud.menuOpen || gardenMap.visible) return 'paused';
+      if (hud.menuOpen || gardenMap.visible || hud.veil.visible) return 'paused';
       const s = player.state, p = s.position;
       if (p.x !== last.x || p.y !== last.y || p.z !== last.z || s.yaw !== last.yaw || s.pitch !== last.pitch) {
         last.x = p.x; last.y = p.y; last.z = p.z; last.yaw = s.yaw; last.pitch = s.pitch;
@@ -231,6 +245,8 @@ async function boot(): Promise<void> {
   // 单子 BH2:自动化(navigator.webdriver,与 BG 的工具开关同一个判据)下默认**全部建完**才发——capture / playtest /
   // census 这些工具一个不用改就不会读到半成品;要量 A 段就加 `?phaseA`。真浏览器里 A 段就绪即发。
   const handle = { engine, world, player, hud, THREE, bootTimings,
+    /** 与游园图点地点同一条路(未建区插队首 + 幕)。 */
+    gotoRegion: (id: string) => { const p = mapPlaces.find((m) => m.id === id); if (!p) throw new Error(`没有地点 ${id}`); return gotoRegion(p); },
     /** 全部建完 resolve(`?streamHold` 下会先放开队列)。 */
     loadAll: () => world.background?.loadAll() ?? Promise.resolve(),
   };

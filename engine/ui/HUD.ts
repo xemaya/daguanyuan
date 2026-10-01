@@ -15,7 +15,7 @@ import './tokens.css';
 import './ui.css';
 import type { GameContext } from '@engine/core/Context';
 import type { Interactable } from '@engine/player/Interaction';
-import { LoadingScreen, StartCard, el } from './Menu';
+import { LoadingScreen, StartCard, BuildVeil, el } from './Menu';
 import { DialogueBox } from './Dialogue';
 
 /** Pretty names for the raw key codes an interactable can ask for. */
@@ -49,6 +49,8 @@ export class HUD {
 
   private ctx: GameContext;
   private loading: LoadingScreen;
+  /** 单子 BH2:「正在造某区」的幕(游园图点到还没建好的区)。 */
+  readonly veil: BuildVeil;
   private start: StartCard;
 
   private crosshair: HTMLElement;
@@ -109,6 +111,9 @@ export class HUD {
 
     this.loading = new LoadingScreen();
     this.root.appendChild(this.loading.el);
+
+    this.veil = new BuildVeil();
+    this.root.appendChild(this.veil.el);
 
     // Mount inside the app container so overlay clicks still bubble to the
     // engine's gesture handler (pointer lock + audio unlock).

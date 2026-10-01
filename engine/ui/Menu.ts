@@ -192,6 +192,43 @@ const COPY: Record<StartMode, { eyebrow: string; title: string; cta: string; foo
  * lost mid-game it comes back with a different title so the player is never
  * left staring at a frozen world with no explanation.
  */
+/**
+ * 单子 BH2:游园图点到一处还没在后台建好的区时,先挡一层「正在造」的幕,建好再落地(设计稿 §2.6)。
+ * 与加载幕同一套样式(`dgy-loading`),但可以反复开合、没有进度条——一个区的建时是 0.2–6 s,进度不值得画。
+ */
+export class BuildVeil {
+  readonly el: HTMLDivElement;
+  private readonly stepEl: HTMLDivElement;
+  private shown = false;
+
+  constructor() {
+    this.el = el('div', 'dgy-overlay dgy-loading is-hidden is-gone');
+    const inner = el('div', 'dgy-loading__inner');
+    inner.appendChild(el('div', 'dgy-mark'));
+    inner.appendChild(el('h1', 'dgy-title', '大观园'));
+    this.stepEl = el('div', 'dgy-loading__step', '');
+    inner.appendChild(this.stepEl);
+    this.el.appendChild(inner);
+  }
+
+  get visible(): boolean {
+    return this.shown;
+  }
+
+  show(label: string): void {
+    this.shown = true;
+    this.stepEl.textContent = label;
+    this.el.classList.remove('is-gone');
+    // 先让 display 生效再撤透明,淡入才有过渡。
+    requestAnimationFrame(() => this.el.classList.remove('is-hidden'));
+  }
+
+  hide(): void {
+    this.shown = false;
+    this.el.classList.add('is-hidden', 'is-gone');
+  }
+}
+
 export class StartCard {
   readonly el: HTMLElement;
   onStart: (() => void) | null = null;
