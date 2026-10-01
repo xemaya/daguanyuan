@@ -1,16 +1,36 @@
-import { grassTurfMaps, cobbleMaps } from '@engine/core/TextureLab';
+import { grassTurfMaps, cobbleMaps, dirtPathMaps } from '@engine/core/TextureLab';
 import { trackEarthMaps, sandMaps } from '@engine/render/TerrainMaterials';
 import {
   CN, woodMaterial, tileMaterial, plasterMaterial, stoneMaterial,
   paperMaterial, lacquerMaterial, goldMaterial, taihuMaterial,
+  whiteStoneMaterial, baishiMaterial, tigerSkinMaterial,
 } from '@builder/parts/materials';
+import {
+  earthWallMaterial, thatchMaterial, thatchEndMaterial, strawFringeMaterial, thatchUnderMaterial,
+  freshThatchMaterial, freshStubbleMaterial, blueBrickMaterial, planedWoodMaterial, roughWoodMaterial, dressedStoneMaterial,
+} from '@builder/parts/xiangye/materials';
 import { bakeScrollSampleMaps } from '@builder/parts/ornament/scroll-sample';
 import { bakeTiaohuanAtlas } from '@builder/parts/ornament/tiaohuan-band';
 import { barkSet, leafMaps } from '@builder/parts/zhiwu/foliage-materials';
 
-/** Match the recipes consumed by the current garden, including both wood colours. */
-export const TEXTURE_JOBS = ['wood', 'dirt', 'sand', 'turf', 'tile', 'stone', 'taihu', 'plaster', 'cobble', 'paper', 'xifancao', 'tiaohuan', 'foliage'] as const;
-export type TextureJob = typeof TEXTURE_JOBS[number];
+/**
+ * **A 批**:A 段(出生区 + 全局件 + 地面 / 植被)要用的配方。「调色」一步等它们全部 adopt(`warmup.done`)。
+ * 单子 BI2 追加末三项(`D-45`):正门 / 翠嶂的白石两种做法、白石峰、虎皮墙——BI 剖析里各占 1.1–1.5 s 的主线程首建。
+ */
+export const TEXTURE_JOBS = ['wood', 'dirt', 'sand', 'turf', 'tile', 'stone', 'taihu', 'plaster', 'cobble', 'paper', 'xifancao', 'tiaohuan', 'foliage', 'whitestone', 'baishi', 'tigerskin'] as const;
+/**
+ * **B 批**(单子 BI2):只有 B 段后台区用的配方。**A 批全部 adopt 之后才派**,不进 `warmup.done`——A 段一刻也不等它们;
+ * B 段建某区前只等该区要的那几个(`UNIT_TEXTURE_JOBS`)。没赶上就照旧在主线程同步烤,结果逐位相同(adopt 只填缓存、已有 key 跳过)。
+ * 顺序 = B 段出队顺序里谁先用谁先烤。
+ */
+export const DEFERRED_TEXTURE_JOBS = ['xiangye-earth', 'xiangye-cottage', 'xiangye-wood', 'dirtpath', 'vermilion'] as const;
+export const ALL_TEXTURE_JOBS = [...TEXTURE_JOBS, ...DEFERRED_TEXTURE_JOBS] as const;
+export type TextureJob = typeof ALL_TEXTURE_JOBS[number];
+/** B 段各区要等的 B 批 job(区名 = composer 的构件单位)。不在表里的区不等。 */
+export const UNIT_TEXTURE_JOBS: Readonly<Record<string, readonly TextureJob[]>> = {
+  // 稻香村:泥墙(黄泥版筑 + 墙头茅)、茆堂 / 东厢(新苫、秆口、苇箔、青砖、刨光木、条石)、井(糙木)、菜畦(土路图)、红栏桥(朱木)。
+  daoxiangcun: ['xiangye-earth', 'xiangye-cottage', 'xiangye-wood', 'dirtpath', 'vermilion'],
+};
 
 /**
  * 单子 BH1:「理地」要用的四张地面图(`terrain.ts` 的 turf / trackEarth / cobble / sand)。
@@ -65,6 +85,16 @@ export function bakeTextureJob(job: TextureJob): void {
       for (const a of Object.values(BARK_SETS) as readonly (readonly [string, number, number, number, number])[]) barkSet(...a);
       for (const a of Object.values(LEAF_SETS) as readonly (readonly [string, number, number, number])[]) leafMaps(...a);
       break;
+    // 单子 BI2 · A 批:白石两种做法(细磨 / 粗凿)、白石峰、虎皮石墙。
+    case 'whitestone': whiteStoneMaterial(1, 'fine'); whiteStoneMaterial(1, 'rough'); break;
+    case 'baishi': baishiMaterial(); break;
+    case 'tigerskin': tigerSkinMaterial(); break;
+    // 单子 BI2 · B 批(稻香村)。
+    case 'xiangye-earth': earthWallMaterial(); thatchMaterial(); thatchEndMaterial(); strawFringeMaterial(); break;
+    case 'xiangye-cottage': freshThatchMaterial(); freshStubbleMaterial(); thatchUnderMaterial(); blueBrickMaterial(); dressedStoneMaterial(); break;
+    case 'xiangye-wood': planedWoodMaterial(); roughWoodMaterial(); break;
+    case 'dirtpath': dirtPathMaps(); break;
+    case 'vermilion': woodMaterial(CN.bridgeVermilion); break;
     default: throw new Error(`Unknown texture bake job: ${job}`);
   }
 }
